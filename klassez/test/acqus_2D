@@ -1,0 +1,17 @@
+B0	16.4		# Magnetic field /T
+nuc1	1H		# Observed nucleus, indirect dimension
+nuc2	13C		# Observed nucleus, direct dimension
+o1p	5		    # Centre of the indirect dimension /ppm
+o2p	100		    # Centre of the direct dimension /ppm
+SW1p	30		# Sweep width, indirect dimension /ppm
+SW2p	350		# Sweep width, direct dimension /ppm
+TD1	512		    # Number of sampled points, indirect dimension
+TD2	1024		# Number of sampled complex points, direct dimension
+
+shifts_f1	10, 5, 10, -5, -5		    # Chemical shift /ppm, indirect dimension
+shifts_f2	180, 120, 90, 90, 25		# Chemical shift /ppm, direct dimension
+fwhm_f1		[200 for j in range(5)]		# FWHM /Hz, indirect dimension
+fwhm_f2		[300 for j in range(5)]		# FHWM /Hz, direct dimension
+amplitudes	100, 100, 100, 100, 100		# Intensity /a.u., only relative values matter
+x_g		[0.2 for j in range(5)]		    # Fraction of gaussianity
+
