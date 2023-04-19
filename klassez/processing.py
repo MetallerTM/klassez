@@ -18,109 +18,252 @@ from datetime import datetime
 import warnings
 
 from . import fit, misc, sim, figures, processing
+from .config import CM, COLORS, cron
 
-#from .__init__ import CM
-#CM = __init__.CM
-from .config import CM
 """ 
 Contains a series of processing functions for different purposes
 """
 
 
+
 # CPMG processing
+
+def interactive_echo_param(data0):
+    """
+    Interactive plot that allows to select the parameters needed to process a CPMG-like FID.
+    Use the TextBox or the arrow keys to adjust the values.
+    You can call processing.sum_echo_train or processing.split_echo_train by starring the return statement of this function, i.e.:
+        processing.sum_echo_train(data0, *interactive_echo_train(data0))
+    as they are in the correct order to be used in this way.
+    -------
+    Parameters:
+    - data0: ndarray
+        CPMG FID
+    -------
+    Returns:
+    - n: int
+        Distance between one echo and the next one
+    - n_echoes: int
+        Number of echoes to sum/split
+    - i_p: int
+        Offset points from the start of the FID
+    """
+
+    # Check for data dimension and safety copy
+    if len(data0.shape) == 1:
+        data = np.copy(data0)
+    elif len(data0.shape) == 2:
+        data = np.copy(data0[0,:])
+    else:
+        raise ValueError('Data shape not supported')
+
+    # Make the figure
+    fig = plt.figure()
+    fig.set_size_inches(figures.figsize_large)
+    plt.subplots_adjust(left=0.25, right=0.95, top=0.90, bottom=0.15)
+    ax = fig.add_subplot(2,3,(1,5)) # Square plot
+    axs = fig.add_subplot(2,3,3)    # Right top
+    axt = fig.add_subplot(2,3,6)    # Right bottom
+
+    # Initialize the three values in a dictionary
+    param = {
+            'n' : 20,
+            'n_echoes' : 2,
+            'i_p' : 0,
+            }
+
+    # ---------------------------------------------------------
+    def update_axs():
+        """ Redraw the figure """
+        # Compute new data
+        newdata = processing.sum_echo_train(data, **param)
+        # Draw it in the top-right subplot
+        sum_sp.set_data(np.arange(len(newdata)), newdata)
+        # Make FT and draw it in bottom-right subplot
+        new_ft = processing.ft(newdata)
+        sum_ft.set_data(np.arange(len(new_ft)), new_ft)
+        # Make pretty scales
+        misc.pretty_scale(axs, (0, len(newdata)), 'x')
+        misc.set_ylim(axs, newdata)
+        misc.set_ylim(axt, new_ft)
+        misc.pretty_scale(axs, (0, len(newdata)-1), 'x')
+        misc.pretty_scale(axt, (0, len(new_ft)-1), 'x')
+        misc.pretty_scale(axs, axs.get_ylim(), 'y')
+        misc.pretty_scale(axt, axt.get_ylim(), 'y')
+        # Write the current values
+        for label in radio.labels:
+            T = label.get_text()
+            val_text[f'{T}'].set_text(f'{param[T]}')
+        plt.draw()
+
+    def read_tb(text):
+        """ Eval() the input in the textbox, clear it """
+        val = eval(text)
+        input_tb.text_disp.set_text('')
+        return int(val)
+
+    def change_param(text):
+        """ Change parameters according to the TextBox """
+        nonlocal param
+        try:    # Avoid error due to the clear text
+            param[f'{radio.value_selected}'] = read_tb(text)
+        except SyntaxError:
+            pass
+        # Draw the red bars and set them visible
+        [X.set_xdata(k*param['n']+param['i_p']) for k, X in enumerate(sampling)]
+        change_nechoes()
+        # Redraw the plots
+        update_axs()
+
+    def change_nechoes():
+        """ Set a certain number of red bars as visible """
+        for k, X in enumerate(sampling):
+            if k < param['n_echoes']:
+                X.set_visible(True)
+            else:
+                X.set_visible(False)
+
+    def key_press(event):
+        """ Edit the param dictionary with uparrow and downarrow """
+        nonlocal param
+        if event.key == 'up':
+            param[f'{radio.value_selected}'] += 1
+        elif event.key == 'down':
+            param[f'{radio.value_selected}'] -= 1
+        else:
+            return
+        # Redraw the red bars and set them visible
+        [X.set_xdata(k*param['n']+param['i_p']) for k, X in enumerate(sampling)]
+        change_nechoes()
+        # Redraw the subplots
+        update_axs()
+
+    # ---------------------------------------------------------
+
+    # Make the widgets with their boxes
+    radio_box = plt.axes([0.025, 0.40, 0.15, 0.35])
+    input_box = plt.axes([0.025, 0.20, 0.15, 0.08])
+    input_box.set_title('Insert value here')
+    input_tb = TextBox(input_box, '')
+    radio = RadioButtons(radio_box, list(param.keys()), activecolor='tab:blue')
+
+    # Write the current values to be updated
+    val_text = {}
+    for k, label in enumerate(radio.labels):
+        val_text[f'{label.get_text()}'] = radio_box.text(0.95, label.get_position()[1]-0.025, 
+                f'{param[label.get_text()]:.0f}',
+                ha='right', va='bottom')
+
+    # Set a scale
+    x = np.arange(data.shape[-1])
+
+    ax.plot(x, data, lw=0.5)    # FID
+    # Top right plot
+    sum_sp, = axs.plot(np.arange(param['n']//2), processing.sum_echo_train(data, **param))
+    # Bottom right plot
+    sum_ft,  = axt.plot(np.arange(param['n']//2), processing.ft(processing.sum_echo_train(data, **param)))
+
+    # Red bars
+    sampling = [ax.axvline(k*param['n'], c='r', lw=0.5) for k in range(data.shape[-1]//param['n'])]
+    change_nechoes()    # Draw them
+
+    # Titles
+    ax.set_title('FID')
+    axs.set_title('Sum FID')
+    axt.set_title('Sum Spectrum')
+
+    # Scales
+    misc.pretty_scale(ax, (x[0], x[-1]), 'x')
+    misc.pretty_scale(ax, ax.get_ylim(), 'y')
+    misc.pretty_scale(axs, (0, param['n']//2-1), 'x')
+    misc.pretty_scale(axt, (0, param['n']//2-1), 'x')
+    misc.pretty_scale(axs, axs.get_ylim(), 'y')
+    misc.pretty_scale(axt, axt.get_ylim(), 'y')
+
+    # Connect the widgets to the functions
+    input_tb.on_submit(change_param)        # Text box
+    fig.canvas.mpl_connect('key_press_event', key_press)    # Keys
+
+    plt.show()
+    plt.close()
+
+    return tuple([param[f'{label.get_text()}'] for label in radio.labels])
+
+
 def sum_echo_train(datao, n, n_echoes, i_p=0):
     """
-    "datao" is a 1D or 2D dataset whose direct dimension
-    has been acquired with CPMG, i.e. it is made of 
-    echoes separated one from each other by "n" points.
-    The first good point of the FID is "i_p".
-    This function sums the first "n_echoes" echoes and 
-    returns the resulting FID.
+    Sum up a CPMG echo-train FID into echoes so to be enchance the SNR.
+    This function calls processing.split_echo_train with the same parameters.
+    -------
+    Parameters:
+    - datao: ndarray
+        FID with an echo train on its last dimension
+    - n: int
+        number of points that separate one echo from the next
+    - n_echoes: int
+        number of echoes to sum
+    - i_p: int
+        Number of offset points
+    ------
+    Returns:
+    - data_p: ndarray
+        Summed echoes
     """
-    try:
-        if len(datao[:,0])>1:
-            transients = len(datao[:,0])
-    except:
-        transients = 1
-        datao = np.reshape(datao, (1,-1))
-
-    data = datao[ 0:transients, i_p : n*n_echoes+i_p+1 ]
-    if np.mod(n,2) == 0:
-        nm = int(n/2)
-    else:
-        nm = int(n/2)+1
-
-    data_p = np.zeros((transients, nm), dtype='complex64')
-    datad = np.zeros_like(data_p)
-    datar = np.zeros_like(data_p)
-
-    for i in range(n_echoes):
-        a = i * n
-        b1 = i * n + nm
-        b2 = b1
-        if np.mod(n, 2) == 0:
-            b2 = b1 + 1
-        c = i * n + n + 1
-
-        datad[:, 0:nm] += data[:, a:b1]             #dritto
-        datar[:,0:nm] += data[:, b2:c][:,::-1]      #rovescio
-        
-    datar = datar.real - 1j * datar.imag
-    data_p = datad + datar
-
-    if transients == 1:
-        data_p = np.reshape(data_p, -1)       
+    # Separate the echoes
+    data = processing.split_echo_train(datao, n, n_echoes, i_p)
+    # Sum on the first dimension
+    data_p = np.sum(data, axis=0)
 
     return data_p
 
+
+
 def split_echo_train(datao, n, n_echoes, i_p=0):
     """
-    "datao" is a 1D or 2D dataset whose direct dimension
-    has been acquired with CPMG, i.e. it is made of 
-    echoes separated one from each other by "n" points.
-    The first good point of the FID is "i_p".
-    This function separates the first "n_echoes" echoes and 
-    store them in a tensor of shape 
-    (n_echoes, len(datao[:,0]), n/2).
+    Separate a CPMG echo-train FID into echoes so to be processed separately.
+    The first decay, i.e. the native FID, is extracted, and corresponds to echo number 0. 
+    Then, for each echo, the left side (reversed) is summed up to its right part.
+    -------
+    Parameters:
+    - datao: ndarray
+        FID with an echo train on its last dimension
+    - n: int
+        number of points that separate one echo from the next
+    - n_echoes: int
+        number of echoes to extract. If it is 0, extracts only the first decay
+    - i_p: int
+        Number of offset points
+    ------
+    Returns:
+    - data_p: (n+1)darray
+        Separated echoes
     """
-
-    try:
-        if len(datao[:,0])>1:
-            transients = len(datao[:,0])
-    except:
-        transients = 1
-        datao = np.reshape(datao, (1,-1))
-
-    data = datao[ 0:transients, i_p : n*n_echoes+i_p+1 ]
+    # Take account of the offset points 
+    data = datao[..., i_p:]
+    # nm = middle point. +1 if n is odd
     if np.mod(n,2) == 0:
-        nm = int(n/2)
+        nm = n // 2
     else:
-        nm = int(n/2)+1
-
-    datad = np.zeros((transients, nm), dtype='complex64')
-    datar = np.zeros((transients, nm), dtype='complex64')
+        nm = n // 2 + 1
+    
+    # Where to save the echoes
+    datap = []
+    datap.append(datao[..., :nm])   # Add first decay
 
     for i in range(n_echoes):
-        a = i * n
-        b1 = i * n + nm
-        b2 = b1
-        if np.mod(n, 2) == 0:
-            b2 = b1 + 1
-        c = i * n + n + 1
+        c = (i+1)*n                         # Echo centre
+        A = slice(c-nm+1, c+1)              # Left part to echo centre
+        B = slice(c, c+nm)                  # Right part from echo centre
 
-        datad[:, 0:nm] = data[:, a:b1]             #dritto
-        datar[:,0:nm] = data[:, b2:c][:,::-1]      #rovescio
+        datal = data[..., A][...,::-1]      # Left part, reversed
+        datar = data[..., B]                # Right part
         
-        datar = datar.real - 1j * datar.imag
-        datap = datad + datar
-        datap = np.reshape(datap, (1, len(datap[:,0]), len(datap[0,:])))
-        if i==0:
-            data_p = datap
-        else:
-            data_p = np.vstack((data_p, datap))
-
-    if transients == 1:
-        data_p = np.reshape(data_p, (n_echoes,-1))
+        # Reversing in time means to change sign to the imaginary part
+        if np.iscomplexobj(data):
+            datal = np.conj(datal)
+        datap.append(datal + datar) # Sum up
+    # Create the output data by stacking the echoes. This adds a dimension
+    data_p = np.stack(datap)
 
     return data_p
 
@@ -131,11 +274,11 @@ def quad(fid):
     """
     Subtracts from the FID the arithmetic mean of its last quarter. The real and imaginary channels are treated separately.
     -------
-    Parameters
+    Parameters:
     - fid : ndarray
         Self-explanatory.
     -------
-    Returns
+    Returns:
     - fid : ndarray
         Processed FID.
     """
@@ -266,6 +409,7 @@ def gm(data, lb, gb, sw, gc=0):
         Spectral width /Hz
     - gc: float
         Gaussian center, relatively to the FID length: 0 <= gc <= 1
+    -------
     Returns:
     - pdata: ndarray
         Processed data
@@ -290,7 +434,19 @@ def gmb(data, lb, gb, sw):
 
 # zero-filling
 def zf(data, size):
-    # zero-filling of data up to size
+    """
+    Zero-filling of data up to size in its last dimension.
+    -------
+    Parameters:
+    - data: ndarray
+        Array to be zero-filled
+    - size: int
+        Number of points of the last dimension after zero-filling
+    -------
+    Returns:
+    - datazf: ndarray
+        Zero-filled data
+    """
     def zf_pad(data, pad):
         size = list(data.shape)
         size[-1] = int(pad)
@@ -303,21 +459,26 @@ def zf(data, size):
     return datazf
 
 # Fourier transform
-def ft(data0, alt=False, fcor=0.5, Numpy=True):
+def ft(data0, alt=False, fcor=0.5):
     """ 
-    Fourier transform in NMR sense, i.e. with positive exponential.
-    This means to perform IFT reverting the 1/N scaling.
+    Fourier transform in NMR sense.
+    This means it returns the reversed spectrum.
     ------------
     Parameters:
-    -   alt: negates the sign of the odd points, then take the complex conjugate.
-            Required for States-TPPI processing.
-    -   fcor: weighting factor for FID 1st point. Default value (0.5) prevents baseline offset
-    -   Numpy: if True (STRONGLY ADVISED) performs the FT using the FFT algorithm encoded
-            in numpy. If False, performs it manually using the definition of discrete FT.
+    - data0: ndarray
+        Array to Fourier-transform
+    - alt: bool
+        negates the sign of the odd points, then take their complex conjugate. Required for States-TPPI processing.
+    - fcor: float
+        weighting factor for FID 1st point. Default value (0.5) prevents baseline offset
+    ---------
+    Returns:
+    - dataft: ndarray
+        Transformed data
     """
     data = np.copy(data0)
     if not np.iscomplexobj(data):
-        print('WARNING! The input array is not complex.')
+        warnings.warn('WARNING! The input array is not complex.')
     size = data.shape[-1]
     data[...,0] = data[...,0] * fcor
     if data.dtype != "complex64":
@@ -325,39 +486,31 @@ def ft(data0, alt=False, fcor=0.5, Numpy=True):
     if alt:
         data[...,1::2] = data[...,1::2] * -1
         data.imag = data.imag * -1
-    if Numpy is True:
-        dataft = np.fft.fftshift(np.fft.ifft(data, axis=-1).astype(data.dtype), -1) * size
-    else:
-        dataft = np.zeros_like(data)
-        for k in range(size):
-            for n in range(size):
-                dataft[...,n] += np.exp( (1j/size) * 2 * np.pi * k * (n - (size/2)) ) * data[..., k]
+    dataft = np.fft.fftshift(np.fft.fft(data, axis=-1).astype(data.dtype), -1)[...,::-1]
     return dataft
 
-def ift(data0, alt=False, fcor=0.5, Numpy=True):
+def ift(data0, alt=False, fcor=0.5):
     """ 
-    Inverse Fourier transform in NMR sense, i.e. with negative exponential.
-    This means to perform FT adding the "times-N" scaling.
+    Inverse Fourier transform in NMR sense.
+    This means that the input dataset is reversed before to do iFT.
     ------------
     Parameters:
-    -   alt: negates the sign of the odd points, then take the complex conjugate.
-            Required for States-TPPI processing.
-    -   fcor: weighting factor for FID 1st point. Default value (0.5) prevents baseline offset
-    -   Numpy: if True (STRONGLY ADVISED) performs the IFT using the FFT algorithm encoded
-            in numpy. If False, performs it manually using the definition of discrete IFT.
+    - data0: ndarray
+        Array to Fourier-transform
+    - alt: bool
+        negates the sign of the odd points, then take their complex conjugate. Required for States-TPPI processing.
+    - fcor: float
+        weighting factor for FID 1st point. Default value (0.5) prevents baseline offset
+    -----------
+    Returns:
+    - dataft: ndarray
+        Transformed data
     """
-    data = np.copy(data0)
+    data = np.copy(data0)[...,::-1]
     if not np.iscomplexobj(data):
-        print('WARNING! The input array is not complex.')
+        warnings.warn('WARNING! The input array is not complex.')
     size = data.shape[-1]
-    if Numpy:
-        s = 1 / size
-        dataft = np.fft.fft(np.fft.ifftshift(data, -1), axis=-1).astype(data.dtype) * s
-    else:
-        dataft = np.zeros_like(data)
-        for k in range(size):
-            for n in range(size):
-                dataft[...,n] += 1/size * np.exp( (-1j/size) * 2 * np.pi * n * (k - (size/2)) ) * data[..., k]
+    dataft = np.fft.ifft(np.fft.ifftshift(data, -1), axis=-1).astype(data.dtype)
     if alt:
         dataft[...,1::2] = dataft[...,1::2] * -1
         dataft.imag = dataft.imag * -1
@@ -365,8 +518,11 @@ def ift(data0, alt=False, fcor=0.5, Numpy=True):
     return dataft
     
 def rev(data):
-    # Reverse data
-    return data[...,::-1]
+    """
+    Reverse data over its last dimension
+    """
+    datarev = data[...,::-1]
+    return datarev
     
     # phase correction
 def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False):
@@ -426,6 +582,11 @@ def EAE(data):
     """
     Shuffles data if the spectrum is acquired with FnMODE = Echo-Antiecho.
     NOTE: introduces -90° phase shift in F1, to be corrected after the processing
+
+    pdata = np.zeros_like(data)
+    pdata[::2] = (data[::2].real - data[1::2].real) + 1j*(data[::2].imag - data[1::2].imag)
+    pdata[1::2] = -(data[::2].imag + data[1::2].imag) + 1j*(data[::2].real + data[1::2].real)
+
     """
     pdata = np.zeros_like(data)
     pdata[::2] = (data[::2].real - data[1::2].real) + 1j*(data[::2].imag - data[1::2].imag)
@@ -459,7 +620,23 @@ def tp_hyper(data):
     return datatp
         
 def unpack_2D(data):
-    # Separates fully processed 2D NMR data into 4 distinct ser files
+    """
+    Separates hypercomplex data into 4 distinct ser files
+    --------
+    Parameters:
+    - data: 2darray
+        Hypercomplex matrix
+    --------
+    Returns:
+    - rr: 2darray
+        Real F2, Real F1
+    - ir: 2darray
+        Imaginary F2, Real F1
+    - ri: 2darray
+        Real F2, Imaginary F1
+    - ii: 2darray
+        Imaginary F2, Imaginary F1
+    """
     rr = data.real[::2]
     ir = data.imag[::2]
     ri = data.real[1::2]
@@ -467,7 +644,23 @@ def unpack_2D(data):
     return rr, ir, ri, ii
     
 def repack_2D(rr, ir, ri, ii):
-    # Renconstruct hypercomplex 2D NMR data given the 4 sers
+    """
+    Renconstruct hypercomplex 2D NMR data given the 4 ser files
+    -------
+    Parameters:
+    - rr: 2darray
+        Real F2, Real F1
+    - ir: 2darray
+        Imaginary F2, Real F1
+    - ri: 2darray
+        Real F2, Imaginary F1
+    - ii: 2darray
+        Imaginary F2, Imaginary F1
+    -------
+    Returns:
+    - data: 2darray
+        Hypecomplex matrix
+    """
     data = np.empty((2*rr.shape[0],rr.shape[1]), dtype='complex64')
     data.real[::2] = rr
     data.imag[::2] = ir
@@ -479,11 +672,19 @@ def td_eff(data, tdeff):
     """
     Uses only the first tdeff points of data. tdeff must be a list as long as the dimensions:
     tdeff = [F1, F2, ..., Fn]
+    --------
+    Parameters:
+    - data: ndarray
+        Data to be trimmed
+    - tdeff: list of int
+        Number of points to be used in each dimension
     """
-    def trim(data, n):
-        return data[...,:n]
+    datain = np.copy(data)
+
+    def trim(datain, n):
+        return datain[...,:n]
     
-    ndim = len(data.shape)
+    ndim = len(datain.shape)
     # if tdeff is a number, make it list
     if isinstance(tdeff, int):
         L = tdeff
@@ -494,47 +695,58 @@ def td_eff(data, tdeff):
     tdeff = tdeff[::-1]     # to obtain correct final shape
     
     if len(tdeff) != ndim:       # Check
-        raise ValueError('Shape mismatch between data and tdeff')
+        raise ValueError('Shape mismatch between datain and tdeff')
     
     X = tuple(np.roll(np.arange(ndim),1)) # Roll the dimensions to the right
     
     for k in range(ndim):
         if tdeff[k]:
-            data = trim(data, tdeff[k])
-        data = np.transpose(data, X)
+            datain = trim(datain, tdeff[k])
+        datain = np.transpose(datain, X)
     
-    return data
+    return datain
     
     
     
 def fp(data, wf=None, zf=None, fcor=0.5, tdeff=0):
     """
-    Performs the full processing of a 1D NMR FID (data). Required parameters are:
-    - wf:   {'mode': function to be used, 
-                'parameters': different from each function}
-    - zf:   final size of spectrum
-    - fcor: weighting factor for the FID first point
-    - tdeff: number of points of the FID to be used for the processing.
+    Performs the full processing of a 1D NMR FID (data).
+    --------
+    Parameters:
+    - data: 1darray
+        Input data
+    - wf: dict
+        {'mode': function to be used, 'parameters': different from each function}
+    - zf: int
+        final size of spectrum
+    - fcor: float
+        weighting factor for the FID first point
+    - tdeff: int
+        number of points of the FID to be used for the processing.
+    ------
+    Returns:
+    - datap: 1darray
+        Processed data
     """
     # Window function
-    data = processing.td_eff(data, tdeff)
+    datap = processing.td_eff(data, tdeff)
     if wf is not None:
         if wf['mode'] == 'qsin':
-            data = processing.qsin(data, ssb=wf['ssb'])
+            datap = processing.qsin(datap, ssb=wf['ssb'])
         if wf['mode'] == 'sin':
-            data = processing.sin(data, ssb=wf['ssb'])
+            datap = processing.sin(datap, ssb=wf['ssb'])
         if wf['mode'] == 'em':
-            data = processing.em(data, lb=wf['lb'], sw=wf['sw'])
+            datap = processing.em(datap, lb=wf['lb'], sw=wf['sw'])
         if wf['mode'] == 'gm':
-            data = processing.gm(data, lb=wf['lb'], gb=wf['gb'], sw=wf['sw'], gc=wf['gc'])
+            datap = processing.gm(datap, lb=wf['lb'], gb=wf['gb'], sw=wf['sw'], gc=wf['gc'])
         if wf['mode'] == 'gmb':
-            data = processing.gmb(data, lb=wf['lb'], gb=wf['gb'], sw=wf['sw'])
+            datap = processing.gmb(datap, lb=wf['lb'], gb=wf['gb'], sw=wf['sw'])
     # Zero-filling
     if zf is not None:
-        data = processing.zf(data, zf)
+        datap = processing.zf(datap, zf)
     # FT
-    data = processing.ft(data, fcor=fcor)
-    return data
+    datap = processing.ft(datap, fcor=fcor)
+    return datap
     
     
 def interactive_fp(fid0, acqus, procs):
@@ -554,7 +766,7 @@ def interactive_fp(fid0, acqus, procs):
     - pdata: 1darray
         Processed spectrum
     - procs: dict
-        Updated dictionary of processing parameters
+        Updated dictionary of processing parameters:
     """
     
     def get_apod(size, procs):
@@ -589,7 +801,7 @@ def interactive_fp(fid0, acqus, procs):
     
     # Define useful things 
     modes = ['No', 'em', 'sin', 'qsin', 'gm', 'gmb']   # entries for the radiobuttons
-    act_keys = {    # Active parameters
+    act_keys = {    # Active Parameters:
             'No': [],
             'em': ['lb'],
             'sin': ['ssb'],
@@ -777,47 +989,68 @@ def interactive_fp(fid0, acqus, procs):
     
 def inv_fp(data, wf=None, size=None, fcor=0.5):
     """
-    Performs the full inverse processing of a 1D NMR spectrum (data). Required parameters are:
+    Performs the full inverse processing of a 1D NMR spectrum (data).
+    -------
     Parameters:
+    - data: 1darray
+        Spectrum
     - wf: dict
         {'mode': function to be used, 'parameters': different from each function}
     - size: int
         initial size of the FID
     - fcor: float
         weighting factor for the FID first point
+    -------
+    Returns:
+    - pdata: 1darray
+        FID
     """
     # IFT
-    data = processing.ift(data, fcor=fcor)
+    data = processing.ift(pdata, fcor=fcor)
     # Reverse zero-filling
     if size is not None:
-        data = processing.td_eff(data, size)
+        pdata = processing.td_eff(pdata, size)
     # Reverse window function
     if wf is not None:
         if wf['mode'] == None:
-            apod = np.ones_like(data)
+            apod = np.ones_like(pdata)
         if wf['mode'] == 'qsin':
-            apod = processing.qsin(data, ssb=wf['ssb'])/data
+            apod = processing.qsin(pdata, ssb=wf['ssb'])/pdata
         if wf['mode'] == 'sin':
-            apod = processing.sin(data, ssb=wf['ssb'])/data
+            apod = processing.sin(pdata, ssb=wf['ssb'])/pdata
         if wf['mode'] == 'em':
-            apod = processing.em(data, lb=wf['lb'], sw=wf['sw'])/data
+            apod = processing.em(pdata, lb=wf['lb'], sw=wf['sw'])/pdata
         if wf['mode'] == 'gm':
-            apod = processing.gm(data, lb=wf['lb'], gb=wf['gb'], sw=wf['sw'])/data
-        data = data / apod
-    return data
+            apod = processing.gm(pdata, lb=wf['lb'], gb=wf['gb'], sw=wf['sw'])/pdata
+        pdata = pdata / apod
+    return pdata
     
     
     
 def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5,0.5], tdeff=[0,0], u=True, FnMODE='States-TPPI'):
     """
-    Performs the full processing of a 2D NMR FID (data). Required parameters are:
-    - wf:   list of two entries [F1, F2]. Each entry is a dictionary: 
-                {'mode': function to be used, 
-                'parameters': different from each function}
-    - zf:   list of two entries [zf F1, zf F2]
-    - fcor: first fid point weighting factor
-    - u :   if True, unpacks the hypercomplex spectrum and returns the 4 ser
-    - tdeff: number of points of the FID to be used for the processing.
+    Performs the full processing of a 2D NMR FID (data). 
+    The returned values depend on u: it is True, returns a sequence of 2darrays depending on FnMODE, otherwise just the complex/hypercomplex data after FT in both dimensions
+    --------
+    Parameters:
+    - data: 2darray
+        Input data
+    - wf: sequence of dict
+        (F1, F2); {'mode': function to be used, 'parameters': different from each function}
+    - zf: sequence of int
+        final size of spectrum, (F1, F2)
+    - fcor: sequence of float 
+        weighting factor for the FID first point, (F1, F2)
+    - tdeff: sequence of int
+        number of points of the FID to be used for the processing, (F1, F2)
+    - u: bool
+        choose if to unpack the hypercomplex spectrum into separate arrays or not
+    - FnMODE: str
+        Acquisition mode in F1
+    ------
+    Returns:
+    - datap: 2darray or tuple of 2darray
+        Processed data or tuple of 2darray
     """
     
     data = processing.td_eff(data, tdeff)
@@ -953,7 +1186,7 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
 
     # Define useful things 
     modes = ['No', 'em', 'sin', 'qsin', 'gm', 'gmb']   # entries for the radiobuttons
-    act_keys = {    # Active parameters
+    act_keys = {    # Active Parameters:
             'No': [],
             'em': ['lb'],
             'sin': ['ssb'],
@@ -1356,23 +1589,21 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     return datap, procs
 
 
-def inv_xfb(data, wf=[None, None], size=[None, None], fcor=[0.5,0.5], FnMODE='States-TPPI'):
+def inv_xfb(data, wf=[None, None], size=(None, None), fcor=[0.5,0.5], FnMODE='States-TPPI'):
     """
-    Performs the full processing of a 2D NMR FID (data). Required parameters are:
+    Reverts the full processing of a 2D NMR FID (data).
     -------
     Parameters:
     - data: 2darray
-        Input data
+        Input data, hypercomplex
     - wf: list of dict
         list of two entries [F1, F2]. Each entry is a dictionary of window functions
-    - zf: list
-        list of two entries [zf F1, zf F2]
-    - fcor: list
+    - size: list of int
+        Initial size of FID
+    - fcor: list of float
         first fid point weighting factor [F1, F2]
-    - u : bool
-        If True, unpacks the hypercomplex spectrum and returns the 4 ser
-    - tdeff: list of int
-        number of points of the FID to be used for the processing, [F1, F2]
+    - FnMODE: str
+        Acquisition mode in F1
     --------
     Returns:
     - data: 2darray
@@ -1400,7 +1631,7 @@ def inv_xfb(data, wf=[None, None], size=[None, None], fcor=[0.5,0.5], FnMODE='St
 
     # Revert zero-filling
     if size[0] is not None:
-        data = processing.td_eff(data, size[0])
+        data = processing.td_eff(data, (0, size[0]))
 
     # Reverse window function
     if wf[0] is not None:
@@ -1427,7 +1658,7 @@ def inv_xfb(data, wf=[None, None], size=[None, None], fcor=[0.5,0.5], FnMODE='St
 
     # Revert zero-filling
     if size[1] is not None:
-        data = processing.td_eff(data, size[1])
+        data = processing.td_eff(data, (0, size[1]))
 
     # Reverse window function
     if wf[1] is not None:
@@ -1448,10 +1679,20 @@ def inv_xfb(data, wf=[None, None], size=[None, None], fcor=[0.5,0.5], FnMODE='St
 
 def make_scale(size, dw, rev=True):
     """
-    Computes the frequency scale of the NMR spectrum, given 
-    the # of points and the employed dwell time (the REAL one, not
-    the TopSpin one!). "rev"=True is required for the correct frequency arrangement
-    in the NMR sense.
+    Computes the frequency scale of the NMR spectrum, given the # of points and the employed dwell time (the REAL one, not the TopSpin one!). 
+    "rev"=True is required for the correct frequency arrangement in the NMR sense.
+    --------
+    Parameters:
+    - size: int
+        Number of points of the frequency scale
+    - dw : float
+        Time spacing in the time dimension
+    - rev: bool
+        Reverses the scale
+    -------
+    Returns:
+    - fqscale: 1darray
+        The computed frequency scale.
     """
     fqscale = np.fft.fftshift(np.fft.fftfreq(size, d=dw))
     if rev:
@@ -1579,15 +1820,16 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
 def interactive_phase_1D(ppmscale, S):
     """
     This function allow to adjust the phase of 1D spectra interactively. Use the mouse scroll to regulate the values.
-    Parameters
-    -   ppmscale: 1darray
-            ppm scale of the spectrum. Used to regulate the pivot position
-    -   S:  1darray
-            Spectrum to be phased. Must be complex!
-
-    Returns
-    -   phased_data: 1darray
-            Phased spectrum
+    -------
+    Parameters:
+    - ppmscale: 1darray
+        ppm scale of the spectrum. Used to regulate the pivot position
+    - S:  1darray
+        Spectrum to be phased. Must be complex!
+    -------
+    Returns:
+    - phased_data: 1darray
+        Phased spectrum
     """
 
     def phase(data, p0=0, p1=0, pivot=None):
@@ -1797,7 +2039,25 @@ def interactive_phase_1D(ppmscale, S):
 def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     """
     Interactively adjust the phases of a 2D spectrum
-    S must be hypercomplex, so BEFORE TO UNPACK
+    S must be complex or hypercomplex, so BEFORE TO UNPACK
+    -------
+    Parameters:
+    - ppm_f1: 1darray
+        ppm scale of the indirect dimension
+    - ppm_f2: 1darray
+        ppm scale of the direct dimension
+    - S: 2darray
+        Data to be phase-adjusted
+    - hyper: bool
+        True if S is hypercomplex, False if S is just complex
+    -------
+    Returns:
+    - S: 2darray
+        Phased data
+    - final_values_f1: tuple
+        (p0_f1, p1_f1, pivot_f1)
+    - final_values_f2: tuple
+        (p0_f2, p1_f2, pivot_f2)
     """
 
     # Unpack the hyperser
@@ -2138,7 +2398,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
 
     plt.show()
 
-    # Phase the spectrum with the final parameters
+    # Phase the spectrum with the final Parameters:
     S = phase(S, p0=p0_f2, p1=p1_f2, pivot=pivot_f2, dim='f2')
     if hyper:
         S = processing.tp_hyper(S)
@@ -2187,7 +2447,7 @@ def integral(fx, x=None, lims=None):
         x_tr, fx_tr = np.copy(x_in), np.copy(fx_in)
     else:
         # Trim data according to lims
-        x_tr, fx_tr = misc.trim_data(x_in, fx_in, *lims)
+        x_tr, fx_tr = misc.trim_data(x_in, fx_in, lims)
     
     # Integrate
     Fx = np.cumsum(fx_tr, axis=-1) * dx
@@ -2599,11 +2859,21 @@ def stack_MCR(input_data, H=True):
 
 
 def MCR_unpack(C, S, nds, H=True):
-    # Reverts matrix augmentation of stack_MCR.
-    # if H is True, converts C from dimensions (Y, n)    to (X, Y, n)
-    #                    and S from dimensions (n, X*Z)  to (X, n, Z)
-    # if H is False converts C from dimensions (Y, n)    to (X, Y, n)
-    #                    and S from dimensions (n, X*Z)  to (X, n, Z)
+    """
+    Reverts matrix augmentation of stack_MCR.
+    > if H is True: converts C from dimensions (Y, n) to (X, Y, n) and S from dimensions (n, X*Z)  to (X, n, Z)
+    > if H is False:  converts C from dimensions (Y, n) to (X, Y, n) and S from dimensions (n, X*Z)  to (X, n, Z)
+    --------
+    Parameters:
+    - C: 2darray
+        MCR C matrix
+    - S: 2darray
+        MCR S matrix
+    - nds: int
+        number of experiments
+    - H: bool
+        True for horizontal stacking, False for vertical
+    """
     if H:
         C_f = np.array([C for w in range(nds)])
         S_f = np.array(np.split(S, nds, axis=1))
@@ -2832,18 +3102,18 @@ def MCR_ALS(D, C, S, itermax=10000, tol=1e-5):
     Performs alternating least squares to get the final C and S matrices. Being the fundamental MCR equation:
         D = CS + E
     At the k-th step of the iterative cycle:
-        1. C(k) = DS+(k−1)
+        1. C(k) = DS+(k-1)
         2. S(k) = C+(k) D
-        3. E(k) = D − C(k) S(k)
+        3. E(k) = D - C(k) S(k)
     Defined rC and rS as the Frobenius norm of the difference of C and S matrices between two subsequent steps:
-        rC = || C(k) − C(k−1) ||
-        rS = || S(k) − S(k−1) ||
+        rC = || C(k) - C(k-1) ||
+        rS = || S(k) - S(k-1) ||
     The convergence is reached when:
         rC <= tol && rS <= tol
     -------
     Parameters:
     - D: 2darray
-        Input data, of dimensions m × n
+        Input data, of dimensions m x n
     - C: 2darray
         Estimation of the C matrix, of dimensions m x nc.
     - S: 2darray
@@ -2853,7 +3123,7 @@ def MCR_ALS(D, C, S, itermax=10000, tol=1e-5):
     - tol: float
         Threshold for the arrest criterion.
     -------
-    Returns
+    Returns:
     - C: 2darray
         Optimized C matrix, of dimensions m x nc.
     - S: 2darray
@@ -2903,6 +3173,9 @@ def MCR_ALS(D, C, S, itermax=10000, tol=1e-5):
     return C, S
     
 def new_MCR_ALS(D, C, S, itermax=10000, tol=1e-5, reg_f=None, reg_fargs=[]):
+    """
+    Modified function to do ALS
+    """
 
     itermax = int(itermax)
     E = D - C @ S
@@ -2959,76 +3232,6 @@ def new_MCR_ALS(D, C, S, itermax=10000, tol=1e-5, reg_f=None, reg_fargs=[]):
 
     return C, S
 
-def MCR_WALS(D, C, S, errmat, itermax=10000, tol=1e-5):
-    itermax = int(itermax)
-    Vc = np.zeros((errmat.shape[0])).astype(D.dtype)
-    Vs = np.zeros((errmat.shape[1])).astype(D.dtype)
-    for i in range(D.shape[0]):
-        Vc[i] = np.std(errmat[i])**2
-    for j in range(D.shape[1]):
-        Vs[j] = np.std(errmat[:,j])**2
-    print(Vc.shape, Vs.shape)
-    plt.plot(Vc)
-    plt.show()
-    E = D - C @ S
-
-    start_time = datetime.now()
-    print('\n-----------------------------------------------------\n')
-    print('             MCR optimization running...             \n')
-
-    convergence_flag = 0
-    print( '#   \tC convergence\tS convergence')
-    X = np.zeros_like(D)
-    """
-    for i in range(D.shape[0]):
-        X[i,:] = D[i,:] * Vs
-    """
-    for j in range(D.shape[1]):
-        X[:,j] = D[:,j] * Vc
-    for kk in range(itermax):
-        # Copy from previous cycle
-        C0 = np.copy(C)
-        E0 = np.copy(E)
-        S0 = np.copy(S)
-
-        """
-        # Projection of D in S space
-        # Compute new C
-        Sp = np.array([S[w,:] * Vs for w in range(S.shape[0])])
-        C = X @ linalg.pinv(Sp)
-        # Compute new S
-        S = linalg.pinv(C) @ D
-        """
-        Cp = np.array([C[:,w] * Vc for w in range(C.shape[1])]).T
-        S = linalg.pinv(Cp) @ X
-        C = D @ linalg.pinv(S)
-
-        E = D - C @ S
-
-        # Compute the Frobenius norm of the difference matrices
-        # between two subsequent cycles
-        rC = linalg.norm(C - C0)
-        rS = linalg.norm(S - S0)
-
-        # Ongoing print of the residues
-        print(str(kk+1)+' \t{:.5e}'.format(rC)+ '\t'+'{:.5e}'.format(rS), end='\r')
-
-        # Arrest criterion
-        if (rC < tol) and (rS < tol):
-            end_time = datetime.now()
-            print( '\n\n\tMCR converges in '+str(kk+1)+' steps.')
-            convergence_flag = 1    # Set to 1 if the arrest criterion is reached
-            break
-
-    if not convergence_flag:
-        print ('\n\n\tMCR does not converge.')
-    end_time = datetime.now()
-    print( '\tTotal runtime: {}'.format(end_time - start_time))
-    
-
-    return C, S
-
-
 
 def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True):
     """
@@ -3041,7 +3244,7 @@ def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True):
     The total MCR workflow can be separated in two parts: a first algorithm that produces an initial guess for the three matrices C, S and E (SIMPLISMA), and an optimization step that aims at the removal of the unwanted features of the data by iteratively filling the E matrix (MCR ALS).
     This function returns the denoised datasets, CS, and the single C and S matrices.
     -------
-    Parameters
+    Parameters:
     - input_data: 2darray or 3darray
         a 3D array containing the set of 2D NMR datasets to be coprocessed stacked along the first dimension. A single 2D array can be passed, if the denoising of a single dataset is desired.
     - nc: int
@@ -3057,7 +3260,7 @@ def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True):
     - oncols: bool
         True to estimate S with processing.SIMPLISMA, False to estimate C.
     -------
-    Returns
+    Returns:
     - CS_f: 2darray or 3darray
         Final denoised data matrix
     - C_f: 2darray or 3darray
@@ -3122,6 +3325,7 @@ def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True):
 
 
 def new_MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True, our_function=None, fargs=[], our_function2=None, f2args=[]):
+    """
     # This is an implementation of Multivariate Curve Resolution
     # for the denoising of 2D NMR data. It requires:
     # - input_data: a tensor containing the set of 2D NMR datasets to be coprocessed
@@ -3133,6 +3337,7 @@ def new_MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True, ou
     # - H       : True for horizontal stacking of data (default), False for vertical;
     # - oncols  : True to estimate S with purest components, False to estimate C
     # This function returns the denoised datasets, 'CS', and the 'C' and 'S' matrices.
+    """
 
     # Get number of datasets (nds) from the shape of the input tensor
     if isinstance(input_data, list):
@@ -3279,10 +3484,26 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
     The arrest criterion is:
     | S(step k-1)[nc-1] / S(step k-1)[0] - S(step k)[nc-1] / S(step k)[0] | < f * S(step 0)[nc-1] / S(step 0)[0]
 
-    - itermax:      max number of iterations allowed
-    - f:            factor that appears in the arrest criterion
-    - print_time:   set it to True to show the time it took
-    - print_head:   set it to True to display the fancy heading.
+    --------
+    Parameters:
+    - data: 1darray
+        Data to be processed
+    - n: int
+        Number of columns of the Hankel matrix
+    - nc: int
+        Number of singular values to preserve
+    - itermax: int
+        max number of iterations allowed
+    - f: float
+        factor that appears in the arrest criterion
+    - print_time: bool
+        set it to True to show the time it took
+    - print_head: bool
+        set it to True to display the fancy heading.
+    --------
+    Returns:
+    - datap: 1darray
+        Denoised data
     """
 
     if print_head is True:
@@ -3406,7 +3627,7 @@ def interactive_basl_windows(ppm, data):
     - data: 1darray
         Spectrum to be partitioned
     -------
-    Returns
+    Returns:
     - coord: list
         List containing the coordinates of the windows, plus ppm[0] and ppm[-1]
     """

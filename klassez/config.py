@@ -1,6 +1,22 @@
 #! /usr/bin/env python3
 
 import seaborn as sns
+from datetime import datetime
+
+
+def cron(func, *args, **kwargs):
+    """ Decorator: use it to monitor the runtime of a function.  """
+    def new_func(*args, **kwargs):
+        #print(f'\nFunction "{func.__name__}" was called.')
+        start_time = datetime.now()
+
+        return_values = func(*args, **kwargs)
+
+        end_time = datetime.now()
+        run_time = end_time - start_time
+        print(f'Runtime: {run_time}\n')
+        return return_values
+    return new_func
 
 
 # Use seaborn's colormaps and save it to a dictionary

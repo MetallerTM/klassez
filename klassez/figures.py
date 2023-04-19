@@ -18,10 +18,9 @@ from datetime import datetime
 import warnings
 
 from . import fit, misc, sim, figures, processing
-#from .__init__ import CM
 s_colors=[ 'tab:cyan', 'tab:red', 'tab:green', 'tab:purple', 'tab:pink', 'tab:gray', 'tab:brown', 'tab:olive', 'salmon', 'indigo' ]
 
-from .config import CM, COLORS
+from .config import CM, COLORS, cron
 
 figsize_small = (3.59, 2.56)
 figsize_large = (15, 8)
@@ -242,8 +241,15 @@ def ax_heatmap(ax, data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale
 
 def sns_heatmap(data, name=None):
     """
-    Computes a heatmap of "data", which is a matrix. 
-    Specify "name" if you want to save the figure.
+    Computes a heatmap of data, which is a matrix. 
+    This function employs the seaborn package.
+    Specify name if you want to save the figure.
+    ---------
+    Parameters:
+    - data: 2darray
+        Data of which to compute the heatmap. Make sure the entries are real numbers.
+    - name: str or None
+        Filename of the figure to be saved. If None, the figure is shown instead.
     """
     data = data.real
 
@@ -369,18 +375,50 @@ def plot_fid(fid, name=None):
         plt.show()
     plt.close()
 
-def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4, lvl=0.09, name=None, X_label='$\delta\ $ F2 /ppm', Y_label='$\delta\ $ F1 /ppm', lw=0.5, Negatives=False, cmapneg=None, n_xticks=10, n_yticks=10):
+def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4, lvl=0.09, name=None, X_label='$\delta\ $ F2 /ppm', Y_label='$\delta\ $ F1 /ppm', lw=0.5, Negatives=False, cmapneg=None, n_xticks=10, n_yticks=10, fontsize=10):
     """
-    Creates the contour plot of a 2D NMR spectrum. It requires:
-    - ppm_f2 and ppm_f1: ppm scales of the direct and indirect dimension, respectively;
-    - datax: the 2D NMR spectrum;
-    - xsx, xdx, ysx, ydx: axis limits;
-    - lvl: height respect to maximum at which the contour are computed;
-    - name: filename of the figure, if it has to be saved;
-    - X_label, Y_label: text of the X and Y axis;
-    - lw: linewidth of the contours
-    - Negatives: set it to "True" if you want to see the negative part of the spectrum, in red.
-    - spacex, spacey: spaces between the ticks for the axes
+    Makes a 2D contour plot. 
+    Allows for the buildup of modular figures. 
+    The contours are drawn according to the formula:
+        cl = contour_start * contour_factor ** np.arange(contour_num)
+    where contour_start = np.max(data) * lvl, contour_num = 16 and contour_factor = c_fac.
+    Increasing the value of c_fac will decrease the number of contour lines, whereas decreasing the value of c_fac will increase the number of contour lines.
+    -----------
+    Parameters:
+    - ppm_f2: 1darray
+        ppm scale of the direct dimension
+    - ppm_f1: 1darray
+        ppm scale of the indirect dimension
+    - datax: 2darray
+        the 2D NMR spectrum to be plotted
+    - xlims: tuple
+        limits for the x-axis (left, right). If None, the whole scale is used.
+    - ylims: tuple
+        limits for the y-axis (left, right). If None, the whole scale is used.
+    - cmap: matplotlib.cm Object
+        Colour for the contour
+    - c_fac: float
+        Contour factor parameter
+    - lvl: float
+        height with respect to maximum at which the contour are computed
+    - name: str
+        Filename for the figure.
+    - X_label: str
+        text of the x-axis label;
+    - Y_label: str
+        text of the y-axis label;
+    - lw: float
+        linewidth of the contours
+    - Negatives: bool
+        Choose if to plot the negative contours or not
+    - cmapneg: matplotlib.cm Object
+        Colour for the negative contours
+    - n_xticks: int
+        Number of numbered ticks on the x-axis of the figure
+    - n_yticks: int
+        Number of numbered ticks on the x-axis of the figure
+    - fontsize: float
+        Biggest font size in the figure.
     """
 
     swapped_scales = len(ppm_f2) == datax.shape[0] and len(ppm_f1) == datax.shape[1]
@@ -426,7 +464,7 @@ def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4
     misc.pretty_scale(ax, (xsx, xdx), axis='x', n_major_ticks=n_xticks)
     misc.pretty_scale(ax, (ysx, ydx), axis='y', n_major_ticks=n_yticks)
 
-    misc.set_fontsizes(ax, 10)
+    misc.set_fontsizes(ax, fontsize)
 
     if name:
         print( 'Saving '+name+'.png...')
@@ -440,7 +478,50 @@ def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4
 
 def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4, lvl=0.1, lw=0.5, X_label='$\delta\,$F2 /ppm', Y_label='$\delta\,$F1 /ppm', title=None, n_xticks=10, n_yticks=10, fontsize=10):
     """
-    Adds a 2D plot in the 'ax' subplot. Allows for modular figures setup.
+    Makes a 2D contour plot like the one in figures.figure2D, but in a specified panel. 
+    Allows for the buildup of modular figures. 
+    The contours are drawn according to the formula:
+        cl = contour_start * contour_factor ** np.arange(contour_num)
+    where contour_start = np.max(data) * lvl, contour_num = 16 and contour_factor = c_fac.
+    Increasing the value of c_fac will decrease the number of contour lines, whereas decreasing the value of c_fac will increase the number of contour lines.
+    -----------
+    Parameters:
+    - ax: matplotlib.subplot Object
+        panel where to put the figure
+    - ppm_f2: 1darray
+        ppm scale of the direct dimension
+    - ppm_f1: 1darray
+        ppm scale of the indirect dimension
+    - datax: 2darray
+        the 2D NMR spectrum to be plotted
+    - xlims: tuple
+        limits for the x-axis (left, right). If None, the whole scale is used.
+    - ylims: tuple
+        limits for the y-axis (left, right). If None, the whole scale is used.
+    - cmap: matplotlib.cm Object
+        Colour for the contour
+    - c_fac: float
+        Contour factor parameter
+    - lvl: float
+        height with respect to maximum at which the contour are computed
+    - X_label: str
+        text of the x-axis label;
+    - Y_label: str
+        text of the y-axis label;
+    - lw: float
+        linewidth of the contours
+    - title: str
+        Figure title.
+    - n_xticks: int
+        Number of numbered ticks on the x-axis of the figure
+    - n_yticks: int
+        Number of numbered ticks on the x-axis of the figure
+    - fontsize: float
+        Biggest font size in the figure.
+    ---------
+    Returns:
+    - cnt: matplotlib.QuadContour object
+        Drawn contour lines
     """
 
     swapped_scales = len(ppm_f2) == datax.shape[0] and len(ppm_f1) == datax.shape[1]
@@ -487,18 +568,38 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4
 
 def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default', name=None, X_label='$\delta\ $ F2 /ppm', Y_label='$\delta\ $ F1 /ppm', lw=0.5, Negatives=False, n_xticks=10, n_yticks=10, labels=None):
     """
-    Creates the contour plot of a 2D NMR spectrum. It requires:
-    - ppm_f2 and ppm_f1: ppm scales of the direct and indirect dimension, respectively;
-    - datax: the 2D NMR spectrum;
-    - xsx, xdx, ysx, ydx: axis limits;
-    - lvl: height respect to maximum at which the contour are computed;
-    - name: filename of the figure, if it has to be saved;
-    - X_label, Y_label: text of the X and Y axis;
-    - lw: linewidth of the contours
-    - Negatives: set it to "True" if you want to see the negative part of the spectrum, in red.
-    - spacex, spacey: spaces between the ticks for the axes
+    Generates the figure of multiple, superimposed spectra.
+    --------
+    Parameters:
+    - ppm_f2: 1darray
+        ppm scale of the direct dimension
+    - ppm_f1: 1darray
+        ppm scale of the indirect dimension
+    - datax: list
+        the 2D NMR spectra to be plotted
+    - xlims: tuple
+        limits for the x-axis (left, right). If None, the whole scale is used.
+    - ylims: tuple
+        limits for the y-axis (left, right). If None, the whole scale is used.
+    - lvl: "default" or list
+        height with respect to maximum at which the contour are computed. If "default", each spectrum is at 10% of maximum height. Otherwise, each entry of the list corresponds to the contour height of the respective spectrum.
+    - name: str
+        filename of the figure, if it has to be saved;
+    - X_label: str
+        text of the x-axis label;
+    - Y_label: str
+        text of the y-axis label;
+    - lw: float
+        linewidth of the contours
+    - Negatives: bool
+        set it to True if you want to see the negative part of the spectrum
+    - n_xticks: int
+        Number of numbered ticks on the x-axis of the figure
+    - n_yticks: int
+        Number of numbered ticks on the x-axis of the figure
+    - labels: list
+        entries of the legend. If None, the legend is not drawn.
     """
-
     nsp = len(datax)
     cmaps = [cm.Blues_r, cm.Reds_r, cm.Greens_r, cm.Greys_r, cm.Purples_r, cm.Oranges_r, cm.YlOrBr_r, cm.YlOrRd_r, cm.OrRd_r, cm.PuRd_r, cm.RdPu_r, cm.BuPu_r, cm.GnBu_r, cm.PuBu_r, cm.YlGnBu_r, cm.PuBuGn_r, cm.BuGn_r, cm.YlGn]
 
@@ -566,15 +667,41 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
 
 def figure1D(ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, name=None, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, hideylabels=False):
     """
-    Creates the contour plot of a 2D NMR spectrum. It requires:
-    - ppm_f2 and ppm_f1: ppm scales of the direct and indirect dimension, respectively;
-    - datax: the 2D NMR spectrum;
-    - xlims, ylims: tuple of axis limits;
-    - lvl: height respect to maximum at which the contour are computed;
-    - name: filename of the figure, if it has to be saved;
-    - lw = linewith of the line
-    - X_label, Y_label: text of the X and Y axis;
-    - Negatives: set it to "True" if you want to see the negative part of the spectrum, in red.
+    Makes the figure of a 1D NMR spectrum.
+
+    The plot can be customized in a very flexible manner by setting the function keywords properly.
+    --------
+    Parameters:
+	- ppm: 1darray
+		ppm scale of the spectrum
+	- data: 1darray
+		spectrum to be plotted
+	- norm: bool
+		if True, normalizes the intensity to 1.
+	- xlims: list or tuple
+		Limits for the x-axis. If None, the whole scale is used.
+	- ylims: list or tuple
+		Limits for the y-axis. If None, the whole scale is used.
+	- c: str
+		Colour of the line.
+	- lw: float
+		 linewidth
+    - name: str or None
+        Filename for the figure to be saved. If None, the figure is shown instead.
+	- X_label: str
+		 text of the x-axis label;
+	- Y_label: str
+		 text of the y-axis label;
+	- n_xticks: int
+		 Number of numbered ticks on the x-axis of the figure
+	- n_yticks: int
+		 Number of numbered ticks on the x-axis of the figure
+	- fontsize: float
+		 Biggest font size in the figure.
+    --------
+    Returns:
+	- line: Line2D Object
+		Line object returned by plt.plot.
     """
     if np.iscomplexobj(data):
         data = np.copy(data.real)
@@ -627,15 +754,44 @@ def figure1D(ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, name=
 
 def ax1D(ax, ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, label=None, fontsize=10):
     """
-    Creates the contour plot of a 2D NMR spectrum. It requires:
-    - ppm_f2 and ppm_f1: ppm scales of the direct and indirect dimension, respectively;
-    - datax: the 2D NMR spectrum;
-    - xlims, ylims: tuple of axis limits;
-    - lvl: height respect to maximum at which the contour are computed;
-    - name: filename of the figure, if it has to be saved;
-    - lw = linewith of the line
-    - X_label, Y_label: text of the X and Y axis;
-    - Negatives: set it to "True" if you want to see the negative part of the spectrum, in red.
+    Makes the figure of a 1D NMR spectrum, placing it in a given figure panel.
+    This allows the making of modular figures.
+
+    The plot can be customized in a very flexible manner by setting the function keywords properly.
+    --------
+    Parameters:
+    - ax: matplotlib.subplot Object
+        panel where to put the figure
+	- ppm: 1darray
+		ppm scale of the spectrum
+	- data: 1darray
+		spectrum to be plotted
+	- norm: bool
+		if True, normalizes the intensity to 1.
+	- xlims: list or tuple
+		Limits for the x-axis. If None, the whole scale is used.
+	- ylims: list or tuple
+		Limits for the y-axis. If None, the whole scale is used.
+	- c: str
+		Colour of the line.
+	- lw: float
+		 linewidth
+	- X_label: str
+		 text of the x-axis label;
+	- Y_label: str
+		 text of the y-axis label;
+	- n_xticks: int
+		 Number of numbered ticks on the x-axis of the figure
+	- n_yticks: int
+		 Number of numbered ticks on the x-axis of the figure
+	- label: str
+		 label to be put in the legend.
+	- fontsize: float
+		 Biggest font size in the figure.
+    --------
+    Returns:
+	- line: Line2D Object
+		Line object returned by plt.plot.
     """
     if np.iscomplexobj(data):
         data = np.copy(data.real)
@@ -667,8 +823,6 @@ def ax1D(ax, ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, X_lab
 
     ax.set_xlabel(X_label)
     misc.set_fontsizes(ax, fontsize)
-
-
     return line
 
 
@@ -912,7 +1066,7 @@ def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, 
 
     # Single components
     for i in range(V.shape[0]):
-        s_plot, = ax.plot(ppm_scale[lim1:lim2], sgn[i][lim1:lim2].real, c=s_colors[i], lw=0.4, ls='--')
+        s_plot, = ax.plot(ppm_scale[lim1:lim2], sgn[i][lim1:lim2].real, c=COLORS[i], lw=0.4, ls='--')
         if bool(s_labels[i]):
             s_plot.set_label(s_labels[i])
 
@@ -928,10 +1082,10 @@ def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, 
 
     misc.mathformat(ax, axis='y')
 
-    ax.legend()
+    ax.legend(framealpha=0.2)
     # Save/show the figure
     if name:
-        misc.set_fontsizes(ax, 10)
+        misc.set_fontsizes(ax, 8)
         plt.savefig(name+'.png', dpi=600)
     else:
         fig.set_size_inches(figsize_large)
@@ -944,6 +1098,26 @@ def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, 
 def stacked_plot(ppmscale, S, xlims=None, lw=0.5, name=None, X_label='$\delta\ $ F1 /ppm', Y_label='Normalized intensity /a.u.', n_xticks=10, labels=None):
     """
     Creates a stacked plot of all the spectra contained in the list S. Note that S MUST BE a list. All the spectra must share the same scale.
+    --------
+    Parameters:
+    - ppmscale: 1darray
+        ppm scale of the spectrum
+    - S: list
+        spectra to be plotted
+    - xlims: list or tuple
+        Limits for the x-axis. If None, the whole scale is used.
+    - lw: float
+        linewidth
+    - name: str
+        filename of the figure, if it has to be saved;
+    - X_label: str
+        text of the x-axis label;
+    - Y_label: str
+        text of the y-axis label;
+    - n_xticks: int
+        Number of numbered ticks on the x-axis of the figure
+    - labels: list
+        labels to be put in the legend.
     """
     nsp = len(S)                                # number of spectra in the lsit
     if not labels:                              # auto-builds the labels for the spectra if not specified
@@ -999,19 +1173,18 @@ def stacked_plot(ppmscale, S, xlims=None, lw=0.5, name=None, X_label='$\delta\ $
 
 def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     """
-    Interactive display of multiple 1D spectra. They have to share the same scale.
-    -------
-    Parameters
-    - ppmscale: 1darray
-        ppm scale of the spectra
-    - S: list or 1darray or 2darray
-        spectra to be plotted. If it is a 2darray, the spectra to be plotted are the rows of S
+    Interactive display of multiple 1D spectra.
+    --------
+    Parameters:
+    - ppmscale: 1darray or list
+        ppm scale of the spectra. If only one scale is supplied, all the spectra are plotted using the same scale. Otherwise, each spectrum is plotted using its scale. 
+    - S: list
+        spectra to be plotted
     - labels: list
-        labels to be put in the legend. 
+        labels to be put in the legend.
     - n_xticks: int
         Number of numbered ticks on the x-axis of the figure
     """
-
     if isinstance(S, list):
         S = [S[w].real for w in range(len(S))]
     elif isinstance(S, np.ndarray):

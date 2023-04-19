@@ -1,0 +1,11 @@
+B0	16.4                # Magnetic field /T
+nuc	13C                 # Observed nucleus
+o1p	100                 # Centre of the spectrum
+SWp	350                 # Sweep width /ppm
+TD	1024                # Number of sampled complex points
+
+shifts  180, 40, 25     # Chemical shift /ppm
+fwhm    200, 200, 150   # FWHM /Hz
+amplitudes  10, 15, 50  # Intensity /a.u., only relative values actually matter
+x_g 0.2, 0.2, 0.2       # Fraction of gaussianity
+phases  -5, 0, 5        # Phase angles /degrees

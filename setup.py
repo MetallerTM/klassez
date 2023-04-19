@@ -10,11 +10,11 @@ except:
 
 setup(
         name='klassez',
-        version='0.1a.1',
+        version='0.2a.0',
         author='Francesco Bruno',
         author_email='bruno@cerm.unifi.it',
-        description='A collection of functions for NMR data handling. Documentation: klassez.pdf in "docs" subfolder of your install dir.',
-        url='https://test.pypi.org/legacy/klassez',
+        description='A collection of functions for NMR data handling.',
+        url='https://github.com/MetallerTM/klassez',
         long_description=long_description,
         long_description_content_type = 'text/markdown',
         classifiers = [
