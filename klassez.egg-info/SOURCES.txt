@@ -10,7 +10,7 @@ klassez/figures.py
 klassez/fit.py
 klassez/misc.py
 klassez/processing.py
-klassez/qsin.py
+klassez/show_fcn.py
 klassez/sim.py
 klassez.egg-info/PKG-INFO
 klassez.egg-info/SOURCES.txt

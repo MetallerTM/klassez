@@ -1,8 +1,8 @@
 Metadata-Version: 2.1
 Name: klassez
-Version: 0.1a1
+Version: 0.1a2
 Summary: A collection of functions for NMR data handling. Documentation: klassez.pdf in "docs" subfolder of your install dir.
-Home-page: https://test.pypi.org/legacy/klassez
+Home-page: https://github.com/MetallerTM/klassez
 Author: Francesco Bruno
 Author-email: bruno@cerm.unifi.it
 License: LICENSE.txt

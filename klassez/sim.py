@@ -18,7 +18,7 @@ from datetime import datetime
 import warnings
 
 from . import fit, misc, sim, figures, processing
-from .config import CM
+from .config import CM, COLORS, cron
 #from .__init__ import CM
 
   
@@ -300,13 +300,13 @@ def sim_1D(File, pv=False):
     """
     Simulates a 1D NMR spectrum from the instructions written in File.
     -------
-    Parameters
+    Parameters:
     - File: str
         Path to the input file location
     - pv: bool
         True for pseudo-Voigt model, False for Voigt model.
     -------
-    Returns
+    Returns:
     - fid: 1darray
         FID of the simulated spectrum.
     """
@@ -343,13 +343,13 @@ def load_sim_2D(File, states=True):
     """
     Creates a dictionary from the spectral parameters listed in the input file.
     -------
-    Parameters
+    Parameters:
     - File: str
         Path to the input file location
     - states: bool
         If FnMODE is States or States-TPPI, set it to True to get the correct timescale.
     -------
-    Returns
+    Returns:
     - dic: dict
         Dictionary of the parameters, ready to be read from the simulation functions.
     """
@@ -405,7 +405,7 @@ def sim_2D(File, states=True, alt=True, pv=False):
     Simulates a 2D NMR spectrum from the instructions written in File.
     The indirect dimension is sampled with states-TPPI as default.
     --------
-    Parameters
+    Parameters:
     - File: str
         Path to the input file location
     - states: bool
@@ -415,7 +415,7 @@ def sim_2D(File, states=True, alt=True, pv=False):
     - pv: bool
         True for pseudo-Voigt model, False for Voigt model.
     --------
-    Returns
+    Returns:
     - fid: 2darray
         FID of the simulated spectrum.
     """
@@ -476,7 +476,7 @@ def noisegen(size, o2, t2, s_n=1):
     """
     Simulates additive noise in the time domain.
     --------
-    Parameters
+    Parameters:
     - size: int or tuple
         Dimension of the noise matrix
     - o2: float
@@ -486,7 +486,7 @@ def noisegen(size, o2, t2, s_n=1):
     - s_n: float
         Standard deviation of the noise.
     --------
-    Returns
+    Returns:
     - noise: 2darray
         Noise matrix, of dimensions size.
     """
@@ -509,6 +509,7 @@ def noisegen(size, o2, t2, s_n=1):
 
 
 def mult_noise(data_size, mean, s_n):
+    """ Multiplicative noise model. """
     N = data_size[0]
 
     white = np.random.lognormal(mean, s_n, N)
@@ -524,7 +525,7 @@ def water7(N, t2, vW, fwhm=300, A=1, spread=701.125):
     """
     Simulates a feature like the water ridge in HSQC spectra, in the time domain.
     --------
-    Parameters
+    Parameters:
     - N: int
         Number of transients
     - t2: 1darray
@@ -532,13 +533,13 @@ def water7(N, t2, vW, fwhm=300, A=1, spread=701.125):
     - vW: float
         Nominal peak position, in Hz.
     - fwhm: float
-        Nominal full-width at half maximum of the peak.
+        Nominal full-width at half maximum of the peak, in rad/s.
     - A: float
         Signal intensity.
     - spread: float
         Standard deviation of the peak position distribution, in Hz.
     --------
-    Returns
+    Returns:
     - ridge: 2darray
         Matrix of the ridge.
     """
@@ -558,7 +559,7 @@ def f_gaussian(x, u, s, A=1):
     """
     Gaussian function in the frequency domain:
     --------
-    Parameters
+    Parameters:
     - x: 1darray
         Independent variable
     - u: float
@@ -568,7 +569,7 @@ def f_gaussian(x, u, s, A=1):
     - A: float
         Intensity
     --------
-    Returns
+    Returns:
     - f: 1darray
         Gaussian function.
     """
@@ -582,17 +583,17 @@ def f_lorentzian(x, u, fwhm, A=1):
     """
     Lorentzian function in the time domain:
     --------
-    Parameters
+    Parameters:
     - x: 1darray
         Independent variable
     - u: float
         Peak position
     - fwhm: float
-        Full-width at half-maximum, 2γ
+        Full-width at half-maximum
     - A: float
         Intensity
     --------
-    Returns
+    Returns:
     - f: 1darray
         Lorentzian function.
     """
@@ -608,7 +609,7 @@ def f_pvoigt(x, u, fwhm, A=1, x_g=0):
     """
     Pseudo-Voigt function in the frequency domain:
     --------
-    Parameters
+    Parameters:
     - x: 1darray
         Independent variable
     - u: float
@@ -620,7 +621,7 @@ def f_pvoigt(x, u, fwhm, A=1, x_g=0):
     - x_g: float
         Fraction of gaussianity
     --------
-    Returns
+    Returns:
     - S: 1darray
         Pseudo-Voigt function.
     """
@@ -632,19 +633,19 @@ def t_gaussian(t, u, s, A=1, phi=0):
     """
     Gaussian function in the time domain.
     --------
-    Parameters
+    Parameters:
     - t: 1darray
         Independent variable
     - u: float
-        Peak position
+        Peak position, in Hz
     - s: float
-        Standard deviation
+        Standard deviation, in rad/s
     - A: float
         Intensity
     - phi: float
         Phase, in radians
     --------
-    Returns
+    Returns:
     - S: 1darray
         Gaussian function.
     """
@@ -657,19 +658,19 @@ def t_lorentzian(t, u, fwhm, A=1, phi=0):
     """
     Lorentzian function in the time domain.
     --------
-    Parameters
+    Parameters:
     - t: 1darray
         Independent variable
     - u: float
-        Peak position
+        Peak position, in Hz
     - fwhm: float
-        Full-width at half-maximum, 2γ
+        Full-width at half-maximum, in rad/s
     - A: float
         Intensity
     - phi: float
         Phase, in radians
     --------
-    Returns
+    Returns:
     - S: 1darray
         Lorentzian function.
     """
@@ -681,13 +682,13 @@ def t_pvoigt(t, u, fwhm, A=1, x_g=0, phi=0):
     """
     Pseudo-Voigt function in the time domain:
     --------
-    Parameters
+    Parameters:
     - t: 1darray
         Independent variable
     - u: float
-        Peak position
+        Peak position, in Hz
     - fwhm: float
-        Full-width at half-maximum
+        Full-width at half-maximum, in rad/s
     - A: float
         Intensity
     - x_g: float
@@ -695,7 +696,7 @@ def t_pvoigt(t, u, fwhm, A=1, x_g=0, phi=0):
     - phi: float
         Phase, in radians
     --------
-    Returns
+    Returns:
     - S: 1darray
         Pseudo-Voigt function.
     """
@@ -708,13 +709,13 @@ def t_voigt(t, u, fwhm, A=1, x_g=0, phi=0):
     """
     Voigt function in the time domain. The parameter x_g affects the linewidth of the lorentzian and gaussian contributions.
     --------
-    Parameters
+    Parameters:
     - t: 1darray
         Independent variable
     - u: float
-        Peak position
+        Peak position, in Hz
     - fwhm: float
-        Full-width at half-maximum
+        Full-width at half-maximum, in rad/s
     - A: float
         Intensity
     - x_g: float
@@ -722,7 +723,7 @@ def t_voigt(t, u, fwhm, A=1, x_g=0, phi=0):
     - phi: float
         Phase, in radians
     --------
-    Returns
+    Returns:
     - S: 1darray
         Voigt function.
     """
@@ -736,19 +737,19 @@ def t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=1, states=True, alt=True):
     """
     Bidimensional gaussian function.
     --------
-    Parameters
+    Parameters:
     - t1: 1darray
         Indirect evolution timescale
     - t2: 1darray
         Timescale of the direct dimension
     - v1: float
-        Peak position in the indirect dimension
+        Peak position in the indirect dimension, in Hz
     - v2: float
-        Peak position in the direct dimension
+        Peak position in the direct dimension, in Hz
     - s1: float
-        Standard deviation in the indirect dimension
+        Standard deviation in the indirect dimension, in rad/s
     - s2: float
-        Standard deviation in the direct dimension
+        Standard deviation in the direct dimension, in rad/s
     - A: float
         Intensity
     - states: bool
@@ -756,7 +757,7 @@ def t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=1, states=True, alt=True):
     - alt: bool
         Set to True for "FnMODE":"States-TPPI
     --------
-    Returns
+    Returns:
     - S: 2darray
         Gaussian function.
     """
@@ -783,19 +784,19 @@ def t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=1, states=True, alt=True):
     """
     Bidimensional lorentzian function.
     --------
-    Parameters
+    Parameters:
     - t1: 1darray
         Indirect evolution timescale
     - t2: 1darray
         Timescale of the direct dimension
     - v1: float
-        Peak position in the indirect dimension
+        Peak position in the indirect dimension, in Hz
     - v2: float
-        Peak position in the direct dimension45
+        Peak position in the direct dimension, in Hz
     - fwhm1: float
-        Full-width at half maximum in the indirect dimension
+        Full-width at half maximum in the indirect dimension, in rad/s
     - fwhm2: float
-        Full-width at half maximum in the direct dimension
+        Full-width at half maximum in the direct dimension, in rad/s
     - A: float
         Intensity
     - states: bool
@@ -803,7 +804,7 @@ def t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=1, states=True, alt=True):
     - alt: bool
         Set to True for "FnMODE":"States-TPPI
     --------
-    Returns
+    Returns:
     - S: 2darray
         Lorentzian function.
     """
@@ -834,19 +835,19 @@ def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0.5, states=True, alt=True
     x_g states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
     Indexes ’1’ and ’2’ on the variables stand for ’F1’ and ’F2’, respectively.
     --------
-    Parameters
+    Parameters:
     - t1: 1darray
         Indirect evolution timescale
     - t2: 1darray
         Timescale of the direct dimension
     - v1: float
-        Peak position in the indirect dimension
+        Peak position in the indirect dimension, in Hz
     - v2: float
-        Peak position in the direct dimension
+        Peak position in the direct dimension, in Hz
     - fwhm1: float
-        Full-width at half maximum in the indirect dimension
+        Full-width at half maximum in the indirect dimension, in rad/s
     - fwhm2: float
-        Full-width at half maximum in the direct dimension
+        Full-width at half maximum in the direct dimension, in rad/s
     - A: float
         Intensity
     - x_g: float
@@ -856,7 +857,7 @@ def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0.5, states=True, alt=True
     - alt: bool
         Set to True for "FnMODE":"States-TPPI46
     --------
-    Returns
+    Returns:
     - fid: 2darray
         Pseudo-Voigt function.
     """
@@ -876,19 +877,19 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0.5, states=True, alt=True)
     x_g states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
     Indexes ’1’ and ’2’ on the variables stand for ’F1’ and ’F2’, respectively.
     --------
-    Parameters
+    Parameters:
     - t1: 1darray
         Indirect evolution timescale
     - t2: 1darray
         Timescale of the direct dimension
     - v1: float
-        Peak position in the indirect dimension
+        Peak position in the indirect dimension, in Hz
     - v2: float
-        Peak position in the direct dimension
+        Peak position in the direct dimension, in Hz
     - fwhm1: float
-        Full-width at half maximum in the indirect dimension
+        Full-width at half maximum in the indirect dimension, in rad/s
     - fwhm2: float
-        Full-width at half maximum in the direct dimension
+        Full-width at half maximum in the direct dimension, in rad/s
     - A: float
         Intensity
     - x_g: float
@@ -898,7 +899,7 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0.5, states=True, alt=True)
     - alt: bool
         Set to True for "FnMODE":"States-TPPI
     --------
-    Returns
+    Returns:
     - S: 2darray
         Voigt function.
     """

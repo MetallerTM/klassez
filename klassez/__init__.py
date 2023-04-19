@@ -13,10 +13,10 @@ from pprint import pprint as Print
 from . import fit, misc, sim, figures, processing
 from .Spectra import Spectrum_1D, pSpectrum_1D, Spectrum_2D, pSpectrum_2D, Pseudo_2D
 
-__version__ = '0.1a.1'
+__version__ = '0.1a.2'
 
 # Use seaborn's colormaps and save it to a dictionary
-from .config import CM, COLORS
+from .config import CM, COLORS, cron
 
 def open_doc():
     """ Open the documentation .pdf file in the browser. """
