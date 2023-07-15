@@ -3,7 +3,8 @@
 import os
 import sys
 import numpy as np
-from scipy import linalg, stats
+from numpy import linalg
+from scipy import stats
 from scipy.spatial import ConvexHull
 import random
 import matplotlib
@@ -4205,4 +4206,355 @@ def interactive_qfil(ppm, data_in):
     plt.close()
 
     return u, s
+
+def acme(data, m=1, a=5e-5):
+    """
+    Automated phase Correction based on Minimization of Entropy.
+    This algorithm allows for automatic phase correction by minimizing the entropy of the m-th derivative of the spectrum, as explained in detail by L. Chen et.al. in Journal of Magnetic Resonance 158 (2002) 164-168.
+    
+    Defined the entropy of h as:
+        S = - sum_j h_j ln(h_j)
+    and 
+        h = | R_j^(m) | / sum_j | R_j^(m) |
+    where 
+        R = Re{ spectrum * e^(-i phi) }
+    and R^(m) is the m-th derivative of R, the objective function to minimize is:
+        S + P(R)
+    where P(R) is a penalty function for negative values of the spectrum.
+
+    The phase correction is applied using processing.ps. The values p0 and p1 are fitted using Nelder-Mead algorithm.
+    ----------
+    Parameters:
+    - data: 1darray
+        Spectrum to be phased, complex
+    - m: int
+        Order of the derivative to be computed
+    - a: float
+        Weighting factor for the penalty function
+    ----------
+    Returns:
+    - p0f: float
+        Fitted zero-order phase correction, in degrees
+    - p1f: float
+        Fitted first-order phase correction, in degrees
+    """
+
+    def entropy(data):
+        """
+        Compute entropy of data.
+        --------
+        Parameters:
+        - data: ndarray
+            Input data
+        --------
+        Returns:
+        - S: float
+            Entropy of data
+        """
+        data_in = np.copy(data)
+        if not data_in.all():
+            zero_ind = np.flatnonzero(data_in==0)
+            for i in zero_ind:
+                data_in[i] = 1e-15
+
+        return - np.sum(data_in * np.log(data_in))
+
+    def mth_derivative(data, m):
+        """
+        Computes the m-th derivative of data by applying np.gradient m times.
+        -------
+        Parameters:
+        - data: 1darray
+            Input data
+        - m: int
+            Order of the derivative to be computed
+        -------
+        Returns:
+        - pdata: 1darray
+            m-th derivative of data
+        """
+        pdata = np.copy(data)
+        for k in range(m):
+            pdata = np.gradient(pdata)
+        return pdata
+
+    def penalty_function(data, a=5e-5):
+        """
+        F(y) is a function that is 0 for positive y and 1 otherwise.
+        The returned value is 
+            a * sum_j F(y_j) y_j^2
+        --------
+        Parameters:
+        - data: 1darray
+            Input data
+        - a: float
+            Weighting factor
+        --------
+        Returns:
+        - p_fun: float
+            a * sum_j F(y_j) y_j^2
+        """
+        signs = - np.sign(data)     # 1 for negative entries, -1 for positive entries
+        p_arr = np.array([0 if j<1 else 1 for j in signs])  # replace all !=1 values in signs with 0
+        p_fun = a * np.sum(p_arr * data**2)     # Make the sum
+        return p_fun
+
+    def f2min(param, data, m, a):
+        """ Cost function for the fit. Applies the algorithm. """
+        par = param.valuesdict()
+        p0 = par['p0']
+        p1 = par['p1']
+
+        # Phase data and take real part
+        Rp, *_ = processing.ps(data, p0=p0, p1=p1)
+        R = Rp.real
+
+        # Compute the derivative and the h function
+        Rm = np.abs(mth_derivative(R, m))
+        H = np.sum(Rm)  # Normalization factor
+        h = Rm / H
+
+        # Calculate the penalty factor
+        P = penalty_function(R, a)
+
+        # Compute the residual
+        res = entropy(h) + P
+        return res
+
+    if not np.iscomplexobj(data):
+        raise ValueError('Input data is not complex.')
+
+    # Define the parameters of the fit
+    param = l.Parameters()
+    param.add('p0', value=0, min=-360, max=360)
+    param.add('p1', value=0, min=-720, max=720)
+
+    # Minimize using simplex method because the residue is a scalar
+    minner = l.Minimizer(f2min, param, fcn_args=(np.copy(data), m, a))
+    result = minner.minimize(method='nelder', tol=1e-15)
+    popt = result.params.valuesdict()
+
+    return popt['p0'], popt['p1']
+
+
+def whittaker_smoother(data, n=2, s_f=1, w=None):
+    """
+    Adapted from P.H.C. Eilers, Anal. Chem 2003, 75, 3631-3636.
+    Implementation of the smoothing algorithm proposed by Whittaker in 1923.
+    --------
+    Parameters:
+    - data: 1darray
+        Data to be smoothed
+    - n: int
+        Order of the difference to be computed
+    - s_f: float
+        Smoothing factor
+    - w: 1darray or None
+        Array of weights. If None, no weighting is applied.
+    --------
+    Returns:
+    - z: 1darray
+        Smoothed data
+    """
+    # Import things to handle sparse matrices
+    import scipy.sparse as sps
+    from scipy.sparse.linalg.dsolve import linsolve
+
+    y = np.copy(data)
+    m = data.shape[-1]      # Data dimension
+
+    if w is None:           # Use a vector of ones for the weights
+        w = np.ones(m)
+
+    # Compute the derivative matrix directly as sparse
+    signs = np.array([(-1)**(n+k) for k in range(n+1)])
+    entries = misc.binomial_triangle(n+1)
+    D = sps.lil_matrix((m-n, m))    # Empty
+    for k in range(n+1):            # Fill only the interesting diagonals
+        D.setdiag(signs[k]*entries[k], k)
+    D.tocsr()       # Conversion to csr
+
+    W = sps.lil_matrix((m, m))   # Sparse weights matrix
+    W.setdiag(w)
+    W.tocsr()       # Conversion to csr
+
+    A = sps.csr_matrix(W + s_f * D.T @ D)   # Sparse criterion
+    z = linsolve.spsolve(A, w*y)     # Find solutions using LU factorization
+
+    return z
+
+
+
+
+
+
+def rpbc(data, split_imag=False, n=5, basl_method='huber', basl_thresh=0.2, basl_itermax=2000, **phase_kws):
+    """
+    Reversed Phase and Baseline Correction. 
+    Allows for the automatic phase correction and baseline subtraction of NMR spectra.
+    It is called "reversed" because the baseline is actually computed and subtracted before to perform the phase correction.
+
+    The baseline is computed using a low-order polynomion, built on a scale that goes from -1 to 1, whose coefficients are obtained minimizing a non-quadratic cost function. It is recommended to use either "tq" (truncated quadratic, much faster) or "huber" (Huber function, slower but sometimes more accurate). The user is requested to choose between separating the real and imaginary channel in this step. The order of the polynomion and the threshold value are the key parameters for obtaining a good baseline. The used function is processing.polyn_basl
+
+    The phase correction is computed on the baseline-subtracted complex data as described in the SINC algorithm (ref.). The default parameters are generally fine, but in case of data with poor SNR (approximately SNR < 10) better results can be obtained by increasing the value of the e1 parameter. The employed function is processing.SINC_phase
+    -----------
+    Parameters:
+    - data: 1darray
+        Data to be processed, complex-valued
+    - split_imag: bool
+        If True, computes the baseline on the real and imaginary part separately; else, the set of polynomion coefficients are forced to be the same for both
+    - n: int
+        Number of coefficients of the polynomion, i.e. it will be of degree n-1
+    - basl_method: str
+        Cost function to be minimized for the baseline computation. Look for fit.CostFunc, "method" attribute
+    - basl_thresh: float
+        Relative threshold value for the non-quadratic behaviour of the cost function. Look for fit.CostFunc, "s" attribute
+    - basl_itermax: int
+        Maximun number of iterations allowed during the baseline fitting procedure
+    - phase_kws: keyworded arguments
+        Optional arguments for the phase correction. Look for fit.SINC_phase keyworded arguments for details.
+    -----------
+    Returns:
+    - y: 1darray
+        Processed data
+    - p0: float
+        Zero-order phase correction angle, in degrees
+    - p1: float
+        First-order phase correction angle, in degrees
+    - c: 1darray
+        Set of coefficients to be used for the baseline computation, starting from the 0-order coefficient
+    """
+
+    # Check if the data is actually complex
+    if np.iscomplexobj(data):
+        y = np.copy(data)
+    else:
+        raise ValueError('Input data is not complex. Aborting...')
+
+    ## BASELINE COMPUTATION AND SUBTRACTION
+    if not n: # Do not correct the baseline
+        c = [0+0j]
+        basl = np.zeros_like(y)
+    else:
+        if split_imag:
+            # Compute baseline for real and imaginary parts separately
+            basl_r, c_r = fit.polyn_basl(y.real, n=n, method=basl_method, s=basl_thresh, itermax=int(basl_itermax))
+            basl_i, c_i = fit.polyn_basl(y.imag, n=n, method=basl_method, s=basl_thresh, itermax=int(basl_itermax))
+            # Put them together afterwards
+            c = np.array(c_r) + 1j*np.array(c_i)
+            basl = basl_r + 1j*basl_i
+        else:
+            # Compute the baseline on the complex spectrum
+            basl, c = fit.polyn_basl(y, n=n, method=basl_method, s=basl_thresh, itermax=int(basl_itermax))
+
+    # Transform c into array for easier handling
+    c = np.array(c)
+    # Subtract the baseline to the data
+    y -= basl
+
+    ## PHASE CORRECTION
+    # Compute the phase angles
+    p0, p1 = fit.SINC_phase(y, **phase_kws)
+    # Apply it
+    y, *_ = processing.ps(y, p0=p0, p1=p1)
+
+    return y, p0, p1, c
+
+
+
+
+def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
+    """
+    Performs the calibration of a pseudo-2D experiment by circular-shifting the spectra of an appropriate amount.
+    The target function aims to minimize the superimposition between a reference spectrum and the others using a brute-force method.
+    ----------
+    Parameters:
+    - ppm_scale: 1darray
+        ppm scale of the spectrum to calibrate
+    - data: 2darray
+        Complex-valued spectrum
+    - lims: tuple
+        (ppm sx, ppm dx) of the calibration region
+    - u_off: float
+        Maximum offset for the circular shift, in ppm
+    - ref_idx: int
+        Index of the spectrum to be used as reference
+    ----------
+    Returns:
+    - data_roll: 2darray
+        Calibrated data
+    - u_cal: list
+        Number of point of which the spectra have been circular-shifted
+    - u_cal_ppm: list
+        Correction for the ppm scale of each experiment
+    """
+
+    def f2min(param, s_ref, s, span_region):
+        """
+        Cost function for the fit
+        """
+        # Unpack the parameters
+        par = param.valuesdict()
+
+        # Circular-shift the spectrum
+        roll_s = np.roll(s, int(par['u']))
+
+        # Normalize the spectra to their maximum in the calibration region
+        s_ref_norm = s_ref.real / max(s_ref.real[span_region])
+        roll_s_norm = roll_s.real / max(roll_s.real[span_region])
+        # Compute the residuals
+        res = s_ref_norm - roll_s_norm
+        return res[span_region]
+
+
+    # Shallow copy
+    data_in = np.copy(data)
+
+    # Convert the offset in points
+    npoints = int((u_off / misc.calcres(ppm_scale))) 
+
+    # Convert the ppm limits into points indeces
+    sx = misc.ppmfind(ppm_scale, lims[0])[0]
+    dx = misc.ppmfind(ppm_scale, lims[1])[0]
+    # Calibration region
+    cal_reg = slice(min(sx, dx), max(sx, dx), 1)
+
+    # Get the reference spectrum
+    s_ref = data_in[ref_idx]
+
+    # Initialize the output variables
+    u_cal = np.empty(data_in.shape[0])  # Shifts in points
+    u_cal[ref_idx] = 0      # The reference spectrum does not move!
+
+    u_cal_ppm = np.empty(data_in.shape[0])  # Shifts in ppm
+    u_cal_ppm[ref_idx] = 0  # Same here!
+
+    for i, s_i in enumerate(data_in):   # Loop over the experiments
+        if i != ref_idx:                # The reference spectrum does not move!
+            # Make the parameters of the fit
+            param = l.Parameters()
+            param.add('u', value=0, max=npoints, min=-npoints)
+            param['u'].set(brute_step = 1)      # Discrete step of one point
+            
+            # Fit
+            minner = l.Minimizer(f2min, param, fcn_args=(s_ref, s_i, cal_reg))
+            result = minner.minimize(method='brute', max_nfev=1000)
+
+            # Unpack the parameters and store them in the output variables
+            popt = result.params.valuesdict()
+            u = popt['u']
+
+            u_cal[i] = int(u)
+            u_cal_ppm[i] = u * misc.calcres(ppm_scale)
+
+    # Apply the correction
+    data_roll = []      # Initialize output variable
+    for i, experiment in enumerate(data_in):        # Loop over the experiments
+        # Roll the spectra of the appropriate amount and append them to the list
+        data_roll.append(np.roll(experiment, int(u_cal[i])))
+    # Transform into array
+    data_roll = np.array(data_roll)
+
+    return data_roll, u_cal, u_cal_ppm
+
 

@@ -3,17 +3,18 @@
 import os
 import sys
 import numpy as np
-from scipy import linalg, stats
+from numpy import linalg
+from scipy import stats
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import seaborn as sns
-from pprint import pprint as Print 
+from pprint import pprint
 
 from . import fit, misc, sim, figures, processing
 from .Spectra import Spectrum_1D, pSpectrum_1D, Spectrum_2D, pSpectrum_2D, Pseudo_2D
 
-__version__ = '0.2a.0'
+__version__ = '0.3a.1'
 
 # Use seaborn's colormaps and save it to a dictionary
 from .config import CM, COLORS, cron

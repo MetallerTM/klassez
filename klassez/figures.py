@@ -3,7 +3,8 @@
 import os
 import sys
 import numpy as np
-from scipy import linalg, stats
+from numpy import linalg
+from scipy import stats
 from scipy.spatial import ConvexHull
 import random
 import matplotlib
@@ -239,7 +240,7 @@ def ax_heatmap(ax, data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale
 
 
 
-def sns_heatmap(data, name=None):
+def sns_heatmap(data, name=None, ext='png', dpi=600):
     """
     Computes a heatmap of data, which is a matrix. 
     This function employs the seaborn package.
@@ -250,6 +251,10 @@ def sns_heatmap(data, name=None):
         Data of which to compute the heatmap. Make sure the entries are real numbers.
     - name: str or None
         Filename of the figure to be saved. If None, the figure is shown instead.
+    - ext: str
+        Format of the image
+    - dpi: int
+        Resolution of the image in dots per inches
     """
     data = data.real
 
@@ -268,16 +273,32 @@ def sns_heatmap(data, name=None):
     ax.figure.axes[-1].tick_params(labelsize=7)
     fig.tight_layout()
     if name:
-        plt.savefig(name+'.png', format='png', dpi=600)
+        plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         plt.show()
     plt.close()
 
 
-def plot_fid_re(fid, scale=None, c='b', lims=None, name=None):
+def plot_fid_re(fid, scale=None, c='b', lims=None, name=None, ext='png', dpi=600):
     """
     Makes a single-panel figure that shows either the real or the imaginary part of the FID.
     The x-scale and y-scale are automatically adjusted.
+    ----------
+    Parameters:
+    - fid: ndarray
+        FID to be plotted
+    - scale: 1darray or None
+        x-scale of the figure
+    - c: str
+        Color
+    - lims: tuple or None
+        Limits
+    - name: str
+        Name of the figure
+    - ext: str
+        Format of the image
+    - dpi: int
+        Resolution of the image in dots per inches
     """
 
 
@@ -314,17 +335,16 @@ def plot_fid_re(fid, scale=None, c='b', lims=None, name=None):
     misc.set_ylim(ax1, [np.abs(fid.real), -np.abs(fid.real)])
     misc.mathformat(ax1, axis='y')
 
-
     if name:
         misc.set_fontsizes(ax1, 10)
-        plt.savefig(name+'.png', format='png', dpi=600)
+        plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         misc.set_fontsizes(ax1, 14)
         plt.show()
     plt.close()
 
-def plot_fid(fid, name=None):
+def plot_fid(fid, name=None, ext='png', dpi=600):
     """
     Makes a two-panel figure that shows on the left the real part of the FID, on the right the imaginary part.
     The x-scale and y-scale are automatically adjusted.
@@ -367,15 +387,15 @@ def plot_fid(fid, name=None):
     misc.mathformat(ax2, axis='y')
     
     if name:
-        misc.set_fontsizes(10)
-        plt.savefig(name+'.png', format='png', dpi=600)
+        misc.set_fontsizes(ax1, 10)
+        plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
-        misc.set_fontsizes(14)
+        misc.set_fontsizes(ax1, 14)
         plt.show()
     plt.close()
 
-def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4, lvl=0.09, name=None, X_label='$\delta\ $ F2 /ppm', Y_label='$\delta\ $ F1 /ppm', lw=0.5, Negatives=False, cmapneg=None, n_xticks=10, n_yticks=10, fontsize=10):
+def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fac=1.4, lvl=0.09, X_label=r'$\delta\ $ F2 /ppm', Y_label=r'$\delta\ $ F1 /ppm', lw=0.5, cmapneg=None, n_xticks=10, n_yticks=10, fontsize=10, name=None, ext='png', dpi=600):
     """
     Makes a 2D contour plot. 
     Allows for the buildup of modular figures. 
@@ -395,39 +415,48 @@ def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4
         limits for the x-axis (left, right). If None, the whole scale is used.
     - ylims: tuple
         limits for the y-axis (left, right). If None, the whole scale is used.
-    - cmap: matplotlib.cm Object
-        Colour for the contour
+    - cmap: str
+        Colormap identifier for the contour
     - c_fac: float
         Contour factor parameter
     - lvl: float
         height with respect to maximum at which the contour are computed
-    - name: str
-        Filename for the figure.
     - X_label: str
         text of the x-axis label;
     - Y_label: str
         text of the y-axis label;
     - lw: float
         linewidth of the contours
-    - Negatives: bool
-        Choose if to plot the negative contours or not
-    - cmapneg: matplotlib.cm Object
-        Colour for the negative contours
+    - cmapneg: str or None
+        Colormap identifier for the negative contour. If None, they are not computed at all
     - n_xticks: int
         Number of numbered ticks on the x-axis of the figure
     - n_yticks: int
         Number of numbered ticks on the x-axis of the figure
     - fontsize: float
         Biggest font size in the figure.
+    - name: str
+        Filename for the figure
+    - ext: str
+        Format of the image
+    - dpi: int
+        Resolution of the image in dots per inches
     """
 
-    swapped_scales = len(ppm_f2) == datax.shape[0] and len(ppm_f1) == datax.shape[1]
+    # Check if the scales matches the dimensions of datax
+    swapped_scales = not(len(ppm_f2) == datax.shape[1] and len(ppm_f1) == datax.shape[0])
     if swapped_scales:
-        raise AssertionError('Swapped scales!')
+        raise AssertionError('Swapped scales?')
 
-    if cmap is None:
-        cmap = cm.Greys_r
+    # Assign colormaps
+    if cmapneg is None:
+        Negatives = False
+    else:
+        Negatives = True
+        if not isinstance(cmapneg, str):
+            cmapneg = 'Reds_r'
 
+    # Get the limits 
     if xlims is None:
         xsx, xdx = max(ppm_f2), min(ppm_f2)
     else:
@@ -437,38 +466,41 @@ def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4
     else:
         ysx, ydx = max(ylims), min(ylims)
 
+    # Calculate the contour levels
     norm = np.max(datax)
     contour_start = norm*lvl
     contour_num = 16 
     contour_factor = c_fac 
-    # calculate contour levels
     cl = contour_start * contour_factor ** np.arange(contour_num)
 
-
+    # Make the figure
     fig = plt.figure()
     fig.set_size_inches(figsize_small)
     plt.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.95)
     ax = fig.add_subplot(1,1,1)
-    ax.contour(ppm_f2, ppm_f1, datax, cl, cmap=cmap, extent=(min(ppm_f2), max(ppm_f2), max(ppm_f1), min(ppm_f1)), linewidths=lw)
+    
+    # Plot
+    figures.ax2D(ax, ppm_f2, ppm_f1, datax, cmap=cmap, c_fac=c_fac, lvl=lvl, lw=lw)
     
     if Negatives:       # Plot the negative part of the spectrum
-        if cmapneg is None:
-            cmapneg = cm.Reds_r
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="No contour levels were found within the data range.")
-            ax.contour(ppm_f2, ppm_f1, -datax, cl, cmap=cmapneg, extent=(min(ppm_f2), max(ppm_f2), max(ppm_f1), min(ppm_f1)), linewidths=lw)
+            figures.ax2D(ax, ppm_f2, ppm_f1, -datax, cmap=cmapneg, c_fac=c_fac, lvl=lvl, lw=lw)
 
+    # Axis labels
     ax.set_xlabel(X_label)
     ax.set_ylabel(Y_label)
 
+    # Scales
     misc.pretty_scale(ax, (xsx, xdx), axis='x', n_major_ticks=n_xticks)
     misc.pretty_scale(ax, (ysx, ydx), axis='y', n_major_ticks=n_yticks)
 
+    # Fontsizes
     misc.set_fontsizes(ax, fontsize)
 
     if name:
-        print( 'Saving '+name+'.png...')
-        plt.savefig(name+'.png', format='png', dpi=600)
+        print(f'Saving {name}.{ext}...')
+        plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         misc.set_fontsizes(ax, 14)
@@ -476,7 +508,7 @@ def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4
     plt.close()
     print( 'Done.')
 
-def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4, lvl=0.1, lw=0.5, X_label='$\delta\,$F2 /ppm', Y_label='$\delta\,$F1 /ppm', title=None, n_xticks=10, n_yticks=10, fontsize=10):
+def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fac=1.4, lvl=0.1, lw=0.5, X_label=r'$\delta\,$F2 /ppm', Y_label=r'$\delta\,$F1 /ppm', title=None, n_xticks=10, n_yticks=10, fontsize=10):
     """
     Makes a 2D contour plot like the one in figures.figure2D, but in a specified panel. 
     Allows for the buildup of modular figures. 
@@ -498,8 +530,8 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4
         limits for the x-axis (left, right). If None, the whole scale is used.
     - ylims: tuple
         limits for the y-axis (left, right). If None, the whole scale is used.
-    - cmap: matplotlib.cm Object
-        Colour for the contour
+    - cmap: str
+        Colormap identifier for the contour
     - c_fac: float
         Contour factor parameter
     - lvl: float
@@ -524,13 +556,13 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4
         Drawn contour lines
     """
 
-    swapped_scales = len(ppm_f2) == datax.shape[0] and len(ppm_f1) == datax.shape[1]
+    swapped_scales = not(len(ppm_f2) == datax.shape[1] and len(ppm_f1) == datax.shape[0])
     if swapped_scales:
-        raise AssertionError('Swapped scales!')
+        raise AssertionError('Swapped scales?')
 
-    if cmap is None:
-        cmap = cm.Greys_r
+    cmap = CM[f'{cmap}']
 
+    
     if xlims is None:
         xsx, xdx = max(ppm_f2), min(ppm_f2)
     else:
@@ -564,18 +596,16 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap=None, c_fac=1.4
     return cnt
 
 
-
-
-def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default', name=None, X_label='$\delta\ $ F2 /ppm', Y_label='$\delta\ $ F1 /ppm', lw=0.5, Negatives=False, n_xticks=10, n_yticks=10, labels=None):
+def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default', c_fac=1.4, Negatives=False, X_label='$\delta\ $ F2 /ppm', Y_label='$\delta\ $ F1 /ppm', lw=0.5, n_xticks=10, n_yticks=10, labels=None, name=None, ext='png', dpi=600):
     """
-    Generates the figure of multiple, superimposed spectra.
+    Generates the figure of multiple, superimposed spectra, using figures.ax2D.
     --------
     Parameters:
     - ppm_f2: 1darray
         ppm scale of the direct dimension
     - ppm_f1: 1darray
         ppm scale of the indirect dimension
-    - datax: list
+    - datax: sequence of 2darray
         the 2D NMR spectra to be plotted
     - xlims: tuple
         limits for the x-axis (left, right). If None, the whole scale is used.
@@ -583,31 +613,37 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
         limits for the y-axis (left, right). If None, the whole scale is used.
     - lvl: "default" or list
         height with respect to maximum at which the contour are computed. If "default", each spectrum is at 10% of maximum height. Otherwise, each entry of the list corresponds to the contour height of the respective spectrum.
-    - name: str
-        filename of the figure, if it has to be saved;
+    - c_fac: float
+        Contour factor
+    - Negatives: bool
+        set it to True if you want to see the negative part of the spectrum
     - X_label: str
         text of the x-axis label;
     - Y_label: str
         text of the y-axis label;
     - lw: float
         linewidth of the contours
-    - Negatives: bool
-        set it to True if you want to see the negative part of the spectrum
     - n_xticks: int
         Number of numbered ticks on the x-axis of the figure
     - n_yticks: int
         Number of numbered ticks on the x-axis of the figure
     - labels: list
-        entries of the legend. If None, the legend is not drawn.
+        entries of the legend. If None, the spectra are numbered.
+    - name: str
+        Filename for the figure. If None, it is shown instead of saved
+    - ext: str
+        Format of the image
+    - dpi: int
+        Resolution of the image in dots per inches
     """
     nsp = len(datax)
-    cmaps = [cm.Blues_r, cm.Reds_r, cm.Greens_r, cm.Greys_r, cm.Purples_r, cm.Oranges_r, cm.YlOrBr_r, cm.YlOrRd_r, cm.OrRd_r, cm.PuRd_r, cm.RdPu_r, cm.BuPu_r, cm.GnBu_r, cm.PuBu_r, cm.YlGnBu_r, cm.PuBuGn_r, cm.BuGn_r, cm.YlGn]
+    cmaps = 'Greys_r', 'Reds_r', 'Blues_r', 'Greens_r', 'Purples_r', 'Oranges_r'
+    cmap_p = cmaps[::2]
+    cmap_n = cmaps[1::2]
 
     # Labels of the spectra that appear in the legend
     if not labels:
-        labels = []
-        for k in range(nsp):
-            labels.append(str(k+1))
+        labels = [f'{k+1}' for k in range(nsp)]
 
     if xlims is None:
         xsx, xdx = max(ppm_f2), min(ppm_f2)
@@ -618,41 +654,55 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
     else:
         ysx, ydx = max(ylims), min(ylims)
 
-
     fig = plt.figure()
     fig.set_size_inches(figsize_small)
     plt.subplots_adjust(left=0.15, bottom=0.2)
     ax = fig.add_subplot(1,1,1)
 
-    contour_num = 16 
-    contour_factor = 1.40
     if lvl == 'default':
         lvl = np.ones(nsp) * 0.1 
-    norm = []
-    contour_start = []
-    cl = []
-    cnt = []
-    for k in range(nsp):
-        norm.append(np.max(np.abs(datax[k])))
-        contour_start.append(norm[k] * lvl[k])
-        # calculate contour levels
-        cl.append(norm[k] * lvl[k] * contour_factor ** np.arange(contour_num))
-        cntt = ax.contour(ppm_f2, ppm_f1, datax[k], cl[k], cmap=cmaps[k], extent=(min(ppm_f2), max(ppm_f2), max(ppm_f1), min(ppm_f1)), linewidths=0.5)
-        cnt.append(cntt)
-    for i in range(len(labels)):
-        cnt[i].collections[i].set_label(labels[i])
+
+    if Negatives:
+        p_cnt, n_cnt = [], []
+        for k, data in enumerate(datax):
+            t_cnt = figures.ax2D(ax, ppm_f2, ppm_f1, data, cmap=cmap_p[k], c_fac=c_fac, lvl=lvl[k], lw=lw)
+            p_cnt.append(t_cnt)
+            t_cnt = figures.ax2D(ax, ppm_f2, ppm_f1, -data, cmap=cmap_n[k], c_fac=c_fac, lvl=lvl[k], lw=lw)
+            n_cnt.append(t_cnt)
+    else:
+        cnt = []
+        for k, data in enumerate(datax):
+            t_cnt = figures.ax2D(ax, ppm_f2, ppm_f1, data, cmap=cmaps[k], c_fac=c_fac, lvl=lvl[k], lw=lw)
+            cnt.append(t_cnt)
 
     ax.set_xlabel(X_label)
     ax.set_ylabel(Y_label)
 
     misc.pretty_scale(ax, (xsx, xdx), axis='x', n_major_ticks=n_xticks)
     misc.pretty_scale(ax, (ysx, ydx), axis='y', n_major_ticks=n_yticks)
-    ax.legend()
+    if Negatives:
+        Qlabels = []
+        for L in labels:
+            Qlabels.extend(f'+{L}', f'-{L}')
+        H = []
+        for Qp, Qn in zip(p_cnt, n_cnt):
+            hp, _ = Qp.legend_elements()
+            hn, _ = Qn.legend_elements()
+            H.extend(hp[0], hn[0])
+    else:
+        Qlabels = []
+        for L in labels:
+            Qlabels.extend(f'{L}')
+        H = []
+        for Q in cnt:
+            h, _ = Q.legend_elements()
+            H.extend(h[0])
+    ax.legend(H, Qlabels)
 
     if name:
         misc.set_fontsizes(10)
-        print( 'Saving '+name+'.png...')
-        plt.savefig(name+'.png', format='png', dpi=600)
+        print(f'Saving {name}.{ext}...')
+        plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         misc.set_fontsizes(14)
@@ -661,11 +711,7 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
     print( 'Done.')
 
 
-
-
-
-
-def figure1D(ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, name=None, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, hideylabels=False):
+def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, fontsize=10, name=None, ext='png', dpi=600):
     """
     Makes the figure of a 1D NMR spectrum.
 
@@ -674,7 +720,7 @@ def figure1D(ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, name=
     Parameters:
 	- ppm: 1darray
 		ppm scale of the spectrum
-	- data: 1darray
+	- datax: 1darray
 		spectrum to be plotted
 	- norm: bool
 		if True, normalizes the intensity to 1.
@@ -686,8 +732,6 @@ def figure1D(ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, name=
 		Colour of the line.
 	- lw: float
 		 linewidth
-    - name: str or None
-        Filename for the figure to be saved. If None, the figure is shown instead.
 	- X_label: str
 		 text of the x-axis label;
 	- Y_label: str
@@ -698,13 +742,14 @@ def figure1D(ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, name=
 		 Number of numbered ticks on the x-axis of the figure
 	- fontsize: float
 		 Biggest font size in the figure.
-    --------
-    Returns:
-	- line: Line2D Object
-		Line object returned by plt.plot.
+    - name: str or None
+        Filename for the figure to be saved. If None, the figure is shown instead.
+    - ext: str
+        Format of the image
+    - dpi: int
+        Resolution of the image in dots per inches
     """
-    if np.iscomplexobj(data):
-        data = np.copy(data.real)
+    data = np.copy(datax.real)
 
     if xlims is None:
         xsx, xdx = max(ppm), min(ppm)
@@ -729,21 +774,17 @@ def figure1D(ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, name=
     else:
         ysx, ydx = min(ylims), max(ylims)
 
+    misc.mathformat(ax, axis='y')
     misc.pretty_scale(ax, (xsx, xdx), axis='x', n_major_ticks=n_xticks)
     misc.pretty_scale(ax, (ysx, ydx), axis='y', n_major_ticks=n_yticks)
     
-    if hideylabels:
-        ax.tick_params(axis='y', which='both', left=False, labelleft=False)
-
     ax.set_xlabel(X_label)
-    if not hideylabels:
-        ax.set_ylabel(Y_label)
-        misc.mathformat(ax, axis='y')
+    ax.set_ylabel(Y_label)
 
     if name:
         misc.set_fontsizes(ax, 10)
-        print( 'Saving '+name+'.png...')
-        plt.savefig(name+'.png', format='png', dpi=600)
+        print(f'Saving {name}.{ext}...')
+        plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         misc.set_fontsizes(ax, 14)
@@ -752,7 +793,7 @@ def figure1D(ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, name=
     print( 'Done.')
 
 
-def ax1D(ax, ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, label=None, fontsize=10):
+def ax1D(ax, ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, label=None, fontsize=10):
     """
     Makes the figure of a 1D NMR spectrum, placing it in a given figure panel.
     This allows the making of modular figures.
@@ -793,8 +834,7 @@ def ax1D(ax, ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, X_lab
 	- line: Line2D Object
 		Line object returned by plt.plot.
     """
-    if np.iscomplexobj(data):
-        data = np.copy(data.real)
+    data = np.copy(datax.real)
 
     if xlims is None:
         xsx, xdx = max(ppm), min(ppm)
@@ -826,25 +866,23 @@ def ax1D(ax, ppm, data, norm=False, xlims=None, ylims=None, c='b', lw=0.5, X_lab
     return line
 
 
-def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, name=None, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, hideylabels=False, labels=None):
+def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, fontsize=10, labels=None, name=None, ext='png', dpi=600):
     """
     Creates the superimposed plot of a series of 1D NMR spectra.
     -------
     Parameters:
-    - ppm0: list or 1darray
-        ppm scale of the spectra
-    - data0: list
+    - ppm0: sequence of 1darray or 1darray
+        ppm scale of the spectra. If only one scale is supplied, it is assumed to be the same for all the spectra
+    - data0: sequence of 1darray
         List containing the spectra to be plotted
     - xlims: tuple or None
         Limits for the x-axis. If None, the whole scale is used.
     - ylims: tuple or None
         Limits for the y-axis. If None, they are automatically set.
     - norm: False or float or str
-        If it is False, it does nothing. If it is float, divides all spectra for that number. If it is str('#'), normalizes all the spectra to the '#' spectrum. If it is whatever else string, normalizes all spectra to themselves.
+        If it is False, it does nothing. If it is float, divides all spectra for that number. If it is str('#'), normalizes all the spectra to the '#' spectrum (python numbering). If it is whatever else string, normalizes all spectra to themselves.
     - c: tuple or None
         List of the colors to use for the traces. None uses the default ones.
-    - name: str or None
-        Filename of the figure, if it has to be saved. If it is None, the figure is shown instead.
     - X_label: str
         text of the x-axis label
     - Y_label: str
@@ -853,10 +891,16 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, name
         Number of numbered ticks on the x-axis of the figure
     - n_yticks: int
         Number of numbered ticks on the x-axis of the figure
-    - hideylabels: bool
-        if True, does not show label and tick labels of the y axis.
+    - fontsize: float
+        Biggest fontsize in the picture
     - labels: list or None or False
         List of the labels to be shown in the legend. If it is None, the default entries are used (i.e., '1, 2, 3,...'). If it is False, the legend is not shown.
+    - name: str or None
+        Filename of the figure, if it has to be saved. If it is None, the figure is shown instead.
+    - ext: str
+        Format of the image
+    - dpi: int
+        Resolution of the image in dots per inches
     """
 
     # Check input data format and transform into a list if it is not already
@@ -888,7 +932,7 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, name
 
     # Build the labels if not given
     if labels is None:
-        labels = ['{}'.format(w+1) for w in range(nsp)]
+        labels = [f'{w+1}' for w in range(nsp)]
     elif labels is False:
         pass
     elif len(labels) == nsp:
@@ -898,15 +942,10 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, name
 
     # Build the list of spectra
     if nsp == 1:
-        print('You provided only one spectrum. You should call figure1D instead.')
-        return 0
+        figures.figure1D(ppm[0], data[0], norm=norm, xlims=xlims, ylims=ylims, c='tab:blue', lw=lw, X_label=X_label, Y_label=Y_label, n_xticks=n_xticks, n_yticks=n_yticks, fontsize=fontsize, name=name, ext=ext, dpi=dpi)
+        return 
     else:
-        data = [data0[k] for k in range(nsp)]     # copy to prevent overwriting
-
-    # Delete the imaginary part of the spectra, if there is
-    for k, spectrum in enumerate(data):
-        if np.iscomplexobj(spectrum):
-            data[k] = np.copy(spectrum.real)
+        data = [np.copy(d.real) for d in data0]     # copy to prevent overwriting
 
     # Handle the 'norm' flag
     if norm is not False:
@@ -935,7 +974,7 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, name
             Y_label = 'Normalized intensity /a.u.'
 
     # Set the colors
-    if isinstance(c, tuple) or isinstance(c, list):
+    if isinstance(c, (tuple, list)):
         if len(c) < nsp:
             raise ValueError('The provided colors are not enough for the spectra.')
     else:
@@ -953,7 +992,7 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, name
     plt.subplots_adjust(left=0.20, bottom=0.15, right=0.95, top=0.90)
     # Add the traces
     for k, s in enumerate(data):
-        line = figures.ax1D(ax, ppm[k], data[k], norm=False, xlims=None, ylims=None, c=c[k], lw=0.5, X_label='', Y_label='', n_xticks=10, n_yticks=10)
+        line = figures.ax1D(ax, ppm[k], data[k], c=c[k], lw=lw)
         if labels is not False:
             line.set_label(labels[k])
 
@@ -973,15 +1012,11 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, name
     # Make pretty scales
     misc.pretty_scale(ax, (xsx, xdx), axis='x', n_major_ticks=n_xticks)
     misc.pretty_scale(ax, (ysx, ydx), axis='y', n_major_ticks=n_yticks)
+    misc.mathformat(ax, axis='y')
     
     # Set the labels for the axes
-    if hideylabels:
-        ax.tick_params(axis='y', which='both', left=False, labelleft=False)
 
     ax.set_xlabel(X_label)
-    if not hideylabels:
-        ax.set_ylabel(Y_label)
-        misc.mathformat(ax, axis='y')
 
     # Legend
     if labels is not False:
@@ -990,8 +1025,8 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, name
     # Save / Show the figure
     if name:
         misc.set_fontsizes(ax, 10)
-        print( 'Saving '+name+'.png...')
-        plt.savefig(name+'.png', format='png', dpi=600)
+        print(f'Saving {name}.{ext}...')
+        plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         plt.subplots_adjust(left=0.10)
@@ -1095,7 +1130,7 @@ def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, 
 
 
 
-def stacked_plot(ppmscale, S, xlims=None, lw=0.5, name=None, X_label='$\delta\ $ F1 /ppm', Y_label='Normalized intensity /a.u.', n_xticks=10, labels=None):
+def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label='$\delta\ $ F1 /ppm', Y_label='Normalized intensity /a.u.', n_xticks=10, labels=None, name=None, ext='png', dpi=600):
     """
     Creates a stacked plot of all the spectra contained in the list S. Note that S MUST BE a list. All the spectra must share the same scale.
     --------
@@ -1121,9 +1156,7 @@ def stacked_plot(ppmscale, S, xlims=None, lw=0.5, name=None, X_label='$\delta\ $
     """
     nsp = len(S)                                # number of spectra in the lsit
     if not labels:                              # auto-builds the labels for the spectra if not specified
-        labels=[]
-        for k in range(nsp):
-            labels.append(str(k+1))
+        labels=[f'{w+1}' for w in range(nsp)]
     
     # Normalizes all the spectra to the biggest value of the series
     norm_factor = np.max(np.abs(np.array(S)))
@@ -1159,8 +1192,8 @@ def stacked_plot(ppmscale, S, xlims=None, lw=0.5, name=None, X_label='$\delta\ $
     # Shows or saves the figure
     if name:
         misc.set_fontsizes(ax, 10)
-        print( 'Saving '+name+'.png...')
-        plt.savefig(name+'.png', format='png', dpi=600)
+        print(f'Saving {name}.{ext}...')
+        plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         plt.subplots_adjust(left=0.10, bottom=0.1, right=0.95, top=0.95)

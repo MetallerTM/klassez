@@ -3,7 +3,8 @@
 import os
 import sys
 import numpy as np
-from scipy import linalg, stats
+from numpy import linalg
+from scipy import stats
 from scipy.spatial import ConvexHull
 import random
 import matplotlib
@@ -47,6 +48,8 @@ class Spectrum_1D:
     Attributes:
     - datadir: str
         Path to the input file/dataset directory
+    - filename: str
+        Base of the name of the file, without extensions
     - fid: 1darray
         FID
     - acqus: dict
@@ -79,7 +82,7 @@ class Spectrum_1D:
         if 'ngdic' in self.__dict__.keys():
             doc += f'Read from "{self.datadir}"\n'
         else:
-            doc += f'Simulated from "{self.datadir}"\n'
+            doc += f'Simulated from "{self.filename}" in {self.datadir}\n'
         N = self.fid.shape[-1]
         doc += f'It is a {self.acqus["nuc"]} spectrum recorded over a\nsweep width of {self.acqus["SWp"]} ppm, centered at {self.acqus["o1p"]} ppm.\n'
         doc += f'The FID is {N} points long.\n'
@@ -87,7 +90,7 @@ class Spectrum_1D:
 
         return doc
 
-    def __init__(self, in_file, pv=False, isexp=True):
+    def __init__(self, in_file, pv=False, isexp=True, spect='bruker'):
         """
         Initialize the class. 
         Simulation of the dataset (i.e. isexp=False) employs sim.sim_1D.
@@ -99,40 +102,91 @@ class Spectrum_1D:
             True if you want to use pseudo-voigt lineshapes for simulation, False for Voigt
         - isexp: bool
             True if this is an experimental dataset, False if it is simulated
+        - spect: str
+            Data file format. Allowed: 'bruker', 'varian', 'magritek'
         """
-        self.datadir = in_file
-        if isexp is False:  # Simulate the dataset
-            self.acqus = sim.load_sim_1D(in_file)
+        ## Set up the filenames
+        if isinstance(in_file, dict):   # Simulated data with already given acqus dictionary
+            self.datadir = os.getcwd()      # Current directory
+            self.filename = 'dict'  # Filename is just "dict"
+        else:                           # You need to actually read a file
+            self.datadir = os.path.abspath(in_file) # Get the file position
+            if not os.path.isdir(self.datadir):
+                self.datadir = os.path.dirname(self.datadir)
+            self.filename = os.path.basename(in_file).rsplit('.', 1)[0] # Get the filename
+            # If filename is a directory, write things inside it
+            if os.path.isdir('/'.join([self.datadir, self.filename])) and isexp:
+                self.datadir = os.path.join(self.datadir, self.filename) # i.e. add filename to datadir
+        
+        ## Read the data
+        if isexp is False:  # Simulate the dataset 
+            if isinstance(in_file, dict):   # using the provided dictionary
+                self.acqus = dict(in_file)
+            else:   # or building it from the file
+                self.acqus = sim.load_sim_1D(in_file)
+            # Generate the FID
             self.fid = sim.sim_1D(in_file, pv=pv)
-        else:
+            # The acqus dictionary will know your dataset is simulated
+            self.acqus['spect'] = 'simulated'
+        else:   # Read the data from the directory using nmrglue
             warnings.filterwarnings("ignore")   # Suppress errors due to CONVDTA in TopSpin
-            dic, data = ng.bruker.read(in_file, cplex=True)
+            # Discriminate between different spectrometer formats
+            if spect == 'bruker':   
+                dic, data = ng.bruker.read(in_file, cplex=True)
+                self.acqus = misc.makeacqus_1D(dic)     
+                # Set the data format keys in acqus
+                self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
+                self.acqus['DTYPA'] = dic['acqus']['DTYPA']
+            elif spect == 'varian':
+                dic, data = ng.varian.read(in_file)
+                self.acqus = misc.makeacqus_1D_varian(dic)
+            elif spect == 'magritek':
+                dic1, data = ng.spinsolve.read(in_file, specfile='data.1d')         # Actual FID
+                dic2, _, = ng.spinsolve.read(in_file, specfile='spectrum.1d')       # for config
+                dic3, _, = ng.spinsolve.read(in_file, specfile='nmr_fid.dx')        # for config
+                # Join the dictionary together
+                dic = dict(dic1)
+                dic.update(dic3)
+                dic.update(dic2)        # Important because it contains the ppm scale!
+                self.fid = data
+                self.acqus = misc.makeacqus_1D_spinsolve(dic)
+            else:
+                raise NotImplementedError('Unknown dataset format.')
+
+            # Store the local variables as class attributes
+            self.acqus['spect'] = spect
             self.fid = data
-            self.acqus = misc.makeacqus_1D(dic)
-            self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
-            self.acqus['DTYPA'] = dic['acqus']['DTYPA']
             self.ngdic = dic        # NMRGLUE dictionary of parameters
             del dic
             del data
-        # Look for group delay points: if there is not, put it to 0
+        # Look for group delay points: if there are not, put it to 0
         try:
             self.acqus['GRPDLY'] = int(self.ngdic['acqus']['GRPDLY'])
         except:
             self.acqus['GRPDLY'] = 0
 
-        # Initalize the procs dictionary with default values
-        #       DEFAULT VALUES
-        # -----------------------------------------------
-        proc_init_1D = (dict(wf0), None, 0.5, 0)
+        ## Initalize the procs dictionary 
+        # If there already is a procs dictionary saved as file, load it
+        if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
+            self.procs = self.read_procs()
+        # Otherwise, initialize it with default values
+        else:
+            self.procs = {} 
+            proc_init_1D = (dict(wf0), None, 0.5, 0)    # Make a shallow copy
+            for k, key in enumerate(proc_keys_1D):  # Loop in this way to keep the order
+                self.procs[key] = proc_init_1D[k]         
+            self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
+            #   phases
+            self.procs['p0'] = 0
+            self.procs['p1'] = 0
+            self.procs['pv'] = round(self.acqus['o1p'], 2)
+            #   baseline
+            self.procs['basl_c'] = None
+            #   calibration
+            self.procs['cal'] = 0
 
-        self.procs = {}
-        for k, key in enumerate(proc_keys_1D):
-            self.procs[key] = proc_init_1D[k]         # Processing parameters
-        self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
-        #   Then, phases
-        self.procs['p0'] = 0
-        self.procs['p1'] = 0
-        self.procs['pv'] = round(self.acqus['o1p'], 2)
+            # Write this in datadir
+            self.write_procs()
         
     def convdta(self, scaling=1):
         """ Call processing.convdta using self.acqus['GRPDLY'] """
@@ -154,20 +208,37 @@ class Spectrum_1D:
             self.S, self.procs = processing.interactive_fp(self.fid, self.acqus, self.procs)
         else:
             self.S = processing.fp(self.fid, wf=self.procs['wf'], zf=self.procs['zf'], fcor=self.procs['fcor'], tdeff=self.procs['tdeff'])
-        if self.acqus['SFO1'] < 0:
+        if self.acqus['spect'] != 'bruker': # Bruker data are meant to be ordered already
             self.S = self.S[::-1]
+        if self.acqus['SFO1'] < 0:  # Correct for negative gamma nuclei
+            self.S = self.S[::-1]
+        # Unpack the complex spectrum into real and imaginary part
         self.r = self.S.real
         self.i = self.S.imag
 
         # Calculate frequency and ppm scales
         self.freq = processing.make_scale(self.r.shape[0], dw=self.acqus['dw'])
-        if self.acqus['SFO1'] < 0:
+        if self.acqus['SFO1'] < 0:  # Correct for negative gamma nuclei
             self.freq = self.freq[::-1]
         self.ppm = misc.freq2ppm(self.freq, B0=self.acqus['SFO1'], o1p=self.acqus['o1p'])
 
+
         # Initializes the F attribute
         self.F = fit.Voigt_Fit(self.ppm, self.S, self.acqus['t1'], self.acqus['SFO1'], self.acqus['o1p'], self.acqus['nuc'])
-        self.baseline = np.zeros_like(self.ppm)
+
+        # Compute the baseline, if there is
+        if self.procs['basl_c'] is None:    # Initialize it to zero
+            self.baseline = np.zeros_like(self.ppm)
+        else:   # Baseline was computed before!
+            x_basl = np.linspace(-1, 1, self.S.shape[-1])
+            self.baseline = misc.polyn(x_basl, self.procs['basl_c'])
+
+        # Apply phase correction according to procs
+        self.adjph(p0=self.procs['p0'], p1=self.procs['p1'], pv=self.procs['pv'], update=False) # Do not update because otherwise it accumulates the phase
+        # Calibrate
+        self.cal(self.procs['cal'], update=False)
+
+        # Initialize the integrals attribute
         self.integrals = {}
 
     def inv_process(self):
@@ -176,21 +247,23 @@ class Spectrum_1D:
         Overwrites the S attribute!!
         Calls processing.inv_fp
         """
-        if self.acqus['SFO1'] < 0:
+        if self.acqus['SFO1'] < 0:  # Correction for negative gamma nuclei
             self.S = self.S[::-1]
+        # Make the inverse processing
         self.S = processing.inv_fp(self.S, wf=self.procs['wf'], size=self.acqus['TD'], fcor=self.procs['fcor'])
 
     def mc(self):
         """
         Calculates the magnitude of the spectrum and overwrites self.S, self.r, self.i
         """
+        # Basically, || self.S ||_2 
         self.S = (self.S.real**2 + self.S.imag**2)**0.5
         self.r = self.S.real
         self.i = self.S.imag
 
         self.F.S = self.r
 
-    def adjph(self, p0=None, p1=None, pv=None):
+    def adjph(self, p0=None, p1=None, pv=None, update=True):
         """
         Adjusts the phases of the spectrum according to the given parameters, or interactively if they are left as default.
         Calls for processing.ps
@@ -202,19 +275,64 @@ class Spectrum_1D:
             1-st order phase correction /°
         - pv: float or None
             1-st order pivot /ppm
+        - update: bool
+            Choose if you want to update the procs dictionary or not
         """
         # Adjust the phases
         self.S, values = processing.ps(self.S, self.ppm, p0=p0, p1=p1, pivot=pv)
         self.r = self.S.real
         self.i = self.S.imag
-        self.procs['p0'] += round(values[0], 2)
-        self.procs['p1'] += round(values[1], 2)
-        if values[2] is not None:
-            self.procs['pv'] = round(values[2], 5)
 
-        self.F.S = self.r
+        if update:      # Add the new phases to the previous ones
+            self.procs['p0'] += round(values[0], 2)
+            self.procs['p1'] += round(values[1], 2)
+            if values[2] is not None:
+                self.procs['pv'] = round(values[2], 5)
 
-    def cal(self, offset=None, isHz=False):
+        # Update the .procs file
+        self.write_procs()
+
+        # Put the phased spectrum in S
+        self.F.S = self.S
+
+    def acme(self, **method_kws):
+        """
+        Automatic phase correction based on entropy minimization
+        It calculates the phase angles using the algorithm specified in method, then calls self.adjph with those values.
+        --------
+        Parameters:
+        - method_kws: keyworded arguments
+            Additional parameters for the chosen method.
+        """
+        p0, p1 = processing.acme(np.copy(self.S), **method_kws)
+        self.adjph(p0=p0, p1=p1)
+
+
+    def rpbc(self, **rpbc_kws):
+        """
+        Computes the phase angles and the baseline using processing.RPBC on self.S.
+        Then applies the phase correction and subtracts the baseline, automatically.
+        The procs dictionary is then updated and saved.
+        The polynomial baseline is computed according to the given coefficients and stored in self.baseline
+        ---------------
+        Parameters:
+        - rpbc_kws: keyworded arguments
+            See processing.RPBC for details.
+        """
+        self.S, p0, p1, c = processing.rpbc(self.S, **rpbc_kws)
+        self.r = self.S.real
+        self.i = self.S.imag
+        # Update the procs dictionary
+        self.procs['p0'] += p0
+        self.procs['p1'] += p1
+        self.procs['basl_c'] = c
+        # Make the new baseline
+        self.baseline = misc.polyn(np.linspace(-1, 1, self.S.shape[-1]), c)
+
+        # Update the .procs file
+        self.write_procs()
+
+    def cal(self, offset=None, isHz=False, update=True):
         """
         Calibrates the ppm and frequency scale according to a given value, or interactively.
         Calls processing.calibration
@@ -224,32 +342,88 @@ class Spectrum_1D:
             scale shift value
         - isHz: bool
             True if offset is in frequency units, False if offset is in ppm
+        - update: bool
+            Choose if to update the procs dictionary or not
         """
+        # Make shallow copies
         in_ppm = np.copy(self.ppm)
         in_S = np.copy(self.r)
-        if offset is None:
+        if offset is None:  # Get the values interactively
             offppm = processing.calibration(in_ppm, in_S)
             offhz = misc.ppm2freq(offppm, self.acqus['SFO1'], self.acqus['o1p'])
-        else:
-            if isHz:
+        else:               # Calculate the missing one
+            if isHz:    # offppm is missing
                 offhz = offset
                 offppm = misc.freq2ppm(offhz, self.acqus['SFO1'], self.acqus['o1p'])
-            else:
+            else:       # offhz is missing
                 offppm = offset
                 offhz = misc.ppm2freq(offppm, self.acqus['SFO1'], self.acqus['o1p'])
+
+        # Apply the calibration
+        #   to the scales
         self.freq += offhz
         self.ppm += offppm
+        #   to the offset, so that it stays in the center of the SW
+        self.acqus['o1p'] += offppm
+        self.acqus['o1'] += offhz
+        if update:  # update the procs dictionary
+            self.procs['cal'] += offppm
+        # Update the .procs file
+        self.write_procs()
 
-    def save_acqus(self, path='sim_in_1D'):
+    def write_acqus(self, other_dir=None):
         """
-        Write the acqus dictionary in a file.
+        Write the acqus dictionary in a file named "filename.acqus".
         Calls misc.write_acqus_1D
         --------
         Parameters:
-        - path: str
-            Filename 
+        - other_dir: str or None
+            Different location for the acqus dictionary to write into. If None, self.datadir is used instead.
         """
+        if other_dir:
+            path = os.path.join(other_dir, f'{self.filename}.acqus')
+        else:
+            path = os.path.join(self.datadir, f'{self.filename}.acqus')
         misc.write_acqus_1D(self.acqus, path=path)
+
+    def write_procs(self, other_dir=None):
+        """
+        Writes the actual procs dictionary in a file named "filename.procs" in the same directory of the input file.
+        ---------
+        Parameters:
+        - other_dir: str or None
+            Different location for the procs dictionary to write into. If None, self.datadir is used instead. W! Do not put the trailing slash!
+        """
+        if other_dir:
+            path = os.path.join(other_dir, f'{self.filename}.procs')
+        else:
+            path = os.path.join(self.datadir, f'{self.filename}.procs')
+        with open(path, 'w') as f:
+            f.write(f'{self.procs}')
+
+    def read_procs(self, other_dir=None):
+        """
+        Reads the procs dictionary from a file named "filename.procs" in the same directory of the input file.
+        ---------
+        Parameters:
+        - other_dir: str or None
+            Different location for the procs dictionary to look into. If None, self.datadir is used instead. W! Do not put the trailing slash!
+        ---------
+        Returns:
+        - procs: dict
+            Dictionary of processing parameters
+        """
+        if other_dir:
+            path = os.path.join(other_dir, f'{self.filename}.procs')
+        else:
+            path = os.path.join(self.datadir, f'{self.filename}.procs')
+        with open(path, 'r') as f:
+            procs = eval(f.read().replace('array', 'np.array'))
+        # Check if it was read correctly
+        if isinstance(procs, dict):
+            return procs
+        else:
+            raise ValueError(f'{self.filename}.procs cannot be interpreted as a dictionary')
 
     @staticmethod
     def write_ser(ser, acqus, path=None):
@@ -270,35 +444,55 @@ class Spectrum_1D:
             raise NameError('You must specify a filename!')
         misc.write_ser(path, ser, acqus['BYTORDA'], acqus['DTYPA'])
 
-    def plot(self):
+    def plot(self, name=None, ext='png', dpi=600):
         """
         Plots the real part of the spectrum.
+        ---------
+        Parameters:
+        - name: str
+            Filename for the figure. If None, it is shown instead.
+        - ext: str
+            Format of the image
+        - dpi: int
+            Resolution of the image in dots per inches
         """
+        # Default of 10 ticks on the ppm axis
         n_xticks = 10
 
         # Make the figure
         fig = plt.figure(1)
-        fig.set_size_inches(15,8)
-        plt.subplots_adjust(left=0.10, bottom=0.15, right=0.95, top=0.90)    # Make room for the sliders
+        fig.set_size_inches(figures.figsize_large)
+        plt.subplots_adjust(left=0.10, bottom=0.15, right=0.95, top=0.90)
         ax = fig.add_subplot(1,1,1)
-        # Auto-adjusts the limits for the y-axis
-        misc.set_ylim(ax, self.r)
-        # Make pretty x-scale
-        xsx, xdx = max(self.ppm), min(self.ppm)
-        misc.pretty_scale(ax, (xsx, xdx), axis='x', n_major_ticks=n_xticks)
 
-        # Pretty y-axis numbers
+
+
+        # Plot the spectrum
         spect, = ax.plot(self.ppm, self.r, lw=0.8)
-        # Create sliders for moving the borders
 
+        # Make the label of the x-axis
         X_label = '$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
         ax.set_xlabel(X_label)
 
+        # Fancy figure adjustments
+        #   Make pretty x-scale
+        xsx, xdx = max(self.ppm), min(self.ppm) # Order it as a ppm scale
+        misc.pretty_scale(ax, (xsx, xdx), axis='x', n_major_ticks=n_xticks)
+        #   Auto-adjusts the limits for the y-axis
+        misc.set_ylim(ax, self.r)
+        #   Make pretty y-scale
+        misc.pretty_scale(ax, ax.get_ylim(), axis='y', n_major_ticks=n_xticks)
         misc.mathformat(ax)
+        #   Make the fontsizes bigger
         misc.set_fontsizes(ax, 14)
+
+        # Set a vertical line for inspection
         cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8, horizOn=False)
 
-        plt.show()
+        if name:    # Save the figure
+            plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
+        else:       # Show it
+            plt.show()
         plt.close()
 
     def qfil(self, u=None, s=None):
@@ -311,22 +505,25 @@ class Spectrum_1D:
         ---------
         Parameters:
         - u: float
-            Position /ppm
+            Position of the filter /ppm
         - s: float
-            Width (standard deviation) /ppm
+            Width (standard deviation) of the filter /ppm
         """
-        if 'qfil' not in self.procs.keys():
+        if 'qfil' not in self.procs.keys():     # Then add it
             self.procs['qfil'] = {'u': u, 's': s}
         for key, value in self.procs['qfil'].items():
-            if value is None:
+            if value is None:   # At the first non-set value, do the interactive correction
                 self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm, self.r)
                 break
+        # Apply it
         self.S = processing.qfil(self.ppm, self.S, self.procs['qfil']['u'], self.procs['qfil']['s'])
         self.r = self.S.real
         self.i = self.S.imag
 
+        # Update the .procs file
+        self.write_procs()
 
-    def basl(self, basl_file='spectrum.basl', winlim=None):
+    def baseline_correction(self, basl_file='spectrum.basl', winlim=None):
         """
         Correct the baseline of the spectrum, according to a pre-existing file or interactively.
         Calls processing.baseline_correction or processing.load_baseline
@@ -341,6 +538,27 @@ class Spectrum_1D:
             processing.baseline_correction(self.ppm, self.r, basl_file=basl_file, winlim=winlim)
         self.baseline = processing.load_baseline(basl_file, self.ppm, self.r)
 
+    def basl(self, from_procs=False, phase=True):
+        """
+        Apply the baseline correction by subtracting self.baseline from self.S. Then, self.S is unpacked in self.r and self.i
+        --------
+        Parameters:
+        - from_procs: bool
+            If True, computes the baseline using the polynomion model reading self.procs['basl_c'] as coefficients
+        - phase: bool
+            Choose if to apply the same phase correction of the spectrum to the baseline. This should be done if the baseline was computed before the phase adjustment!
+        """
+        if from_procs:  # Compute the baseline with a polynomial model
+            x_basl = np.linspace(-1, 1, self.S.shape[-1])
+            self.baseline = misc.polyn(x_basl, self.procs['basl_c'])
+        if phase:       # Phase the baseline as the spectrum
+            self.baseline, *_ = processing.ps(self.baseline, self.ppm, p0=self.procs['p0'], p1=self.procs['p1'], pivot=self.procs['pv'])
+        # Subtract the baseline
+        self.S -= self.baseline
+        # Unpack S
+        self.r = self.S.real
+        self.i = self.S.imag
+
     def integrate(self, lims=None):
         """
         Integrate the spectrum with a dedicated GUI.
@@ -350,7 +568,7 @@ class Spectrum_1D:
         - lims: tuple
             Integrates from lims[0] to lims[1]. If it is None, calls for interactive integration.
         """
-        X_label = '$\delta\,$'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
+        X_label = '$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
         if lims is None:
             integrals = fit.integrate(self.ppm, self.r, X_label=X_label)
             for key, value in integrals.items():
@@ -358,30 +576,36 @@ class Spectrum_1D:
         else:
             self.integrals[f'{lims[0]:.2f}:{lims[1]:.2f}'] = processing.integrate(self.r, self.ppm, lims)
 
-    def write_integrals(self, filename='integrals.dat'):
+    def write_integrals(self, other_dir=None):
         """
-        Write the integrals in a file named filename.
+        Write the integrals in a file named "{self.filename}.int".
         -------
         Parameters:
-        - filename: str
-            name of the file where to write the integrals.
+        - other_dir: str or None
+            Different location for the integrals file to write into. If None, self.datadir is used instead.
+            
         """
-        f = open(filename, 'w')
+        # Detect the file position
+        if other_dir:
+            path = os.path.join(other_dir, f'{self.filename}.int')
+        else:
+            path = os.path.join(self.datadir, f'{self.filename}.int')
+
+        f = open(path, 'w')
         for key, value in self.integrals.items():
-            if 'total' in key:
+            if 'total' in key:  # first entry
                 f.write('{:12}\t\t{:.4e}\n'.format(key, value))
-            elif 'ref' in key:
+            elif 'ref' in key:  # second entry
                 if 'pos' in key:
                     f.write('{:12}\t\t{}\n'.format(key, value))
                 elif 'int' in key:
                     f.write('{:12}\t\t{:.4e}\n'.format(key, value))
                 elif 'val' in key:
                     f.write('{:12}\t\t{:.3f}\n'.format(key, value))
-            else:
+            else:   # All the rest
                 f.write('{:12}\t{:.8f}\n'.format(key, value))
         f.close()
 
-    
 class pSpectrum_1D(Spectrum_1D):
     """
     Subclass of Spectrum_1D that allows to handle processed 1D NMR spectra.
@@ -389,6 +613,10 @@ class pSpectrum_1D(Spectrum_1D):
     Shares the same attributes with Spectrum_1D.
     -------------
     Attributes:
+    - datadir: str
+        Path to the input file/dataset directory
+    - filename: str
+        Base of the name of the file, without extensions
     - acqus: dict
         Dictionary of acqusition parameters
     - ngdic: dict
@@ -412,7 +640,7 @@ class pSpectrum_1D(Spectrum_1D):
     - integrals: dict
         Dictionary where to save the regions and values of the integrals.
     """
-    def __init__(self, in_file, acqus=None, procs=None, istrace=False):
+    def __init__(self, in_file, acqus=None, procs=None, istrace=False, filename='T'):
         """
         Initialize the class. 
         -------
@@ -425,49 +653,77 @@ class pSpectrum_1D(Spectrum_1D):
             You can pass the dictionary of processing parameters, if you want. Otherwise, it is initialized with standard values.
         - istrace: bool
             Declare the object as trace extracted from a 2D (True) or as true experimental spectrum (False)
+        - filename: str
+            If istrace is True, this will be the filename of self.acqus and self.procs
         """
-        if istrace is True:
+        if istrace is True:     # it comes from a 2D
             assert isinstance(in_file, np.ndarray), 'The first parameter must be an array if istrace=True!'
-            if np.iscomplexobj(in_file):
+            self.datadir = os.getcwd()
+            self.filename = filename
+            if np.iscomplexobj(in_file):    # There is the whole information
                 self.r = in_file.real
                 self.i = in_file.imag
-                self.S = self.r + 1j * self.i
-            else:
-                self.r = in_file
-                self.S = self.r
+            else:                           # There is the real part only
+                self.r = in_file        
+                self.i = np.zeros_like(in_file)
+            self.S = self.r + 1j * self.i   # Make the complex spectrum
             self.acqus = acqus
+
         else:
-            dic, data = ng.bruker.read_pdata(in_file)
+            self.datadir = os.path.abspath(in_file) # Get the file position
+            if not os.path.isdir(self.datadir):
+                self.datadir = os.path.dirname(self.datadir)
+            self.filename = os.path.basename(in_file).rsplit('.', 1)[0] # Get the filename
+            # If filename is a directory, write things inside it
+            if os.path.isdir('/'.join([self.datadir, self.filename])):
+                self.datadir = os.path.join(self.datadir, self.filename) # i.e. add filename to datadir
+            # Read the dictionary
+            dic, _ = ng.bruker.read_pdata(in_file)
+            # Read the real and imaginary part, separately
             _, self.r = ng.bruker.read_pdata(in_file, bin_files=['1r'])
             _, self.i = ng.bruker.read_pdata(in_file, bin_files=['1i'])
+            # Mount them together to make the complex spectrum
             self.S = self.r + 1j * self.i
+            # Make acqus
             self.acqus = misc.makeacqus_1D(dic)
             self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
             self.acqus['DTYPA'] = dic['acqus']['DTYPA']
             self.ngdic = dic
             del dic
             del data
+        # Set the group delay, if there is
         try:
             self.acqus['GRPDLY'] = int(self.ngdic['acqus']['GRPDLY'])
         except:
             self.acqus['GRPDLY'] = 0
 
         if procs is None:   # Make it
-            proc_init_1D = (dict(wf0), None, 0.5, 0)
-            self.procs = {}
-            for k, key in enumerate(proc_keys_1D):
-                self.procs[key] = proc_init_1D[k]         # Processing parameters
-            self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
-            # Then, phases
-            self.procs['p0'] = 0
-            self.procs['p1'] = 0
-            self.procs['pv'] = self.acqus['o1p']
+            if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
+                self.procs = self.read_procs()
+            else:
+                self.procs = {}
+                proc_init_1D = (dict(wf0), None, 0.5, 0)
+                for k, key in enumerate(proc_keys_1D):
+                    self.procs[key] = proc_init_1D[k]         # Processing parameters
+                self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
+                #   Then, phases
+                self.procs['p0'] = 0
+                self.procs['p1'] = 0
+                self.procs['pv'] = round(self.acqus['o1p'], 2)
+                #   Then, baseline
+                self.procs['basl_c'] = None
+                #   calibration
+                self.procs['cal'] = 0
+
         else:   # Copy it
             self.procs = dict(procs)
+
+        # Write the .procs file
+        self.write_procs()
         
         # Calculate frequency and ppm scales
         self.freq = processing.make_scale(self.r.shape[0], dw=self.acqus['dw'])
-        if self.acqus['SFO1'] < 0:
+        if self.acqus['SFO1'] < 0:      # Correct for negative gamma nuclei
             self.freq = self.freq[::-1]
         self.ppm = misc.freq2ppm(self.freq, B0=self.acqus['SFO1'], o1p=self.acqus['o1p'])
 
@@ -482,6 +738,8 @@ class Spectrum_2D:
     Attributes:
     - datadir: str
         Path to the input file/dataset directory
+    - filename: str
+        Base of the name of the file, without extensions
     - fid: 2darray
         FID
     - acqus: dict
@@ -528,7 +786,7 @@ class Spectrum_2D:
         if 'ngdic' in self.__dict__.keys():
             doc += f'Read from "{self.datadir}"\n'
         else:
-            doc += f'Simulated from "{self.datadir}"\n'
+            doc += f'Simulated from "{self.filename}" in {self.datadir}\n'
         N = self.fid.shape
         doc += f'It is a {self.acqus["nuc1"]}-{self.acqus["nuc2"]} spectrum recorded over a \nsweep width of \n{self.acqus["SW1p"]} ppm centered at {self.acqus["o1p"]} ppm in F1, and\n{self.acqus["SW2p"]} ppm centered at {self.acqus["o2p"]} ppm in F2.\n'
         doc += f'The FID is {N[0]}x{N[1]} points long.\n'
@@ -548,60 +806,82 @@ class Spectrum_2D:
         - isexp: bool
             True if this is an experimental dataset, False if it is simulated
         - is_pseudo: bool
-            True if it is a pseudo-2D. 
+            True if it is a pseudo-2D. Legacy option
         """
-        self.datadir = in_file
-        if isexp is False:
-            self.acqus = sim.load_sim_2D(in_file)
-            if is_pseudo:
+        if isinstance(in_file, dict):   # Simulated data with already given acqus dictionary
+            self.datadir = os.getcwd()      # Current directory
+            self.filename = 'dict'  # Filename is just "dict"
+        else:                           # You need to actually read a file
+            self.datadir = os.path.abspath(in_file) # Get the file position
+            if not os.path.isdir(self.datadir):
+                self.datadir = os.path.dirname(self.datadir)
+            self.filename = os.path.basename(in_file).rsplit('.', 1)[0] # Get the filename
+            # If filename is a directory, write things inside it
+            if os.path.isdir('/'.join([self.datadir, self.filename])) and isexp:
+                self.datadir = os.path.join(self.datadir, self.filename) # i.e. add filename to datadir
+        
+        if isexp is False: # Simulate the data
+            self.acqus = sim.load_sim_2D(in_file)   # Read the acqus dictionary from the file
+            if is_pseudo:   # Tell not to do FT in f1
                 self.acqus['FnMODE'] = 'No'
-            else:
+            else:   # Use States-TPPI as f1 acquisition because it is the simulation standard
                 self.acqus['FnMODE'] = 'States-TPPI'
-            self.fid = sim.sim_2D(in_file, pv=pv)
-        else:
-            dic, data = ng.bruker.read(in_file, cplex=True)
+            self.fid = sim.sim_2D(in_file, pv=pv)   # Read the FID
+        else:   # Read from nmrglue
+            dic, data = ng.bruker.read(in_file, cplex=True) 
             self.ngdic = dic
             self.fid = data
             self.acqus = misc.makeacqus_2D(dic)
             self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
             self.acqus['DTYPA'] = dic['acqus']['DTYPA']
-            FnMODE_flag = dic['acqu2s']['FnMODE']
+            FnMODE_flag = dic['acqu2s']['FnMODE']       # Get f1 acquisition mode
+            # List of possible modes
             FnMODEs = ['Undefined', 'QF', 'QSEC', 'TPPI', 'States', 'States-TPPI', 'Echo-Antiecho']
-            self.acqus['FnMODE'] = FnMODEs[FnMODE_flag]
-            # put a flag to say "shuffle"
-            if self.acqus['FnMODE'] == 'Echo-Antiecho':
-                self.eaeflag = 1
-            else:
-                self.eaeflag = 0
+            self.acqus['FnMODE'] = FnMODEs[FnMODE_flag] # Add to acqus
+
             del dic
             del data
+        # put a flag for shuffling EAE data
+        if self.acqus['FnMODE'] == 'Echo-Antiecho':
+            self.eaeflag = 1    # i.e. to be shuffled
+        else:
+            self.eaeflag = 0    # no need of shuffling
 
+        # Get group delay points
         try:
             self.acqus['GRPDLY'] = int(self.ngdic['acqus']['GRPDLY'])
         except:
             self.acqus['GRPDLY'] = 0
 
         # initialize the procs dictionary with default values
-        proc_init_2D = (
-                [dict(wf0), dict(wf0)],     # window function
-                [None, None],   # zero-fill
-                [0.5, 0.5],     # fcor
-                [0,0]           # tdeff
-                )
+        if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
+            self.procs = self.read_procs()
+        else:
+            proc_init_2D = (
+                    [dict(wf0), dict(wf0)],     # window function
+                    [None, None],   # zero-fill
+                    [0.5, 0.5],     # fcor
+                    [0,0]           # tdeff
+                    )
 
-        self.procs = {}
-        for k, key in enumerate(proc_keys_1D):
-            self.procs[key] = proc_init_2D[k]         # Processing parameters
-        self.procs['wf'][0]['sw'] = round(self.acqus['SW1'], 4)
-        self.procs['wf'][1]['sw'] = round(self.acqus['SW2'], 4)
+            self.procs = {}
+            for k, key in enumerate(proc_keys_1D):
+                self.procs[key] = proc_init_2D[k]         # Processing parameters
+            self.procs['wf'][0]['sw'] = round(self.acqus['SW1'], 4)
+            self.procs['wf'][1]['sw'] = round(self.acqus['SW2'], 4)
 
-        # Then, phases
-        self.procs['p0_1'] = 0
-        self.procs['p1_1'] = 0
-        self.procs['pv_1'] = round(self.acqus['o1p'], 2)
-        self.procs['p0_2'] = 0
-        self.procs['p1_2'] = 0
-        self.procs['pv_2'] = round(self.acqus['o2p'], 2)
+            # Then, phases
+            self.procs['p0_1'] = 0
+            self.procs['p1_1'] = 0
+            self.procs['pv_1'] = round(self.acqus['o1p'], 2)
+            self.procs['p0_2'] = 0
+            self.procs['p1_2'] = 0
+            self.procs['pv_2'] = round(self.acqus['o2p'], 2)
+            # Calibration
+            self.procs['cal_1'] = 0
+            self.procs['cal_2'] = 0
+            # Write the .procs file
+            self.write_procs()
 
         # Create empty dictionary where to save the projections
         self.trf1 = {}
@@ -625,8 +905,9 @@ class Spectrum_2D:
         Calls processing.EAE to shuffle the data and make a States-like FID.
         Sets self.eaeflag to 0.
         """
-        self.fid = processing.EAE(self.fid)
-        self.eaeflag = 0
+        if self.eaeflag:    # Do it only if it was not done before
+            self.fid = processing.EAE(self.fid)
+            self.eaeflag = 0
 
     def xf2(self):
         """
@@ -635,25 +916,31 @@ class Spectrum_2D:
         The result is stored in self.S, then self.rr and self.ii are written.
         freq_f1 and ppm_f1 are assigned with the indexes of the transients.
         """
+        # Make empty self.S according to the zero-filling option in F2
         if self.procs['zf'][1] is None:
             self.S = np.zeros_like(self.fid)
         else:
             self.S = np.zeros((self.fid.shape[0], self.procs['zf'][1]))
 
+        # Apply 1D processing on F2 only, row-by-row
         for k in range(self.fid.shape[0]):
             self.S[k] = processing.fp(self.fid[k], wf=self.procs['wf'][1], zf=self.procs['zf'][1], fcor=self.procs['fcor'][1], tdeff=self.procs['tdeff'][1])
 
+        # Make frequency and ppm scales
         self.freq_f2 = processing.make_scale(self.S.shape[1], dw=self.acqus['dw2'])
-        if self.acqus['SFO2'] < 0:
+        if self.acqus['SFO2'] < 0:  # Correct for negative gamma nuclei
             self.freq_f2 = self.freq_f2[::-1]
         self.ppm_f2 = misc.freq2ppm(self.freq_f2, B0=self.acqus['SFO2'], o1p=self.acqus['o2p']) 
 
+        # Correct also the spectrum for negative gamma nuclei
         if self.acqus['SFO2'] < 0:
             self.S = self.S[:,::-1]
 
+        # Unpack 
         self.rr = self.S.real
         self.ii = self.S.imag
 
+        # Use the spectrum index as fake scale
         self.freq_f1 = np.arange(self.S.shape[0])
         self.ppm_f1 = np.arange(self.S.shape[0])
 
@@ -665,33 +952,41 @@ class Spectrum_2D:
         The result is stored in self.S, then self.rr and self.ii are written.
         freq_f1 and ppm_f1 are assigned with the indexes of the transients.
         """
-        if self.acqus['FnMODE']=='QF':
+        # Transpose
+        if self.acqus['FnMODE'] in ['QF', 'No']:    # Just complex spectrum
             self.fid = self.fid.T
-        else:
+        else:   # Hypercomplex spectrum
             self.fid = processing.tp_hyper(self.fid)
 
+        # Make empty self.S according to the zero-filling option in f1
         if self.procs['zf'][0] is None:
             self.S = np.zeros_like(self.fid)
         else:
             self.S = np.zeros((self.fid.shape[0], self.procs['zf'][0]))
 
+        # Apply 1D processing on F1 only, row by row because fid is transposed
         for k in range(self.fid.shape[0]):
             self.S[k] = processing.fp(self.fid[k], wf=self.procs['wf'][0], zf=self.procs['zf'][0], fcor=self.procs['fcor'][0], tdeff=self.procs['tdeff'][0])
 
-        if self.acqus['FnMODE']=='QF':
+        # Transpose it back
+        if self.acqus['FnMODE'] in ['QF', 'No']:
             self.fid = self.fid.T
             self.S = self.S.T
         else:
             self.fid = processing.tp_hyper(self.fid)
             self.S = processing.tp_hyper(self.S)
+        # Unpack S
+        self.rr = np.copy(self.S.real)
+        self.ii = np.copy(self.S.imag)
 
+        # Make frequency and ppm scales
         self.freq_f1 = processing.make_scale(self.S.shape[0], dw=self.acqus['dw1'])
-        if self.acqus['SFO1'] < 0:
+        if self.acqus['SFO1'] < 0:  # Correct for negative gamma nuclei
             self.freq_f1 = self.freq_f1[::-1]
         self.ppm_f1 = misc.freq2ppm(self.freq_f1, B0=self.acqus['SFO1'], o1p=self.acqus['o1p'])
 
-        self.rr = np.copy(self.S.real)
-        self.ii = np.copy(self.S.imag)
+        # Use evolution index as fake scale
+        self.freq_f2 = np.arange(self.S.shape[1])
         self.ppm_f2 = np.arange(self.S.shape[1])
 
     def process(self, interactive=False, **int_kwargs):
@@ -709,9 +1004,9 @@ class Spectrum_2D:
             Additional parameters for processing.interactive_xfb, if interactive=True.
         """
         # If Echo-Antiecho, pre-process the FID to get the correct spectral arrangement
-        if self.acqus['FnMODE'] == 'Echo-Antiecho' and self.eaeflag == 1:
-            self.fid = processing.EAE(self.fid)
+        self.eae()
 
+        # Call for the interacrive processing
         if interactive is True:
             self.S, self.procs = processing.interactive_xfb(self.fid, self.acqus, self.procs, **int_kwargs)
         else:
@@ -723,6 +1018,7 @@ class Spectrum_2D:
             self.S = processing.ps(self.S, p0=-90)[0]
             self.S = processing.tp_hyper(self.S)
 
+        # Correct for negative gamma nuclei
         if self.acqus['SFO2'] < 0:
             self.S = self.S[:,::-1]
         if self.acqus['SFO1'] < 0:
@@ -738,7 +1034,8 @@ class Spectrum_2D:
             else:
                 self.S = processing.tp_hyper(self.S)
 
-        if self.acqus['FnMODE'] == 'QF':
+        # Unpack according to FnMODE
+        if self.acqus['FnMODE'] in ['QF', 'No']:
             self.rr = self.S.real
             self.ii = self.S.imag
         else:
@@ -748,15 +1045,22 @@ class Spectrum_2D:
             self.ir = ir
             self.ii = ii
 
+
         # Calculates the frequency and ppm scales
         self.freq_f1 = processing.make_scale(self.rr.shape[0], dw=self.acqus['dw1'])
-        if self.acqus['SFO1'] < 0:
+        if self.acqus['SFO1'] < 0:  # Correct for negative gamma nuclei
             self.freq_f1 = self.freq_f1[::-1]
         self.ppm_f1 = misc.freq2ppm(self.freq_f1, B0=self.acqus['SFO1'], o1p=self.acqus['o1p'])
         self.freq_f2 = processing.make_scale(self.rr.shape[1], dw=self.acqus['dw2'])
-        if self.acqus['SFO2'] < 0:
+        if self.acqus['SFO2'] < 0:  # Correct for negative gamma nuclei
             self.freq_f2 = self.freq_f2[::-1]
         self.ppm_f2 = misc.freq2ppm(self.freq_f2, B0=self.acqus['SFO2'], o1p=self.acqus['o2p']) 
+
+        # Apply phase correction according to procs
+        self.adjph(p02=self.procs['p0_2'], p12=self.procs['p1_2'], pv2=self.procs['pv_2'], p01=self.procs['p0_1'], p11=self.procs['p1_1'], pv1=self.procs['pv_1'], update=False)
+
+        # Apply calibration according to procs
+        self.cal([self.procs['cal_1'], self.procs['cal_2']], update=False)
 
 
     def inv_process(self):
@@ -772,6 +1076,7 @@ class Spectrum_2D:
             self.S = processing.ps(self.S, p0=90)[0]
             self.S = processing.tp_hyper(self.S)
 
+        # Correction for negative gamma nuclei
         if self.acqus['SFO2'] < 0:
             self.S = self.S[:,::-1]
         if self.acqus['SFO1'] < 0:
@@ -780,6 +1085,7 @@ class Spectrum_2D:
             self.S = processing.ps(self.S, p0=-90)[0]
             self.S = processing.tp_hyper(self.S)
 
+        # Compute
         self.S = processing.inv_xfb(self.S, wf=self.procs['wf'], size=(self.acqus['TD1'], self.acqus['TD2']), fcor=self.procs['fcor'], FnMODE=self.acqus['FnMODE'])
 
 
@@ -799,7 +1105,7 @@ class Spectrum_2D:
             self.ir = ir
             self.ii = ii
 
-    def adjph(self, p01=None, p11=None, pv1=None, p02=None, p12=None, pv2=None):
+    def adjph(self, p01=None, p11=None, pv1=None, p02=None, p12=None, pv2=None, update=True):
         """
         Adjusts the phases of the spectrum according to the given parameters, or interactively if they are left as default.
         The non-interactive workflow is to apply processing.ps on F2, transpose according to FnMODE, apply processing.ps on F1, transpose back.
@@ -819,6 +1125,8 @@ class Spectrum_2D:
             1-st order phase correction /° of the direct dimension
         - pv2: float or None
             1-st order pivot /ppm of the direct dimension
+        - update: bool
+            Choose if to update the procs dictionary or not
         """
         interactive = True      # by default
         # Set pivot to carrier if not specified
@@ -838,9 +1146,12 @@ class Spectrum_2D:
                     ph[i] = 0
             # Adjust the phases according to the given values
 
+            # Phase F2
             self.S, values_f2 = processing.ps(self.S, self.ppm_f2, p0=ph[2], p1=ph[3], pivot=pv2)
-            if self.acqus['FnMODE'] == 'No':
+            # Phase F1
+            if self.acqus['FnMODE'] == 'No':    # Skip it
                 pass
+            # else, transpose according to FnMODE, phase, transpose back
             elif self.acqus['FnMODE'] == 'QF':
                 self.S = self.S.T
                 self.S, values_f1 = processing.ps(self.S, self.ppm_f1, p0=ph[0], p1=ph[1], pivot=pv1)
@@ -849,12 +1160,14 @@ class Spectrum_2D:
                 self.S = processing.tp_hyper(self.S)
                 self.S, values_f1 = processing.ps(self.S, self.ppm_f1, p0=ph[0], p1=ph[1], pivot=pv1)
                 self.S = processing.tp_hyper(self.S)
+
         else:
             # Call interactive phase correction
             if self.acqus['FnMODE'] == 'QF' or self.acqus['FnMODE'] == 'No': 
                 self.S, values_f1, values_f2 = processing.interactive_phase_2D(self.ppm_f1, self.ppm_f2, self.S, False)
             else:
                 self.S, values_f1, values_f2 = processing.interactive_phase_2D(self.ppm_f1, self.ppm_f2, self.S)
+
         # Unpack the phased spectrum
         if self.acqus['FnMODE'] == 'QF' or self.acqus['FnMODE'] == 'No':
             self.rr = self.S.real
@@ -865,15 +1178,20 @@ class Spectrum_2D:
             self.ri = ri
             self.ir = ir
             self.ii = ii
-        # update procs
-        self.procs['p0_2'] += round(values_f2[0], 2)
-        self.procs['p1_2'] += round(values_f2[1], 2)
-        if values_f2[2] is not None:
-            self.procs['pv_2'] = round(values_f2[2], 5)
-        self.procs['p0_1'] += round(values_f1[0], 2)
-        self.procs['p1_1'] += round(values_f1[1], 2)
-        if values_f1[2] is not None:
-            self.procs['pv_1'] = round(values_f1[2], 5)
+
+        # update the procs dictionary
+        if update:
+            self.procs['p0_2'] += round(values_f2[0], 2)
+            self.procs['p1_2'] += round(values_f2[1], 2)
+            if values_f2[2] is not None:
+                self.procs['pv_2'] = round(values_f2[2], 5)
+            self.procs['p0_1'] += round(values_f1[0], 2)
+            self.procs['p1_1'] += round(values_f1[1], 2)
+            if values_f1[2] is not None:
+                self.procs['pv_1'] = round(values_f1[2], 5)
+        
+        # Update the .procs file
+        self.write_procs()
 
 
     def qfil(self, which=None, u=None, s=None):
@@ -892,24 +1210,28 @@ class Spectrum_2D:
         - s: float
             Width (standard deviation) /ppm
         """
-        if 'qfil' not in self.procs.keys():
+        if 'qfil' not in self.procs.keys(): # Then add it
             self.procs['qfil'] = {'u': u, 's': s}
 
         for key, value in self.procs['qfil'].items():
-            if value is None:
-                if which is None:
+            if value is None:   # missing value --> call for interaction
+                if which is None:   # select a spectrum to be used
                     which_list = misc.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
                     which, _ = misc.ppmfind(self.ppm_f1, which_list[0][1])
+                # Now get the values
                 self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm_f2, self.rr[which])
                 break
+
+        # Apply the filter
         self.S = processing.qfil(self.ppm_f2, self.S, self.procs['qfil']['u'], self.procs['qfil']['s'])
-        if self.acqus['FnMODE'] == 'QF':
+        # Unpack according to procs
+        if self.acqus['FnMODE'] in ['QF', 'No']:
             self.rr = self.S.real
             self.ii = self.S.imag
         else:
             self.rr, self.ir, self.ri, self.ii = processing.unpack_2D(self.S)
 
-    def cal(self, offset=[None,None], isHz=False):
+    def cal(self, offset=[None,None], isHz=False, update=True):
         """
         Calibration of the ppm and frequency scales according to a given value, or interactively. In this latter case, a reference peak must be chosen.
         Calls processing.calibration
@@ -919,46 +1241,64 @@ class Spectrum_2D:
             (scale shift F1, scale shift F2)
         - isHz: tuple of bool
             True if offset is in frequency units, False if offset is in ppm
+        - update: bool
+            Choose if to update the procs dictionary or not
         """
 
         @staticmethod
         def _calibrate(ppm, trace, SFO1, o1p):
+            """ Main function that calls the real calibration """
             offppm = processing.calibration(ppm, trace)
             offhz = misc.ppm2freq(offppm, SFO1, o1p)
             return offppm, offhz
 
-        if offset[0] is None or offset[1] is None:
+        # Get the missing entries
+        if offset[0] is None or offset[1] is None:  # Select the reference traces
             coord = misc.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
-            ix, iy = coord[0][0], coord[0][1]
+            ix, iy = coord[0][0], coord[0][1]   # Position of the first crosshair
+            # F2 reference spectrum
             X = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
+            # F1 reference spectrum
             Y = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, ix, column=True)
 
-        if offset[1] is None:
+        if offset[1] is None:   # Get it
             ppm_f2 = np.copy(self.ppm_f2)
             offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO2'], self.acqus['o2p'])
-        else:
-            if isHz:
+        else:   # Calculate offh2 from offp2 or viceversa
+            if isHz:    # offp2 is missing
                 offh2 = offset[1]
                 offp2 = misc.freq2ppm(offh2, self.acqus['SFO2'], self.acqus['o2p']) 
-            else:
+            else:       # offh2 is missing
                 offp2 = offset[1]
                 offh2 = misc.ppm2freq(offp2, self.acqus['SFO2'], self.acqus['o2p']) 
             
-        if offset[0] is None:
+        if offset[0] is None:   # Get it
             ppm_f1 = np.copy(self.ppm_f1)
             offp1, offh1 = _calibrate(ppm_f1, Y, self.acqus['SFO1'], self.acqus['o1p'])
-        else:
-            if isHz:
+        else:   # Calculate offh1 from offp1 or viceversa
+            if isHz:    # offp1 is missing
                 offh1 = offset[0]
                 offp1 = misc.freq2ppm(offh1, self.acqus['SFO1'], self.acqus['o1p']) 
-            else:
+            else:       # offh1 is missing
                 offp1 = offset[0]
                 offh1 = misc.ppm2freq(offp1, self.acqus['SFO1'], self.acqus['o1p']) 
 
+        # Apply the calibration
         self.freq_f2 += offh2
         self.ppm_f2 += offp2
         self.freq_f1 += offh1
         self.ppm_f1 += offp1
+        # Move the offsets to the center of the SW
+        self.acqus['o1p'] += offp1
+        self.acqus['o1'] += offh1
+        self.acqus['o2p'] += offp2
+        self.acqus['o2'] += offh2
+        # Update the procs dictionary
+        if update:  
+            self.procs['cal_1'] += offp1
+            self.procs['cal_2'] += offp2
+        # Update the .procs file
+        self.write_procs()
 
 
     def calf2(self, value=None, isHz=False):
@@ -989,16 +1329,59 @@ class Spectrum_2D:
         offset = [value, 0]
         self.cal(offset, isHz)
 
-    def save_acqus(self, path='sim_in_2D'):
+    def write_acqus(self, other_dir=None):
         """
-        Write the acqus dictionary in a file.
-        Calls misc.write_acqus_2D
+        Write the acqus dictionary in a file named "filename.acqus".
+        Calls misc.write_acqus_1D
         --------
         Parameters:
-        - path: str
-            Filename 
+        - other_dir: str or None
+            Different location for the acqus dictionary to write into. If None, self.datadir is used instead.
         """
+        if other_dir:
+            path = os.path.join(other_dir, f'{self.filename}.acqus')
+        else:
+            path = os.path.join(self.datadir, f'{self.filename}.acqus')
         misc.write_acqus_2D(self.acqus, path=path)
+
+    def write_procs(self, other_dir=None):
+        """
+        Writes the actual procs dictionary in a file named "filename.procs" in the same directory of the input file.
+        ---------
+        Parameters:
+        - other_dir: str or None
+            Different location for the procs dictionary to write into. If None, self.datadir is used instead. W! Do not put the trailing slash!
+        """
+        if other_dir:
+            path = os.path.join(other_dir, f'{self.filename}.procs')
+        else:
+            path = os.path.join(self.datadir, f'{self.filename}.procs')
+        with open(path, 'w') as f:
+            f.write(f'{self.procs}')
+
+    def read_procs(self, other_dir=None):
+        """
+        Reads the procs dictionary from a file named "filename.procs" in the same directory of the input file.
+        ---------
+        Parameters:
+        - other_dir: str or None
+            Different location for the procs dictionary to look into. If None, self.datadir is used instead. W! Do not put the trailing slash!
+        ---------
+        Returns:
+        - procs: dict
+            Dictionary of processing parameters
+        """
+        if other_dir:
+            path = os.path.join(other_dir, f'{self.filename}.procs')
+        else:
+            path = os.path.join(self.datadir, f'{self.filename}.procs')
+        with open(path, 'r') as f:
+            procs = eval(f.read().replace('array', 'np.array'))
+        # Check if it was read correctly
+        if isinstance(procs, dict):
+            return procs
+        else:
+            raise ValueError(f'{self.filename}.procs cannot be interpreted as a dictionary')
 
     @staticmethod
     def write_ser(ser, acqus, path=None):
@@ -1036,9 +1419,11 @@ class Spectrum_2D:
             label = f'{a:.2f}'
         else:
             label = f'{a:.2f}:{b:.2f}'
+        # Compute the trace
         f1 = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=True)
+        # Store it 
         self.trf1[label] = f1
-        self.Trf1[label] = pSpectrum_1D(f1, acqus=misc.split_acqus_2D(self.acqus)[0], procs=misc.split_procs_2D(self.procs)[0], istrace=True)
+        self.Trf1[label] = pSpectrum_1D(f1, acqus=misc.split_acqus_2D(self.acqus)[0], procs=misc.split_procs_2D(self.procs)[0], istrace=True, filename=f'T1_{label}')
 
     def projf2(self, a, b=None):
         """
@@ -1057,9 +1442,11 @@ class Spectrum_2D:
             label = f'{a:.2f}'
         else:
             label = f'{a:.2f}:{b:.2f}'
+        # Compute the trace
         f2 = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=False)
+        # Store it
         self.trf2[label] = f2
-        self.Trf2[label] = pSpectrum_1D(f2, acqus=misc.split_acqus_2D(self.acqus)[1], procs=misc.split_procs_2D(self.procs)[1], istrace=True)
+        self.Trf2[label] = pSpectrum_1D(f2, acqus=misc.split_acqus_2D(self.acqus)[1], procs=misc.split_procs_2D(self.procs)[1], istrace=True, filename=f'T2_{label}')
 
     def integrate(self, **kwargs):
         """
@@ -1072,15 +1459,22 @@ class Spectrum_2D:
         """
         self.integrals = fit.integrate_2D(self.ppm_f1, self.ppm_f2, self.rr, self.acqus['SFO1'], self.acqus['SFO2'], **kwargs)
 
-    def write_integrals(self, filename='integrals.dat'):
+    def write_integrals(self, other_dir=None):
         """
-        Write the integrals in a file named filename.
+        Write the integrals in a file named "{self.filename}.int".
         -------
         Parameters:
-        - filename: str
-            name of the file where to write the integrals.
+        - other_dir: str or None
+            Different location for the integrals file to write into. If None, self.datadir is used instead.
+            
         """
-        f = open(filename, 'w')
+        # Detect the file position
+        if other_dir:
+            path = os.path.join(other_dir, f'{self.filename}.int')
+        else:
+            path = os.path.join(self.datadir, f'{self.filename}.int')
+
+        f = open(path, 'w')
         f.write('{:12}\t{:12}\t\t{:20}\n'.format('ppm F2', 'ppm F1', 'Value'))
         f.write('-'*60+'\n')
         for key, value in self.integrals.items():
@@ -1090,7 +1484,7 @@ class Spectrum_2D:
 
     def plot(self, Neg=True, lvl0=0.2):
         """
-        Plots the real part of the spectrum.
+        Plots the real part of the spectrum. Use the mouse scroll to adjust the contour starting level.
         -------
         Parameters:
         - Neg: bool
@@ -1106,7 +1500,7 @@ class Spectrum_2D:
         X_label = '$\delta\ $'+misc.nuc_format(self.acqus['nuc2'])+' /ppm'
         Y_label = '$\delta\ $'+misc.nuc_format(self.acqus['nuc1'])+' /ppm'
 
-        cmaps = [cm.Blues_r, cm.Reds_r]
+        cmaps = ['Blues_r', 'Reds_r']
 
         # flags for the activation of scroll zoom
         lvlstep = 0.02
@@ -1125,7 +1519,7 @@ class Spectrum_2D:
             lvlstep /= 2
 
         def on_scroll(event):
-            nonlocal livello, cnt
+            nonlocal lvl, cnt
             if Neg:
                 nonlocal Ncnt
 
@@ -1133,25 +1527,25 @@ class Spectrum_2D:
             act_ylim = ax.get_ylim()
                 
             if event.button == 'up':
-                livello += lvlstep 
+                lvl += lvlstep 
             elif event.button == 'down':
-                livello += -lvlstep
-            if livello <= 0:
-                livello = 1e-6
-            elif livello > 1:
-                livello = 1
+                lvl += -lvlstep
+            if lvl <= 0:
+                lvl = 1e-6
+            elif lvl > 1:
+                lvl = 1
 
             if Neg:
-                cnt, Ncnt = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=livello, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+                cnt, Ncnt = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
             else:
-                cnt, _ = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=livello, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+                cnt, _ = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
 
             misc.pretty_scale(ax, act_xlim, axis='x', n_major_ticks=n_xticks)
             misc.pretty_scale(ax, act_ylim, axis='y', n_major_ticks=n_yticks)
             ax.set_xlabel(X_label)
             ax.set_ylabel(Y_label)
             misc.set_fontsizes(ax, 14)
-            print('{:.3f}'.format(livello), end='\r')
+            print('{:.3f}'.format(lvl), end='\r')
             fig.canvas.draw()
 
         # Make the figure
@@ -1163,11 +1557,11 @@ class Spectrum_2D:
         contour_num = 16
         contour_factor = 1.40
 
-        livello = lvl0
+        lvl = lvl0
 
-        cnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, S, lvl=livello, cmap=cmaps[0])
+        cnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cmap=cmaps[0])
         if Neg:
-            Ncnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, -S, lvl=livello, cmap=cmaps[1])
+            Ncnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, -S, lvl=lvl, cmap=cmaps[1])
 
         # Make pretty x-scale
         misc.pretty_scale(ax, (max(self.ppm_f2), min(self.ppm_f2)), axis='x', n_major_ticks=n_xticks)
@@ -1203,6 +1597,8 @@ class pSpectrum_2D(Spectrum_2D):
     Attributes:
     - datadir: str
         Path to the input file/dataset directory
+    - filename: str
+        Base of the name of the file, without extensions
     - acqus: dict
         Dictionary of acqusition parameters
     - ngdic: dict
@@ -1247,21 +1643,31 @@ class pSpectrum_2D(Spectrum_2D):
         - in_file: str
             Path to the spectrum. Here, the 'pdata/#' folder must be specified.
         """
-        self.datadir = in_file
-        if in_file[-1] != '/':
-            in_file = in_file+'/'
-        dic, data = ng.bruker.read(in_file.split('pdata')[0], cplex=True)
+        self.datadir = os.path.abspath(in_file) # Get the file position
+        if not os.path.isdir(self.datadir):
+            self.datadir = os.path.dirname(self.datadir)
+        self.filename = os.path.basename(in_file).rsplit('.', 1)[0] # Get the filename
+        # If filename is a directory, write things inside it
+        if os.path.isdir('/'.join([self.datadir, self.filename])):
+            self.datadir = os.path.join(self.datadir, self.filename) # i.e. add filename to datadir
+
+        # Read the dictionary
+        dic, _ = ng.bruker.read(in_file.split('pdata')[0], cplex=True)
+        # Read the files
         _, self.rr = ng.bruker.read_pdata(in_file, bin_files=['2rr'])
         _, self.ii = ng.bruker.read_pdata(in_file, bin_files=['2ii'])
-        if os.path.exists(in_file+'2ir') and os.path.exists(in_file+'2ri'):
+        # Check for existence of hypercomplex data parts
+        listdir = os.listdir(in_file)
+        if ('2ir' in listdir and '2ri' in listdir): # Read them
             _, self.ir = ng.bruker.read_pdata(in_file, bin_files=['2ir'])
             _, self.ri = ng.bruker.read_pdata(in_file, bin_files=['2ri'])
             self.S = processing.repack_2D(self.rr, self.ir, self.ri, self.ii)
-        else:
+        else:    # Copy rr in ir and ri in ii
             self.ir = np.array(np.copy(self.rr))
             self.ri = np.copy(self.ii)
             self.S = self.rr + 1j*self.ii
 
+        # Make the acqus dir
         self.acqus = misc.makeacqus_2D(dic)
         self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
         self.acqus['DTYPA'] = dic['acqus']['DTYPA']
@@ -1269,33 +1675,41 @@ class pSpectrum_2D(Spectrum_2D):
         del dic
         del data
 
+        # Look for group delay points
         try:
             self.acqus['GRPDLY'] = int(self.ngdic['acqus']['GRPDLY'])
         except:
             self.acqus['GRPDLY'] = 0
 
         # initialize the procs dictionary with default values
-        proc_init_2D = (
-                [dict(wf0), dict(wf0)],     # window function
-                [None, None],   # zero-fill
-                [0.5, 0.5],     # fcor
-                [0,0]           # tdeff
-                )
+        if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
+            self.procs = self.read_procs()
+        else:
+            proc_init_2D = (
+                    [dict(wf0), dict(wf0)],     # window function
+                    [None, None],   # zero-fill
+                    [0.5, 0.5],     # fcor
+                    [0,0]           # tdeff
+                    )
 
-        self.procs = {}
-        for k, key in enumerate(proc_keys_1D):
-            self.procs[key] = proc_init_2D[k]         # Processing parameters
-        self.procs['wf'][0]['sw'] = round(self.acqus['SW1'], 4)
-        self.procs['wf'][1]['sw'] = round(self.acqus['SW2'], 4)
+            self.procs = {}
+            for k, key in enumerate(proc_keys_1D):
+                self.procs[key] = proc_init_2D[k]         # Processing parameters
+            self.procs['wf'][0]['sw'] = round(self.acqus['SW1'], 4)
+            self.procs['wf'][1]['sw'] = round(self.acqus['SW2'], 4)
 
-        # Then, phases
-        self.procs['p0_1'] = 0
-        self.procs['p1_1'] = 0
-        self.procs['pv_1'] = round(self.acqus['o1p'], 2)
-        self.procs['p0_2'] = 0
-        self.procs['p1_2'] = 0
-        self.procs['pv_2'] = round(self.acqus['o2p'], 2)
-        
+            # Then, phases
+            self.procs['p0_1'] = 0
+            self.procs['p1_1'] = 0
+            self.procs['pv_1'] = round(self.acqus['o1p'], 2)
+            self.procs['p0_2'] = 0
+            self.procs['p1_2'] = 0
+            self.procs['pv_2'] = round(self.acqus['o2p'], 2)
+            # Calibration
+            self.procs['cal_1'] = 0
+            self.procs['cal_2'] = 0
+            self.write_procs()
+
         # Calculates the frequency and ppm scales
         self.freq_f1 = processing.make_scale(self.rr.shape[0], dw=self.acqus['dw1'])
         if self.acqus['SFO1'] < 0:
@@ -1316,7 +1730,45 @@ class pSpectrum_2D(Spectrum_2D):
 class Pseudo_2D(Spectrum_2D):
     """ 
     Subclass of Spectrum_2D to simulate and handle pseudo-2D experiments.
-
+    Basically, they share more or less the same attributes, but some methods were adapted in order to suit well with a not-Fourier-transformed indirect dimension.
+    ---------
+    Attributes:
+    - datadir: str
+        Path to the input file/dataset directory
+    - filename: str
+        Base of the name of the file, without extensions
+    - fid: 2darray
+        FID. For simulated data, this must be explicitely set!
+    - acqus: dict
+        Dictionary of acqusition parameters
+    - ngdic: dict
+        Created only if it is an experimental spectrum. Generated by nmrglue.bruker.read, contains all the information on the spectrometer and on the spectrum.
+    - procs: dict
+        Dictionary of processing parameters
+    - S: 2darray
+        Complex spectrum
+    - rr: 2darray
+        Real part F2, real part F1
+    - ii: 2darray
+        Imaginary part F2, imaginary part F1
+    - freq_f1: 1darray
+        Indeces of the experiments, works as placeholder
+    - freq_f2: 1darray
+        Frequency scale of the direct dimension, in Hz
+    - ppm_f1: 1darray
+        Indeces of the experiments, works as placeholder
+    - ppm_f2: 1darray
+        ppm scale of the direct dimension
+    - trf1: dict
+        Projections of the indirect dimension, as 1darrays. Keys: 'ppm_f2' where they were taken
+    - trf2: dict
+        Projections of the direct dimension, as 1darrays. Keys: 'ppm_f1' where they were taken
+    - Trf1: dict
+        Projections of the indirect dimension, as pSpectrum_1D objects. Keys: 'ppm_f2' where they were taken
+    - Trf2: dict
+        Projections of the direct dimension, as pSpectrum_1D objects. Keys: 'ppm_f1' where they were taken
+    - integrals: dict
+        Dictionary where to save the regions and values of the integrals.
     """
 
     def __str__(self):
@@ -1349,13 +1801,30 @@ class Pseudo_2D(Spectrum_2D):
         - isexp: bool
             True if this is an experimental dataset, False if it is simulated
         """
-        self.datadir = in_file
-        if isexp is False:
-            self.acqus = sim.load_sim_1D(in_file)
-            self.fid = fid
-        else:
+        ## Set up the filenames
+        if isinstance(in_file, dict):   # Simulated data with already given acqus dictionary
+            self.datadir = os.getcwd()      # Current directory
+            self.filename = 'dict'  # Filename is just "dict"
+        else:                           # You need to actually read a file
+            self.datadir = os.path.abspath(in_file) # Get the file position
+            if not os.path.isdir(self.datadir):
+                self.datadir = os.path.dirname(self.datadir)
+            self.filename = os.path.basename(in_file).rsplit('.', 1)[0] # Get the filename
+            # If filename is a directory, write things inside it
+            if os.path.isdir('/'.join([self.datadir, self.filename])) and isexp:
+                self.datadir = os.path.join(self.datadir, self.filename) # i.e. add filename to datadir
+
+        if isexp is False:      # It is simulated experiment
+            if isinstance(in_file, dict):       # acqus dictionary provided
+                self.acqus = dict(in_file)  # Just read it
+            else:   # acqus is in the file: read it
+                self.acqus = sim.load_sim_1D(in_file)
+            self.fid = fid  # Put the FID in self.fid. It will be None if not given
+        else:       # Experimental data
+            # Read the FID
             dic, data = ng.bruker.read(in_file, cplex=True)
             self.fid = data
+            # Make the acqus dictionary as it was 1D-like
             self.acqus = misc.makeacqus_1D(dic)
             self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
             self.acqus['DTYPA'] = dic['acqus']['DTYPA']
@@ -1363,22 +1832,34 @@ class Pseudo_2D(Spectrum_2D):
             del dic
             del data
 
+        # Try to find the group delay
         try:
             self.acqus['GRPDLY'] = int(self.ngdic['acqus']['GRPDLY'])
         except:
             self.acqus['GRPDLY'] = 0
 
-        # Initalize the procs dictionary with default values
-        proc_init_1D = (dict(wf0), None, 0.5, 0)
+        ## Initalize the procs dictionary 
+        # If there already is a procs dictionary saved as file, load it
+        if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
+            self.procs = self.read_procs()
+        # Otherwise, initialize it with default values
+        else:
+            self.procs = {}
+            proc_init_1D = (dict(wf0), None, 0.5, 0)
+            for k, key in enumerate(proc_keys_1D):
+                self.procs[key] = proc_init_1D[k]         # Processing parameters
+            self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
+            #   Then, phases
+            self.procs['p0'] = 0
+            self.procs['p1'] = 0
+            self.procs['pv'] = round(self.acqus['o1p'], 2)
+            #   Then, baseline
+            self.procs['basl_c'] = None
+            self.procs['cal_1'] = 0
+            self.procs['cal_2'] = 0
+            self.procs['roll_ppm'] = None
 
-        self.procs = {}
-        for k, key in enumerate(proc_keys_1D):
-            self.procs[key] = proc_init_1D[k]         # Processing parameters
-        self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
-        # Then, phases
-        self.procs['p0'] = 0
-        self.procs['p1'] = 0
-        self.procs['pv'] = round(self.acqus['o1p'], 2)
+            self.write_procs()
 
     def convdta(self, scaling=1):
         """ Calls processing.convdta """
@@ -1387,29 +1868,50 @@ class Pseudo_2D(Spectrum_2D):
     def process(self):
         """
         Process only the direct dimension.
-        Calls processing.fp on each transient
+        Calls processing.fp on each transient.
+        The parameters are read from the procs dictionary
         """
+        # Make empty self.S whose dimensions are given by the zero-filling
         if self.procs['zf'] is None:
             self.S = np.zeros_like(self.fid)
         else:
             self.S = np.zeros((self.fid.shape[0], self.procs['zf'])).astype(self.fid.dtype)
 
+        # Do the processing
         for k in range(self.fid.shape[0]):
             self.S[k] = processing.fp(self.fid[k], wf=self.procs['wf'], zf=self.procs['zf'], fcor=self.procs['fcor'], tdeff=self.procs['tdeff'])
 
+        # Make the frequency and ppm scales
         self.freq_f2 = processing.make_scale(self.S.shape[1], dw=self.acqus['dw'])
-        if self.acqus['SFO1'] < 0:
+        if self.acqus['SFO1'] < 0:      # Correct for negative gamma nuclei
             self.freq_f2 = self.freq_f2[::-1]
         self.ppm_f2 = misc.freq2ppm(self.freq_f2, B0=self.acqus['SFO1'], o1p=self.acqus['o1p']) 
 
-        if self.acqus['SFO1'] < 0:
+        if self.acqus['SFO1'] < 0:      # Correct for negative gamma nuclei
             self.S = self.S[:,::-1]
 
+        # Unpack self.S
         self.rr = self.S.real
         self.ii = self.S.imag
 
+        # Adjust the phase
+        self.adjph(p0=procs['p0'], p1=self.procs['p1'], pv=self.procs['pv'], update=False)
+
+        # Use number of the experiment as fake scale in F1
         self.freq_f1 = np.arange(self.S.shape[0])
         self.ppm_f1 = np.arange(self.S.shape[0])
+
+        # Align the spectrum
+        if self.procs['roll_ppm'] is not None:
+            for k, experiment in enumerate(self.S):
+                roll_pt = int(ppm_shift / self.procs['roll_ppm'][k])    # Compute the circular shift in points
+                self.S[k] = np.roll(experiment, roll_pt)                # Apply it to each experiment
+            # Unpack S
+            self.rr = self.S.real
+            self.ii = self.S.imag
+
+        # Calibrate the f2 scale. Use 0 in f1 because it does not have to be calibrated in any case
+        self.cal([0, self.procs['cal_2']], update=False)
 
         self.integrals = {}
         
@@ -1420,7 +1922,7 @@ class Pseudo_2D(Spectrum_2D):
         self.Trf2 = {}
 
 
-    def adjph(self, expno=0, p0=None, p1=None, pv=None):
+    def adjph(self, expno=0, p0=None, p1=None, pv=None, update=True):
         """
         Adjusts the phases of the spectrum according to the given parameters, or interactively if they are left as default.
         -------
@@ -1433,19 +1935,27 @@ class Pseudo_2D(Spectrum_2D):
             1-st order phase correction /°
         - pv: float or None
             1-st order pivot /ppm
+        - update: bool
+            Choose if to upload the procs dictionary or not
         """
+        # Get the reference spectrum
         S = self.S[expno]
         # Adjust the phases
         _, values = processing.ps(S, self.ppm_f2, p0=p0, p1=p1, pivot=pv)
         self.S, _ = processing.ps(self.S, self.ppm_f2, *values)
         
+        # Unpack self.S
         self.rr = self.S.real
         self.ii = self.S.imag
 
-        self.procs['p0'] += round(values[0], 2)
-        self.procs['p1'] += round(values[1], 2)
-        if values[2] is not None:
-            self.procs['pv'] = round(values[2], 5)
+        # Update the procs dictionary
+        if update:
+            self.procs['p0'] += round(values[0], 2)
+            self.procs['p1'] += round(values[1], 2)
+            if values[2] is not None:
+                self.procs['pv'] = round(values[2], 5)
+        # Update the .procs file
+        self.write_procs()
 
     def projf1(self, a, b=None):
         """
@@ -1464,9 +1974,12 @@ class Pseudo_2D(Spectrum_2D):
             label = f'{a:.2f}'
         else:
             label = f'{a:.2f}:{b:.2f}'
+        # Compute the trace
         f1 = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=True)
+        # Store it
         self.trf1[label] = f1
         self.Trf1[label] = pSpectrum_1D(f1, acqus=self.acqus, procs=self.procs, istrace=True)
+        # Overwrite f2 scale with f1 scale as this is f1 projection
         self.Trf1[label].freq = np.copy(self.freq_f1)
         self.Trf1[label].ppm = np.copy(self.ppm_f1)
 
@@ -1486,13 +1999,15 @@ class Pseudo_2D(Spectrum_2D):
             label = f'{a:.2f}'
         else:
             label = f'{a:.2f}:{b:.2f}'
+        # Compute the trace
         f2 = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=False)
+        # Store it
         self.trf2[label] = f2
         self.Trf2[label] = pSpectrum_1D(f2, acqus=self.acqus, procs=self.procs, istrace=True)
 
     def plot(self, Neg=True, lvl0=0.2, Y_label=''):
         """
-        Plots the real part of the spectrum.
+        Plots the real part of the spectrum as a 2D contour plot.
         -------
         Parameters:
         - Neg: bool
@@ -1509,7 +2024,7 @@ class Pseudo_2D(Spectrum_2D):
 
         X_label = '$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
 
-        cmaps = [cm.Blues_r, cm.Reds_r]
+        cmaps = [CM['Blues_r'], CM['Reds_r']]
 
         # flags for the activation of scroll zoom
         lvlstep = 0.02
@@ -1528,7 +2043,7 @@ class Pseudo_2D(Spectrum_2D):
             lvlstep /= 2
 
         def on_scroll(event):
-            nonlocal livello, cnt
+            nonlocal lvl, cnt
             if Neg:
                 nonlocal Ncnt
                 
@@ -1536,25 +2051,25 @@ class Pseudo_2D(Spectrum_2D):
             act_ylim = ax.get_ylim()
 
             if event.button == 'up':
-                livello += lvlstep 
+                lvl += lvlstep 
             elif event.button == 'down':
-                livello += -lvlstep
-            if livello <= 0:
-                livello = 1e-6
-            elif livello > 1:
-                livello = 1
+                lvl += -lvlstep
+            if lvl <= 0:
+                lvl = 1e-6
+            elif lvl > 1:
+                lvl = 1
 
             if Neg:
-                cnt, Ncnt = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=livello, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+                cnt, Ncnt = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
             else:
-                cnt, _ = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=livello, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+                cnt, _ = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
 
             misc.pretty_scale(ax, act_xlim, axis='x', n_major_ticks=n_xticks)
             misc.pretty_scale(ax, act_ylim, axis='y', n_major_ticks=n_yticks)
             ax.set_xlabel(X_label)
             ax.set_ylabel(Y_label)
             misc.set_fontsizes(ax, 14)
-            print('{:.3f}'.format(livello), end='\r')
+            print('{:.3f}'.format(lvl), end='\r')
             fig.canvas.draw()
 
         # Make the figure
@@ -1566,11 +2081,11 @@ class Pseudo_2D(Spectrum_2D):
         contour_num = 16
         contour_factor = 1.40
 
-        livello = lvl0
+        lvl = lvl0
 
-        cnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, S, lvl=livello, cmap=cmaps[0])
+        cnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cmap=cmaps[0])
         if Neg:
-            Ncnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, -S, lvl=livello, cmap=cmaps[1])
+            Ncnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, -S, lvl=lvl, cmap=cmaps[1])
 
         # Make pretty x-scale
         misc.pretty_scale(ax, (max(self.ppm_f2), min(self.ppm_f2)), axis='x', n_major_ticks=n_xticks)
@@ -1597,47 +2112,56 @@ class Pseudo_2D(Spectrum_2D):
         plt.show()
         plt.close()
     
-    def plot_md(self, which='all', lims=None):
+    def plot_md(self, which=None, lims=None):
         """ 
         Plot a number of experiments, superimposed.
         --------
         Parameters:
-        - which: str
-            List of experiment indexes, so that eval(which) is meaningful
+        - which: str or None
+            List of experiment indexes, so that eval(which) is meaningful. None plots all of them
         - lims: tuple
             Region of the spectrum to show (ppm1, ppm2)
         """
-        if 'all' in which:
+        # Select which spectra to plot
+        if which is None:   # All of them
             which_exp = np.arange(self.rr.shape[0])
-        else:
+        else:   # Just the ones in which
             which_exp = eval(which)
+        # Make shallow copy of ppm scale
         ppm = np.copy(self.ppm_f2)
+        # Organize the spectra to be plot
         S = [np.copy(self.rr[w]) for w in which_exp]
 
+        # Cut the data according to lims
         if lims is not None:
             for k, s in enumerate(S): 
                 _, S[k] = misc.trim_data(ppm, s, *lims)
             ppm, _ = misc.trim_data(ppm, s, *lims)
 
+        # Make the figure
         figures.dotmd(ppm, S, labels=[f'{w}' for w in which_exp])
 
-    def plot_stacked(self, which='all', lims=None):
+    def plot_stacked(self, which=None, lims=None):
         """ 
         Plot a number of experiments, stacked.
         --------
         Parameters:
-        - which: str
-            List of experiment indexes, so that eval(which) is meaningful
+        - which: str or None
+            List of experiment indexes, so that eval(which) is meaningful. None plots all of them.
         - lims: tuple
             Region of the spectrum to show (ppm1, ppm2)
         """
-        if 'all' in which:
+        # Select which spectra to plot
+        if which is None:   # All of them
             which_exp = np.arange(self.rr.shape[0])
-        else:
+        else:   # Just the ones in which
             which_exp = eval(which)
+        # Make shallow copy of ppm scale
         ppm = np.copy(self.ppm_f2)
+        # Organize the spectra to be plot
         S = [np.copy(self.rr[w]) for w in which_exp]
 
+        # Cut the data according to lims
         if lims is not None:
             for k, s in enumerate(S): 
                 _, S[k] = misc.trim_data(ppm, s, *lims)
@@ -1645,6 +2169,7 @@ class Pseudo_2D(Spectrum_2D):
 
         X_label = '$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
 
+        # Make the figure
         figures.stacked_plot(
                 ppm, S, 
                 X_label=X_label, Y_label='Normalized intensity /a.u.',
@@ -1664,6 +2189,7 @@ class Pseudo_2D(Spectrum_2D):
         - lims: tuple
             Region of the spectrum to integrate (ppm1, ppm2)
         """
+        # Select the integration region
         if lims is None:
             X_label = '$\delta\,$'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
             integrals = fit.integrate(self.ppm_f2, self.rr[which], X_label=X_label)
@@ -1716,8 +2242,83 @@ class Pseudo_2D(Spectrum_2D):
                 f.write('\n')
         f.close()
 
+    def align(self, lims=None, u_off=0.5, ref_idx=0):
+        """
+        Aligns the spectrum to a reference signal in the reference spectrum (default: first one).
+        ---------
+        Parameters:
+        - lims: tuple or None
+            Reference signal region, in ppm. If None, you can select it interactively.
+        - u_off: float
+            Maximum displacement allowed, in ppm
+        - ref_idx: int
+            Index of the spectrum to be used as a reference (python numbering)
+        """
+        # Get the region of the reference peak
+        if lims is None:
+            lims = fit.get_region(self.ppm_f2, self.r, rev=True)
+        # Align
+        self.S, roll_pt, roll_ppm = processing.align(self.ppm_f2, self.S, lims, u_off, ref_idx)
+        # Unpack S
+        self.rr = self.S.real
+        self.ii = self.S.imag
+        # Update the procs dictionary
+        self.procs['roll_ppm'] += roll_ppm
+        # Update the .procs file
+        self.write_procs()
+
+    def basl(self, from_procs=False, phase=True):
+        """ 
+        Apply baseline correction to the whole pseudo-2D by subtracting self.baseline from self.S. Then, self.S is unpacked in self.rr and self.ii.
+        --------
+        Parameters:
+        - from_procs: bool
+            If True, computes the baseline using the polynomion model reading self.procs['basl_c'] as coefficients
+        - phase: bool
+            Choose if to apply the same phase correction of the spectrum to the baseline. This should be done if the baseline was computed before the phase adjustment!
+        """
+        # Get the baseline, if there is not already
+        if from_procs:
+            x_basl = np.linspace(-1, 1, self.S.shape[-1])
+            self.baseline = misc.polyn(x_basl, self.procs['basl_c'])
+        # Apply the phase correction
+        if phase:
+            self.baseline, *_ = processing.ps(self.baseline, self.ppm_f2, p0=self.procs['p0'], p1=self.procs['p1'], pivot=self.procs['pv'])
+        # Make an array of baseline
+        full_baseline = np.array([self.baseline for w in range(self.S.shape[0])])
+        # Apply the baseline correction
+        self.S -= baseline
+        self.rr = self.S.real
+        self.ii = self.S.imag
 
 
+    def rpbc(self, ref_exp=0, **rpbc_kws):
+        """
+        Computes the phase angles and the baseline using processing.rpbc on a reference spectrum taken from self.S.
+        Then applies the phase correction and subtracts the baseline, automatically, to all experiments of the pseudo-2D.
+        The procs dictionary is then updated and saved.
+        The polynomial baseline is computed according to the given coefficients and stored in self.baseline
+        ---------------
+        Parameters:
+        - ref_exp: int
+            Index of the reference experiment on which to apply the algorithm
+        - rpbc_kws: keyworded arguments
+            See processing.RPBC for details.
+        """
+        # Get the reference experiment
+        experiment = np.copy(self.S[ref_exp])
+        # Get phase angles and baseline coefficients with rpbc
+        _, p0, p1, c = processing.rpbc(experiment, **rpbc_kws)
+        # Apply phase to the whole self.S
+        self.adjph(p0=p0, p1=p1)
+        # Compute the baseline
+        self.procs['basl_c'] = c
+        self.baseline = misc.polyn(np.linspace(-1, 1, self.S.shape[-1]), c)
+        # Apply it
+        self.basl()
+
+        # Update the .procs file
+        self.write_procs()
 
 
 
