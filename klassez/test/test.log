@@ -1,0 +1,13 @@
+TEST OF THE KLASSEZ PACKAGE
+This test is intended for internal use.
+
+ BEGIN OF THE TEST
+Spectrum_1D object
+Reading
+Processing
+Spectrum_2D object
+Reading
+Processing
+Compute projection in f2
+Compute projection in f1
+END OF THE TEST

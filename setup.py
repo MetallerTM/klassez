@@ -2,15 +2,12 @@
 
 from setuptools import setup, find_packages
 
-try:
-    with open('README.md', 'r', encoding='utf-8') as fh:
-        long_description = fh.read()
-except:
-    long_description = 'LONG DESCRIPTION'
+with open('README.md', 'r', encoding='utf-8') as fh:
+    long_description = fh.read()
 
 setup(
         name='klassez',
-        version='0.2a.0',
+        version='0.3a.1',
         author='Francesco Bruno',
         author_email='bruno@cerm.unifi.it',
         description='A collection of functions for NMR data handling.',

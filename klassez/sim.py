@@ -3,7 +3,8 @@
 import os
 import sys
 import numpy as np
-from scipy import linalg, stats
+from numpy import linalg
+from scipy import stats
 from scipy.spatial import ConvexHull
 import random
 import matplotlib
@@ -573,10 +574,10 @@ def f_gaussian(x, u, s, A=1):
     - f: 1darray
         Gaussian function.
     """
-    if s > 0:
-        f = A/(np.sqrt(2 * np.pi)*s) * np.exp(-1/2*((x-u)/s)**2)
-    else:
-        f = np.zeros_like(x)
+    s= np.abs(s)
+    if s < 1e-10:
+        s = 1e-10
+    f = A/(np.sqrt(2 * np.pi)*s) * np.exp(-1/2*((x-u)/s)**2)
     return f
 
 def f_lorentzian(x, u, fwhm, A=1):
@@ -598,11 +599,10 @@ def f_lorentzian(x, u, fwhm, A=1):
         Lorentzian function.
     """
 
-    hwhm = fwhm/2   # half width at half maximum
-    if hwhm > 0:
-        f = A/(np.pi) * hwhm/((x-u)**2 + hwhm**2 )
-    else:
-        f = np.zeros_like(x)
+    hwhm = np.abs(fwhm/2)   # half width at half maximum
+    if hwhm < 1e-8:
+        hwhm = 1e-8
+    f = A/(np.pi) * hwhm/((x-u)**2 + hwhm**2 )
     return f
 
 def f_pvoigt(x, u, fwhm, A=1, x_g=0):
@@ -625,6 +625,9 @@ def f_pvoigt(x, u, fwhm, A=1, x_g=0):
     - S: 1darray
         Pseudo-Voigt function.
     """
+    fwhm = np.abs(fwhm)
+    if fwhm < 1e-8:
+        fwhm = 1e-8
     s = fwhm / 2.355
     S = A* (sim.f_gaussian(x, u, s, A=x_g) + sim.f_lorentzian(x, u, fwhm, A=1-x_g))
     return S
@@ -650,8 +653,9 @@ def t_gaussian(t, u, s, A=1, phi=0):
         Gaussian function.
     """
     s = np.abs(s) # Avoid problems with s<0 
-    if s >= 0:
-        S = A * np.exp(1j*phi) * np.exp((1j*2*np.pi*u*t) - (t**2)*(s**2)/2)
+    if s < 1e-10:
+        s = 1e-10
+    S = A * np.exp(1j*phi) * np.exp((1j*2*np.pi*u*t) - (t**2)*(s**2)/2)
     return S
 
 def t_lorentzian(t, u, fwhm, A=1, phi=0):
@@ -675,6 +679,8 @@ def t_lorentzian(t, u, fwhm, A=1, phi=0):
         Lorentzian function.
     """
     hwhm = np.abs(fwhm) / 2       
+    if hwhm < 1e-8:
+        hwhm = 1e-8
     S = A * np.exp(1j*phi) * np.exp((1j *2*np.pi *u * t)-(t*hwhm))
     return S
 
@@ -701,6 +707,9 @@ def t_pvoigt(t, u, fwhm, A=1, x_g=0, phi=0):
         Pseudo-Voigt function.
     """
 
+    fwhm = np.abs(fwhm)
+    if fwhm < 1e-8:
+        fwhm = 1e-8
     s = fwhm / 2.355
     S = A * (sim.t_gaussian(t, u, s, A=x_g, phi=phi) + sim.t_lorentzian(t, u, fwhm, A=1-x_g, phi=phi))
     return S
@@ -728,6 +737,9 @@ def t_voigt(t, u, fwhm, A=1, x_g=0, phi=0):
         Voigt function.
     """
 
+    fwhm = np.abs(fwhm)
+    if fwhm < 1e-8:
+        fwhm = 1e-8
     s = fwhm / 2.355
     S = A * np.exp(1j*phi) * sim.t_gaussian(t, u/2, s*x_g) * sim.t_lorentzian(t, u/2, fwhm*(1-x_g))
     return S

@@ -3,7 +3,8 @@
 import os
 import sys
 import numpy as np
-from scipy import linalg, stats
+from numpy import linalg
+from scipy import stats
 from scipy.spatial import ConvexHull
 from scipy import interpolate
 from csaps import csaps
@@ -46,10 +47,10 @@ def f_t2(t, A, B, T2):
     f = A * np.exp(-t/T2) + B
     return f
 
-def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=False, name=None):
+def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=False, barcolor='tab:blue', fontsize=10, name=None, ext='png', dpi=600):
     """
     Computes an histogram of 'data' and tries to fit it with a gaussian lineshape.
-    The parameters of the gaussian function are calculated analytically directly from 'data'
+    The parameters of the gaussian function are calculated analytically directly from 'data' using 'scipy.stats.norm'
     --------
     Parameters:
     - data : ndarray
@@ -64,8 +65,16 @@ def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=F
         Text to be displayed under the x axis
     - x_symm : bool
         set it to True to make symmetric x-axis with respect to 0
+    - barcolor: str
+        Color of the bins
+    - fontsize: float
+        Biggest fontsize in the figure
     - name : str
         name for the figure to be saved
+    - ext: str
+        Format of the image
+    - dpi: int
+        Resolution of the image in dots per inches
     -------
     Returns:
     - m : float
@@ -74,61 +83,32 @@ def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=F
         Standard deviation of data.
     """
 
-    if len(data.shape) > 1:
-        data = data.flatten()
-
-    if x_symm:
-        lims = (- max(np.abs(data)), max(np.abs(data)) )
-    else:
-        lims = (min(data), max(data))
-    
-    hist, bin_edges = np.histogram(data, bins=nbins, range=lims, density=density)   # Computes the bins for the histogram
-
-    lnspc = np.linspace(lims[0], lims[1], len(data))        # Scale for a smooth gaussian
-    m, s = stats.norm.fit(data)                                 # Get mean and standard deviation of 'data'
-   
-    if density:
-        A = 1
-    else:
-        A = np.trapz(hist, dx=bin_edges[1]-bin_edges[0])    # Integral
-    fit_g = A / (np.sqrt(2 * np.pi) * s) * np.exp(-0.5 * ((lnspc - m) / s)**2) # Gaussian lineshape
-
     fig = plt.figure()
-    fig.set_size_inches(3.96, 2.78)
     ax = fig.add_subplot(1,1,1)
-    ax.hist(data, color='tab:blue', density=density, bins=bin_edges) 
-    ax.plot(lnspc, fit_g, c='r', lw=0.6, label = '$\mu = ${:.3g}'.format(m)+'\n$\sigma = ${:.3g}'.format(s))
-    ax.tick_params(labelsize=7)
-    ax.ticklabel_format(axis='both', style='scientific', scilimits=(-3,3), useMathText=True)
-    ax.yaxis.get_offset_text().set_size(7)
-    ax.xaxis.get_offset_text().set_size(7)
-    if density:
-        ax.set_ylabel('Normalized count', fontsize=8)
-    else:
-        ax.set_ylabel('Count', fontsize=8)
-    if xlabel:
-        ax.set_xlabel(xlabel, fontsize=8)
-    if f_lims:
-        ax.set_xlim(f_lims)
-    ax.legend(loc='upper right', fontsize=6)
-    fig.tight_layout()
+
+    m, s = figures.ax_histogram(ax, data, nbins=nbins, density=density, f_lims=f_lims, xlabel=x_label, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize)
+
     if name:
-        plt.savefig(name+'.png', format='png', dpi=600)
+        fig.set_size_inches(figures.figsize_small)
+        print(f'Saving {name}.{ext}...')
+        plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
+        fig.set_size_inches(figures.figsize_large)
         plt.show()
     plt.close()
+    print('Done.')
 
     return m, s
 
-def ax_histogram(ax, data0, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=False, barcolor='tab:blue'):
+def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x_symm=False, barcolor='tab:blue', fontsize=10):
     """
     Computes an histogram of 'data' and tries to fit it with a gaussian lineshape.
-    The parameters of the gaussian function are calculated analytically directly from 'data'
+    The parameters of the gaussian function are calculated analytically directly from 'data' using 'scipy.stats.norm'
     --------
     Parameters:
     - ax : matplotlib.subplot Object
         panel of the figure where to put the histogram
-    - data : ndarray
+    - data0 : ndarray
         the data to be binned
     - nbins : int
         number of bins to be calculated
@@ -140,8 +120,10 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims= None, xlabel=None, 
         Text to be displayed under the x axis
     - x_symm : bool
         set it to True to make symmetric x-axis with respect to 0
-    - name : str
-        name for the figure to be saved
+    - barcolor: str
+        Color of the bins
+    - fontsize: float
+        Biggest fontsize in the figure
     -------
     Returns:
     - m : float
@@ -151,30 +133,28 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims= None, xlabel=None, 
     """
 
     if len(data0.shape) > 1:
-        data = data0.flatten()
+        data = data0.real.flatten()
     else:
-        data = np.copy(data0)
-    
+        data = np.copy(data0.real)
 
     if x_symm:
-        lims = (- max(np.abs(data)), max(np.abs(data)) )
+        lims = ( -max(np.abs(data)), max(np.abs(data)) )
     else:
         lims = (min(data), max(data))
     
     hist, bin_edges = np.histogram(data, bins=nbins, range=lims, density=density)   # Computes the bins for the histogram
 
-    lnspc = np.linspace(lims[0], lims[1], len(data))        # Scale for a smooth gaussian
+    x = np.linspace(lims[0], lims[1], len(data))        # Scale for a smooth gaussian
     m, s = stats.norm.fit(data)                                 # Get mean and standard deviation of 'data'
    
     if density:
         A = 1
     else:
         A = np.trapz(hist, dx=bin_edges[1]-bin_edges[0])    # Integral
-    fit_g = A / (np.sqrt(2 * np.pi) * s) * np.exp(-0.5 * ((lnspc - m) / s)**2) # Gaussian lineshape
+    fit_g = sim.f_gaussian(x, m, s, A)  # Gaussian lineshape
 
     ax.hist(data, color=barcolor, density=density, bins=bin_edges) 
     ax.plot(lnspc, fit_g, c='r', lw=0.6, label = 'Theoretical values:\n$\mu = ${:.3g}'.format(m)+'\n$\sigma = ${:.3g}'.format(s))
-
 
     if density:
         ax.set_ylabel('Normalized count')
@@ -193,7 +173,7 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims= None, xlabel=None, 
 
     ax.legend(loc='upper right')
 
-    misc.set_fontsizes(ax, 10)
+    misc.set_fontsizes(ax, fontsize)
 
     return m, s
 
@@ -231,23 +211,65 @@ def bin_data(data0, nbins=100, density=True, x_symm=False):
     bin_scale = np.array( [np.mean((bin_edges[k], bin_edges[k+1])) for k in range(len(bin_edges) - 1) ])
     return hist, bin_scale
 
+
+def LR(y, x=None):
+    """ 
+    Performs a linear regression of y with a model y_c = mx + q.
+    ---------
+    Parameters:
+    - y: 1darray
+        Data to be fitted
+    - x: 1darray
+        Independent variable. If None, the point indexes are used.
+    ---------
+    Returns:
+    - y_c: 1darray
+        Fitted trend
+    - values: tuple
+        (m, q)
+    """
+    if x is None:
+        x = np.arange(y.shape[-1])
+    y_c = np.copy(x)
+    m, q = fit.fit_int(y, y_c)
+    y_c = m * y_c + q
+
+    return y_c, (m, q)
+
+
+
 def fit_int(y, y_c):
     """
-    Calculate the intensity according to the least square fit as:
-        I = sum( obs * calc ) / sum( calc^2 )
-    --------
+    Computes the optimal intensity and intercept of a linear model in the least squares sense.
+    Let y be the experimental data and y_c the model, and let <w> the mean of variable w.
+    Then:
+        A = ( <y_c y> - <y_c><y> ) / ( <y_c^2> - <y_c>^2 )
+        q = ( <y_c>^2<y> - <y_c> ) / ( <y_c^2> - <y_c>^2 )
+    ----------
     Parameters:
-    - y: ndarray
-        Observed data.
-    - y_c: ndarray
-        Calculated data
-    --------
+    - y: 1darray
+        Experimental data
+    - y_c: 1darray
+        Model data
+    ----------
     Returns:
-    - I: float
-        Calculated intensity
+    - A: float
+        Optimized intensity
+    - q: float
+        Optimized intercept
     """
-    I = np.sum(y * y_c, axis=-1) / np.sum(y_c**2, axis=-1)
-    return I
+
+    # Apply the formulaes, numerator only
+    A = np.mean(y_c * y) - np.mean(y_c) * np.mean(y)
+    q = np.mean(y_c**2) * np.mean(y) - np.mean(y_c) * np.mean(y * y_c)
+
+    # Compute denominator
+    Q = np.mean(y_c**2) - np.mean(y_c)**2
+    # Divide
+    A /= Q
+    q /= Q
+
+    return A, q
 
 def get_region(ppmscale, S, rev=True):
     """
@@ -277,6 +299,8 @@ def get_region(ppmscale, S, rev=True):
         right = max(ppmscale)
         left = min(ppmscale)
     res = misc.calcres(ppmscale)
+
+    zoom_toggle = False
 
     # Make the boxes
     #   for sliders
@@ -312,7 +336,8 @@ def get_region(ppmscale, S, rev=True):
             ax.set_xlim(left-25*res, right+25*res)
         T = max(data_inside.real)
         B = min(data_inside.real)
-        ax.set_ylim(B - 0.05*T, T + 0.05*T)
+        if zoom_toggle:
+            ax.set_ylim(B - 0.05*T, T + 0.05*T)
 
 
 
@@ -331,6 +356,11 @@ def get_region(ppmscale, S, rev=True):
         left = left_slider.val
         right = right_slider.val
 
+    def key_press(event):
+        nonlocal zoom_toggle
+        if event.key == 'z':
+            zoom_toggle = not(zoom_toggle)
+
     # Creation of interactive figure panel
     fig = plt.figure(1)
     fig.set_size_inches(15,8)
@@ -347,6 +377,7 @@ def get_region(ppmscale, S, rev=True):
     misc.mathformat(ax, 'y')
     ax.set_xlabel('$\delta\,$ /ppm')
     ax.set_ylabel('Intensity /a.u.')
+    ax.set_title('Press Z to toggle the automatic zoom')
     L = ax.axvline(x=left, lw=0.5, c='r')           # Left selector
     R = ax.axvline(x=right, lw=0.5, c='g')          # Right selector
 
@@ -356,6 +387,7 @@ def get_region(ppmscale, S, rev=True):
     button.on_clicked(save)
     l_tbox.on_submit(on_submit_l) 
     r_tbox.on_submit(on_submit_r) 
+    fig.canvas.mpl_connect('key_press_event', key_press)
 
     misc.set_fontsizes(ax, 14)
 
@@ -3219,7 +3251,7 @@ class Voigt_Fit_2D:
             if len(self.label_list) < len(self.coord):
                 raise ValueError('The number of provided labels is not enough for the peaks.')
 
-    def draw_coord(self, filename=None, labelsize=8, dpi=600, **kwargs):
+    def draw_coord(self, filename=None, labelsize=8, ext='png', dpi=600, **kwargs):
         """
         Makes a figure with the experimental dataset and the peak-picked signals as crosshairs.
         --------
@@ -3228,6 +3260,8 @@ class Voigt_Fit_2D:
             Filename for the figure to be saved. If None, it is shown instead.
         - labelsize: float
             Font size for the peak index
+        - ext: str
+            Format of the image
         - dpi: int
             Resolution of the saved image in dots per inches
         - kwargs: keyworded arguments
@@ -3247,7 +3281,7 @@ class Voigt_Fit_2D:
         if filename is None:
             plt.show()
         else:
-            plt.savefig(f'{filename}.png', dpi=dpi)
+            plt.savefig(f'{filename}.{ext}', dpi=dpi)
         plt.close()
 
 
@@ -3392,12 +3426,6 @@ class Voigt_Fit_2D:
                 0.5,    # x_g
                 ]] 
             # Integral
-            """
-            _, _, data_exp = misc.trim_data_2D(ppm_f2, ppm_f1, self.data, lim_f2, lim_f1)
-            data_calc = fit.build_2D_sgn(parameters, acqus, N=(len(tr1), len(tr2)), procs=self.procs)
-            _, _, data_calc = misc.trim_data_2D(ppm_f2, ppm_f1, data_calc, lim_f2, lim_f1)
-            #A0 = fit.fit_int(data_exp.flatten(), data_calc.flatten())
-            """
             A0 = np.max(self.data) / np.prod(self.data.shape)**0.5
             parameters[0][-2] = A0
             
@@ -3560,5 +3588,478 @@ class Voigt_Fit_2D:
         fit_interval = eval(split[-1])
         return index, clu, values, fit_interval
 
+
+#-------------------------------------------------------------------------------------
+
+
+class CostFunc:
+    """
+    Class that groups several ways to compute the target of the minimization in a fitting procedure. It includes the classic squared sum of the residuals, as well as some other non-quadratic cost functions.
+    Let x be the residuals and s the chosen threshold value. Then the objective value R is computed as:
+        R = \sum_i f(x_i)
+    where f(x) can be chosen between the following options:
+    > Quadratic:
+        f(x) = x^2
+    > Truncated Quadratic:
+        f(x) =  x^2         if |x| < s
+                s^2         otherwise
+    > Huber function:
+        f(x) =  x^2         if |x| < s
+                2s|x| - s^2 otherwise
+    > Asymmetric Truncated Quadratic:
+        f(x) =  x^2         if x < s
+                s^2         otherwise
+    > Asymmetric Huber function:
+        f(x) =  x^2         if x < s
+                2sx - s^2   otherwise
+    ---------
+    Attributes:
+    - method: function
+        Function to be used for the computation of the objective value. It must take as input the array of the residuals and the threshold, no matter if the latter is actually used or not.
+    - s: float
+        Threshold value
+    """
+    def __init__(self, method='q', s=None):
+        """
+        Initialize the method according to your choice, then stores the threshold value in the attribute "s".
+        Allowed choices are:
+        > "q": Quadratic
+        > "tq": Truncated Quadratic
+        > "huber": Huber function
+        > "atq": Asymmetric Truncated Quadratic
+        > "ahuber": Asymmetric Huber function
+        ---------
+        Parameters:
+        - method: str
+            Label for the method selection
+        - s: float
+            Threshold value
+        """
+        self.method = self.method_selector(method)
+        self.s = s
+
+    def method_selector(self, method):
+        """
+        Performs the selection of the method according to the identifier string.
+        -------
+        Parameters:
+        - method: str
+            Method label
+        --------
+        Returns:
+        - f: function
+            Selected model
+        """
+        if method == 'q':
+            return self.squared_sum
+        elif method == 'tq':
+            return self.truncated_quadratic
+        elif method == 'huber':
+            return self.huber
+        elif method == 'atq':
+            return self.asymm_truncated_quadratic
+        elif method == 'ahuber':
+            return self.asymm_huber
+        else:
+            raise ValueError(f'{method} method not recognized')
+
+    def __call__(self, x):
+        """
+        Computes the objective value according to the chosen method and the residuals array x.
+        ---------
+        Parameters:
+        - x: 1darray
+            Array of the residuals
+        ---------
+        Returns:
+        - R: float
+            Computed objective value
+        """
+        return self.method(x, self.s)
+
+    @staticmethod
+    def squared_sum(r, s=0):
+        """ Quadratic everywhere """
+        return np.sum(r**2)
+
+    @staticmethod
+    def truncated_quadratic(r, s):
+        """ Constant behaviour above s """
+        x = np.copy(r)
+        for i, x_i in enumerate(x):
+            if np.abs(x_i) < s:
+                x[i] = x_i**2
+            else:
+                x[i] = s**2
+        return np.sum(x)
+
+    @staticmethod
+    def huber(r, s):
+        """ Linear behaviour above s """
+        x = np.copy(r)
+        for i, x_i in enumerate(x):
+            if np.abs(x_i) < s:
+                x[i] = x_i**2
+            else:
+                x[i] = 2*s*np.abs(x_i) - s**2
+        return np.sum(x)
+
+    @staticmethod
+    def asymm_huber(r, s):
+        """ Linear behaviour above s, penalizes negative entries """
+        x = np.copy(r)
+        for i, x_i in enumerate(x):
+            if x_i < s:
+                x[i] = x_i**2
+            else:
+                x[i] = 2*s*x_i - s**2
+        return np.sum(x)
+
+    @staticmethod
+    def asymm_truncated_quadratic(r, s):
+        """ Constant behaviour above s, penalizes negative entries """
+        x = np.copy(r)
+        for i, x_i in enumerate(x):
+            if x_i < s:
+                x[i] = x_i**2
+            else:
+                x[i] = s**2
+        return np.sum(x)
+
+
+def LSP(y, x, n=5):
+    """
+    Linear-System Polynomion
+    Make a polynomial fit on the experimental data y by solving the linear system
+        y = T c
+    where T is the Vandermonde matrix of the x-scale and c is the set of coefficients that minimize the problem in the least-squares sense.
+    ----------
+    Parameters:
+    - y: 1darray
+        Experimental data
+    - x: 1darray
+        Independent variable (better if normalized)
+    - n: int
+        Order of the polynomion + 1, i.e. number of coefficients
+    ----------
+    Returns:
+    - c: 1darray
+        Set of minimized coefficients
+    """
+    # Make the Vandermonde matrix of the x-scale
+    T = np.array(
+            [x**k for k in range(n)]
+            ).T
+    # Pseudo-invert it
+    Tpinv = np.linalg.pinv(T)
+    # Solve the system
+    c = Tpinv @ y
+    return c
+
+
+
+def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
+    """
+    Fit the baseline of a spectrum with a low-order polynomion using a non-quadratic objective function.
+    Let y be an array of N points. The polynomion is generated on a normalized scale that goes from -1 to 1 in N steps, and the coefficients are initialized either from outside through the parameter c_i or with the ordinary least squares fit.
+    Then, the guess is refined using the objective function of choice employing the trust-region reflective least-squares algorithm.
+    -----------
+    Parameters:
+    - y: 1darray
+        Experimental data
+    - n: int
+        Order of the polynomion + 1, i.e. number of coefficients
+    - method: str
+        Objective function of choice. 'q': quadratic, 'tq': truncated quadratic, 'huber': Huber, 'atq': asymmetric truncated quadratic, 'ahuber': asymmetric huber
+    - s: float
+        Relative threshold value for the non-quadratic behaviour of the objective function
+    - c_i: sequence or None
+        Initial guess for the polynomion coefficient. If None, the least-squares fit is used
+    - itermax: int
+        Number of maximum iterations
+    -----------
+    Returns:
+    - px: 1darray
+        Fitted polynomion
+    - c: list
+        Set of coefficients of the polynomion
+    """
+    def f2min_real(param, y, x, n, res_f):
+        """
+        Minimizer function.
+        ----------
+        Parameters:
+        - param: lmfit.Parameters object
+            Parameters to be optimized
+        - y: 1darray
+            Experimental data
+        - x: 1darray
+            Scale on which to build the model
+        - n: int
+            Number of coefficients
+        - res_f: function
+            Returns the objective value to be minimized
+        """
+        # Unpack the parameters
+        par = param.valuesdict()
+        # Make a list of coefficients from the dictionary
+        c = [par[f'c_{k}'].real for k in range(n)]
+        # Make the polynomion
+        px = par['I'] * misc.polyn(x, c)
+        # Compute the residual
+        r = y - px
+        return res_f(r)
+
+    def f2min_cplx(param, y, x, n, res_f):
+        """
+        Minimizer function.
+        ----------
+        Parameters:
+        - param: lmfit.Parameters object
+            Parameters to be optimized
+        - y: 1darray
+            Experimental data
+        - x: 1darray
+            Scale on which to build the model
+        - n: int
+            Number of coefficients
+        - res_f: function
+            Returns the objective value to be minimized
+        """
+        # Unpack the parameters
+        par = param.valuesdict()
+        # Make a list of coefficients from the dictionary
+        c = [par[f'c_{k}'] + 1j*par[f'c_{k}'] for k in range(n)]
+        # Make the polynomion
+        px = par['I'] * misc.polyn(x, c)
+        # Compute the residual
+        r_r = y.real - px.real
+        r_i = y.imag - px.imag
+        r = np.concatenate((r_r, r_i), axis=-1)
+        return res_f(r)
+
+    cplx = np.iscomplexobj(y)
+
+    # Make the normalized scales
+    x = np.linspace(-1, 1, y.shape[-1])
+
+    # Make initial guess of the polynomion coefficients
+    print('Make initial guess of the polynomion coefficients...')
+    if c_i:
+        c = np.copy(c_i)
+    else:
+        c = fit.LSP(y, x, n)
+    px_iguess = misc.polyn(x, c)
+    print('Done.')
+
+    # Compute an intensity factor to decrease the weight on the fit procedure
+    I = fit.fit_int(np.abs(y), np.abs(px_iguess))[0]
+    s *= I      # Set absolute threshold values
+    c /= I      # Normalize the coefficients to I
+    
+    # Generate the parameters for the fit
+    param = l.Parameters()
+    param.add('I', value=I, vary=False) # Just to keep track of it
+
+    for k in range(n):
+        param.add(f'c_{k}', value=c[k].real)
+
+    # Get the objective function of choice
+    R = fit.CostFunc(method, s)
+
+    print('Optimizing the baseline...')
+    # Make the fit
+    if cplx:
+        f2min = f2min_cplx
+    else:
+        f2min = f2min_real
+    minner = l.Minimizer(f2min, param, fcn_args=(y, x, n, R))
+    result = minner.minimize(method='least_squares', max_nfev=int(itermax), gtol=1e-15)
+    print(f'The fit has ended. {result.message}.\nNumber of function evaluations: {result.nfev}')
+
+    # Get the fitted parameters
+    popt = result.params.valuesdict()
+
+    # Make a list of the fitted coefficients from the dictionary
+    if cplx:
+        c_opt = [popt['I'] * ( popt[f'c_{k}'] + 1j*popt[f'c_{k}'] ) for k in range(n)]
+    else:
+        c_opt = [popt['I'] * popt[f'c_{k}'] for k in range(n)]
+    # Build the polynomion with them
+    px = misc.polyn(x, c_opt)
+
+    return px, c_opt
+
+
+class SINC_ObjFunc:
+    """
+    Computes the objective function as explained in M. Sawall et al., Journal of Magnetic Resonance 289 (2018), 132-141.
+    The cost function is computed as:
+        f(d) = \sum_{i=1}^3  gamma_i g_i(d|e_i)
+    where d is the real part of the NMR spectrum.
+    ---------
+    Attributes:
+    - gamma1: float
+        Weighting factor for function g1
+    - gamma2: float
+        Weighting factor for function g2
+    - gamma3: float
+        Weighting factor for function g3
+    - e1: float
+        Tolerance value for function g1
+    - e2: float
+        Tolerance value for function g2
+    """
+    def __init__(self, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0):
+        """
+        Initialize the coefficients used to weigh the objective function.
+        -------
+        Parameters:
+        - gamma1: float
+            Weighting factor for function g1
+        - gamma2: float
+            Weighting factor for function g2
+        - gamma3: float
+            Weighting factor for function g3
+        - e1: float
+            Tolerance value for function g1
+        - e2: float
+            Tolerance value for function g2
+        """
+        self.gamma1 = gamma1
+        self.gamma2 = gamma2
+        self.gamma3 = gamma3
+        self.e1 = e1
+        self.e2 = e2
+
+    def __call__(self, d):
+        """ Computes the objective function f as explained in the paper """
+        # Normalize d with respect to the sup-norm
+        norm = np.max(np.abs(d))
+        d_norm = np.copy(d) / norm
+        # Compute the three contributions
+        g1 = self.g1(d_norm, self.e1)
+        g2 = self.g2(d_norm, self.e2)
+        g3 = self.g3(d_norm)
+        # Weigh the three contribution by the three coefficients
+        f = self.gamma1 * g1 + self.gamma2 * g2 + self.gamma3 * g3
+        return f
+
+
+    @staticmethod
+    def g1(d, e1=0):
+        """ 
+        Penalty function for negative entries of the spectrum
+        --------
+        Parameters:
+        - d: 1darray
+            Spectrum
+        - e1: float
+            Tolerance for negative entries
+        """
+
+        data = np.copy(d) + e1
+        datac = np.array([min(0, x) for x in data])
+        g = np.sum(datac**2)
+        return g
+
+    @staticmethod
+    def g2(d, e2=0):
+        """
+        Regularization function that favours the smallest integral.
+        --------
+        Parameters:
+        - d: 1darray
+            Spectrum
+        - e2: float
+            Tolerance for ideal baseline
+        """
+
+        data = np.abs(np.copy(d)) - e2
+        datac = np.array([max(0, x) for x in data])
+        g = np.sum(datac**2)
+        return g
+
+    @staticmethod
+    def g3(d):
+        """
+        Regularization function for the smoothing.
+        --------
+        Parameters:
+        - d: 1darray
+            Spectrum
+        """
+        diffd = np.diff(d, 2)
+        g = np.sum(diffd**2)
+        return g
+
+
+def SINC_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
+    """
+    Perform automatic phase correction according to the SINC algorithm, as described in M. Sawall et. al., Journal of Magnetic Resonance 289 (2018), 132–141.
+    The fitting method defaults to "least_squares".
+    --------
+    Parameters:
+    - data: 1darray
+        Spectrum to phase-correct
+    - gamma1: float
+        Weighting factor for function g1: non-negativity constraint
+    - gamma2: float
+        Weighting factor for function g2: smallest-integral constraint
+    - gamma3: float
+        Weighting factor for function g3: smoothing constraint
+    - e1: float
+        Tolerance factor for function g1: adjustment for noise
+    - e2: float
+        Tolerance factor for function g2: adjustment for non-ideal baseline
+    - fit_kws: keyworded arguments
+        additional parameters for the fit function. See lmfit.Minimizer.minimize for details. Do not use "leastsq" because the cost function returns a scalar value!
+    --------
+    Returns:
+    - p0: float
+        Fitted zero-order phase correction angle, in degrees
+    - p1: float
+        Fitted first-order phase correction angle, in degrees
+    """
+
+    def f2min(param, data, r_func):
+        """ Cost function for the fit. Applies the algorithm. """
+        # Unpack the parameters
+        par = param.valuesdict()
+        p0 = par['p0']
+        p1 = par['p1']
+
+        # Phase data and take real part
+        Rp, *_ = processing.ps(data, p0=p0, p1=p1)
+        R = Rp.real
+        # Compute the objective function using the phased data
+        return r_func(R)
+
+    # Safety checks
+    if not np.iscomplexobj(data):
+        raise ValueError('Input data is not complex.')
+
+    if 'method' not in fit_kws.keys():
+        fit_kws['method'] = 'least_squares'
+
+    # Shallow copy to prevent overwriting
+    d = np.copy(data)
+
+    # Create the Parameters object
+    param = l.Parameters()
+    param.add('p0', value=0, min=-180, max=180)
+    param.add('p1', value=0, min=-720, max=720)
+
+    # Create the objective function
+    R = fit.SINC_ObjFunc(gamma1, gamma2, gamma3, e1, e2)
+
+    # Minimize using the method of choice. "leastsq" not accepted!
+    print('Starting phase correction...')
+    minner = l.Minimizer(f2min, param, fcn_args=(d, R))
+    result = minner.minimize(**fit_kws)
+    print(f'The fit has ended. {result.message}.\nNumber of function evaluations: {result.nfev}')
+    popt = result.params.valuesdict()
+
+    return popt['p0'], popt['p1']
 
 
