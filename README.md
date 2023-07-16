@@ -1,6 +1,6 @@
 # **KLASSEZ**
 
-The *klassez* package is a collection of functions and classes to handle NMR data.
+The *klassez* package is a collection of classes and functions to handle NMR data.
 
 It is organized in modules, each of which contains functions dedicated to specific tasks.
 
