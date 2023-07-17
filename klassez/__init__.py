@@ -22,6 +22,8 @@ from .config import CM, COLORS, cron
 def open_doc():
     """ Open the documentation .pdf file in the browser. """
     import webbrowser
+    print(f'Opening {__doc__} in the web browser...')
     webbrowser.open_new(__doc__)
 
-__doc__ = f'{__path__[0]}/docs/klassez.pdf'
+__doc__ = os.path.abspath(os.path.join(os.path.dirname(__path__[0]), 'klassez', 'docs', 'klassez.pdf'))
+
