@@ -83,9 +83,15 @@ class Spectrum_1D:
             doc += f'Read from "{self.datadir}"\n'
         else:
             doc += f'Simulated from "{self.filename}" in {self.datadir}\n'
-        N = self.fid.shape[-1]
         doc += f'It is a {self.acqus["nuc"]} spectrum recorded over a\nsweep width of {self.acqus["SWp"]} ppm, centered at {self.acqus["o1p"]} ppm.\n'
-        doc += f'The FID is {N} points long.\n'
+        if 'fid' in self.__dict__.keys():
+            N = self.fid.shape[-1]
+            doc += f'The FID is {N} points long.\n'
+        elif 'S' in self.__dict__.keys():
+            N = self.S.shape[-1]
+            doc += f'The spectrum is {N} points long.\n'
+        else:
+            pass
         doc += '-'*64
 
         return doc
@@ -690,7 +696,6 @@ class pSpectrum_1D(Spectrum_1D):
             self.acqus['DTYPA'] = dic['acqus']['DTYPA']
             self.ngdic = dic
             del dic
-            del data
         # Set the group delay, if there is
         try:
             self.acqus['GRPDLY'] = int(self.ngdic['acqus']['GRPDLY'])
@@ -1673,7 +1678,6 @@ class pSpectrum_2D(Spectrum_2D):
         self.acqus['DTYPA'] = dic['acqus']['DTYPA']
         self.ngdic = dic
         del dic
-        del data
 
         # Look for group delay points
         try:
