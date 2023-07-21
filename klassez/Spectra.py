@@ -109,7 +109,7 @@ class Spectrum_1D:
         - isexp: bool
             True if this is an experimental dataset, False if it is simulated
         - spect: str
-            Data file format. Allowed: 'bruker', 'varian', 'magritek'
+            Data file format. Allowed: 'bruker', 'varian', 'magritek', 'oxford'
         """
         ## Set up the filenames
         if isinstance(in_file, dict):   # Simulated data with already given acqus dictionary
@@ -143,9 +143,11 @@ class Spectrum_1D:
                 # Set the data format keys in acqus
                 self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
                 self.acqus['DTYPA'] = dic['acqus']['DTYPA']
+
             elif spect == 'varian':
                 dic, data = ng.varian.read(in_file)
                 self.acqus = misc.makeacqus_1D_varian(dic)
+
             elif spect == 'magritek':
                 dic1, data = ng.spinsolve.read(in_file, specfile='data.1d')         # Actual FID
                 dic2, _, = ng.spinsolve.read(in_file, specfile='spectrum.1d')       # for config
@@ -156,6 +158,25 @@ class Spectrum_1D:
                 dic.update(dic2)        # Important because it contains the ppm scale!
                 self.fid = data
                 self.acqus = misc.makeacqus_1D_spinsolve(dic)
+
+            elif spect == 'oxford':
+                if '.jdx' in in_file:
+                    jdx_file = in_file
+                else:
+                    dirlist = os.listdir(self.datadir)
+                    all_jdx = [w for w in dirlist if '.jdx' in w]
+                    if len(all_jdx) == 0:
+                        raise NameError(f'No .jdx file were found in {self.datadir}.')
+                    elif len(all_jdx) > 1:
+                        raise ValueError(f'There are more than one .jdx file in {self.datadir}.')
+                    jdx_file = os.path.join(self.datadir, all_jdx[-1])
+                # filter warnings due to incomplete jdx file
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    dic, cplx = ng.jcampdx.read(jdx_file)
+                self.acqus = misc.makeacqus_1D_oxford(dic)
+                data = cplx[0] + 1j*cplx[1]
+
             else:
                 raise NotImplementedError('Unknown dataset format.')
 
@@ -214,7 +235,7 @@ class Spectrum_1D:
             self.S, self.procs = processing.interactive_fp(self.fid, self.acqus, self.procs)
         else:
             self.S = processing.fp(self.fid, wf=self.procs['wf'], zf=self.procs['zf'], fcor=self.procs['fcor'], tdeff=self.procs['tdeff'])
-        if self.acqus['spect'] != 'bruker': # Bruker data are meant to be ordered already
+        if self.acqus['spect'] not in ['bruker']: # Bruker data are meant to be ordered already
             self.S = self.S[::-1]
         if self.acqus['SFO1'] < 0:  # Correct for negative gamma nuclei
             self.S = self.S[::-1]

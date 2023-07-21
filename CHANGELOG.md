@@ -1,3 +1,11 @@
+# Version 0.3a.1-dev
+
+23/07/21 - Added possibility to work with Oxford data.
+
+TODO: implement backwards prediction of 8 points in order to correct for their shitty data
+
+
+
 # Version 0.3a.1
 
 ## Update notes:
