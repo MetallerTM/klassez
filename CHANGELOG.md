@@ -1,8 +1,8 @@
 # Version 0.3a.1-dev
 
-23/07/21 - Added possibility to work with Oxford data.
-
-TODO: implement backwards prediction of 8 points in order to correct for their shitty data
+23/07/21 - Added possibility to work with Oxford data (*misc.makeacqus_1D_oxford*).
+23/07/24 - Backward linear prediction (*processing.blp*) --> Mandatory for Oxford data with 8 points predicted.
+Direct call in *Spectrum_1D* class
 
 
 

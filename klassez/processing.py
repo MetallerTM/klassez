@@ -4558,3 +4558,39 @@ def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
     return data_roll, u_cal, u_cal_ppm
 
 
+def blp(data, pred=1, order=8, N=2048):
+    """
+    Performs backwards linear prediction on data.
+    This function calls nmrglue.process.proc_lp.lp with most of the parameters set automatically.
+    The algorithm predicts "pred" points of the FID using "order" coefficient for the linear interpolation.
+    Only the first N points of the FID are used in the LP equation, because the computational cost scales with n**2, making the use of more than 8k points not effective: using more points brings negligible contiribution to the final result.
+    For Oxford spectra, set "pred" to half the value written in "TDoff".
+    ------------
+    Parameters:
+    - data: ndarray
+        Data on which to perform the linear prediction. For 2d data, it is performed row-by-row
+    - pred: int 
+        Number of points to be predicted
+    - order: int
+        Number of coefficients to be used for the prediction
+    - N: int
+        Number of points of the FID to be used in the calculation
+    -------------
+    Returns:
+    - datap: ndarray
+        Data with the predicted points appended at the beginning
+    """
+    # Compute a slice to trim the data to decrease the computation time
+    if data.shape[-1] >= N:     # Slice from 0 to N
+        data_sl = slice(0, N)
+    else:                       # Leave unchanged
+        data_sl = None
+    datap = ng.process.proc_lp.lp(data, 
+            pred=pred,          # Number of points to predict
+            order=order,        # Number of coefficients to use
+            slice=data_sl,      # Slicing
+            mode='b',           # Backwards
+            append='before',    # Append points before
+            bad_roots='decr',   # Default option for mode='b'
+            method='svd')       # Choice of method basically uninfluent
+    return datap

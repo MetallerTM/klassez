@@ -219,6 +219,20 @@ class Spectrum_1D:
         """ Call processing.convdta using self.acqus['GRPDLY'] """
         self.fid = processing.convdta(self.fid, self.acqus['GRPDLY'], scaling)
 
+    def blp(self, pred=8, order=8, N=2048):
+        """
+        Call processing.blp on self.fid for the application of backward linear prediction to the data. Important for Oxford benchtop data, where you have to predict 8 points to have a usable spectrum.
+        ----------
+        Parameters:
+        - pred: int
+            Number of points to be predicted
+        - order: int
+            Number of coefficients to be used for the prediction
+        - N: int
+            Number of FID points to be used for calculation; used to decrease computation time
+        """
+        self.fid = processing.blp(self.fid, pred, order=order, N=N)
+
     def process(self, interactive=False):
         """
         Performs the processing of the FID. The parameters are read from self.procs.
