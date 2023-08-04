@@ -1,9 +1,37 @@
 # Version 0.3a.1-dev
 
-23/07/21 - Added possibility to work with Oxford data (*misc.makeacqus_1D_oxford*).
-23/07/24 - Backward linear prediction (*processing.blp*) --> Mandatory for Oxford data with 8 points predicted.
+- 23/07/21 
+Added possibility to work with Oxford data (*misc.makeacqus_1D_oxford*).
+
+- 23/07/24 
+Backward linear prediction (*processing.blp*) --> Mandatory for Oxford data with 8 points predicted.
 Direct call in *Spectrum_1D* class
 
+- 23/08/04 
+Corrected a bug that made simualted spectra to appear reversed.
+*fit.Voigt_Fit* was completely rewritten using the new functions.
+The default format for all figures became ".tiff".
+
+
+## New functions:
+23/07/21
+- *misc.makeacqus_1D_oxford*
+23/07/24
+- *processing.blp*
+- *Spectrum_1D.blp*
+23/08/04
+- *fit.plot_fit*
+- *fit.voigt_fit_indep*
+- *fit.write_vf*
+- *fit.read_vf*
+
+## New classes:
+23/08/04
+- *fit.Peak*
+
+## Modified functions:
+23/08/04
+- *fit.make_iguess*: infinite components!, new format for the output file
 
 
 # Version 0.3a.1
