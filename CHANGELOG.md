@@ -14,11 +14,14 @@ The default format for all figures became ".tiff".
 
 
 ## New functions:
+
 23/07/21
 - *misc.makeacqus_1D_oxford*
+
 23/07/24
 - *processing.blp*
 - *Spectrum_1D.blp*
+
 23/08/04
 - *fit.plot_fit*
 - *fit.voigt_fit_indep*
@@ -26,10 +29,12 @@ The default format for all figures became ".tiff".
 - *fit.read_vf*
 
 ## New classes:
+
 23/08/04
 - *fit.Peak*
 
 ## Modified functions:
+
 23/08/04
 - *fit.make_iguess*: infinite components!, new format for the output file
 
