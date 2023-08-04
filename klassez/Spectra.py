@@ -249,7 +249,7 @@ class Spectrum_1D:
             self.S, self.procs = processing.interactive_fp(self.fid, self.acqus, self.procs)
         else:
             self.S = processing.fp(self.fid, wf=self.procs['wf'], zf=self.procs['zf'], fcor=self.procs['fcor'], tdeff=self.procs['tdeff'])
-        if self.acqus['spect'] not in ['bruker']: # Bruker data are meant to be ordered already
+        if self.acqus['spect'] not in ['bruker', 'simulated']: # Bruker data are meant to be ordered already
             self.S = self.S[::-1]
         if self.acqus['SFO1'] < 0:  # Correct for negative gamma nuclei
             self.S = self.S[::-1]
@@ -265,7 +265,7 @@ class Spectrum_1D:
 
 
         # Initializes the F attribute
-        self.F = fit.Voigt_Fit(self.ppm, self.S, self.acqus['t1'], self.acqus['SFO1'], self.acqus['o1p'], self.acqus['nuc'])
+        self.F = fit.Voigt_Fit(self.ppm, self.S, self.acqus['t1'], self.acqus['SFO1'], self.acqus['o1p'], self.acqus['nuc'], filename=os.path.join(self.datadir, self.filename))
 
         # Compute the baseline, if there is
         if self.procs['basl_c'] is None:    # Initialize it to zero

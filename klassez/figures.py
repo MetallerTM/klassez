@@ -126,9 +126,9 @@ def heatmap(data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, 
 
     if name:
         # Save the figure
-        print('Saving {}.png...'.format(name), end='\r')
-        plt.savefig(name+'.png', dpi=600)
-        print('{}.png saved.\n'.format(name))
+        print('Saving {}.tiff...'.format(name), end='\r')
+        plt.savefig(name+'.tiff', dpi=600)
+        print('{}.tiff saved.\n'.format(name))
     else:
         # Make figure larger
         fig.set_size_inches(figsize_large)
@@ -240,7 +240,7 @@ def ax_heatmap(ax, data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale
 
 
 
-def sns_heatmap(data, name=None, ext='png', dpi=600):
+def sns_heatmap(data, name=None, ext='tiff', dpi=600):
     """
     Computes a heatmap of data, which is a matrix. 
     This function employs the seaborn package.
@@ -279,7 +279,7 @@ def sns_heatmap(data, name=None, ext='png', dpi=600):
     plt.close()
 
 
-def plot_fid_re(fid, scale=None, c='b', lims=None, name=None, ext='png', dpi=600):
+def plot_fid_re(fid, scale=None, c='b', lims=None, name=None, ext='tiff', dpi=600):
     """
     Makes a single-panel figure that shows either the real or the imaginary part of the FID.
     The x-scale and y-scale are automatically adjusted.
@@ -344,7 +344,7 @@ def plot_fid_re(fid, scale=None, c='b', lims=None, name=None, ext='png', dpi=600
         plt.show()
     plt.close()
 
-def plot_fid(fid, name=None, ext='png', dpi=600):
+def plot_fid(fid, name=None, ext='tiff', dpi=600):
     """
     Makes a two-panel figure that shows on the left the real part of the FID, on the right the imaginary part.
     The x-scale and y-scale are automatically adjusted.
@@ -395,7 +395,7 @@ def plot_fid(fid, name=None, ext='png', dpi=600):
         plt.show()
     plt.close()
 
-def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fac=1.4, lvl=0.09, X_label=r'$\delta\ $ F2 /ppm', Y_label=r'$\delta\ $ F1 /ppm', lw=0.5, cmapneg=None, n_xticks=10, n_yticks=10, fontsize=10, name=None, ext='png', dpi=600):
+def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fac=1.4, lvl=0.09, X_label=r'$\delta\ $ F2 /ppm', Y_label=r'$\delta\ $ F1 /ppm', lw=0.5, cmapneg=None, n_xticks=10, n_yticks=10, fontsize=10, name=None, ext='tiff', dpi=600):
     """
     Makes a 2D contour plot. 
     Allows for the buildup of modular figures. 
@@ -596,7 +596,7 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
     return cnt
 
 
-def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default', c_fac=1.4, Negatives=False, X_label='$\delta\ $ F2 /ppm', Y_label='$\delta\ $ F1 /ppm', lw=0.5, n_xticks=10, n_yticks=10, labels=None, name=None, ext='png', dpi=600):
+def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default', c_fac=1.4, Negatives=False, X_label='$\delta\ $ F2 /ppm', Y_label='$\delta\ $ F1 /ppm', lw=0.5, n_xticks=10, n_yticks=10, labels=None, name=None, ext='tiff', dpi=600):
     """
     Generates the figure of multiple, superimposed spectra, using figures.ax2D.
     --------
@@ -711,7 +711,7 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
     print( 'Done.')
 
 
-def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, fontsize=10, name=None, ext='png', dpi=600):
+def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, fontsize=10, name=None, ext='tiff', dpi=600):
     """
     Makes the figure of a 1D NMR spectrum.
 
@@ -866,7 +866,7 @@ def ax1D(ax, ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.
     return line
 
 
-def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, fontsize=10, labels=None, name=None, ext='png', dpi=600):
+def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, fontsize=10, labels=None, name=None, ext='tiff', dpi=600):
     """
     Creates the superimposed plot of a series of 1D NMR spectra.
     -------
@@ -1121,7 +1121,7 @@ def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, 
     # Save/show the figure
     if name:
         misc.set_fontsizes(ax, 8)
-        plt.savefig(name+'.png', dpi=600)
+        plt.savefig(name+'.tiff', dpi=600)
     else:
         fig.set_size_inches(figsize_large)
         misc.set_fontsizes(ax, 14)
@@ -1130,7 +1130,7 @@ def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, 
 
 
 
-def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label='$\delta\ $ F1 /ppm', Y_label='Normalized intensity /a.u.', n_xticks=10, labels=None, name=None, ext='png', dpi=600):
+def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label='$\delta\ $ F1 /ppm', Y_label='Normalized intensity /a.u.', n_xticks=10, labels=None, name=None, ext='tiff', dpi=600):
     """
     Creates a stacked plot of all the spectra contained in the list S. Note that S MUST BE a list. All the spectra must share the same scale.
     --------
