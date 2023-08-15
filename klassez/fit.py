@@ -86,7 +86,7 @@ def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=F
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
 
-    m, s = figures.ax_histogram(ax, data, nbins=nbins, density=density, f_lims=f_lims, xlabel=x_label, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize)
+    m, s = fit.ax_histogram(ax, data, nbins=nbins, density=density, f_lims=f_lims, xlabel=x_label, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize)
 
     if name:
         fig.set_size_inches(figures.figsize_small)
@@ -154,7 +154,7 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x
     fit_g = sim.f_gaussian(x, m, s, A)  # Gaussian lineshape
 
     ax.hist(data, color=barcolor, density=density, bins=bin_edges) 
-    ax.plot(lnspc, fit_g, c='r', lw=0.6, label = 'Theoretical values:\n$\mu = ${:.3g}'.format(m)+'\n$\sigma = ${:.3g}'.format(s))
+    ax.plot(x, fit_g, c='r', lw=0.6, label = 'Theoretical values:\n$\mu = ${:.3g}'.format(m)+'\n$\sigma = ${:.3g}'.format(s))
 
     if density:
         ax.set_ylabel('Normalized count')
