@@ -771,6 +771,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
     Q = gen_reg(regions)
 
     # Start fitting loop
+    prev = 0
     for q in Q:
         limits, I, peaks = q    # Unpack
         Np = len(peaks.keys())  # Number of Peaks
@@ -833,7 +834,8 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
             fit_peaks[idx].k = r_i[k]
         
         # Write a section of the output file
-        fit.write_vf(f'{filename}.fvf', fit_peaks, limits, I)
+        fit.write_vf(f'{filename}.fvf', fit_peaks, limits, I, prev)
+        prev += Np
 
 
 
@@ -1721,6 +1723,7 @@ class Peak:
         self.SFO1 = acqus['SFO1']
         self.o1p = acqus['o1p']
         self.N = N
+        #self.I = I
 
         # Set the values as attributes
         if u is None:
@@ -1880,6 +1883,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     N = S.shape[-1]     # Number of points
     Np = 0              # Number of peaks
     lastgroup = 0       # Placeholder for last group added
+    prev = 0            # Number of previous peaks
 
     # Make an acqus dictionary based on the input parameters.
     acqus = {'t1': t_AQ, 'SFO1': SFO1, 'o1p': o1p}
@@ -2141,8 +2145,10 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     def save(event):
         """ Write a section in the output file """
+        nonlocal prev
         # Adjust the intensities
-        fit.write_vf(f'{filename}.ivf', peaks, ax.get_xlim(), A)
+        fit.write_vf(f'{filename}.ivf', peaks, ax.get_xlim(), A, prev)
+        prev += len(peaks)
         
         # Mark a region as "fitted" with a green box
         ax.axvspan(*ax.get_xlim(), color='tab:green', alpha=0.1)
@@ -2198,7 +2204,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
 
 # --------------------------------------------------------------------
-def write_vf(filename, peaks, lims, I):
+def write_vf(filename, peaks, lims, I, prev=0):
     """
     Write a section in a fit report file, which shows the fitting region and the parameters of the peaks to feed into a Voigt lineshape model.
     -----------
@@ -2211,6 +2217,8 @@ def write_vf(filename, peaks, lims, I):
         (left limit /ppm, right limit /ppm)
     - I: float
         Absolute intensity value
+    - prev: int
+        Number of previous peaks already saved. Increases the peak index
     """
     # Adjust the intensities
     r_i, I_corr = misc.molfrac([peak.k for _, peak in peaks.items()])
@@ -2231,9 +2239,10 @@ def write_vf(filename, peaks, lims, I):
         '#', 'u', 'fwhm', 'Rel. I.', 'Phase', 'x_g', 'Group'))
     f.write('-'*96+'\n')
     #   Values
-    for k, peak in peaks.items():
+    for k, key in enumerate(peaks.keys()):
+        peak = peaks[key]
         f.write('{:>4.0f};\t{:=8.3f};\t{:8.3f};\t{:8.5f};\t{:-8.3f};\t{:8.3f};\t{:>8.0f}\n'.format(
-            k, peak.u, peak.fwhm, r_i[k-1], peak.phi, peak.x_g, peak.group))
+            k+prev+1, peak.u, peak.fwhm, r_i[k], peak.phi, peak.x_g, peak.group))
     f.write('-'*96+'\n\n')
 
     # Add region separator and close the file

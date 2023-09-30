@@ -12,6 +12,10 @@ Corrected a bug that made simualted spectra to appear reversed.
 *fit.Voigt_Fit* was completely rewritten using the new functions.
 The default format for all figures became ".tiff".
 
+- 29/09/23
+Corrected bug in *figures.dotmd_2D*: replaced the actual colormaps with their names.
+
+
 
 ## New functions:
 

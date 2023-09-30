@@ -1259,7 +1259,8 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     adj_box = plt.axes([0.025, 0.55, 0.080, 0.05])
     iz_box = plt.axes([0.025, 0.10, 0.05, 0.05])
     dz_box = plt.axes([0.025, 0.05, 0.05, 0.05]) 
-    check_box = plt.axes([0.87, 0.20, 0.12, 0.04*nsp])
+    HBOX = 0.04 * nsp
+    check_box = plt.axes([0.87, 0.20, 0.12, HBOX])
 
     # Functions connected to the sliders
 
@@ -1345,8 +1346,7 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     for k in range(nsp):
         checklabels.append(spectrum[k].get_label()[:12])
     radio = CheckButtons(check_box, checklabels, list(np.ones(nsp)))
-    HBOX = check_box.dataLim.bounds[-1]
-    misc.edit_checkboxes(radio, xadj=0, yadj=0.005, length=0.1, height=(HBOX-0.2*HBOX)/nsp, 
+    misc.edit_checkboxes(radio, xadj=0, yadj=0.005, length=0.1, height=(2*HBOX)/nsp, 
             color=[spec.get_color() for spec in spectrum])
 
     lbl_y = [ Q.get_position()[1] for Q in radio.labels]
@@ -1403,7 +1403,7 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label='$\delta\
         If True, show the negative contours.
     """
 
-    cmaps = [CM[key] for key in CM.keys() if '_r' in key]   # Use only _r cmaps otherwise you don't see a thing
+    cmaps = [key for key in CM.keys() if '_r' in key]   # Use only _r cmaps otherwise you don't see a thing
 
     # Checks on dimensions of S0
     if isinstance(S0, list):
@@ -1458,7 +1458,8 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label='$\delta\
     # define boxes for sliders
     iz_box = plt.axes([0.025, 0.10, 0.05, 0.05])
     dz_box = plt.axes([0.025, 0.05, 0.05, 0.05])
-    check_box = plt.axes([0.87, 0.20, 0.12, 0.04*nsp])
+    HBOX = 0.04 * nsp
+    check_box = plt.axes([0.87, 0.20, 0.12, HBOX])
     save_box = plt.axes([0.15, 0.90, 0.10, 0.05])
 
     # ----------------------------------------------------------------------------------
@@ -1579,8 +1580,7 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label='$\delta\
     for k in range(nsp):
         checklabels.append(labels[k][:12])
     radio = CheckButtons(check_box, checklabels, list(np.ones(nsp)))
-    HBOX = check_box.dataLim.bounds[-1]
-    misc.edit_checkboxes(radio, xadj=0, yadj=0.005, length=0.1, height=(HBOX-0.2*HBOX)/nsp)
+    misc.edit_checkboxes(radio, xadj=0, yadj=0.005, length=0.1, height=(2*HBOX)/nsp)
 
     lbl_y = [ Q.get_position()[1] for Q in radio.labels]
     scale_text = []

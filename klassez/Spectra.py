@@ -121,7 +121,7 @@ class Spectrum_1D:
                 self.datadir = os.path.dirname(self.datadir)
             self.filename = os.path.basename(in_file).rsplit('.', 1)[0] # Get the filename
             # If filename is a directory, write things inside it
-            if os.path.isdir('/'.join([self.datadir, self.filename])) and isexp:
+            if os.path.isdir(f'{os.sep}'.join([self.datadir, self.filename])) and isexp:
                 self.datadir = os.path.join(self.datadir, self.filename) # i.e. add filename to datadir
         
         ## Read the data

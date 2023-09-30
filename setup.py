@@ -20,7 +20,7 @@ setup(
             'License :: OSI Approved :: MIT License'
             ],
         license='LICENSE.txt',
-        install_requires = ['numpy', 'scipy', 'lmfit', 'seaborn', 'nmrglue', 'matplotlib', 'csaps'],
+        install_requires = ['numpy', 'scipy', 'lmfit', 'seaborn', 'nmrglue', 'matplotlib>=3.7', 'csaps'],
         packages=['klassez'],
         include_package_data = True,
         python_requires = '>=3.8',
