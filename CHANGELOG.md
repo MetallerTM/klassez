@@ -1,53 +1,32 @@
-# Version 0.3a.1-dev
+# Version 0.4a.0
 
-- 23/07/21 
-Added possibility to work with Oxford data (*misc.makeacqus_1D_oxford*).
-
-- 23/07/24 
-Backward linear prediction (*processing.blp*) --> Mandatory for Oxford data with 8 points predicted.
-Direct call in *Spectrum_1D* class
-
-- 23/08/04 
-Corrected a bug that made simualted spectra to appear reversed.
-*fit.Voigt_Fit* was completely rewritten using the new functions.
+## Update notes:
+It is now possible to work with Oxford Instrument NMR data, saved in .jdx files.
+The class *fit.Voigt_Fit* was completely rewritten using new, better performant functions.
 The default format for all figures became ".tiff".
-
-- 29/09/23
-Corrected bug in *figures.dotmd_2D*: replaced the actual colormaps with their names.
-
-- 30/09/23
-Changed the legend and a problem with the checkboxes in *figures.dotmd* and *figures.dotmd_2D*
-Now these two functions returns the relative intensities when the figure is closed.
+Minor bugs corrected.
 
 ## New functions:
 
-23/07/21
 - *misc.makeacqus_1D_oxford*
-
-23/07/24
 - *processing.blp*
-- *Spectrum_1D.blp*
-
-23/08/04
 - *fit.plot_fit*
 - *fit.voigt_fit_indep*
 - *fit.write_vf*
 - *fit.read_vf*
+- *Spectrum_1D.blp*
 
 ## New classes:
 
-23/08/04
 - *fit.Peak*
 
 ## Modified functions:
 
-23/08/04
-- *fit.make_iguess*: infinite components!, new format for the output file
 - *figures.dotmd*: when the figure is closed, returns the scaling intensity factor for each spectrum
 - *figures.dotmd_2D*: when the figure is closed, returns the contour level start for each spectrum.
+- *fit.make_iguess*: infinite components!, new format for the output file
 
 ## Modified classes:
-30/09/23
 - *fit.Voigt_Fit*: completely rewritten using the new functions.
 
 
