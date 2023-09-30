@@ -15,7 +15,9 @@ The default format for all figures became ".tiff".
 - 29/09/23
 Corrected bug in *figures.dotmd_2D*: replaced the actual colormaps with their names.
 
-
+- 30/09/23
+Changed the legend and a problem with the checkboxes in *figures.dotmd* and *figures.dotmd_2D*
+Now these two functions returns the relative intensities when the figure is closed.
 
 ## New functions:
 
@@ -41,6 +43,12 @@ Corrected bug in *figures.dotmd_2D*: replaced the actual colormaps with their na
 
 23/08/04
 - *fit.make_iguess*: infinite components!, new format for the output file
+- *figures.dotmd*: when the figure is closed, returns the scaling intensity factor for each spectrum
+- *figures.dotmd_2D*: when the figure is closed, returns the contour level start for each spectrum.
+
+## Modified classes:
+30/09/23
+- *fit.Voigt_Fit*: completely rewritten using the new functions.
 
 
 # Version 0.3a.1

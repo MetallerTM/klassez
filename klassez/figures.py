@@ -1217,6 +1217,10 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
         labels to be put in the legend.
     - n_xticks: int
         Number of numbered ticks on the x-axis of the figure
+    --------
+    Returns:
+    - scale_factor: list
+        Intensity of the spectra with respect to the original when the figure is closed
     """
     if isinstance(S, list):
         S = [S[w].real for w in range(len(S))]
@@ -1374,6 +1378,8 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     plt.show()
     plt.close()
 
+    return scale_factor
+
 
  
 def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label='$\delta\ $ F2 /ppm', Y_label='$\delta\ $ F1 /ppm', n_xticks=10, n_yticks=10, Neg=False):
@@ -1401,6 +1407,10 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label='$\delta\
         Number of numbered ticks on the x-axis of the figure
     - Neg: bool
         If True, show the negative contours.
+    -----------
+    Returns: 
+    - lvl: list
+        Intensity factors when the figure is closed
     """
 
     cmaps = [key for key in CM.keys() if '_r' in key]   # Use only _r cmaps otherwise you don't see a thing
@@ -1507,8 +1517,6 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label='$\delta\
                 for k in range(nsp)]
         else: 
             Ncnt = None
-        # Redraw the legend because of ax.cla()
-        ax.legend(legend, Labels, loc='upper right', fontsize=14)
 
         # Set the limits as they were before
         misc.pretty_scale(ax, (xsx, xdx), 'x')
@@ -1517,7 +1525,9 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label='$\delta\
         # Update the zoom values in the legend
         [scale_text[k].set_text(f'{value:.3f}') for k, value in enumerate(lvl)]
         # Bigger fonts
-        misc.set_fontsizes(ax, 14)
+        misc.set_fontsizes(ax, 20)
+        # Redraw the legend because of ax.cla()
+        ax.legend(handles=handles, loc='upper right', fontsize=14)
         fig.canvas.draw()
 
     def radioflag(label):
@@ -1551,22 +1561,26 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label='$\delta\
     else: 
         Ncnt = None
 
-    # Set the legend
-    legend = []
+    # Compute handles for the legend
+    import matplotlib.lines as mlines
+    handles = []        # Artists for the legend
+    hColors = []        # Store the colors
     for i in range(len(labels)):
-        h,_ = cnt[i].legend_elements()
-        legend.append(h[0])
+        # Transform the colormap in a list and take the most characteristic color
+        colorX = misc.cmap2list(cnt[i].get_cmap())[0]
+        # Draw a line with the associated label
+        patchX = mlines.Line2D([], [], color=colorX, label=f'{labels[i]}')
+        # Append these to the previous lists
+        handles.append(patchX)
+        hColors.append(colorX)
     if Neg:
+        # same thing
         for i in range(len(labels)):
-            Nh,_ = Ncnt[i].legend_elements()
-            legend.append(Nh[0])
-    # Draw the legend
-    if Neg:
-        Nlabels = ['$-$ '+labels[w] for w in range(len(labels))]
-        Labels = [*labels, *Nlabels]
-    else:
-        Labels = labels
-    ax.legend(legend, Labels, loc='upper right', fontsize=14)
+            X = Ncnt[i].get_cmap()
+            colorX = misc.cmap2list(X)[0] 
+            patchX = mpatches.Patch(color=colorX, label=f'$-${labels[i]}')
+            # We do not add these colors to hColors because it is useless
+            handles.append(patchX)
 
     # Make pretty x-scale
     xsx, xdx = max(np.concatenate(ppm_f2)), min(np.concatenate(ppm_f2))
@@ -1574,14 +1588,14 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label='$\delta\
     misc.pretty_scale(ax, (xsx, xdx), axis='x')
     misc.pretty_scale(ax, (ysx, ydx), axis='y')
 
-
     # Create labels for the checkbox
     checklabels = []
     for k in range(nsp):
         checklabels.append(labels[k][:12])
     radio = CheckButtons(check_box, checklabels, list(np.ones(nsp)))
-    misc.edit_checkboxes(radio, xadj=0, yadj=0.005, length=0.1, height=(2*HBOX)/nsp)
+    misc.edit_checkboxes(radio, xadj=0, yadj=0.005, length=0.1, height=(2*HBOX)/nsp, color=hColors)
 
+    # Print the scale factors
     lbl_y = [ Q.get_position()[1] for Q in radio.labels]
     scale_text = []
     for Y, value in zip(lbl_y, scale_factor):
@@ -1603,10 +1617,14 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label='$\delta\
 
     cursor = Cursor(ax, useblit=True, color='red', linewidth=0.4)
 
-    misc.set_fontsizes(ax, 14)
+    misc.set_fontsizes(ax, 20)
+    # Draw the legend now otherwise set_fontsizes makes it disappear
+    ax.legend(handles=handles, loc='upper right', fontsize=14)
 
     plt.show()
     plt.close()
+
+    return lvl
 
 
 def redraw_contours(ax, ppm_f2, ppm_f1, S, lvl, cnt, Neg=False, Ncnt=None, lw=0.5, cmap=[None, None], verb=False):
