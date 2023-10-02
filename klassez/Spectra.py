@@ -1284,8 +1284,6 @@ class Spectrum_2D:
         - update: bool
             Choose if to update the procs dictionary or not
         """
-
-        @staticmethod
         def _calibrate(ppm, trace, SFO1, o1p):
             """ Main function that calls the real calibration """
             offppm = processing.calibration(ppm, trace)

@@ -672,7 +672,7 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
     - coord: list
         List containing the ’[x,y]’ coordinates of the selected points.
     """
-    cmaps = CM['Blues_r'], CM['Reds_r']
+    cmaps = 'Blues_r', 'Reds_r'
     # Select traces from a 2D spectrum, save the coordinates in a list
     lvlstep = 0.02                  # for mouse scroll
 
