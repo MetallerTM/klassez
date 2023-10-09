@@ -2759,6 +2759,7 @@ class Voigt_Fit:
             raise NameError(f'{output_file} does not exist.')
         # Store
         self.result = regions
+        print(f'{output_file}.fvf loaded as fit result file.')
 
     def dofit(self, indep=True, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, filename=None):
         """
