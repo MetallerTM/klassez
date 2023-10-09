@@ -4,6 +4,7 @@ import os
 import sys
 import numpy as np
 from numpy import linalg
+from scipy import linalg as slinalg
 from scipy import stats
 from scipy.spatial import ConvexHull
 import random
@@ -977,7 +978,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
 
 def polyn(x, c):
     """
-    Computes p(x), polynomion of degree n-1, where nis the number of provided coefficients.
+    Computes p(x), polynomion of degree n-1, where n is the number of provided coefficients.
     -------
     Parameters:
     - x :1darray
@@ -989,14 +990,13 @@ def polyn(x, c):
     - px :1darray
         Polynomion of degree n-1.
     """
-    # Computes p(x) polynomion of degree n-1.
-    # c is a list/array of the n coefficients, sorted starting 
-    # from the 0th-order coefficient 
     c = np.array(c)
-    degree = len(c)
-    px = np.zeros_like(x, dtype=c.dtype)
-    for i in range(degree):
-        px += c[i] * x**i
+    # Make the Vandermonde matrix of the x-scale
+    T = np.array(
+            [x**k for k in range(len(c))]
+            ).T
+    # Compute the polynomion via matrix multiplication
+    px = T @ c
     return px
 
 
@@ -1420,7 +1420,7 @@ def hankel(data, n=None):
         if len(data.shape) == 1:
             if n is None:
                 raise ValueError('You must specify the number of columns of the Hankel matrix.')
-            H = linalg.hankel(data[:n], data[n-1:]).T
+            H = slinalg.hankel(data[:n], data[n-1:]).T
         elif len(data.shape) == 2:
             H = misc.avg_antidiag(data)
         else:
