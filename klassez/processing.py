@@ -4,6 +4,7 @@ import os
 import sys
 import numpy as np
 from numpy import linalg
+from scipy import linalg as slinalg
 from scipy import stats
 from scipy.spatial import ConvexHull
 import random
@@ -482,8 +483,8 @@ def ft(data0, alt=False, fcor=0.5):
         warnings.warn('WARNING! The input array is not complex.')
     size = data.shape[-1]
     data[...,0] = data[...,0] * fcor
-    if data.dtype != "complex64":
-        data = data.astype("complex64")
+    if not np.iscomplexobj(data):
+        data = data.astype("complex128")
     if alt:
         data[...,1::2] = data[...,1::2] * -1
         data.imag = data.imag * -1
@@ -2740,6 +2741,8 @@ def calibration(ppmscale, S):
         
 
     def mouse_click(event):
+        if event.inaxes != ax:
+            return
         if radio_flag:
             move_fixed(event)
         else:
@@ -2748,13 +2751,12 @@ def calibration(ppmscale, S):
     def move_fixed(event):
         # set position of the red bar
         x = event.xdata
-        if x is not None:
-            if event.dblclick and str(event.button) == 'MouseButton.LEFT':
-                nonlocal g_pos, g_idx
-                g_pos = x 
-                g_idx = misc.ppmfind(ppmscale, g_pos)[0]
-                guide.set_xdata(x)
-            gtext.set_text('Ref: {: 9.3f}'.format(g_pos))
+        if event.dblclick and str(event.button) == 'MouseButton.LEFT':
+            nonlocal g_pos, g_idx
+            g_pos = x 
+            g_idx = misc.ppmfind(ppmscale, g_pos)[0]
+            guide.set_xdata(x)
+        gtext.set_text('Ref: {: 9.3f}'.format(g_pos))
         fig.canvas.draw()
         
     def move_mobile(event):
@@ -2900,7 +2902,7 @@ def calc_nc(data, s_n):
     """
     M, N = data.shape
 
-    S = linalg.svdvals(data)
+    S = slinalg.svdvals(data)
     
     b = M/N
     c = (1/2**0.5) * ( 1 + b + (1 + 14*b + b**2)**0.5 )**0.5
@@ -3431,7 +3433,7 @@ def LRD(data, nc):
     svals_p = np.zeros_like(svals)
     svals_p[:nc] = svals[:nc]
     # Reconstruct the denoised data
-    data_out = U @ linalg.diagsvd(svals_p, U.shape[1], V.shape[0]) @ V
+    data_out = U @ slinalg.diagsvd(svals_p, U.shape[1], V.shape[0]) @ V
     print('Low-Rank Denosing completed.')
     print('\n*****************************************************\n')
     return data_out
@@ -3459,13 +3461,13 @@ def Cadzow(data, n, nc, print_head=True):
 
     # Builds a Hankel-type matrix containing in the first row "data" up to index "n-1"
     # and as last column "data" from index "n" to the end
-    H = linalg.hankel(data[:n], data[n-1:]).T
+    H = slinalg.hankel(data[:n], data[n-1:]).T
 
     U, s, V = linalg.svd(H)    # Make SVD
     sp = np.zeros_like(s)      # Create empty array for singular values
     sp[:nc] = s[:nc]           # Keep only the first nc singular values
 
-    Hp = U @ linalg.diagsvd(sp, H.shape[0], H.shape[1]) @ V                               # Rebuild the new data matrix
+    Hp = U @ slinalg.diagsvd(sp, H.shape[0], H.shape[1]) @ V                               # Rebuild the new data matrix
     datap = np.array([np.mean(np.diag(Hp[:, ::-1], w)) for w in range(-N+n, n)])[::-1]      # Mean on the antidiagonals
 
     return datap
@@ -3540,29 +3542,29 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
     data0 = data
     # Builds a Hankel-type matrix containing in the first row "data" up to index "n-1"
     # and as last column "data" from index "n" to the end
-    H0 = linalg.hankel(data[:n], data[n-1:]).T
+    H0 = slinalg.hankel(data[:n], data[n-1:]).T
 
-    s0 = linalg.svdvals(H0)     # Calculate the singular values of H0
+    s0 = slinalg.svdvals(H0)     # Calculate the singular values of H0
     sp = np.zeros_like(s0)      # Create empty array to store the singular values to be kept
 
     
     tol = calc_tol(s0, nc, f=f)
 
-    print( '#\tControl value\t|\tTarget')
+    print(f'{"#":>6s} | {"Control":>12s} | {"Target":>12s}')
     for k in range(itermax):
-        H0 = linalg.hankel(data0[:n], data0[n-1:]).T    # Make Hankel
+        H0 = slinalg.hankel(data0[:n], data0[n-1:]).T    # Make Hankel
         U, s, V = linalg.svd(H0)                        # Make SVD
         sp[:nc] = s[:nc]                                # Keep only the first nc singular values
 
-        Hp = U @ linalg.diagsvd(sp, H0.shape[0], H0.shape[1]) @ V                               # Rebuild the new data matrix
+        Hp = U @ slinalg.diagsvd(sp, H0.shape[0], H0.shape[1]) @ V                               # Rebuild the new data matrix
         datap = np.array([np.mean(np.diag(Hp[:, ::-1], w)) for w in range(-N+n, n)])[::-1]      # Mean on the antidiagonals
 
         # Check convergence
         R, Cond = check_arrcrit(s0, s, nc, tol)
         # Print status
-        print( str(k+1)+'\t{:.5e}\t|\t{:.5e}'.format(R, tol), end='\r')
+        print(f'{k+1:>6.0f} | {R:12.5e} | {tol:12.5e}', end='\r')
         if Cond and k:
-            print('Cadzow converges in '+str(k+1)+' steps.'+' '*20)
+            print(f'\nCadzow converges in {k+1} steps.')
             break
         else:
             s0 = s 
@@ -3573,6 +3575,8 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
         print('\tCadzow does not converge.')
     if print_time is True:
         print( 'Total runtime: {}'.format(end_time - start_time))
+    # Add empty line for aesthetic purposes
+    print()
 
     return datap
 
@@ -3590,12 +3594,12 @@ def Cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
     
     datap = np.zeros_like(data)
     for k in range(data.shape[0]):
-        print('Processing of transient '+str(k+1)+' of '+str(data.shape[0]), end='\r')
+        print('Processing of transient '+str(k+1)+' of '+str(data.shape[0]))
         if i:
             datap[k] = processing.iterCadzow(data[k], n=n, nc=nc, f=f, itermax=itermax, print_head=False, print_time=False)
         else:
             datap[k] = processing.Cadzow(data[k], n=n, nc=nc, print_head=False)
-    print('Processing has ended!\n', end='\r')
+    print('Processing has ended!')
     end_time = datetime.now()
     if print_time is True:
         print( 'Total runtime: {}'.format(end_time - start_time))

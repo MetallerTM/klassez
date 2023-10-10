@@ -166,8 +166,10 @@ def makeacqus_1D_varian(dic):
     acqus['SFO1'] = eval(dic['procpar']['sreffrq']['values'][-1])
     acqus['SW'] = eval(dic['procpar']['sw']['values'][-1])
     acqus['TD'] = eval(dic['procpar']['np']['values'][-1]) // 2   # Fuckin' Varian
-    acqus['o1'] = eval(dic['procpar']['cr']['values'][-1])
 
+    # Varian does not have center frequency specified
+    lowest_freq = eval(dic['procpar']['rfl']['values'][-1]) # We think this is what MNova tries to find
+    acqus['o1'] = acqus['SW'] / 2 - lowest_freq 
     acqus['SWp'] = acqus['SW'] / np.abs(acqus['SFO1'])
     acqus['B0'] = acqus['SFO1'] / sim.gamma[acqus['nuc']]
     acqus['o1p'] = acqus['o1'] / acqus['SFO1']
