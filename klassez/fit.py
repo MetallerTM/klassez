@@ -726,6 +726,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         - residual: 1darray
             Experimental - calculated, in the fitting window
         """
+        param['count'].value += 1
         # Unpack the lmfit.Parameters object
         par = param.valuesdict()
         # create a shallow copy of the fit_peaks dictionary to prevent overwriting
@@ -735,6 +736,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         # Compute the total trace and the residuals
         total = calc_total(peaks, I)
         residual = S[lims] - total[lims]
+        print(f'Step: {par["count"]:6.0f} | Target: {np.sum(residual**2):10.5e}', end='\r')
         return residual
 
     def gen_reg(regions):
@@ -814,6 +816,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         # Wrap the fitting routine in a function in order to use @cron for measuring the runtime of the fit
         @cron
         def start_fit():
+            param.add('count', value=0, vary=False)
             minner = l.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I, lims))
             result = minner.minimize(method='leastsq', max_nfev=10000, xtol=1e-10, ftol=1e-10)
             print(f'{result.message} Number of function evaluations: {result.nfev}.')
@@ -1944,6 +1947,10 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     #-------------------------------------------------------------------------------
     ## SLOTS
 
+    def redraw():
+        misc.pretty_scale(ax, ax.get_xlim(), 'x')
+        plt.draw()
+
     def up_sens(event):
         """ Doubles sensitivity of active parameter """
         nonlocal sens
@@ -2007,7 +2014,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         p_fit.set_ydata(calc_total(peaks)[lim1:lim2])
         # Update the text
         write_par(idx)
-        plt.draw()
+        redraw()
 
     def write_par(idx):
         """ Write the text to keep track of your amounts """
@@ -2038,14 +2045,14 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         group_tb.text_disp.set_text('')
         peaks[idx].group = group
         write_par(idx)
-        plt.draw()
+        redraw()
 
     def selector(event):
         """ Update the text when you move the slider """
         idx = int(np.floor(slider.val * Np) + 1)
         if Np:
             write_par(idx)
-        plt.draw()
+        redraw()
 
     def key_binding(event):
         """ Keyboard """
@@ -2080,6 +2087,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         sens = dict(_sens)
         ax.set_xlim(*_xlim)
         ax.set_ylim(*_ylim)
+        redraw()
 
     def add_peak(event):
         """ Add a component """
@@ -2100,7 +2108,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         p_fit.set_ydata(total[lim1:lim2])
         # Update the text
         write_par(Np)
-        plt.draw()
+        redraw()
 
     def remove_peak(event):
         """ Remove the active component """
@@ -2141,7 +2149,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
                 slider.set_val( (idx - 2) / Np)     # (idx - 1) -1
             slider.valstep = 1 / Np
             write_par(int(np.floor(slider.val * Np) + 1))
-        plt.draw()
+        redraw()
 
     def save(event):
         """ Write a section in the output file """
@@ -2750,13 +2758,13 @@ class Voigt_Fit:
         """
         # Set the default filename, if not given
         if output_file is None:
-            output_file = f'{self.filename}.fvf'
+            output_file = f'{self.filename}'
         # Check if the file exists
-        out_file_exist = os.path.exists(output_file)
+        out_file_exist = os.path.exists(f'{output_file}.fvf')
         if out_file_exist is True:       # Read everything you need from the file
-            regions = fit.read_vf(f'{output_file}', n=n)
+            regions = fit.read_vf(f'{output_file}.fvf', n=n)
         else:
-            raise NameError(f'{output_file} does not exist.')
+            raise NameError(f'{output_file}.fvf does not exist.')
         # Store
         self.result = regions
         print(f'{output_file}.fvf loaded as fit result file.')
@@ -2794,11 +2802,11 @@ class Voigt_Fit:
 
         # Do the fit
         if indep is True:
-            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_xg=vary_xg, filename=self.filename)
+            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_xg=vary_xg, filename=filename)
         else:
             raise NotImplementedError('More and more exciting adventures in the next release!')
         # Store
-        self.result = fit.read_vf(f'{self.filename}.fvf')
+        self.result = fit.read_vf(f'{filename}.fvf')
 
 
     def plot(self, what='result', show_total=True, show_res=False, res_offset=0, labels=None, filename=None, ext='tiff', dpi=600):
