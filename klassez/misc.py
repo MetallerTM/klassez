@@ -1076,6 +1076,73 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True):
     f.close()
     print('Done.')
 
+def load_ser(path, TD1=1, BYTORDA=0, DTYPA=0, cplx=True):
+    """
+    Reads a binary file and transforms it in an array.
+    The parameters BYTORDA and DTYPA can be found in the acqus file.
+    > BYTORDA = 1   =>  big endian      =>  '>'
+    > BYTORDA = 0   =>  little endian   =>  '<'
+    > DTYPA = 0     =>  int32           =>  'i4'
+    > DTYPA = 2     =>  float64         =>  'f8'
+    -------
+    Parameters:
+    - path : str
+        Path to the file to read
+    - TD1: int
+        Number of experiments in the indirect dimension
+    - BYTORDA: int
+        Endianness of data
+    - DTYPA: int
+        Data type format
+    - cplx: bool
+        If True, the input data are interpreted as complex, which means that in the direct dimension there will be real and imaginary parts alternated.
+    ------
+    Returns:
+    - data: 2darray
+        Array of data.
+    """
+    def complexify_data(data):
+        """
+        Complexify data packed real, imag.
+        """
+        return data[..., ::2] + data[..., 1::2] * 1.j
+
+    # Evaluate endianness
+    if BYTORDA == 0:
+        endian = '<' 
+    elif BYTORDA == 1:
+        endian = '>' 
+    else:
+        raise ValueError('Endianness not defined')
+
+    # Evaluate data format
+    if DTYPA == 0:
+        dtype = 'i4'
+    elif DTYPA == 2:
+        dtype = 'f8'
+    else:
+        raise ValueError('Data type not defined')
+
+    # Read the binary file
+    with open(path, 'rb') as f:
+        data = np.frombuffer(f.read(), dtype=endian+dtype)
+
+    # Binary data do not have array-like dimensions:
+    # Reshape them to your will
+    if TD1 < 2: # i.e. it is 0 or 1
+        shape = -1,     # tuple, so that it is 1darray at the end
+    else:       # all other dimensions
+        shape = int(n_sp), -1   # tuple also here
+    # Reshape data according to TD1
+    data = np.reshape(data, shape)
+
+    if cplx:    # Uncomplexify
+        data = complexify_data(data)
+
+    print(f'Binary file {path} has been successfully read.')
+    return data
+
+
 
 def pretty_scale(ax, limits, axis='x', n_major_ticks=10):
     """
@@ -1656,3 +1723,8 @@ def binomial_triangle(n):
                 np.math.factorial(n) / ( np.math.factorial(k) * np.math.factorial(n-k) )
                 )
     return np.array(row)
+
+
+
+
+

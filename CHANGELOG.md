@@ -1,3 +1,21 @@
+# Version 0.4a-dev
+
+23/10/17
+Bug corrections.
+
+## New functions: 
+23/10/17
+- *misc.load_ser*
+- *processing.stack_fids*
+- *Pseudo_2D.mount*
+- *Pseudo_2D.cal*
+
+## Modified functions:
+23/10/09
+- *misc.polyn*: use the Vandermonde matrix to compute the polynomion instead of a for loop
+23/10/17
+- *Pseudo_2D.__init__*: self.fid = None by default, added acqus parameter "TD1", removed procs parameter "cal\_1", renamed procs parameter "cal\_2" into "cal" 
+
 # Version 0.4a.0
 
 ## Update notes:

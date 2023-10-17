@@ -1824,15 +1824,13 @@ class Pseudo_2D(Spectrum_2D):
         doc += '-'*64
         return doc
 
-    def __init__(self, in_file, fid=None, pv=False, isexp=True):
+    def __init__(self, in_file, pv=False, isexp=True):
         """
         Initialize the class. 
         -------
         Parameters:
         - in_file: str
             path to file to read, or to the folder of the spectrum
-        - fid: 2darray or None
-            Array that replaces self.fid.
         - pv: bool
             True if you want to use pseudo-voigt lineshapes for simulation, False for Voigt
         - isexp: bool
@@ -1848,7 +1846,7 @@ class Pseudo_2D(Spectrum_2D):
                 self.datadir = os.path.dirname(self.datadir)
             self.filename = os.path.basename(in_file).rsplit('.', 1)[0] # Get the filename
             # If filename is a directory, write things inside it
-            if os.path.isdir('/'.join([self.datadir, self.filename])) and isexp:
+            if os.path.isdir(os.path.join(self.datadir, self.filename)) and isexp:
                 self.datadir = os.path.join(self.datadir, self.filename) # i.e. add filename to datadir
 
         if isexp is False:      # It is simulated experiment
@@ -1856,7 +1854,7 @@ class Pseudo_2D(Spectrum_2D):
                 self.acqus = dict(in_file)  # Just read it
             else:   # acqus is in the file: read it
                 self.acqus = sim.load_sim_1D(in_file)
-            self.fid = fid  # Put the FID in self.fid. It will be None if not given
+            self.fid = None     # FID must be loaded with mount
         else:       # Experimental data
             # Read the FID
             dic, data = ng.bruker.read(in_file, cplex=True)
@@ -1875,6 +1873,11 @@ class Pseudo_2D(Spectrum_2D):
         except:
             self.acqus['GRPDLY'] = 0
 
+        if isinstance(self.fid, np.ndarray):
+            self.acqus['TD1'] = self.fid.shape[0]
+        else:
+            self.acqus['TD1'] = 0
+
         ## Initalize the procs dictionary 
         # If there already is a procs dictionary saved as file, load it
         if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
@@ -1892,8 +1895,7 @@ class Pseudo_2D(Spectrum_2D):
             self.procs['pv'] = round(self.acqus['o1p'], 2)
             #   Then, baseline
             self.procs['basl_c'] = None
-            self.procs['cal_1'] = 0
-            self.procs['cal_2'] = 0
+            self.procs['cal'] = 0
             self.procs['roll_ppm'] = None
 
             self.write_procs()
@@ -1932,7 +1934,7 @@ class Pseudo_2D(Spectrum_2D):
         self.ii = self.S.imag
 
         # Adjust the phase
-        self.adjph(p0=procs['p0'], p1=self.procs['p1'], pv=self.procs['pv'], update=False)
+        self.adjph(p0=self.procs['p0'], p1=self.procs['p1'], pv=self.procs['pv'], update=False)
 
         # Use number of the experiment as fake scale in F1
         self.freq_f1 = np.arange(self.S.shape[0])
@@ -1947,8 +1949,8 @@ class Pseudo_2D(Spectrum_2D):
             self.rr = self.S.real
             self.ii = self.S.imag
 
-        # Calibrate the f2 scale. Use 0 in f1 because it does not have to be calibrated in any case
-        self.cal([0, self.procs['cal_2']], update=False)
+        # Calibrate the f2 scale. 
+        self.cal(self.procs['cal'], update=False)
 
         self.integrals = {}
         
@@ -1958,6 +1960,90 @@ class Pseudo_2D(Spectrum_2D):
         self.Trf1 = {}
         self.Trf2 = {}
 
+    def mount(self, fids=[], filename=None, newacqus=None):
+        """
+        Replaces the FID of the experiment with a custom one, made by stacking 1D experiments.
+        If the default filename exists (i.e. '<self.filename>.npy'), the function loads it, otherwise calls processing.stack_fids to create it.
+        The "fid" attribute is overwritten. The key TD1 of the acqus dictionary is updated to match the first dimension of the new FID.
+        ----------
+        Parameters:
+        - fids: sequence of 1darray or Spectrum_1D objects
+            FIDs to be stacked. It can be empty if the .npy file already exists.
+        - filename: str or None
+            Path to the filename, without the .npy extension. If it is None, the default filename is used.
+        - newacqus: dict
+            New acqus dictionary that replaces the actual one. If it is not a dictionary, no actions are performed.
+        """
+        # Adjust the filename
+        if filename is None:    # Default
+            filename = os.path.join(self.datadir, f'{self.filename}.npy')
+        else:                   # Add the .npy extension
+            filename = f'{filename}.npy'
+
+        # Check if the .npy file already exists
+        if os.path.exists(filename):    # then load it
+            self.fid = np.load(filename)
+        else:   # make it
+            if not len(fids):
+                raise ValueError('You passed no FIDs!')
+            self.fid = processing.stack_fids(*fids, filename=filename)
+
+        # Replace acqus only if newacqus is a dictionary
+        if isinstance(newacqus, dict):
+            self.acqus = dict(newacqus)
+
+        # Update the TD1 key
+        self.acqus['TD1'] = self.fid.shape[0]
+
+    def cal(self, offset=None, isHz=False, update=True):
+        """
+        Calibration of the ppm and frequency scales according to a given value, or interactively. In this latter case, a reference peak must be chosen.
+        Calls processing.calibration
+        --------
+        Parameters:
+        - offset: float
+            scale shift F2
+        - isHz: tuple of bool
+            True if offset is in frequency units, False if offset is in ppm
+        - update: bool
+            Choose if to update the procs dictionary or not
+        """
+        def _calibrate(ppm, trace, SFO1, o1p):
+            """ Main function that calls the real calibration """
+            offppm = processing.calibration(ppm, trace)
+            offhz = misc.ppm2freq(offppm, SFO1, o1p)
+            return offppm, offhz
+
+        # Get the missing entries
+        if offset is None: # Select the reference traces
+            coord = misc.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
+            ix, iy = coord[0][0], coord[0][1]   # Position of the first crosshair
+            # F2 reference spectrum
+            X = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
+            # F1 reference spectrum
+            Y = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, ix, column=True)
+
+            ppm_f2 = np.copy(self.ppm_f2)
+            offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO1'], self.acqus['o1p'])
+        else:   # Calculate offh2 from offp2 or viceversa
+            if isHz:    # offp2 is missing
+                offh2 = offset
+                offp2 = misc.freq2ppm(offh2, self.acqus['SFO1'], self.acqus['o1p']) 
+            else:       # offh2 is missing
+                offp2 = offset
+                offh2 = misc.ppm2freq(offp2, self.acqus['SFO1'], self.acqus['o1p']) 
+            
+        # Apply the calibration
+        self.freq_f2 += offh2
+        self.ppm_f2 += offp2
+        # Move the offsets to the center of the SW
+        self.acqus['o1p'] += offp2
+        self.acqus['o1'] += offh2
+        # Update the procs dictionary
+        if update:  
+            self.procs['cal'] += offp2
+        # Update the .procs file
+        self.write_procs()
 
     def adjph(self, expno=0, p0=None, p1=None, pv=None, update=True):
         """

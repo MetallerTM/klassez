@@ -21,6 +21,7 @@ import warnings
 
 from . import fit, misc, sim, figures, processing
 from .config import CM, COLORS, cron
+from .Spectra import Spectrum_1D
 
 """ 
 Contains a series of processing functions for different purposes
@@ -4598,3 +4599,40 @@ def blp(data, pred=1, order=8, N=2048):
             bad_roots='decr',   # Default option for mode='b'
             method='svd')       # Choice of method basically uninfluent
     return datap
+
+def stack_fids(*fids, filename=None):
+    """
+    Stacks together FIDs in order to create a pseudo-2D experiment.
+    This function can handle either arrays or Spectrum_1D objects.
+    -----------
+    Parameters:
+    - fids: sequence of 1darrays or Spectrum_1D objects
+        Input data.
+    - filename: str
+        Location for a .npy file to be saved. If None, no file is created.
+    -----------
+    Returns:
+    - p2d: 2darray
+        Stacked FIDs.
+    """
+    p2d_fid = []    # Placeholder
+    # Append the FIDs to this list
+    for k, fid in enumerate(fids):
+        # If 1darray, append it as is
+        if isinstance(fid, np.ndarray) and len(fid.shape)==1:
+            p2d_fid.append(fid)
+        # If Spectrum_1D, append the "fid" attribute
+        elif isinstance(fid, Spectrum_1D):
+            p2d_fid.append(fid.fid)
+        else:   # Raise an error
+            raise ValueError(f'There was a problem in reading the {k+1}° fid.')
+
+    # Pile up the FIDs
+    p2d = np.stack(p2d_fid, axis=0)
+
+    # Save the .npy file
+    if isinstance(filename, str):
+        np.save(filename, p2d)
+
+    return p2d
+
