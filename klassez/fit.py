@@ -212,7 +212,7 @@ def bin_data(data0, nbins=100, density=True, x_symm=False):
     return hist, bin_scale
 
 
-def LR(y, x=None):
+def LR(y, x=None, force_intercept=False):
     """ 
     Performs a linear regression of y with a model y_c = mx + q.
     ---------
@@ -221,6 +221,8 @@ def LR(y, x=None):
         Data to be fitted
     - x: 1darray
         Independent variable. If None, the point indexes are used.
+    - force_intercept: bool
+        If True, forces the intercept to be zero.
     ---------
     Returns:
     - y_c: 1darray
@@ -228,13 +230,51 @@ def LR(y, x=None):
     - values: tuple
         (m, q)
     """
+    # Make the scale of points, if not given
     if x is None:
         x = np.arange(y.shape[-1])
-    y_c = np.copy(x)
-    m, q = fit.fit_int(y, y_c)
-    y_c = m * y_c + q
 
+    # Create the Vandermonde matrix of x:
+    if force_intercept:     # It is x
+        T = np.copy(x).reshape(-1,1)
+    else:                   # it is [1, x]
+        T = np.array(
+            [x**k for k in range(2)]
+            ).T
+
+    # Pseudo-invert it
+    Tpinv = np.linalg.pinv(T)
+    # Solve the system
+    c = Tpinv @ y
+
+    if force_intercept:
+        m = float(c)        # It is just a number
+        q = 0
+    else:                   # unpack the array
+        q, m = c
+    # Compute the model
+    y_c = m * x + q 
     return y_c, (m, q)
+
+def calc_R2(y, y_c):
+    """
+    Computes the R-squared coefficient of a linear regression as:
+        R^2 = 1 - [ \sum (y - y_mean)^2 ] / [ \sum (y - y_c)^2 ]
+    -------
+    Parameters:
+    - y: 1darray
+        Experimental data
+    - y_c: 1darray
+        Calculated data
+    -------
+    Returns:
+    - R2: float
+        R-squared coefficient
+    """
+    sst = np.sum( (y - np.mean(y))**2 )
+    sse = np.sum( (y - y_c)**2 )
+    R2 = 1 - sse/sst
+    return R2
 
 
 
