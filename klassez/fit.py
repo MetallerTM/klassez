@@ -1991,12 +1991,19 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         misc.pretty_scale(ax, ax.get_xlim(), 'x')
         plt.draw()
 
+    def radio_changed(event):
+        """ Change the printed value of sens when the radio changes """
+        active = peak_name.index(peak_radio.value_selected)
+        param = list(sens.keys())[active]
+        write_sens(param)
+
     def up_sens(event):
         """ Doubles sensitivity of active parameter """
         nonlocal sens
         active = peak_name.index(peak_radio.value_selected)
         param = list(sens.keys())[active]
         sens[param] *= 2
+        write_sens(param)
 
     def down_sens(event):
         """ Halves sensitivity of active parameter """
@@ -2004,6 +2011,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         active = peak_name.index(peak_radio.value_selected)
         param = list(sens.keys())[active]
         sens[param] /= 2
+        write_sens(param)
 
     def up_value(param, idx):
         """ Increase the value of param of idx-th peak """
@@ -2068,6 +2076,19 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         else:   # Clear the text and set the header to be black
             values_print.set_text('')
             head_print.set_color('k')
+
+    def write_sens(param):
+        """ Updates the current sensitivity value in the text """
+        # Discriminate between total intensity and other parameters
+        if param == 'A':
+            text = f'Sensitivity: $\\pm${10**sens[param]:10.4g}'
+        else:
+            text = f'Sensitivity: $\\pm${sens[param]:10.4g}'
+        # Update the text
+        sens_print.set_text(text)
+        # Redraw the figure
+        plt.draw()
+
 
     def set_group(text):
         """ Set the attribute 'group' of the active signal according to the textbox """
@@ -2223,6 +2244,28 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     # Text placeholder for the values - linspacing is different to align with the header
     values_print = ax.text(0.85, 0.35, '',
             ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.55)
+    # Text to display the active sensitivity values
+    sens_print = ax.text(0.875, 0.775, f'Sensitivity: $\\pm${sens["u"]:10.4g}',
+            ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
+    # Text to remind keyboard shortcuts
+    t_uparrow = r'$\uparrow$'
+    t_downarrow = r'$\downarrow$'
+    keyboard_text = '\n'.join([
+        f'{"KEYBOARD SHORTCUTS":^50s}',
+        f'{"Key":>5s}: Action',
+        f'-'*50,
+        f'{"<":>5s}: Decrease sens.',
+        f'{">":>5s}: Increase sens.',
+        f'{"+":>5s}: Add component',
+        f'{"-":>5s}: Remove component',
+        f'{"Pg"+t_uparrow:>5s}: Change component, up',
+        f'{"Pg"+t_downarrow:>5s}: Change component, down',
+        f'{t_uparrow:>5s}: Increase value',
+        f'{t_downarrow:>5s}: Decrease value',
+        f'-'*50,
+        ])
+    keyboard_print = ax.text(0.86, 0.025, keyboard_text, 
+            ha='left', va='bottom', transform=fig.transFigure, fontsize=8, linespacing=1.55)
 
     # make pretty scales
     ax.set_xlim(max(limits[0],limits[1]),min(limits[0],limits[1]))
@@ -2243,6 +2286,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     group_tb.on_submit(set_group)
     reset_button.on_clicked(reset)
     save_button.on_clicked(save)
+    peak_radio.on_clicked(radio_changed)
     fig.canvas.mpl_connect('scroll_event', scroll)
     fig.canvas.mpl_connect('key_press_event', key_binding)
 

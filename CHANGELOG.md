@@ -19,6 +19,8 @@ Bug corrections.
 - *Pseudo_2D.__init__*: self.fid = None by default, added acqus parameter "TD1", removed procs parameter "cal\_1", renamed procs parameter "cal\_2" into "cal" 
 2023/10/23
 - *fit.LR*: now treated as a polynomial fit, added option to force the intercept
+2023/12/01
+- *fit.make_iguess*: added an interactive text to show the actual sensitivity value, and a tutorial for the keyboard shortcuts (thanks to Tino Golub for requesting for this)
 
 # Version 0.4a.0
 
