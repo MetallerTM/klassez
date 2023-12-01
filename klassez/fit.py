@@ -774,8 +774,8 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         # Update the peaks dictionary according to how lmfit is moving the fit parameters
         peaks = peaks_frompar(peaks, par)
         # Compute the total trace and the residuals
-        total = calc_total(peaks, I)
-        residual = S[lims] - total[lims]
+        total = calc_total(peaks, 1)
+        residual = S[lims]/I - total[lims]
         print(f'Step: {par["count"]:6.0f} | Target: {np.sum(residual**2):10.5e}', end='\r')
         return residual
 
