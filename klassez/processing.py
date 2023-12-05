@@ -2456,6 +2456,28 @@ def integral(fx, x=None, lims=None):
     Fx = np.cumsum(fx_tr, axis=-1) * dx
     return Fx
 
+def integrate(fx, x=None, lims=None):
+    """
+    Calculates the definite integral of fx as I = F[-1] - F[0]. If fx is a multidimensional array, the integrals are computed along the last dimension.
+    
+    -------
+    Parameters:
+    - fx: ndarray
+        Function (array) to integrate
+    - x: 1darray or None
+        Independent variable. Determines the integration step. If None, it is the point scale
+    - lims: tuple or None
+        Integration range. If None, the whole function is integrated.
+    -------
+    Returns:
+    - I: float
+        Integrated function.
+    """
+    Fx = processing.integral(fx, x, lims)
+    # Calculus fundamental theorem
+    I = Fx[...,-1] - F[...,0]
+    return I
+
 def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, utol_1=0.5, u_2=None, fwhm_2=200, utol_2=0.5, plot_result=False):
     """
     Calculate the integral of a 2D peak. The idea is to extract the traces correspondent to the peak center and fit them with a gaussian function in each dimension. Then, once got the intensity of each of the two gaussians, multiply them together in order to obtain the 2D integral. 

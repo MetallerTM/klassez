@@ -11,6 +11,8 @@ Bug corrections.
 - *Pseudo_2D.cal*
 2023/10/23
 - *fit.calc_R2*
+2023/12/05
+- *processing.integrate*
 
 ## Modified functions:
 2023/10/09
@@ -21,6 +23,9 @@ Bug corrections.
 - *fit.LR*: now treated as a polynomial fit, added option to force the intercept
 2023/12/01
 - *fit.make_iguess*: added an interactive text to show the actual sensitivity value, and a tutorial for the keyboard shortcuts (thanks to Tino Golub for requesting for this)
+- *misc.get_ylim*: changed method of calculations of plot edges
+- *misc.set_ylim*: now uses modified *misc.get_ylim*
+- *fit.gen_iguess*: brand new implementation
 
 # Version 0.4a.0
 

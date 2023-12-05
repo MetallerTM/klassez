@@ -1335,36 +1335,40 @@ def set_ylim(ax, data_inp):
     - data_inp: ndarray or list 
         Input data. If it is a list, data_inp is converted to array. 
     """ 
-    if isinstance(data_inp, list): 
-        datain = np.concatenate(data_inp)
-    else:
-        datain = np.copy(data_inp)
- 
-    T = np.max(datain.real) 
-    B = np.min(datain.real) 
     try:    # T and B can raise errors in certain situations 
-        ax.set_ylim(B - 0.05*T, T + 0.05*T) 
+        ax.set_ylim(*misc.get_ylim(data_inp))
     except: 
         pass
 
 def get_ylim(data_inp): 
     """ 
     Calculates the y-limits of ax as follows: 
-    Bottom:     min(data) - 5% max(data) 
-    Top:        max(data) + 5% max(data) 
+    Bottom:     min(data) - 5% max(height) 
+    Top:        max(data) + 5% max(height) 
+    where height = max(data) - min(data)
     ------- 
     Parameters: 
     - data_inp: ndarray or list 
         Input data. If it is a list, data_inp is converted to array. 
+    -------
+    Returns:
+    - lims: tuple
+        Bottom, Top
     """ 
     if isinstance(data_inp, list): 
         datain = np.concatenate(data_inp)
     else:
         datain = np.copy(data_inp)
- 
-    T = np.max(datain.real) 
+
     B = np.min(datain.real) 
-    return B, T
+    T = np.max(datain.real) 
+    H = np.abs(T - B)
+    
+    if H:
+        lims = B - 0.05 * H, T + 0.05 * H, 
+    else:
+        lims = -0.01, 0.01
+    return sorted(lims)
 
 
 def mathformat(ax, axis='y', limits=(-2,2)):

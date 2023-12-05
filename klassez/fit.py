@@ -2976,12 +2976,20 @@ class Voigt_Fit:
         total = np.sum(signals, axis=0)
         return signals, total
 
-def gen_iguess(x, experimental, param, model, model_args=[]):
+def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
     """
     GUI for the interactive setup of a Parameters object to be used in a fitting procedure. 
     Once you initialized the Parameters object with the name of the parameters and a dummy value, you are allowed to set the value, minimum, maximum and vary status through the textboxes given in the right column, and see their effects in real time.
     Upon closure of the figure, the Parameters object with the updated entries is returned.
-    A maximum of 18 parameters will fit the figure.
+    
+    Keybinding:
+    > '>': increase sensitivity
+    > '<': decrease sensitivity
+    > 'up': increase value
+    > 'down': decrease value
+    > 'left': change parameter
+    > 'right': change parameter
+    > 'v': change "vary" status
     ---------
     Parameters:
     - x: 1darray
@@ -2994,28 +3002,94 @@ def gen_iguess(x, experimental, param, model, model_args=[]):
         Function to be used for the generation of the fit model. Param must be the first argument.
     - model_args: list
         List of args to be passed to model, after param
+    - sens0: float
+        Default sensitivity for the change of the parameters with the mouse
     ---------
     Returns:
     - param: lmfit.Parameters Object
         Updated Parameters Object
     """
 
-    # Declare some stuff to be used multiple times
-    L_box = 0.08        # Length of the textboxes
-    H_box = 0.04        # Height of the textboxes
+    class Event:
+        """ Custom 'event' to trigger certain reactions from the widgets """
+        def __init__(self, event=None, key=None, button=None):
+            """ Initialize the parameters as you want """
+            self.event = event
+            self.key = key
+            self.button = button
 
-    #   Y position of the rows
-    y0box = 0.85
-    list_Y_box = []
-    for k in range(len(param)):
-        space = H_box + 0.01 
-        list_Y_box.append(y0box - k*space)
+    nullevent = Event()         # Just a placeholder: event that does nothing
 
+    
+    names = [key for key in param]          # Name of the parameters, from the param dictionary
+    K = 0                                   # List index for the active parameter
+    act = names[K]                          # Name of the active parameter
+
+    sens = {key: sens0 for key in param}    # Initialize the sensitivity dictionary
+
+    # Make the figure
+    fig = plt.figure()
+    fig.set_size_inches(figures.figsize_large)
+    plt.subplots_adjust(top=0.95, bottom=0.05, left=0.05, right=0.8, hspace=0.6, wspace=0.2)
+    ax = fig.add_subplot(5,1,(1,4))
+    axr = fig.add_subplot(5,1,5)
+
+    # Boxes
+    up_box = plt.axes([0.825, 0.875, 0.075, 0.075])             # increase sensitivity
+    down_box = plt.axes([0.900, 0.875, 0.075, 0.075])           # decrease sensitivity
+
+    val_box = plt.axes([0.825, 0.575, 0.05, 0.075])             # textbox to insert value
+    min_box = plt.axes([0.875, 0.575, 0.05, 0.075])             # textbox to insert min
+    max_box = plt.axes([0.925, 0.575, 0.05, 0.075])             # textbox to insert max
+
+    pup_box = plt.axes([0.825, 0.275, 0.075, 0.075])            # increase parameter list index
+    pdown_box = plt.axes([0.900, 0.275, 0.075, 0.075])          # decrease parameter list index
+
+    print_box = plt.axes([0.825, 0.05, 0.15, 0.075])            # print the Parameter to stdout
+
+    vary_box = plt.axes([0.95, 0.80, 0.0425, 0.04])             # slider for "vary"
+
+    # Widgets   -   as the boxes
+    up_button = Button(up_box, r'$\uparrow$', hovercolor='0.975')           
+    down_button = Button(down_box, r'$\downarrow$', hovercolor='0.975')
+
+    sens_text = ax.text(0.825, 0.825, f'Sens: {sens[act]:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+    value_text = ax.text(0.900, 0.775, f'{act}', ha='center', va='center', transform=fig.transFigure, fontsize=20, color='tab:blue')
+
+    # The texts describe what the textboxes are associated to
+    val_tb = TextBox(val_box, '', textalignment='center', initial=f'{param[act].value}')
+    ax.text(0.825 + 0.05/2, 0.575+0.075, 'VAL', ha='center', va='bottom', transform=fig.transFigure, fontsize=16)
+    min_tb = TextBox(min_box, '', textalignment='center', initial=f'{param[act].min}')
+    ax.text(0.875 + 0.05/2, 0.575+0.075, 'MIN', ha='center', va='bottom', transform=fig.transFigure, fontsize=16)
+    max_tb = TextBox(max_box, '', textalignment='center', initial=f'{param[act].max}')
+    ax.text(0.925 + 0.05/2, 0.575+0.075, 'MAX', ha='center', va='bottom', transform=fig.transFigure, fontsize=16)
+
+    pup_button = Button(pup_box, '\n'.join(['CH. PAR.',r'$\uparrow$']), hovercolor='0.975')
+    pdown_button = Button(pdown_box, '\n'.join(['CH. PAR.',r'$\downarrow$']), hovercolor='0.975')
+    
+    print_button = Button(print_box, 'PRINT PARAMETERS', hovercolor='0.975')
+
+    valinit = [1 if param[act].vary else 0]
+    vary_sl= Slider(vary_box, 'Vary', valmin=0, valmax=1, valinit=valinit[0], valstep=1) 
 
     # ---------------------------------------------------------------------------------------
-    # Functions connected to the widgets
-    def update(text):
-        """ Called upon writing something in the textboxes """
+    # SLOTS
+    def up_sens(event):
+        """ Double sensitivity of the active parameter """
+        nonlocal sens
+        sens[act] *= 2
+        sens_text.set_text(f'Sens: {sens[act]:.5g}')
+        plt.draw()
+
+    def down_sens(event):
+        """ Halves sensitivity of the active parameter """
+        nonlocal sens
+        sens[act] /= 2
+        sens_text.set_text(f'Sens: {sens[act]:.5g}')
+        plt.draw()
+
+    def update_max(text):
+        """ Update the 'max' value of the active parameter """
         def get_val(tb):
             """ Overwrite inf with np.inf otherwise raises error """
             if 'inf' in tb.text:
@@ -3024,56 +3098,127 @@ def gen_iguess(x, experimental, param, model, model_args=[]):
                 return eval(tb.text)
 
         nonlocal param
-        # Read all textboxes at once and set Parameters accordingly
-        for p, tb_val, tb_min, tb_max in zip(labels, val_tb, min_tb, max_tb):
-            param[p].set(value=get_val(tb_val), min=get_val(tb_min), max=get_val(tb_max))
+        param[act].set(max=get_val(max_tb))
+
+    def update_min(text):
+        """ Update the 'min' value of the active parameter """
+        def get_val(tb):
+            """ Overwrite inf with np.inf otherwise raises error """
+            if 'inf' in tb.text:
+                return eval(tb.text.replace('inf', 'np.inf'))
+            else:
+                return eval(tb.text)
+
+        nonlocal param
+        param[act].set(min=get_val(min_tb))
+
+    def update_val(text):
+        """ Update the 'value' of the active parameter """
+        nonlocal param
+        param[act].set(value=eval(text))
+        # Update the plots: we need nullevent to avoid raising errors
+        on_scroll(nullevent)
+
+    def cycle():
+        """ Redraws the information on values and stuff """
+        nonlocal act
+        act = names[K]
+        value_text.set_text(f'{act}')
+        val_tb.set_val(f'{param[act].value}')
+        min_tb.set_val(f'{param[act].min}')
+        max_tb.set_val(f'{param[act].max}')
+        if param[act].vary: # = True
+            vary_sl.set_val(1)
+        else:               # = False
+            vary_sl.set_val(0)
+        plt.draw()
+
+    def cycle_up(event):
+        """ Increase the parameter list index """
+        nonlocal K
+        # when reaches top border, starts over
+        K = np.mod(K+1, len(names))
+        cycle()
+
+    def cycle_down(event):
+        """ Decrease the parameter list index """
+        nonlocal K
+        # when reaches bottom border, starts over
+        K = np.mod(K-1, len(names))
+        cycle()
+
+    def on_scroll(event):
+        """ Updates the value of the active parameter and draws the new model """
+        nonlocal param
+        if event.button == 'up': 
+            param[act].value += sens[act]
+        if event.button == 'down':
+            param[act].value -= sens[act]
+        val_tb.set_val(f'{param[act].value}')
 
         # Compute and redraw the model function
         newmodel = model(param, *model_args)
         model_plot.set_ydata(newmodel)
+        # Update the residuals
+        res_plot.set_ydata(experimental - newmodel)
+        # Adjust the zoom interactively
+        adjust_zoom(0)
         plt.draw()
 
-    def set_vary(null):
-        """ Called by the checkboxes """
+    def update_vary(value):
+        """ Set the 'vary' attribute according to the slider """
         nonlocal param
-        # Read all textboxes at once, set Parameters.vary accordingly
-        for cb, p in zip(var_cb, labels):
-            param[f'{p}'].set(vary=cb.get_status()[0])
+        if value == 0:
+            param[act].set(vary=False)
+        elif value == 1:
+            param[act].set(vary=True)
+
+    def adjust_zoom(event):
+        """ Adjusts the zoom accordingly to model and exp, and the residuals """
+        # Compute new model
+        newmodel = model(param, *model_args)
+        # Adjust scale of top subplot
+        misc.set_ylim(ax, [experimental, newmodel])
+        misc.pretty_scale(ax, ax.get_ylim(), 'y')
+        # Adjust scale of bottom subplot
+        misc.set_ylim(axr, [experimental-newmodel, np.zeros_like(newmodel)]) # concatenate with 0 to keep the horizontal line visible
+        misc.pretty_scale(axr, axr.get_ylim(), 'y', 4)
+        plt.draw()
+
+    def key_binding(event):
+        """ Handles keyboard shortcuts """
+        if event.key == '>':
+            up_sens(nullevent)
+        if event.key == '<':
+            down_sens(nullevent)
+        if event.key == 'up':
+            upevent = Event(button='up')
+            on_scroll(upevent)
+        if event.key == 'down':
+            downevent = Event(button='down')
+            on_scroll(downevent)
+        if event.key == 'right':
+            cycle_up(nullevent)
+        if event.key == 'left':
+            cycle_down(nullevent)
+        if event.key == 'v':
+            param[act].set(vary=not(param[act].vary))
+            cycle()
+
+    def print_param(event):
+        """ Print the Parameters object to stdout """
+        param.pretty_print()
+        print()
 
     # ---------------------------------------------------------------------------------------
 
 
-    # Make the figure
-    fig = plt.figure()
-    fig.set_size_inches(figures.figsize_large)
-    plt.subplots_adjust(left=0.1, right=0.6, top=0.9, bottom=0.1)
-    ax = fig.add_subplot(1,1,1)
-    
-    # Draw the widgets
-    #   Header row
-    [plt.text(X, 0.925, f'{head}', ha='center', transform=fig.transFigure) 
-            for X, head in zip((0.635, 0.72, 0.81, 0.90, 0.96), ('Parameter', 'Value', 'Min', 'Max', 'Vary'))]
-    #   First column
-    labels = [f'{p}' for p in param]    # Name of the parameters
-    #       Write them in the first column, right-aligned
-    [plt.text(0.675, Y_box+H_box/2, f'{label}', ha='right', va='center', transform=fig.transFigure) for Y_box, label in zip(list_Y_box, labels)]
-    #   Textboxes for 'value'
-    val_boxes = [plt.axes([0.68, Y_box, L_box, H_box]) for Y_box in list_Y_box]
-    val_tb = [TextBox(box, '', textalignment='center', initial=f'{param[p].value}') for box, p in zip(val_boxes, labels)]
-    #   Textboxes for 'min'
-    min_boxes = [plt.axes([0.77, Y_box, L_box, H_box]) for Y_box in list_Y_box]
-    min_tb = [TextBox(box, '', textalignment='center', initial=f'{param[p].min}') for box, p in zip(min_boxes, labels)]
-    #   Textboxes for 'max'
-    max_boxes = [plt.axes([0.86, Y_box, L_box, H_box]) for Y_box in list_Y_box]
-    max_tb = [TextBox(box, '', textalignment='center', initial=f'{param[p].max}') for box, p in zip(max_boxes, labels)]
-    #   Checkboxes for 'vary'
-    var_boxes = [plt.axes([0.95, Y_box, 0.025, H_box]) for Y_box in list_Y_box]
-    var_cb = [CheckButtons(box, labels=[''], actives=[f'{param[p].vary}']) for box, p in zip(var_boxes, labels)]
-    [misc.edit_checkboxes(cb, 0.2, 0.2, 0.6, 0.6, color='tab:blue') for cb in var_cb] # make bigger squares
-
-    # Plot the data and the model
+    #   Plot the data and the model
     ax.plot(x, experimental, '.', markersize=2, c='tab:red', label='Observed data')
     model_plot, = ax.plot(x, model(param, *model_args), c='tab:blue', label='Model')
+    # Plot the residuals
+    axr.axhline(0, c='k', lw=1.2)
+    res_plot, = axr.plot(x, experimental - model(param, *model_args), '.', markersize=1, c='tab:green', label='Residuals')
 
     # Fancy shit
     misc.pretty_scale(ax, ax.get_xlim(), 'x')
@@ -3081,19 +3226,33 @@ def gen_iguess(x, experimental, param, model, model_args=[]):
     misc.mathformat(ax)
     ax.legend()
     misc.set_fontsizes(ax, 15)
+    misc.pretty_scale(axr, axr.get_xlim(), 'x')
+    misc.pretty_scale(axr, axr.get_ylim(), 'y', 5)
+    misc.mathformat(axr)
+    axr.legend()
+    misc.set_fontsizes(axr, 15)
 
-    # Connect the widgets to their functions
-    for column in zip(val_tb, min_tb, max_tb):
-        for box in column:
-            box.on_submit(update)
-    for cb in var_cb:
-        cb.on_clicked(set_vary)
+    # Connect the widgets to their slots
+    up_button.on_clicked(up_sens)
+    down_button.on_clicked(down_sens)
 
+    val_tb.on_submit(update_val)
+    max_tb.on_submit(update_max)
+    min_tb.on_submit(update_min)
+
+    pup_button.on_clicked(cycle_up)
+    pdown_button.on_clicked(cycle_down)
+    vary_sl.on_changed(update_vary)
+
+    print_button.on_clicked(print_param)
+
+    fig.canvas.mpl_connect('scroll_event', on_scroll)
+    fig.canvas.mpl_connect('key_press_event', key_binding)
+
+    # Start event loop
     plt.show()
 
     return param
-
-
 
 
 def peak_pick(ppm_f1, ppm_f2, data, coord_filename='coord.tmp'):
