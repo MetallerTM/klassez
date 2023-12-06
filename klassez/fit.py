@@ -2990,6 +2990,7 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
     > 'left': change parameter
     > 'right': change parameter
     > 'v': change "vary" status
+    > '<': toggle automatic zoom adjustment
     ---------
     Parameters:
     - x: 1darray
@@ -3024,6 +3025,7 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
     names = [key for key in param]          # Name of the parameters, from the param dictionary
     K = 0                                   # List index for the active parameter
     act = names[K]                          # Name of the active parameter
+    zoom_toggle = True                      # Allow automatic zoom adjustment
 
     sens = {key: sens0 for key in param}    # Initialize the sensitivity dictionary
 
@@ -3175,6 +3177,8 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
 
     def adjust_zoom(event):
         """ Adjusts the zoom accordingly to model and exp, and the residuals """
+        if not zoom_toggle:
+            return
         # Compute new model
         newmodel = model(param, *model_args)
         # Adjust scale of top subplot
@@ -3204,6 +3208,9 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
         if event.key == 'v':
             param[act].set(vary=not(param[act].vary))
             cycle()
+        if event.key == 'z':
+            nonlocal zoom_toggle
+            zoom_toggle = not(zoom_toggle)
 
     def print_param(event):
         """ Print the Parameters object to stdout """
