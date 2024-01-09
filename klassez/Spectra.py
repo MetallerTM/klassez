@@ -1233,6 +1233,13 @@ class Spectrum_2D:
         # Update the .procs file
         self.write_procs()
 
+    def pknl(self):
+        """
+        Reverses the effect of the digital filter by applying a first order phase correction.
+        To be called after having processed the data by 'self.process()'
+        """
+        self.adjph(p1_2=-360 * self.acqus['GRPDLY'], update=False)
+
 
     def qfil(self, which=None, u=None, s=None):
         """ 
@@ -2083,6 +2090,13 @@ class Pseudo_2D(Spectrum_2D):
                 self.procs['pv'] = round(values[2], 5)
         # Update the .procs file
         self.write_procs()
+
+    def pknl(self):
+        """
+        Reverses the effect of the digital filter by applying a first order phase correction.
+        To be called after having processed the data by 'self.process()'
+        """
+        self.adjph(p1=-360 * self.acqus['GRPDLY'], update=False)
 
     def projf1(self, a, b=None):
         """
