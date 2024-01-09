@@ -1524,7 +1524,7 @@ def integrate(ppm0, data0, X_label='$\delta\,$F1 /ppm'):
             'total': float(0),              # Total integrated area
             'ref_pos': '{:.2f}:{:.2f}'.format(ppm[0], ppm[-1]), # Position of the reference signal /ppm1:ppm2
             'ref_val': float(1),            # For how many nuclei the reference peak integrates
-            'ref_int': int_f[-1],            # Reference peak integral, absolute value
+            'ref_int': int_f[-1]-int_f[0],            # Reference peak integral, absolute value
             }      
     abs_vals = {}                           # dictionary: integrals of the peaks, absolute values
     text_integrals={}                       # dictionary: labels to keep record of the integrals
@@ -1578,7 +1578,7 @@ def integrate(ppm0, data0, X_label='$\delta\,$F1 /ppm'):
 
         # Compute the integral
         int_fun = processing.integral(data, ppm, (sx, dx))  # Integral function
-        int_val = int_fun[-1]                                               # Value of the integral
+        int_val = int_fun[-1] - int_fun[0]                                  # Value of the integral
         tmp_total_integral += int_val                                       # Update the total integral, but only inside
 
         # Update the plot
@@ -3370,8 +3370,8 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         'k': 0.1,   # relative intensity
         'x_g': 0.5, # fraction of gaussianity
         } for w in range(10)]
-    I1 = processing.integral(tr1, x=ppm_f1, lims=lim_f1)[-1]
-    I2 = processing.integral(tr2, x=ppm_f2, lims=lim_f2)[-1]
+    I1 = processing.integrate(tr1, x=ppm_f1, lims=lim_f1)
+    I2 = processing.integrate(tr2, x=ppm_f2, lims=lim_f2)
     A = (I1 + I2) / (2*np.pi*fwhm0)
 
 

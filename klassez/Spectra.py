@@ -592,7 +592,7 @@ class Spectrum_1D:
         if from_procs:  # Compute the baseline with a polynomial model
             x_basl = np.linspace(-1, 1, self.S.shape[-1])
             self.baseline = misc.polyn(x_basl, self.procs['basl_c'])
-        if phase:       # Phase the baseline as the spectrum
+        if phase and np.iscomplexobj(self.baseline):       # Phase the baseline as the spectrum, only if it is complex
             self.baseline, *_ = processing.ps(self.baseline, self.ppm, p0=self.procs['p0'], p1=self.procs['p1'], pivot=self.procs['pv'])
         # Subtract the baseline
         self.S -= self.baseline
@@ -876,7 +876,7 @@ class Spectrum_2D:
             self.acqus['DTYPA'] = dic['acqus']['DTYPA']
             FnMODE_flag = dic['acqu2s']['FnMODE']       # Get f1 acquisition mode
             # List of possible modes
-            FnMODEs = ['Undefined', 'QF', 'QSEC', 'TPPI', 'States', 'States-TPPI', 'Echo-Antiecho']
+            FnMODEs = ['Undefined', 'QF', 'QSEC', 'TPPI', 'States', 'States-TPPI', 'Echo-Antiecho', 'QF-nofreq']
             self.acqus['FnMODE'] = FnMODEs[FnMODE_flag] # Add to acqus
 
             del dic
@@ -993,7 +993,7 @@ class Spectrum_2D:
         freq_f1 and ppm_f1 are assigned with the indexes of the transients.
         """
         # Transpose
-        if self.acqus['FnMODE'] in ['QF', 'No']:    # Just complex spectrum
+        if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:    # Just complex spectrum
             self.fid = self.fid.T
         else:   # Hypercomplex spectrum
             self.fid = processing.tp_hyper(self.fid)
@@ -1009,7 +1009,7 @@ class Spectrum_2D:
             self.S[k] = processing.fp(self.fid[k], wf=self.procs['wf'][0], zf=self.procs['zf'][0], fcor=self.procs['fcor'][0], tdeff=self.procs['tdeff'][0])
 
         # Transpose it back
-        if self.acqus['FnMODE'] in ['QF', 'No']:
+        if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:
             self.fid = self.fid.T
             self.S = self.S.T
         else:
@@ -1064,18 +1064,18 @@ class Spectrum_2D:
         if self.acqus['SFO1'] < 0:
             # Reversing the spectrum in the indirect dimension causes a 90° dephasing
             self.S = self.S[::-1,:]
-            if self.acqus['FnMODE'] == 'QF':
+            if self.acqus['FnMODE'] in ['QF', 'QF-nofreq']:
                 self.S = self.S.T
             else:
                 self.S = processing.tp_hyper(self.S)
             self.S = processing.ps(self.S, p0=-90)[0]   #...that has to be corrected
-            if self.acqus['FnMODE'] == 'QF':
+            if self.acqus['FnMODE'] in ['QF', 'QF-nofreq']:
                 self.S = self.S.T
             else:
                 self.S = processing.tp_hyper(self.S)
 
         # Unpack according to FnMODE
-        if self.acqus['FnMODE'] in ['QF', 'No']:
+        if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:
             self.rr = self.S.real
             self.ii = self.S.imag
         else:
@@ -1135,7 +1135,7 @@ class Spectrum_2D:
         Then, updates rr, ri, ir, ii.
         """
         self.S = (self.S.real**2 + self.S.imag**2 )**0.5
-        if self.acqus['FnMODE'] == 'QF':
+        if self.acqus['FnMODE'] in ['QF', 'QF-nofreq']:
             self.rr = self.S.real
             self.ii = self.S.imag
         else:
@@ -1189,7 +1189,7 @@ class Spectrum_2D:
             # Phase F2
             self.S, values_f2 = processing.ps(self.S, self.ppm_f2, p0=ph[2], p1=ph[3], pivot=pv2)
             # Phase F1
-            if self.acqus['FnMODE'] == 'No':    # Skip it
+            if self.acqus['FnMODE'] in ['No', 'QF-nofreq']:    # Skip it
                 pass
             # else, transpose according to FnMODE, phase, transpose back
             elif self.acqus['FnMODE'] == 'QF':
@@ -1203,13 +1203,13 @@ class Spectrum_2D:
 
         else:
             # Call interactive phase correction
-            if self.acqus['FnMODE'] == 'QF' or self.acqus['FnMODE'] == 'No': 
+            if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']: 
                 self.S, values_f1, values_f2 = processing.interactive_phase_2D(self.ppm_f1, self.ppm_f2, self.S, False)
             else:
                 self.S, values_f1, values_f2 = processing.interactive_phase_2D(self.ppm_f1, self.ppm_f2, self.S)
 
         # Unpack the phased spectrum
-        if self.acqus['FnMODE'] == 'QF' or self.acqus['FnMODE'] == 'No':
+        if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:
             self.rr = self.S.real
             self.ii = self.S.imag
         else:
@@ -1265,7 +1265,7 @@ class Spectrum_2D:
         # Apply the filter
         self.S = processing.qfil(self.ppm_f2, self.S, self.procs['qfil']['u'], self.procs['qfil']['s'])
         # Unpack according to procs
-        if self.acqus['FnMODE'] in ['QF', 'No']:
+        if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:
             self.rr = self.S.real
             self.ii = self.S.imag
         else:
@@ -1876,7 +1876,11 @@ class Pseudo_2D(Spectrum_2D):
         if isinstance(self.fid, np.ndarray):
             self.acqus['TD1'] = self.fid.shape[0]
         else:
-            self.acqus['TD1'] = 0
+            try:
+                self.acqus['TD1'] = self.ngdic['acqu2s']['TD']
+                self.fid = np.reshape(self.fid, (self.acqus['TD1'], -1))
+            except:
+                self.acqus['TD1'] = 0
 
         ## Initalize the procs dictionary 
         # If there already is a procs dictionary saved as file, load it
@@ -1937,8 +1941,8 @@ class Pseudo_2D(Spectrum_2D):
         self.adjph(p0=self.procs['p0'], p1=self.procs['p1'], pv=self.procs['pv'], update=False)
 
         # Use number of the experiment as fake scale in F1
-        self.freq_f1 = np.arange(self.S.shape[0])
-        self.ppm_f1 = np.arange(self.S.shape[0])
+        self.freq_f1 = np.arange(self.S.shape[0])           # python numbering
+        self.ppm_f1 = np.arange(self.S.shape[0]) + 1        # human numbering
 
         # Align the spectrum
         if self.procs['roll_ppm'] is not None:
@@ -2147,7 +2151,7 @@ class Pseudo_2D(Spectrum_2D):
 
         X_label = '$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
 
-        cmaps = [CM['Blues_r'], CM['Reds_r']]
+        cmaps = ['Blues_r', 'Reds_r']
 
         # flags for the activation of scroll zoom
         lvlstep = 0.02

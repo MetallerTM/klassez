@@ -560,6 +560,9 @@ def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False):
         p0 = 0
     elif p1 is None and p0 is not None:
         p1 = 0
+
+    if not np.iscomplexobj(data):
+        raise ValueError('Data is not complex! Impossible to phase')
     
     if ppmscale is None and interactive is True and pivot is not None:
         raise ValueError('PPM scale not supplied. Aborting...')
