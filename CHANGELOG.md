@@ -1,41 +1,31 @@
-# Version 0.4a-dev
+# Version 0.4a.1
 
-2023/10/17
 Bug corrections.
-2024/01/12
-Other bug corrections, added support for Topspin 4.3
+Added support for Topspin 4.3.0, i.e. a reshape for the FIDs.
+Convdta seems to not work anymore, hence we introduced a way to remove the digital filter effects on the spectra by using the *pnkl* function.
 
 ## New functions: 
 2023/10/17
 - *misc.load_ser*
+- *processing.integrate*
 - *processing.stack_fids*
+- *fit.calc_R2*
+- *Spectrum_2D.pknl*
 - *Pseudo_2D.mount*
 - *Pseudo_2D.cal*
-2023/10/23
-- *fit.calc_R2*
-2023/12/05
-- *processing.integrate*
-2024/01/11
-- *Spectrum_2D.pknl*
 - *Pseudo_2D.pknl*
 
 ## Modified functions:
-2023/10/09
-- *misc.polyn*: use the Vandermonde matrix to compute the polynomion instead of a for loop
-2023/10/17
-- *Pseudo_2D.__init__*: self.fid = None by default, added acqus parameter "TD1", removed procs parameter "cal\_1", renamed procs parameter "cal\_2" into "cal" 
-2023/10/23
-- *fit.LR*: now treated as a polynomial fit, added option to force the intercept
-2023/12/01
-- *fit.make_iguess*: added an interactive text to show the actual sensitivity value, and a tutorial for the keyboard shortcuts (thanks to Tino Golub for requesting for this)
 - *misc.get_ylim*: changed method of calculations of plot edges
 - *misc.set_ylim*: now uses modified *misc.get_ylim*
+- *misc.polyn*: use the Vandermonde matrix to compute the polynomion instead of a for loop
+- *fit.LR*: now treated as a polynomial fit, added option to force the intercept
 - *fit.gen_iguess*: brand new implementation
-2023/12/07
+- *fit.make_iguess*: added an interactive text to show the actual sensitivity value, and a tutorial for the keyboard shortcuts (thanks to Tino Golub for requesting for this)
 - *Spectrum_1D.integrate*: corrected integral computation by using new function *processing.integrate*
+- *Pseudo_2D.__init__*: self.fid = None by default, added acqus parameter "TD1", removed procs parameter "cal\_1", renamed procs parameter "cal\_2" into "cal" 
 
 ## Modified classes:
-2023/12/07
 - *Spectrum_2D*: Added control for FnMODE="QF-nofreq"
 
 
