@@ -2,6 +2,8 @@
 
 2023/10/17
 Bug corrections.
+2024/01/12
+Other bug corrections, added support for Topspin 4.3
 
 ## New functions: 
 2023/10/17
@@ -13,11 +15,14 @@ Bug corrections.
 - *fit.calc_R2*
 2023/12/05
 - *processing.integrate*
+2024/01/11
+- *Spectrum_2D.pknl*
+- *Pseudo_2D.pknl*
 
 ## Modified functions:
 2023/10/09
 - *misc.polyn*: use the Vandermonde matrix to compute the polynomion instead of a for loop
-23/10/17
+2023/10/17
 - *Pseudo_2D.__init__*: self.fid = None by default, added acqus parameter "TD1", removed procs parameter "cal\_1", renamed procs parameter "cal\_2" into "cal" 
 2023/10/23
 - *fit.LR*: now treated as a polynomial fit, added option to force the intercept
@@ -26,6 +31,13 @@ Bug corrections.
 - *misc.get_ylim*: changed method of calculations of plot edges
 - *misc.set_ylim*: now uses modified *misc.get_ylim*
 - *fit.gen_iguess*: brand new implementation
+2023/12/07
+- *Spectrum_1D.integrate*: corrected integral computation by using new function *processing.integrate*
+
+## Modified classes:
+2023/12/07
+- *Spectrum_2D*: Added control for FnMODE="QF-nofreq"
+
 
 # Version 0.4a.0
 

@@ -85,8 +85,9 @@ def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=F
 
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
+    plt.subplots_adjust(left=0.15, bottom=0.15, top=0.925, right=0.95)
 
-    m, s = fit.ax_histogram(ax, data, nbins=nbins, density=density, f_lims=f_lims, xlabel=x_label, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize)
+    m, s = fit.ax_histogram(ax, data, nbins=nbins, density=density, f_lims=f_lims, xlabel=xlabel, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize)
 
     if name:
         fig.set_size_inches(figures.figsize_small)
@@ -666,7 +667,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
 
 
 
-def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, filename='fit'):
+def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, itermax=10000, filename='fit'):
     """
     Performs a lineshape deconvolution fit using a Voigt model.
     The initial guess must be read from a .ivf file. All components are treated as independent, regardless from the value of the "group" attribute.
@@ -693,6 +694,8 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         Allow the peaks to change phase
     - vary_xg: bool
         Allow the peaks to change Lorentzian/Gaussian ratio
+    - itermax: int
+        Maximum number of allowed iterations
     - filename: str
         Name of the file where the fitted values will be saved. The .fvf extension is added automatically
     """
@@ -858,7 +861,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         def start_fit():
             param.add('count', value=0, vary=False)
             minner = l.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I, lims))
-            result = minner.minimize(method='leastsq', max_nfev=10000, xtol=1e-10, ftol=1e-10)
+            result = minner.minimize(method='leastsq', max_nfev=int(itermax), xtol=1e-10, ftol=1e-10)
             print(f'{result.message} Number of function evaluations: {result.nfev}.')
             return result
         # Do the fit
@@ -2853,7 +2856,7 @@ class Voigt_Fit:
         self.result = regions
         print(f'{output_file}.fvf loaded as fit result file.')
 
-    def dofit(self, indep=True, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, filename=None):
+    def dofit(self, indep=True, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, itermax=10000, filename=None):
         """
         Perform a lineshape deconvolution fitting.
         The initial guess is read from the attribute self.i_guess.
@@ -2871,6 +2874,8 @@ class Voigt_Fit:
             Allow the peaks to change phase (True) or not (False)
         - vary_xg: bool
             Allow the peaks to change Lorentzian/Gaussian ratio
+        - itermax: int
+            Maximum number of allowed iterations
         - filename: str
             Path to the output file. If None, "<self.filename>.fvf" is used
         """
@@ -2886,7 +2891,7 @@ class Voigt_Fit:
 
         # Do the fit
         if indep is True:
-            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_xg=vary_xg, filename=filename)
+            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_xg=vary_xg, itermax=itermax, filename=filename)
         else:
             raise NotImplementedError('More and more exciting adventures in the next release!')
         # Store

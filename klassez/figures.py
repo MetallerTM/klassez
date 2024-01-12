@@ -1350,7 +1350,7 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     for k in range(nsp):
         checklabels.append(spectrum[k].get_label()[:12])
     radio = CheckButtons(check_box, checklabels, list(np.ones(nsp)))
-    misc.edit_checkboxes(radio, xadj=0, yadj=0.005, length=0.1, height=(HBOX)/nsp, 
+    misc.edit_checkboxes(radio, xadj=0, yadj=0.005, length=0.1, height=(2*HBOX)/nsp, 
             color=[spec.get_color() for spec in spectrum])
 
     lbl_y = [ Q.get_position()[1] for Q in radio.labels]

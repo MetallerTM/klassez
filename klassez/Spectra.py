@@ -872,6 +872,7 @@ class Spectrum_2D:
             self.ngdic = dic
             self.fid = data
             self.acqus = misc.makeacqus_2D(dic)
+            self.fid = np.reshape(self.fid, (self.acqus['TD1'], self.acqus['TD2']))
             self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
             self.acqus['DTYPA'] = dic['acqus']['DTYPA']
             FnMODE_flag = dic['acqu2s']['FnMODE']       # Get f1 acquisition mode
@@ -1238,7 +1239,7 @@ class Spectrum_2D:
         Reverses the effect of the digital filter by applying a first order phase correction.
         To be called after having processed the data by 'self.process()'
         """
-        self.adjph(p1_2=-360 * self.acqus['GRPDLY'], update=False)
+        self.adjph(p12=-360 * self.acqus['GRPDLY'], update=False)
 
 
     def qfil(self, which=None, u=None, s=None):
@@ -1881,13 +1882,14 @@ class Pseudo_2D(Spectrum_2D):
             self.acqus['GRPDLY'] = 0
 
         if isinstance(self.fid, np.ndarray):
-            self.acqus['TD1'] = self.fid.shape[0]
-        else:
             try:
                 self.acqus['TD1'] = self.ngdic['acqu2s']['TD']
                 self.fid = np.reshape(self.fid, (self.acqus['TD1'], -1))
             except:
                 self.acqus['TD1'] = 0
+            self.acqus['TD1'] = self.fid.shape[0]
+        else:
+            self.acqus['TD1'] = 0
 
         ## Initalize the procs dictionary 
         # If there already is a procs dictionary saved as file, load it
