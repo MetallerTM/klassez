@@ -285,7 +285,7 @@ def fit_int(y, y_c):
     Let y be the experimental data and y_c the model, and let <w> the mean of variable w.
     Then:
         A = ( <y_c y> - <y_c><y> ) / ( <y_c^2> - <y_c>^2 )
-        q = ( <y_c>^2<y> - <y_c> ) / ( <y_c^2> - <y_c>^2 )
+        q = ( <y_c>^2<y> - <y_c><y_c y> ) / ( <y_c^2> - <y_c>^2 )
     ----------
     Parameters:
     - y: 1darray
