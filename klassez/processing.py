@@ -2478,7 +2478,7 @@ def integrate(fx, x=None, lims=None):
     """
     Fx = processing.integral(fx, x, lims)
     # Calculus fundamental theorem
-    I = Fx[...,-1] - F[...,0]
+    I = Fx[...,-1] - Fx[...,0]
     return I
 
 def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, utol_1=0.5, u_2=None, fwhm_2=200, utol_2=0.5, plot_result=False):

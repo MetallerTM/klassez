@@ -135,50 +135,48 @@ class Spectrum_1D:
             # The acqus dictionary will know your dataset is simulated
             self.acqus['spect'] = 'simulated'
         else:   # Read the data from the directory using nmrglue
-            warnings.filterwarnings("ignore")   # Suppress errors due to CONVDTA in TopSpin
-            # Discriminate between different spectrometer formats
-            if spect == 'bruker':   
-                dic, data = ng.bruker.read(in_file, cplex=True)
-                self.acqus = misc.makeacqus_1D(dic)     
-                # Set the data format keys in acqus
-                self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
-                self.acqus['DTYPA'] = dic['acqus']['DTYPA']
+            with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
+                warnings.simplefilter("ignore")
+                # Discriminate between different spectrometer formats
+                if spect == 'bruker':   
+                    dic, data = ng.bruker.read(in_file, cplex=True)
+                    self.acqus = misc.makeacqus_1D(dic)     
+                    # Set the data format keys in acqus
+                    self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
+                    self.acqus['DTYPA'] = dic['acqus']['DTYPA']
 
-            elif spect == 'varian':
-                dic, data = ng.varian.read(in_file)
-                self.acqus = misc.makeacqus_1D_varian(dic)
+                elif spect == 'varian':
+                    dic, data = ng.varian.read(in_file)
+                    self.acqus = misc.makeacqus_1D_varian(dic)
 
-            elif spect == 'magritek':
-                dic1, data = ng.spinsolve.read(in_file, specfile='data.1d')         # Actual FID
-                dic2, _, = ng.spinsolve.read(in_file, specfile='spectrum.1d')       # for config
-                dic3, _, = ng.spinsolve.read(in_file, specfile='nmr_fid.dx')        # for config
-                # Join the dictionary together
-                dic = dict(dic1)
-                dic.update(dic3)
-                dic.update(dic2)        # Important because it contains the ppm scale!
-                self.fid = data
-                self.acqus = misc.makeacqus_1D_spinsolve(dic)
+                elif spect == 'magritek':
+                    dic1, data = ng.spinsolve.read(in_file, specfile='data.1d')         # Actual FID
+                    dic2, _, = ng.spinsolve.read(in_file, specfile='spectrum.1d')       # for config
+                    dic3, _, = ng.spinsolve.read(in_file, specfile='nmr_fid.dx')        # for config
+                    # Join the dictionary together
+                    dic = dict(dic1)
+                    dic.update(dic3)
+                    dic.update(dic2)        # Important because it contains the ppm scale!
+                    self.fid = data
+                    self.acqus = misc.makeacqus_1D_spinsolve(dic)
 
-            elif spect == 'oxford':
-                if '.jdx' in in_file:
-                    jdx_file = in_file
-                else:
-                    dirlist = os.listdir(self.datadir)
-                    all_jdx = [w for w in dirlist if '.jdx' in w]
-                    if len(all_jdx) == 0:
-                        raise NameError(f'No .jdx file were found in {self.datadir}.')
-                    elif len(all_jdx) > 1:
-                        raise ValueError(f'There are more than one .jdx file in {self.datadir}.')
-                    jdx_file = os.path.join(self.datadir, all_jdx[-1])
-                # filter warnings due to incomplete jdx file
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
+                elif spect == 'oxford':
+                    if '.jdx' in in_file:
+                        jdx_file = in_file
+                    else:
+                        dirlist = os.listdir(self.datadir)
+                        all_jdx = [w for w in dirlist if '.jdx' in w]
+                        if len(all_jdx) == 0:
+                            raise NameError(f'No .jdx file were found in {self.datadir}.')
+                        elif len(all_jdx) > 1:
+                            raise ValueError(f'There are more than one .jdx file in {self.datadir}.')
+                        jdx_file = os.path.join(self.datadir, all_jdx[-1])
                     dic, cplx = ng.jcampdx.read(jdx_file)
-                self.acqus = misc.makeacqus_1D_oxford(dic)
-                data = cplx[0] + 1j*cplx[1]
+                    self.acqus = misc.makeacqus_1D_oxford(dic)
+                    data = cplx[0] + 1j*cplx[1]
 
-            else:
-                raise NotImplementedError('Unknown dataset format.')
+                else:
+                    raise NotImplementedError('Unknown dataset format.')
 
             # Store the local variables as class attributes
             self.acqus['spect'] = spect
@@ -711,26 +709,28 @@ class pSpectrum_1D(Spectrum_1D):
             self.acqus = acqus
 
         else:
-            self.datadir = os.path.abspath(in_file) # Get the file position
-            if not os.path.isdir(self.datadir):
-                self.datadir = os.path.dirname(self.datadir)
-            self.filename = os.path.basename(in_file).rsplit('.', 1)[0] # Get the filename
-            # If filename is a directory, write things inside it
-            if os.path.isdir('/'.join([self.datadir, self.filename])):
-                self.datadir = os.path.join(self.datadir, self.filename) # i.e. add filename to datadir
-            # Read the dictionary
-            dic, _ = ng.bruker.read_pdata(in_file)
-            # Read the real and imaginary part, separately
-            _, self.r = ng.bruker.read_pdata(in_file, bin_files=['1r'])
-            _, self.i = ng.bruker.read_pdata(in_file, bin_files=['1i'])
-            # Mount them together to make the complex spectrum
-            self.S = self.r + 1j * self.i
-            # Make acqus
-            self.acqus = misc.makeacqus_1D(dic)
-            self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
-            self.acqus['DTYPA'] = dic['acqus']['DTYPA']
-            self.ngdic = dic
-            del dic
+            with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
+                warnings.simplefilter("ignore")
+                self.datadir = os.path.abspath(in_file) # Get the file position
+                if not os.path.isdir(self.datadir):
+                    self.datadir = os.path.dirname(self.datadir)
+                self.filename = os.path.basename(in_file).rsplit('.', 1)[0] # Get the filename
+                # If filename is a directory, write things inside it
+                if os.path.isdir('/'.join([self.datadir, self.filename])):
+                    self.datadir = os.path.join(self.datadir, self.filename) # i.e. add filename to datadir
+                # Read the dictionary
+                dic, _ = ng.bruker.read_pdata(in_file)
+                # Read the real and imaginary part, separately
+                _, self.r = ng.bruker.read_pdata(in_file, bin_files=['1r'])
+                _, self.i = ng.bruker.read_pdata(in_file, bin_files=['1i'])
+                # Mount them together to make the complex spectrum
+                self.S = self.r + 1j * self.i
+                # Make acqus
+                self.acqus = misc.makeacqus_1D(dic)
+                self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
+                self.acqus['DTYPA'] = dic['acqus']['DTYPA']
+                self.ngdic = dic
+                del dic
         # Set the group delay, if there is
         try:
             self.acqus['GRPDLY'] = int(self.ngdic['acqus']['GRPDLY'])
@@ -868,20 +868,22 @@ class Spectrum_2D:
                 self.acqus['FnMODE'] = 'States-TPPI'
             self.fid = sim.sim_2D(in_file, pv=pv)   # Read the FID
         else:   # Read from nmrglue
-            dic, data = ng.bruker.read(in_file, cplex=True) 
-            self.ngdic = dic
-            self.fid = data
-            self.acqus = misc.makeacqus_2D(dic)
-            self.fid = np.reshape(self.fid, (self.acqus['TD1'], self.acqus['TD2']))
-            self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
-            self.acqus['DTYPA'] = dic['acqus']['DTYPA']
-            FnMODE_flag = dic['acqu2s']['FnMODE']       # Get f1 acquisition mode
-            # List of possible modes
-            FnMODEs = ['Undefined', 'QF', 'QSEC', 'TPPI', 'States', 'States-TPPI', 'Echo-Antiecho', 'QF-nofreq']
-            self.acqus['FnMODE'] = FnMODEs[FnMODE_flag] # Add to acqus
+            with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
+                warnings.simplefilter("ignore")
+                dic, data = ng.bruker.read(in_file, cplex=True) 
+                self.ngdic = dic
+                self.fid = data
+                self.acqus = misc.makeacqus_2D(dic)
+                self.fid = np.reshape(self.fid, (self.acqus['TD1'], self.acqus['TD2']))
+                self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
+                self.acqus['DTYPA'] = dic['acqus']['DTYPA']
+                FnMODE_flag = dic['acqu2s']['FnMODE']       # Get f1 acquisition mode
+                # List of possible modes
+                FnMODEs = ['Undefined', 'QF', 'QSEC', 'TPPI', 'States', 'States-TPPI', 'Echo-Antiecho', 'QF-nofreq']
+                self.acqus['FnMODE'] = FnMODEs[FnMODE_flag] # Add to acqus
 
-            del dic
-            del data
+                del dic
+                del data
         # put a flag for shuffling EAE data
         if self.acqus['FnMODE'] == 'Echo-Antiecho':
             self.eaeflag = 1    # i.e. to be shuffled
@@ -1698,27 +1700,29 @@ class pSpectrum_2D(Spectrum_2D):
             self.datadir = os.path.join(self.datadir, self.filename) # i.e. add filename to datadir
 
         # Read the dictionary
-        dic, _ = ng.bruker.read(in_file.split('pdata')[0], cplex=True)
-        # Read the files
-        _, self.rr = ng.bruker.read_pdata(in_file, bin_files=['2rr'])
-        _, self.ii = ng.bruker.read_pdata(in_file, bin_files=['2ii'])
-        # Check for existence of hypercomplex data parts
-        listdir = os.listdir(in_file)
-        if ('2ir' in listdir and '2ri' in listdir): # Read them
-            _, self.ir = ng.bruker.read_pdata(in_file, bin_files=['2ir'])
-            _, self.ri = ng.bruker.read_pdata(in_file, bin_files=['2ri'])
-            self.S = processing.repack_2D(self.rr, self.ir, self.ri, self.ii)
-        else:    # Copy rr in ir and ri in ii
-            self.ir = np.array(np.copy(self.rr))
-            self.ri = np.copy(self.ii)
-            self.S = self.rr + 1j*self.ii
+        with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
+            warnings.simplefilter("ignore")
+            dic, _ = ng.bruker.read(in_file.split('pdata')[0], cplex=True)
+            # Read the files
+            _, self.rr = ng.bruker.read_pdata(in_file, bin_files=['2rr'])
+            _, self.ii = ng.bruker.read_pdata(in_file, bin_files=['2ii'])
+            # Check for existence of hypercomplex data parts
+            listdir = os.listdir(in_file)
+            if ('2ir' in listdir and '2ri' in listdir): # Read them
+                _, self.ir = ng.bruker.read_pdata(in_file, bin_files=['2ir'])
+                _, self.ri = ng.bruker.read_pdata(in_file, bin_files=['2ri'])
+                self.S = processing.repack_2D(self.rr, self.ir, self.ri, self.ii)
+            else:    # Copy rr in ir and ri in ii
+                self.ir = np.array(np.copy(self.rr))
+                self.ri = np.copy(self.ii)
+                self.S = self.rr + 1j*self.ii
 
-        # Make the acqus dir
-        self.acqus = misc.makeacqus_2D(dic)
-        self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
-        self.acqus['DTYPA'] = dic['acqus']['DTYPA']
-        self.ngdic = dic
-        del dic
+            # Make the acqus dir
+            self.acqus = misc.makeacqus_2D(dic)
+            self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
+            self.acqus['DTYPA'] = dic['acqus']['DTYPA']
+            self.ngdic = dic
+            del dic
 
         # Look for group delay points
         try:
@@ -1864,16 +1868,18 @@ class Pseudo_2D(Spectrum_2D):
                 self.acqus = sim.load_sim_1D(in_file)
             self.fid = None     # FID must be loaded with mount
         else:       # Experimental data
-            # Read the FID
-            dic, data = ng.bruker.read(in_file, cplex=True)
-            self.fid = data
-            # Make the acqus dictionary as it was 1D-like
-            self.acqus = misc.makeacqus_1D(dic)
-            self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
-            self.acqus['DTYPA'] = dic['acqus']['DTYPA']
-            self.ngdic = dic
-            del dic
-            del data
+            with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
+                warnings.simplefilter("ignore")
+                # Read the FID
+                dic, data = ng.bruker.read(in_file, cplex=True)
+                self.fid = data
+                # Make the acqus dictionary as it was 1D-like
+                self.acqus = misc.makeacqus_1D(dic)
+                self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
+                self.acqus['DTYPA'] = dic['acqus']['DTYPA']
+                self.ngdic = dic
+                del dic
+                del data
 
         # Try to find the group delay
         try:
