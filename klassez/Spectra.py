@@ -1818,6 +1818,8 @@ class Pseudo_2D(Spectrum_2D):
         Projections of the direct dimension, as pSpectrum_1D objects. Keys: 'ppm_f1' where they were taken
     - integrals: dict
         Dictionary where to save the regions and values of the integrals.
+    - F: fit.Voigt_Fit_P2D object
+        Interface for lineshape deconvolution.
     """
 
     def __str__(self):
@@ -1952,6 +1954,8 @@ class Pseudo_2D(Spectrum_2D):
         self.rr = self.S.real
         self.ii = self.S.imag
 
+        self.F = fit.Voigt_Fit_P2D(self.ppm_f2, self.S, self.acqus['t1'], self.acqus['SFO1'], self.acqus['o1p'], self.acqus['nuc'], self.filename)
+
         # Adjust the phase
         self.adjph(p0=self.procs['p0'], p1=self.procs['p1'], pv=self.procs['pv'], update=False)
 
@@ -1978,6 +1982,7 @@ class Pseudo_2D(Spectrum_2D):
         self.trf2 = {}
         self.Trf1 = {}
         self.Trf2 = {}
+
 
     def mount(self, fids=[], filename=None, newacqus=None):
         """
@@ -2064,6 +2069,10 @@ class Pseudo_2D(Spectrum_2D):
         # Update the .procs file
         self.write_procs()
 
+        # Update F
+        self.F.ppm_scale = self.ppm_f2
+        self.F.o1p = self.acqus['o1p']
+
     def adjph(self, expno=0, p0=None, p1=None, pv=None, update=True):
         """
         Adjusts the phases of the spectrum according to the given parameters, or interactively if they are left as default.
@@ -2098,6 +2107,10 @@ class Pseudo_2D(Spectrum_2D):
                 self.procs['pv'] = round(values[2], 5)
         # Update the .procs file
         self.write_procs()
+
+        # Update the F attribute
+        self.F.S = self.S
+        self.F.ppm_scale = self.ppm_f2
 
     def pknl(self):
         """
@@ -2416,6 +2429,8 @@ class Pseudo_2D(Spectrum_2D):
         # Update the .procs file
         self.write_procs()
 
+        self.F.S = self.S
+
     def basl(self, from_procs=False, phase=True):
         """ 
         Apply baseline correction to the whole pseudo-2D by subtracting self.baseline from self.S. Then, self.S is unpacked in self.rr and self.ii.
@@ -2439,6 +2454,9 @@ class Pseudo_2D(Spectrum_2D):
         self.S -= baseline
         self.rr = self.S.real
         self.ii = self.S.imag
+
+        # Update F
+        self.F.S = self.S
 
 
     def rpbc(self, ref_exp=0, **rpbc_kws):

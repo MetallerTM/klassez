@@ -19,6 +19,7 @@ import nmrglue as ng
 import lmfit as l
 from datetime import datetime
 import warnings
+from copy import deepcopy
 
 from . import fit, misc, sim, figures, processing
 #from .__init__ import CM
@@ -4772,3 +4773,1299 @@ def SINC_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
     return popt['p0'], popt['p1']
 
 
+
+def write_vf_P2D(filename, peaks, lims, prev=0):
+    """
+    Write a section in a fit report file, which shows the fitting region and the parameters of the peaks to feed into a Voigt lineshape model.
+    -----------
+    Parameters:
+    - filename: str
+        Path to the file to be written
+    - peaks: list of dict
+        list of dictionares of fit.Peak objects, one per experiment
+    - lims: tuple
+        (left limit /ppm, right limit /ppm)
+    - prev: int
+        Number of previous peaks already saved. Increases the peak index
+    """
+
+    # Open the file in append mode
+    f = open(f'{filename}', 'a', buffering=1)
+    # Info on the region to be fitted
+    #   Header
+    f.write('{:>16};\n'.format('Region'))
+    f.write('-'*96+'\n')
+    #   Values
+    region = '{:-.3f}:{:-.3f}'.format(*lims)   # From the zoom of the figure
+    f.write(f'{region:>16};\n\n')
+
+    # Info on the peaks
+    #   Header
+    f.write('{:>4};\t{:>8};\t{:>8};\t{:>8};\t{:>8};\t{:>8}\n'.format(
+        '#', 'u', 'fwhm', 'Phase', 'x_g', 'Group'))
+    f.write('-'*96+'\n')
+    #   Values
+    for k, key in enumerate(peaks[0].keys()):
+        peak = peaks[0][key]
+        f.write('{:>4.0f};\t{:=8.3f};\t{:8.3f};\t{:-8.3f};\t{:8.3f};\t{:>8.0f}\n'.format(
+            k+prev+1, peak.u, peak.fwhm, peak.phi, peak.x_g, peak.group))
+    f.write('-'*96+'\n\n')
+
+    #   Intensities
+    f.write('Intensities\n')
+    f.write(f'{"#":>4};\t'+';\t'.join(['{:>12}'.format('Exp'+f'{w+1}') for w in range(len(peaks))])+'\n')
+    f.write('-'*96+'\n')
+
+    peak_keys = peaks[0].keys()
+    for k, key in enumerate(peak_keys):
+        f.write(f'{k+prev+1:>4}')
+        for _, dicpeaks in enumerate(peaks):
+            f.write(';\t{:12.5e}'.format(dicpeaks[key].k))
+        f.write('\n')
+    f.write('-'*96+'\n\n')
+
+    # Add region separator and close the file
+    f.write('='*96+'\n\n')
+    f.close()
+
+def read_vf_P2D(filename, n=-1):
+    """
+    Reads a .ivf (initial guess) or .fvf (final fit) file, containing the parameters for a lineshape deconvolution fitting procedure.
+    The file is separated and unpacked into a list of list of dictionaries, each of which contains the limits of the fitting window, and a dictionary for each peak with the characteristic values to compute it with a Voigt line.
+    --------------
+    Parameters:
+    - filename: str
+        Path to the filename to be read
+    - n: int
+        Number of performed fit to be read. Default: last one. The breakpoints are lines that start with "!". For this reason, n=0 returns an empty dictionary, hence the first fit is n=1.
+    -------------
+    Returns:
+    - regions: list of list of dict
+        List of dictionaries for running the fit.
+    """
+    def read_region(R):
+        """ Creates a dictionary of parameters from a section of the input file.  """
+        # Placeholder
+        dic_r = {}
+        # Separate the lines and remove the empty ones
+        R = R.split('\n')
+        for k, r in enumerate(R):
+            if len(r)==0 or r.isspace():
+                _ = R.pop(k)
+
+        n_bp = 0        # Number of breaking points (----)
+        k_bp = 0        # Line of the last breaking point detected
+        flag = True     # To create the final list of dictionaries to be returned only once
+        for k, r in enumerate(R):
+            if '------' in r:   # Increase breakpoint and store the line number
+                n_bp += 1
+                k_bp = k
+                continue
+
+            if n_bp == 1 and k_bp == k-1:   # First section: region limits and total intensity
+                line = r.split(';') # Separate the values
+                dic_r['limits'] = eval(line[0].replace(':',', '))   # Get the limits
+
+            if n_bp == 2:       # Second section: peak parameters
+                line = r.split(';') # Separate the values
+                # Unpack the line
+                idx, u, fwhm, phi, x_g, group = [eval(w) for w in line]
+                # Put the values in a dictionary
+                dic_p = {
+                        'u': u,
+                        'fwhm': fwhm,
+                        'k': 0,     # they will be added later, in section 3
+                        'x_g': x_g,
+                        'phi': phi,
+                        'group': group
+                        }
+                # Put the values in the returned dictionary
+                dic_r[idx] = dic_p
+
+            # Skip n_bp == 3 because it is the end of section 2
+
+            if n_bp == 4:       # Third section: intensity values for all the peaks for each experiment
+                line = r.split(';') # Separate the values
+                if flag:    # Create the final dictionary to be returned and turn off the flag
+                    dic_rr = [deepcopy(dic_r) for q in range(len(line)-1)]
+                    flag = False
+
+                # Unpack the line
+                eval_line = [eval(w) for w in line]
+                idx = int(eval_line[0])     # index of the peak
+                Ks = eval_line[1:]          # Intensity, each for each experiment
+                for q, K in enumerate(Ks):
+                    dic_rr[q][idx]['k'] = K # Overwrite the intensities
+
+            if n_bp == 5:   # End of file: stop reading
+                break
+
+        return dic_rr
+
+    # Read the file
+    ff = open(filename, 'r').read()
+    # Get the actual section from an output file
+    f = ff.split('!')[n]
+    # Separate the bigger sections
+    R = f.split('='*96)
+    # Remove the empty lines
+    for k, r in enumerate(R):
+        if r.isspace():
+            _ = R.pop(k)
+
+    regions = []    # Placeholder for return values
+    for r in R: # Loop on the big sections to read them
+        regions.append(read_region(r))
+    return regions
+
+
+
+def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
+    """
+    Creates the initial guess for a lineshape deconvolution fitting procedure of a pseudo-2D experiment, using a dedicated GUI.
+    It will be donw on only one experiment of the whole pseudo-2D.
+    The GUI displays the experimental spectrum in black and the total function in blue.
+    First, select the region of the spectrum you want to fit by focusing the zoom on it using the lens button.
+    Then, use the "+" button to add components to the spectrum. The black column of text under the textbox will be colored with the same color of the active peak.
+    Use the mouse scroll to adjust the parameters of the active peak. Write a number in the "Group" textbox to mark the components of the same multiplet.
+    Group 0 identifies independent peaks, not part of a multiplet (default).
+    The sensitivity of the mouse scroll can be regulated using the "up arrow" and "down arrow" buttons. 
+    The active peak can be changed in any moment using the slider.
+
+    When you are satisfied with your fit, press "SAVE" to write the information in the output file. Then, the GUI is brought back to the initial situation, and the region you were working on will be marked with a green rectangle. You can repeat the procedure as many times as you wish, to prepare the guess on multiple spectral windows.
+
+    Keyboard shortcuts:
+    > "increase sensitivity" : '>'
+    > "decrease sensitivity" : '<'
+    > mouse scroll up: 'up arrow key'
+    > mouse scroll down: 'down arrow key'
+    > "add a component": '+'
+    > "remove the active component": '-'
+    > "change component, forward": 'page up'
+    > "change component, backward": 'page down'
+
+    ------------
+    Parameters:
+    - S_in: 1darray
+        Experimental spectrum
+    - ppm_scale: 1darray
+        PPM scale of the spectrum
+    - expno: int
+        Index of experiment of the pseudo 2D on which to compute the initial guess, in python numbering
+    - t_AQ: 1darray
+        Acquisition timescale
+    - SFO1: float
+        Nucleus Larmor frequency /MHz
+    - o1p: float
+        Carrier frequency /ppm
+    - filename: str
+        Path to the filename where to save the information. The '.ivf' extension is added automatically.
+    """
+
+    #-----------------------------------------------------------------------
+    ## USEFUL STRUCTURES
+    def rename_dic(dic, Np):
+        """
+        Change the keys of a dictionary with a sequence of increasing numbers, starting from 1.
+        ----------
+        Parameters:
+        - dic: dict
+            Dictionary to edit
+        - Np: int
+            Number of peaks, i.e. the sequence goes from 1 to Np
+        ----------
+        Returns:
+        - new_dic: dict
+            Dictionary with the changed keys
+        """
+        old_keys = list(dic.keys())         # Get the old keys
+        new_keys = [int(i+1) for i in np.arange(Np)]    # Make the new keys
+        new_dic = {}        # Create an empty dictionary
+        # Copy the old element in the new dictionary at the correspondant point
+        for old_key, new_key in zip(old_keys, new_keys):
+            new_dic[new_key] = dic[old_key]
+        del dic
+        return new_dic
+
+    def calc_total(peaks):
+        """
+        Calculate the sum trace from a collection of peaks stored in a dictionary.
+        If the dictionary is empty, returns an array of zeros.
+        ---------
+        Parameters:
+        - peaks: dict
+            Components
+        --------
+        Returns:
+        - total: 1darray
+            Sum spectrum
+        """
+        # Get the arrays from the dictionary
+        T = [p(A) for _, p in peaks.items()]
+        if len(T) > 0:  # Check for any peaks
+            total = np.sum(T, axis=0)
+            return total
+        else:
+            return np.zeros_like(ppm_scale)
+
+    #-------------------------------------------------------------------------------
+    # Write the info on the file
+    with open(f'{filename}.ivf', 'a', buffering=1) as f:
+        now = datetime.now()
+        date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
+        f.write('! Initial guess computed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+
+    # Remove the imaginary part from the experimental data and make a shallow copy
+    if np.iscomplexobj(S_in):
+        S = np.copy(S_in).real[expno]
+    else:
+        S = np.copy(S_in)[expno]
+
+    n_exp = S_in.shape[0]   # Number of experiments
+    N = S.shape[-1]         # Number of points
+    Np = 0                  # Number of peaks
+    lastgroup = 0           # Placeholder for last group added
+    prev = 0                # Number of previous peaks
+
+    # Make an acqus dictionary based on the input parameters.
+    acqus = {'t1': t_AQ, 'SFO1': SFO1, 'o1p': o1p}
+
+    # Set limits
+    limits = [max(ppm_scale), min(ppm_scale)]
+    
+    # Get point indices for the limits
+    lim1 = misc.ppmfind(ppm_scale, limits[0])[0]
+    lim2 = misc.ppmfind(ppm_scale, limits[1])[0]
+    # Calculate the absolute intensity (or something that resembles it)
+    A = processing.integrate(S, x=ppm_scale*SFO1, lims=[w*SFO1 for w in limits])*2*misc.calcres(acqus['t1'])
+    _A = 1 * A
+    # Make a sensitivity dictionary
+    sens = {
+            'u': np.abs(limits[0] - limits[1]) / 50,    # 1/50 of the SW
+            'fwhm': 2.5,
+            'k': 0.05,
+            'x_g': 0.1,
+            'phi': 10,
+            'A': 10**(np.floor(np.log10(A)-1))    # approximately
+            }
+    _sens = dict(sens)                          # RESET value
+    # Peaks dictionary
+    peaks = {}
+
+    # make boxes for widgets
+    slider_box = plt.axes([0.68, 0.10, 0.01, 0.65])     # Peak selector slider
+    peak_box = plt.axes([0.72, 0.45, 0.10, 0.30])       # Radiobuttons
+    up_box = plt.axes([0.815, 0.825, 0.08, 0.075])      # Increase sensitivity button
+    down_box = plt.axes([0.894, 0.825, 0.08, 0.075])    # Decrease sensitivity button
+    save_box = plt.axes([0.7, 0.825, 0.085, 0.04])      # Save button
+    reset_box = plt.axes([0.7, 0.865, 0.085, 0.04])     # Reset button
+    group_box = plt.axes([0.76, 0.40, 0.06, 0.04])      # Textbox for the group selection
+    plus_box = plt.axes([0.894, 0.65, 0.08, 0.075])     # Add button
+    minus_box = plt.axes([0.894, 0.55, 0.08, 0.075])    # Minus button
+    
+    # Make widgets
+    #   Buttons
+    up_button = Button(up_box, '$\\uparrow$', hovercolor = '0.975')    
+    down_button = Button(down_box, '$\\downarrow$', hovercolor = '0.975')
+    save_button = Button(save_box, 'SAVE', hovercolor = '0.975')
+    reset_button = Button(reset_box, 'RESET', hovercolor = '0.975')
+    plus_button = Button(plus_box, '$+$', hovercolor='0.975')
+    minus_button = Button(minus_box, '$-$', hovercolor='0.975')
+
+    #   Textbox
+    group_tb = TextBox(group_box, 'Group', textalignment='center')
+    
+    #   Radiobuttons
+    peak_name = ['$\delta$ /ppm', '$\Gamma$ /Hz', '$k$', '$x_{g}$', '$\phi$', '$A$']
+    peak_radio = RadioButtons(peak_box, peak_name, activecolor='tab:blue')      # Signal parameters
+    
+    #   Slider
+    slider = Slider(ax=slider_box, label='Active\nSignal', valmin=0, valmax=1-1e-3, valinit=0, valstep=1e-10, orientation='vertical', color='tab:blue')
+
+
+    #-------------------------------------------------------------------------------
+    ## SLOTS
+
+    def redraw():
+        misc.pretty_scale(ax, ax.get_xlim(), 'x')
+        plt.draw()
+
+    def radio_changed(event):
+        """ Change the printed value of sens when the radio changes """
+        active = peak_name.index(peak_radio.value_selected)
+        param = list(sens.keys())[active]
+        write_sens(param)
+
+    def up_sens(event):
+        """ Doubles sensitivity of active parameter """
+        nonlocal sens
+        active = peak_name.index(peak_radio.value_selected)
+        param = list(sens.keys())[active]
+        sens[param] *= 2
+        write_sens(param)
+
+    def down_sens(event):
+        """ Halves sensitivity of active parameter """
+        nonlocal sens
+        active = peak_name.index(peak_radio.value_selected)
+        param = list(sens.keys())[active]
+        sens[param] /= 2
+        write_sens(param)
+
+    def up_value(param, idx):
+        """ Increase the value of param of idx-th peak """
+        if param == 'A':        # It is outside the peaks dictionary!
+            nonlocal A
+            A += sens['A']
+        else:
+            nonlocal peaks
+            peaks[idx].__dict__[param] += sens[param]
+            # Make safety check for x_g
+            if peaks[idx].x_g > 1:
+                peaks[idx].x_g = 1
+
+    def down_value(param, idx):
+        """ Decrease the value of param of idx-th peak """
+        if param == 'A':    # It is outside the peaks dictionary!
+            nonlocal A
+            A -= sens['A']
+        else:
+            nonlocal peaks
+            peaks[idx].__dict__[param] -= sens[param]
+            # Safety check for fwhm
+            if peaks[idx].fwhm < 0:
+                peaks[idx].fwhm = 0
+            # Safety check for x_g
+            if peaks[idx].x_g < 0:
+                peaks[idx].x_g = 0
+
+    def scroll(event):
+        """ Connection to mouse scroll """
+        if Np == 0: # No peaks!
+            return
+        # Get the active parameter and convert it into Peak's attribute
+        active = peak_name.index(peak_radio.value_selected)
+        param = list(sens.keys())[active]
+        # Get the active peak
+        idx = int(np.floor(slider.val * Np) + 1)
+        # Fork for up/down
+        if event.button == 'up':
+            up_value(param, idx)
+        if event.button == 'down':
+            down_value(param, idx)
+
+        # Recompute the components
+        for k, _ in enumerate(peaks):
+            p_sgn[k+1].set_ydata(peaks[k+1](A)[lim1:lim2])
+        # Recompute the total trace
+        p_fit.set_ydata(calc_total(peaks)[lim1:lim2])
+        # Update the text
+        write_par(idx)
+        redraw()
+
+    def write_par(idx):
+        """ Write the text to keep track of your amounts """
+        if idx:     # Write the things
+            dic = dict(peaks[idx].par())
+            dic['A'] = A
+            # Update the text
+            values_print.set_text('{u:+7.3f}\n{fwhm:5.3f}\n{k:5.3f}\n{x_g:5.3f}\n{phi:+07.3f}\n{A:5.2e}\n{group:5.0f}'.format(**dic))
+            # Color the heading line of the same color of the trace
+            head_print.set_color(p_sgn[idx].get_color())
+        else:   # Clear the text and set the header to be black
+            values_print.set_text('')
+            head_print.set_color('k')
+
+    def write_sens(param):
+        """ Updates the current sensitivity value in the text """
+        # Discriminate between total intensity and other parameters
+        if param == 'A':
+            text = f'Sensitivity: $\\pm${sens[param]:10.4g}'
+        else:
+            text = f'Sensitivity: $\\pm${sens[param]:10.4g}'
+        # Update the text
+        sens_print.set_text(text)
+        # Redraw the figure
+        plt.draw()
+
+    def set_group(text):
+        """ Set the attribute 'group' of the active signal according to the textbox """
+        nonlocal peaks
+        if not Np:  # Clear the textbox and do nothing more
+            group_tb.text_disp.set_text('')
+            plt.draw()
+            return
+        # Get active peak
+        idx = int(np.floor(slider.val * Np) + 1)
+        try:
+            group = int(eval(text))
+        except:
+            group = peaks[idx].group
+        group_tb.text_disp.set_text('')
+        peaks[idx].group = group
+        write_par(idx)
+        redraw()
+
+    def selector(event):
+        """ Update the text when you move the slider """
+        idx = int(np.floor(slider.val * Np) + 1)
+        if Np:
+            write_par(idx)
+        redraw()
+
+    def key_binding(event):
+        """ Keyboard """
+        key = event.key
+        if key == '<':
+            down_sens(0)
+        if key == '>':
+            up_sens(0)
+        if key == '+':
+            add_peak(0)
+        if key == '-':
+            remove_peak(0)
+        if key == 'pagedown':
+            if slider.val - slider.valstep >= 0:
+                slider.set_val(slider.val - slider.valstep)
+            selector(0)
+        if key == 'pageup':
+            if slider.val + slider.valstep < 1:
+                slider.set_val(slider.val + slider.valstep)
+            selector(0)
+        if key == 'up' or key == 'down':
+            event.button = key
+            scroll(event)
+
+    def reset(event):
+        """ Return everything to default """
+        nonlocal Np, peaks, p_sgn, A, sens
+        Q = Np
+        for k in range(Q):
+            remove_peak(event)
+        A = _A
+        sens = dict(_sens)
+        ax.set_xlim(*_xlim)
+        ax.set_ylim(*_ylim)
+        redraw()
+
+    def add_peak(event):
+        """ Add a component """
+        nonlocal Np, peaks, p_sgn
+        # Increase the number of peaks
+        Np += 1 
+        # Add an entry to the dictionary labelled as last
+        peaks[Np] = fit.Peak(acqus, u=np.mean(ax.get_xlim()), N=N, group=lastgroup)
+        # Plot it and add the trace to the plot dictionary
+        p_sgn[Np] = ax.plot(ppm_scale[lim1:lim2], peaks[Np](A)[lim1:lim2], lw=0.8)[-1]
+        # Move the slider to the position of the new peak
+        slider.set_val( (Np - 1) / Np )
+        # Recompute the step of the slider
+        slider.valstep = 1 / Np
+        # Calculate the total trace with the new peak
+        total = calc_total(peaks)
+        # Update the total trace plot
+        p_fit.set_ydata(total[lim1:lim2])
+        # Update the text
+        write_par(Np)
+        redraw()
+
+    def remove_peak(event):
+        """ Remove the active component """
+        nonlocal Np, peaks, p_sgn
+        if Np == 0:
+            return
+        # Get the active peak
+        idx = int(np.floor(slider.val * Np) + 1)
+        # Decrease Np of 1
+        Np -= 1
+        # Delete the entry from the peaks dictionary
+        _ = peaks.pop(idx)
+        # Remove the correspondant line from the plot dictionary
+        del_p = p_sgn.pop(idx)
+        # Set it invisible because I cannot truly delete it
+        del_p.set_visible(False)
+        del del_p   # ...at least clear some memory
+        # Change the labels to the dictionary
+        peaks = rename_dic(peaks, Np)
+        p_sgn = rename_dic(p_sgn, Np)
+        # Calculate the total trace without that peak
+        total = calc_total(peaks)
+        # Update the total trace plot
+        p_fit.set_ydata(total[lim1:lim2])
+        # Change the slider position
+        if Np == 0: # to zero and do not make it move
+            slider.set_val(0)
+            slider.valstep = 1e-10
+            write_par(0)
+        elif Np == 1:   # To zero and that's it
+            slider.set_val(0)
+            slider.valstep = 1 / Np
+            write_par(1)
+        else:   # To the previous point
+            if idx == 1:
+                slider.set_val(0)
+            else:
+                slider.set_val( (idx - 2) / Np)     # (idx - 1) -1
+            slider.valstep = 1 / Np
+            write_par(int(np.floor(slider.val * Np) + 1))
+        redraw()
+
+    def save(event):
+        """ Write a section in the output file """
+        nonlocal prev
+        # Adjust the intensities
+        for _, peak in peaks.items():
+            peak.k *= A
+        write_vf_P2D(f'{filename}.ivf', [peaks for w in range(n_exp)], ax.get_xlim(), prev)
+        prev += len(peaks)
+        
+        # Mark a region as "fitted" with a green box
+        ax.axvspan(*ax.get_xlim(), color='tab:green', alpha=0.1)
+        # Call reset to return at the initial situation
+        reset(event)
+
+    #-------------------------------------------------------------------------------
+
+    # Initial figure
+    fig = plt.figure(1)
+    fig.set_size_inches(15,8)
+    plt.subplots_adjust(bottom=0.10, top=0.90, left=0.05, right=0.65)
+    ax = fig.add_subplot(1,1,1)
+
+    ax.plot(ppm_scale[lim1:lim2], S[lim1:lim2], label='Experimental', lw=1.0, c='k')  # experimental
+    p_fit = ax.plot(ppm_scale[lim1:lim2], np.zeros_like(S)[lim1:lim2], label='Fit', lw=0.9, c='b')[-1]  # Total trace
+    p_sgn = {}  # Components
+    
+    # Header for current values print
+    head_print = ax.text(0.75, 0.35, 
+            '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}\n{:>7}'.format(
+                '$\delta$', '$\Gamma$', '$k$', '$x_g$', 'Phase', '$A$', 'Group'),
+            ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5)
+    # Text placeholder for the values - linspacing is different to align with the header
+    values_print = ax.text(0.85, 0.35, '',
+            ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.55)
+    # Text to display the active sensitivity values
+    sens_print = ax.text(0.875, 0.775, f'Sensitivity: $\\pm${sens["u"]:10.4g}',
+            ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
+    # Text to remind keyboard shortcuts
+    t_uparrow = r'$\uparrow$'
+    t_downarrow = r'$\downarrow$'
+    keyboard_text = '\n'.join([
+        f'{"KEYBOARD SHORTCUTS":^50s}',
+        f'{"Key":>5s}: Action',
+        f'-'*50,
+        f'{"<":>5s}: Decrease sens.',
+        f'{">":>5s}: Increase sens.',
+        f'{"+":>5s}: Add component',
+        f'{"-":>5s}: Remove component',
+        f'{"Pg"+t_uparrow:>5s}: Change component, up',
+        f'{"Pg"+t_downarrow:>5s}: Change component, down',
+        f'{t_uparrow:>5s}: Increase value',
+        f'{t_downarrow:>5s}: Decrease value',
+        f'-'*50,
+        ])
+    keyboard_print = ax.text(0.86, 0.025, keyboard_text, 
+            ha='left', va='bottom', transform=fig.transFigure, fontsize=8, linespacing=1.55)
+
+    # make pretty scales
+    ax.set_xlim(max(limits[0],limits[1]),min(limits[0],limits[1]))
+    misc.pretty_scale(ax, ax.get_xlim(), axis='x', n_major_ticks=10)
+    misc.pretty_scale(ax, ax.get_ylim(), axis='y', n_major_ticks=10)
+    misc.mathformat(ax)
+
+    # RESET values for xlim and ylim
+    _xlim = ax.get_xlim()
+    _ylim = ax.get_ylim()
+
+    # Connect the widgets to their slots
+    plus_button.on_clicked(add_peak)
+    minus_button.on_clicked(remove_peak)
+    up_button.on_clicked(up_sens)
+    down_button.on_clicked(down_sens)
+    slider.on_changed(selector)
+    group_tb.on_submit(set_group)
+    reset_button.on_clicked(reset)
+    save_button.on_clicked(save)
+    peak_radio.on_clicked(radio_changed)
+    fig.canvas.mpl_connect('scroll_event', scroll)
+    fig.canvas.mpl_connect('key_press_event', key_binding)
+
+    plt.show()  # Start event loop
+    plt.close()
+
+
+def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='tiff', dpi=600):
+    """
+    Plots either the initial guess or the result of the fit, and saves all the figures. 
+    A new folder named <filename>_fit will be created.
+    The figure <filename>_full will show the whole model and the whole spectrum. 
+    The figures labelled with _R<k> will depict a detail of the fit in the k-th fitting region.
+    Optional labels for the components can be given: in this case, the structure of 'labels' should match the structure of 'regions'. This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
+    ------------
+    Parameters:
+    - S: 2darray
+        Spectrum to be fitted
+    - ppm_scale: 1darray
+        ppm scale of the spectrum
+    - regions: list of dict
+        Generated by fit.read_vf_P2D
+    - t_AQ: 1darray
+        Acquisition timescale
+    - SFO1: float
+        Larmor frequency of the observed nucleus, in MHz
+    - o1p: float
+        Carrier position, in ppm
+    - nuc: str
+        Observed nucleus. Used to customize the x-scale of the figures.
+    - show_total: bool
+        Show the total trace (i.e. sum of all the components) or not
+    - show_res: bool
+        Show the plot of the residuals
+    - res_offset: float
+        Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental spectrum. res_offset > 0 will move the residuals BELOW the zero-line!
+    - X_label: str
+        Text to show as label for the chemical shift axis
+    - labels: list of list
+        Optional labels for the components. The structure of this parameter must match the structure of self.result
+    - filename: str
+        Root of the name of the figures that will be saved.
+    - ext: str
+        Format of the saved figures
+    - dpi: int
+        Resolution of the figures, in dots per inches
+    """
+
+    def calc_total(peaks, A=1):
+        """
+        Calculates the sum trace from a collection of peaks stored in a dictionary.
+        If the dictionary is empty, returns an array of zeros.
+        ---------
+        Parameters:
+        - peaks: dict
+            Components
+        - A: float
+            Absolute intensity
+        --------
+        Returns:
+        - total: 1darray
+            Sum spectrum
+        """
+
+        # Get the arrays from the dictionary
+        T = [p(A) for _, p in peaks.items()]
+        if len(T) > 0:  # Check for any peaks
+            total = np.sum(T, axis=0)
+            return total.real
+        else:
+            return np.zeros_like(ppm_scale)
+
+    # Try to create the new directory for the figures
+    try:
+        os.mkdir(f'{filename}_fit')
+    except:
+        pass
+    finally:
+        # Update the filename for the figures by including the new directory
+        filename = os.path.join(filename+f'_fit', filename)
+    print('Saving figures...')
+    # Shallow copy of the real part of the experimental spectrum
+    S_r = np.copy(S.real)
+    N = S_r.shape[-1]       # For (eventual) zero-filling
+    # Make the acqus dictionary to be fed into the fit.Peak objects
+    acqus = { 't1': t_AQ, 'SFO1': SFO1, 'o1p': o1p, }
+
+
+    ## Single regions
+    # Loop on the regions
+    for k, region in enumerate(regions):
+        # Get limits from the dictionary
+        peaklist = deepcopy(region)
+        for peaks in peaklist:
+            if 'limits' in list(peaks.keys()):
+                limits = peaks.pop('limits')
+
+        # Convert the limits from ppm to points
+        limits_pt = misc.ppmfind(ppm_scale, limits[0])[0], misc.ppmfind(ppm_scale, limits[1])[0]
+        #   Make the slice
+        lims = slice(min(limits_pt), max(limits_pt))
+
+        # Make the calculated spectrum
+        fit_peaks = [{} for w in range(S.shape[0])]
+        list_signals = []
+        signals = []
+        for j, peaks in enumerate(peaklist):        # j runs on the experiments
+            for key, peakval in peaks.items():
+                fit_peaks[j][key] = fit.Peak(acqus, N=S.shape[-1], **peakval)
+            # Get the arrays from the dictionary and put them in the list
+            list_signals.append([p() for _, p in fit_peaks[j].items()])
+        signals.extend(list_signals) # Dimensions (n. experiments, n.peaks per experiment, n.points per experiment)
+
+        # Compute the total trace
+        total = np.sum(signals, axis=1) # sum the peaks 
+
+        # Trim the ppm scale according to the fitting region
+        t_ppm = ppm_scale[lims]
+
+        # One figure per experiment
+        for i, _ in enumerate(S):
+            # Make the figure
+            fig = plt.figure()
+            fig.set_size_inches(figures.figsize_large)
+            ax = fig.add_subplot()
+            plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)
+
+            # Plot the experimental dataset
+            ax.plot(t_ppm, S_r[i, lims], c='k', lw=1, label='Experimental')
+
+            if show_total is True:  # Plot the total trace in blue
+                ax.plot(t_ppm, total[i, lims], c='b', lw=0.5, label='Fit')
+
+            for key, peak in zip(fit_peaks[i].keys(), signals[i]): # Plot the components
+                p_sgn, = ax.plot(t_ppm, peak[lims], lw=0.6, label=f'{key}')
+                if labels is not None:  # Set the custom label
+                    p_sgn.set_label(labels[k][key-1])
+
+            if show_res is True:    # Plot the residuals
+                # Compute the absolute value of the offset
+                r_off = min(S_r[i,lims]) + res_offset * (max(S_r[i,lims])-min(S_r[i,lims]))
+                ax.plot(t_ppm, (S_r - total)[i,lims] - r_off, c='g', ls=':', lw=0.6, label='Residuals')
+
+            # Visual adjustments
+            ax.set_xlabel(X_label)
+            ax.set_ylabel('Intensity /a.u.')
+            misc.pretty_scale(ax, (max(t_ppm), min(t_ppm)), axis='x')
+            misc.pretty_scale(ax, ax.get_ylim(), axis='y')
+            misc.mathformat(ax)
+            ax.legend()
+            misc.set_fontsizes(ax, 20)
+            # Save the figure
+            plt.savefig(f'{filename}_R{k+1}_E{i+1}.{ext}', dpi=dpi)
+            plt.close()
+            continue
+
+    ## Total
+    # One figure per experiment
+    for i, _ in enumerate(S):
+        # Make the figure
+        fig = plt.figure()
+        fig.set_size_inches(figures.figsize_large)
+        ax = fig.add_subplot()
+        plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)
+        # Residuals
+        R = S_r - total
+        # Plot the experimental dataset
+        ax.plot(ppm_scale, S_r[i], c='k', lw=1, label='Experimental')
+        
+        if show_total is True:  # Plot the total trace
+            ax.plot(ppm_scale, total[i], c='b', lw=0.5, label='Fit', zorder=2)
+
+        for key, peak in zip(fit_peaks[i].keys(), signals[i]): # Plot the components
+            p_sgn, = ax.plot(ppm_scale, peak, lw=0.6, label=f'{key}')
+            if labels is not None:  # Set the custom label
+                p_sgn.set_label(labels[k][key-1])
+
+        # Visual adjustments
+        ax.set_xlabel(X_label)
+        ax.set_ylabel('Intensity /a.u.')
+        misc.pretty_scale(ax, (max(ppm_scale), min(ppm_scale)), axis='x')
+        misc.pretty_scale(ax, ax.get_ylim(), axis='y')
+        misc.mathformat(ax)
+        ax.legend()
+        misc.set_fontsizes(ax, 20)
+        # Save the figure
+        plt.savefig(f'{filename}_full_E{i+1}.{ext}', dpi=dpi)
+        plt.close()
+    print('Done.')
+
+
+
+
+
+
+def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_xg=False, itermax=10000, filename='fit'):
+    """
+    Performs a lineshape deconvolution fit on a pseudo-2D experiment using a Voigt model.
+    The initial guess must be read from a .ivf file. All components are treated as independent, regardless from the value of the "group" attribute.
+    The fitting procedure operates iteratively one window at the time.
+    During the fit routine, the peak positions and lineshapes will be varied consistently on all the experiments; only the intensities are allowed to change in a different way.
+    ------------
+    Parameters:
+    - S: 2darray
+        Experimental spectrum
+    - ppm_scale: 1darray
+        PPM scale of the spectrum
+    - regions: dict
+        Generated by fit.read_vf_P2D
+    - t_AQ: 1darray
+        Acquisition timescale
+    - SFO1: float
+        Nucleus Larmor frequency /MHz
+    - o1p: float
+        Carrier frequency /ppm
+    - u_tol: float
+        Maximum allowed displacement of the chemical shift from the initial value /ppm
+    - f_tol: float
+        Maximum allowed displacement of the linewidth from the initial value /ppm
+    - vary_phase: bool
+        Allow the peaks to change phase
+    - vary_xg: bool
+        Allow the peaks to change Lorentzian/Gaussian ratio
+    - itermax: int
+        Maximum number of allowed iterations
+    - filename: str
+        Name of the file where the fitted values will be saved. The .fvf extension is added automatically
+    """
+
+    ## USED FUNCTIONS
+
+    def calc_total(list_peaks, A=1):
+        """
+        Calculates the sum trace from a collection of peaks stored in a dictionary.
+        If the dictionary is empty, returns an array of zeros.
+        ---------
+        Parameters:
+        - peaks: dict
+            Components
+        - A: float
+            Absolute intensity
+        --------
+        Returns:
+        - total: 1darray
+            Sum spectrum
+        """
+        # Get the arrays from the dictionary
+        total_arr = []
+        for q, peaks in enumerate(list_peaks):
+            T = [p(A) for _, p in peaks.items()]
+            if len(T) > 0:  # Check for any peaks
+                total = np.sum(T, axis=0)
+            else:
+                total = np.zeros_like(ppm_scale)
+            total_arr.append(total)
+        return np.array(total_arr)
+
+    def peaks_frompar(peaks, par, e_idx):
+        """
+        Replaces the values of a "peaks" dictionary, which contains a fit.Peak object for each key "idx", with the values contained in the "par" dictionary.
+        The par dictionary keys must have keys of the form <parameter>_<idx>, where <parameter> is in [u, fwhm, k, 'x_g', 'phi'], and <idx> are the keys of the peaks dictionary.
+        The intensity values of the peaks are stored as k_<idx>_<experiment>, where <experiment> is the associated trace of the pseudo-2D, starting from 1.
+        -----------
+        Parameters:
+        - peaks: dict
+            Collection of fit.Peak objects
+        - par: dict
+            New values for the peaks
+        - e_idx: int
+            Number of experiment of which to change the intensity of the peak
+        ----------
+        Returns:
+        - peaks: dict
+            Updated peaks dictionary with the new values
+        """
+        for idx, peak in peaks.items():
+            peak.u = par[f'u_{idx}']
+            peak.fwhm = par[f'fwhm_{idx}']
+            peak.k = par[f'k_{idx}_{e_idx}']
+            peak.x_g = par[f'x_g_{idx}']
+            peak.phi = par[f'phi_{idx}']
+        return peaks
+
+    def f2min(param, S, fit_peaks, I, lims):
+        """
+        Function that calculates the residual to be minimized in the least squares sense.
+        This function requires a set of pre-built fit.Peak objects, stored in a dictionary. The parameters of the peaks are replaced on this dictionary according to the values in the lmfit.Parameter object. At this point, the total trace is computed and the residual is returned as the difference between the experimental spectrum and the total trace, only in the region delimited by the "lims" tuple.
+        ------------
+        Parameters:
+        - param: lmfit.Parameters object
+            Usual lmfit stuff
+        - S: 2darray
+            Experimental spectrum
+        - fit_peaks: list of dict
+            Collection of fit.Peak objects
+        - I: list or 1darray
+            Absolute intensity values for all experiments
+        - lims: slice
+            Trimming region corresponding to the fitting window, in points
+        -----------
+        Returns:
+        - residual: 1darray
+            Experimental - calculated, in the fitting window, concatenated through all the experiments
+        """
+        param['count'].value += 1
+        # Unpack the lmfit.Parameters object
+        par = param.valuesdict()
+        # create a shallow copy of the fit_peaks dictionary to prevent overwriting
+        fit_peaks_in = deepcopy(fit_peaks)
+        fit_peaks_up = []   # placeholder
+        for j, peaks in enumerate(fit_peaks_in):
+            # Update the peaks dictionary according to how lmfit is moving the fit parameters
+            peaks_up = peaks_frompar(peaks, par, j+1)
+            fit_peaks_up.append(peaks_up)
+        # Compute the total trace and the residuals
+        total = calc_total(fit_peaks_up, 1)
+        residual = np.concatenate([S[j,lims] / I[j] - total[j,lims] for j, _ in enumerate(fit_peaks_in)])
+
+        print(f'Step: {par["count"]:6.0f} | Target: {np.sum(residual**2):10.5e}', end='\r')
+        return residual
+
+    def gen_reg(regions):
+        """
+        Generator function that loops on the regions and extracts the limits of the fitting window, the limits, and the dictionary of peaks.
+        """
+        for k, region in enumerate(regions):
+            # Get limits and total intensity from the dictionary of the first region
+            limits = region[0]['limits']
+            if 1:   # Switch: turn this print on and off
+                print(f'Fitting of region {k+1}/{Nr}. [{limits[0]:.3f}:{limits[1]:.3f}] ppm')
+            # Make a copy of the region dictionary and remove what is not a peak
+            peaklist = deepcopy(region)
+            for peaks in peaklist:
+                if 'limits' in list(peaks.keys()):
+                    peaks.pop('limits')
+            yield limits, peaklist
+
+
+    # -----------------------------------------------------------------------------
+    # Make the acqus dictionary to be fed into the fit.Peak objects
+    acqus = { 't1': t_AQ, 'SFO1': SFO1, 'o1p': o1p, }
+
+    N = S.shape[-1]     # Number of points of the spectrum
+    Nr = len(regions)   # Number of regions to be fitted
+
+    # Write info on the fit in the output file
+    with open(f'{filename}.fvf', 'a', buffering=1) as f:
+        now = datetime.now()
+        date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
+        f.write('! Fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+
+    # Generate the values from the regions dictionary with the gen_reg generator
+    Q = gen_reg(regions)
+
+    # Start fitting loop
+    prev = 0
+    for q in Q:
+        limits, peaklist = q    # Unpack
+        Np = len(peaklist[0].keys())  # Number of Peaks
+
+        # Convert the limits from ppm to points and make the slice
+        limits_pt = misc.ppmfind(ppm_scale, limits[0])[0], misc.ppmfind(ppm_scale, limits[1])[0]
+        lims = slice(min(limits_pt), max(limits_pt))
+
+        # Create a list of dictionaries which contains Peak objects
+        fit_peaks = [{} for w in range(S.shape[0])]
+        # Fill them up
+        for j, peaks in enumerate(peaklist):    # j is the index of the experiment
+            for key, peakval in peaks.items():  # loop on the items of the single experiment
+                # Make the fit.Peak objects
+                fit_peaks[j][key] = fit.Peak(acqus, N=N, **peakval)
+            # Convert the intensities into smaller values
+            Ks = [fit_peaks[j][key].k for key in fit_peaks[j].keys()]
+            Ks_norm, _ = misc.molfrac(Ks)
+            # Replace with the new ones
+            for K, key in zip(Ks_norm, peaks.keys()):
+                fit_peaks[j][key].k = K
+
+        # Compute the initial guess array of the fit
+        fit_peaks_iguess = deepcopy(fit_peaks)
+        i_guess = calc_total(fit_peaks_iguess, 1)
+        # Compute the matching-intensity factors
+        I_arr = []
+        for j in range(S.shape[0]):
+            I_arr.append(fit.fit_int(S[j,lims], i_guess[j,lims])[0])
+        I_arr = np.array(I_arr)
+
+
+        # Make the lmfit.Parameters object
+        param = l.Parameters()
+        # Add the peaks' parameters to a lmfit Parameters object
+        peak_keys = ['u', 'fwhm', 'k', 'x_g', 'phi']
+
+        for j, peaks in enumerate(fit_peaks):       # j is the index of the experiment
+            for idx, peak in peaks.items():
+                # Name of the object: <parameter>_<index>
+                p_key = f'_{idx}'
+
+                # Fill the Parameters object
+                for key in peak_keys:
+                    if 'k' in key:  # add also the experiment index
+                        par_key = f'{key}{p_key}_{j+1}' 
+                    else:           # add only the parameter
+                        par_key = f'{key}{p_key}'   # Add the parameter to the label
+                    val = peak.par()[key]       # Get the value from the input dictionary
+                    param.add(par_key, value=val)   # Make the Parameter object
+
+                    # Set the limits for each parameter, and fix the ones that have not to be varied during the fit
+                    if 'u' in key:  # u: [u-u_tol, u+u_tol]
+                        param[par_key].set(min=val-u_tol, max=val+u_tol)
+                    elif 'fwhm' in key: # fwhm: [max(0, fwhm-f_tol), fwhm+f_tol] (avoid negative fwhm)
+                        param[par_key].set(min=max(0, val-f_tol), max=val+f_tol)
+                    elif 'k' in key:    # k: [0, 2]
+                        param[par_key].set(min=0, max=2)
+                    elif 'phi' in key:  # phi: [-180°, +180°]
+                        param[par_key].set(min=-180, max=180, vary=vary_phase)
+                    elif 'x_g' in key:  # x_g: [0, 1]
+                        param[par_key].set(min=0, max=1, vary=vary_xg)
+
+        # Wrap the fitting routine in a function in order to use @cron for measuring the runtime of the fit
+        @cron
+        def start_fit():
+            param.add('count', value=0, vary=False)
+            minner = l.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I_arr, lims))
+            result = minner.minimize(method='leastsq', max_nfev=int(itermax), xtol=1e-8, ftol=1e-8)
+            print(f'{result.message} Number of function evaluations: {result.nfev}.')
+            return result
+        # Do the fit
+        result = start_fit()
+        # Unpack the fitted values
+        popt = result.params.valuesdict()
+
+        # Replace the initial values with the fitted ones
+        fit_peaks_opt = []
+        for j, peaks in enumerate(fit_peaks):
+            fit_peaks_opt.append(peaks_frompar(peaks, popt, j+1))
+
+        # Correct the intensities
+        for j, peaks in enumerate(fit_peaks_opt):
+            for _, idx in enumerate(peaks.keys()):
+                peaks[idx].k *= I_arr[j]
+
+        # Write a section of the output file
+        write_vf_P2D(f'{filename}.fvf', fit_peaks_opt, limits, prev)
+        prev += Np
+
+
+
+class Voigt_Fit_P2D:
+    """
+    This class offers an "interface" to fit a pseudo 2D NMR spectrum.
+    -------
+    Attributes:
+    - ppm_scale: 1darray
+        Self-explanatory
+    - S : 2darray
+        Spectrum to fit. Only real part
+    - t_AQ: 1darray
+        acquisition timescale of the spectrum
+    - SFO1: float
+        Larmor frequency of the nucleus
+    - o1p : float
+        Pulse carrier frequency
+    - filename: str
+        Root of the names of the files that will be saved 
+    - X_label: str
+        Label for the chemical shift axis in the figures
+    - i_guess: list
+        Initial guess for the fit, read by a .ivf file with fit.read_vf_P2D
+    - result: list
+        Result the fit, read by a .fvf file with fit.read_vf_P2D
+    """
+
+    def __init__(self, ppm_scale, S, t_AQ, SFO1, o1p, nuc=None, filename='fit'):
+        """
+        Initialize the class with common values.
+        --------
+        Parameters:
+        - ppm_scale: 1darray
+            ppm scale of the spectrum
+        - S: 2darray
+            Spectrum to be fitted
+        - t_AQ: 1darray
+            Acquisition timescale
+        - SFO1: float
+            Larmor frequency of the observed nucleus, in MHz
+        - o1p: float
+            Carrier position, in ppm
+        - nuc: str
+            Observed nucleus. Used to customize the x-scale of the figures.
+        - filename: str or None
+            Root of the name of the files that will be saved
+        """
+        self.ppm_scale = ppm_scale
+        self.S = S
+        self.t_AQ = t_AQ
+        self.SFO1 = SFO1
+        self.o1p = o1p
+        self.filename = filename
+        if nuc is None:
+            self.X_label = '$\delta\,$ /ppm'
+        elif isinstance(nuc, str):
+            fnuc = misc.nuc_format(nuc)
+            self.X_label = '$\delta$ ' + fnuc +' /ppm'
+
+    def iguess(self, input_file=None, expno=0, n=-1,):
+        """
+        Reads, or computes, the initial guess for the fit.
+        If the file is there already, it just reads it with fit.read_vf. Otherwise, it calls fit.make_iguess to make it.
+        --------
+        Parameters:
+        - input_file: str or None
+            Path to the input file. If None, "<self.filename>.ivf" is used
+        - expno: int
+            Number of the experiment on which to compute the initial guess, in python numbering
+        - n: int
+            Index of the initial guess to be read (default: last one)
+        """
+        # Set the default filename, if not given
+        if input_file is None:
+            input_file = f'{self.filename}'
+        # Check if the file exists
+        in_file_exist = os.path.exists(f'{input_file}.ivf')
+
+        if in_file_exist is True:       # Read everything you need from the file
+            regions = fit.read_vf_P2D(f'{input_file}.ivf')
+        else:                           # Make the initial guess interactively and save the file.
+            fit.make_iguess_P2D(self.S, self.ppm_scale, expno, self.t_AQ, self.SFO1, self.o1p, filename=input_file)
+            regions = fit.read_vf_P2D(f'{input_file}.ivf')
+        # Store it
+        self.i_guess = regions
+        print(f'{input_file}.ivf loaded as input file.')
+
+    def load_fit(self, output_file=None, n=-1):
+        """
+        Reads a file with fit.read_vf_P2D and stores the result in self.result.
+        ---------
+        Parameters:
+        - output_file: str
+            Path to the .fvf file to be read. If None, "<self.filename>.fvf" is used.
+        - n: int
+            Index of the fit to be read (default: last one)
+        """
+        # Set the default filename, if not given
+        if output_file is None:
+            output_file = f'{self.filename}'
+        # Check if the file exists
+        out_file_exist = os.path.exists(f'{output_file}.fvf')
+        if out_file_exist is True:       # Read everything you need from the file
+            regions = fit.read_vf_P2D(f'{output_file}.fvf', n=n)
+        else:
+            raise NameError(f'{output_file}.fvf does not exist.')
+        # Store
+        self.result = regions
+        print(f'{output_file}.fvf loaded as fit result file.')
+
+    def dofit(self, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, itermax=10000, filename=None):
+        """
+        Perform a lineshape deconvolution fitting by calling fit.voigt_fit_P2D.
+        The initial guess is read from the attribute self.i\_guess.
+        ------------
+        Parameters:
+        - u_tol: float
+            Determines the displacement of the chemical shift (in ppm) from the starting value.
+        - f_tol: float
+            Determines the displacement of the linewidth (in Hz) from the starting value.
+        - vary_phase: bool
+            Allow the peaks to change phase (True) or not (False)
+        - vary_xg: bool
+            Allow the peaks to change Lorentzian/Gaussian ratio
+        - itermax: int
+            Maximum number of allowed iterations
+        - filename: str
+            Path to the output file. If None, "<self.filename>.fvf" is used
+        """
+
+        # Make a shallow copy of the real part of the experimental spectrum
+        S = np.copy(self.S.real)
+        # Check if the initial guess was loaded correctly
+        if not isinstance(self.i_guess, list):
+            raise ValueError('Initial guess not correctly loaded')
+        # Set the output filename, if not given
+        if filename is None:
+            filename = f'{self.filename}'
+
+        # Do the fit
+        fit.voigt_fit_P2D(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_xg=vary_xg, itermax=itermax, filename=filename)
+        # Store
+        self.result = fit.read_vf_P2D(f'{filename}.fvf')
+
+
+    def plot(self, what='result', show_total=True, show_res=False, res_offset=0, labels=None, filename=None, ext='tiff', dpi=600):
+        """
+        Plots either the initial guess or the result of the fit, and saves all the figures. Calls fit.plot_fit_P2D.
+        The figures <filename>_full will show the whole model and the whole spectrum. 
+        The figures labelled with _R<k> will depict a detail of the fit in the k-th fitting region.
+        Optional labels for the components can be given: in this case, the structure of 'labels' should match the structure of self.result (or self.i_guess). This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
+        ------------
+        Parameters:
+        - what: str
+            'iguess' to plot the initial guess, 'result' to plot the fitted data
+        - show_total: bool
+            Show the total trace (i.e. sum of all the components) or not
+        - show_res: bool
+            Show the plot of the residuals
+        - res_offset: float
+            Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental spectrum. res_offset > 0 will move the residuals BELOW the zero-line!
+        - labels: list of list
+            Optional labels for the components. The structure of this parameter must match the structure of self.result
+        - filename: str
+            Root of the name of the figures that will be saved. If None, <self.filename> is used
+        - ext: str
+            Format of the saved figures
+        - dpi: int
+            Resolution of the figures, in dots per inches
+        """
+        # select the correct object to plot
+        if what == 'iguess':
+            regions = deepcopy(self.i_guess)
+        elif what == 'result':
+            regions = deepcopy(self.result)
+        else:
+            raise ValueError('Specify what you want to plot: "iguess" or "result"')
+               
+        # Set the filename, if not given
+        if filename is None:
+            filename = f'{self.filename}'
+
+        # Make the figures
+        S = np.copy(self.S.real)
+        fit.plot_fit_P2D(S, self.ppm_scale, regions, self.t_AQ, self.SFO1, self.o1p, show_total=show_total, show_res=show_res, res_offset=res_offset, X_label=self.X_label, labels=labels, filename=filename, ext=ext, dpi=dpi)
+
+    def get_fit_lines(self, what='result'):
+        """
+        Calculates the components, and the total fit curve used as initial guess, or as fit results..
+        The components will be returned as a list, not split by region.
+        --------
+        Parameters:
+        - what: str
+            'iguess' or 'result' 
+        --------
+        Returns:
+        - signals: list of list of 1darray
+            Components used for the fit
+        - total: 2darray
+            Sum of all the signals
+        """
+        # Select the correct object
+        if what == 'iguess':
+            regions = deepcopy(self.i_guess)
+        elif what == 'result':
+            regions = deepcopy(self.result)
+        else:
+            raise ValueError('Specify what you want to plot: "iguess" or "result"')
+
+        # Make the acqus dictionary for the fit.Peak objects
+        acqus = { 't1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
+        # Placeholder
+        signals = []
+
+        # Loop on the regions
+        for region in regions:
+            # Get limits from the dictionary
+            peaklist = list(region)
+            for peaks in peaklist:
+                if 'limits' in list(peaks.keys()):
+                    peaks.pop('limits')
+
+            # Placeholder
+            fit_peaks = [{} for w in range(self.S.shape[0])]
+            list_signals = []
+            for j, peaks in enumerate(peaklist):        # j runs on the experiments
+                for key, peakval in peaks.items():
+                    # Create the fit.Peak objects
+                    fit_peaks[j][key] = fit.Peak(acqus, N=self.S.shape[-1], **peakval)
+                # Get the arrays from the dictionary and put them in the list
+                list_signals.append([p() for _, p in fit_peaks[j].items()])
+            signals.extend(list_signals) # Dimensions (n. experiments, n.peaks per experiment, n.points per experiment)
+
+        # Compute the total trace
+        total = np.sum(signals, axis=1) # sum the peaks 
+        return signals, total

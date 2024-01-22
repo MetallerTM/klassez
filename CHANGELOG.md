@@ -1,5 +1,23 @@
 # Version 0.4a-dev
 
+22/01/2024
+Added new functions for fitting pseudo-2D experiments. Bug corrections.
+
+## New functions:
+22/01/2024
+- *fit.write_vf_P2D*
+- *fit.read_vf_P2D*
+- *fit.make_iguess_P2D*
+- *fit.plot_fit_P2D*
+- *fit.voigt_fit_P2D*
+
+## New classes:
+22/01/2024
+- *fit.Voigt_Fit_P2D*
+
+## Modified classes:
+22/01/2024
+- *Pseudo_2D*: added new attribute **F** as a wrapper for a *fit.Voigt_Fit_P2D* object. The **self.F.S** attribute is overwritten every time **self.S** is changed by a function such as *adjph*.
 
 # Version 0.4a.1
 
@@ -8,7 +26,6 @@ Added support for Topspin 4.3.0, i.e. a reshape for the FIDs.
 Convdta seems to not work anymore, hence we introduced a way to remove the digital filter effects on the spectra by using the *pnkl* function.
 
 ## New functions: 
-2023/10/17
 - *misc.load_ser*
 - *processing.integrate*
 - *processing.stack_fids*
