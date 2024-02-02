@@ -2,6 +2,8 @@
 
 22/01/2024
 Added new functions for fitting pseudo-2D experiments. Bug corrections.
+29/01/2024
+More bug corrections
 
 ## New functions:
 22/01/2024
@@ -10,6 +12,18 @@ Added new functions for fitting pseudo-2D experiments. Bug corrections.
 - *fit.make_iguess_P2D*
 - *fit.plot_fit_P2D*
 - *fit.voigt_fit_P2D*
+29/01/2024
+- *fit.Voigt_Fit.res_histogram*
+- *fit.Voigt_Fit_P2D.res_histogram*
+31/01/2024
+- *Spectrum_1D.pknl*
+- *Spectrum_2D.pknl*
+
+## Modified functions:
+22/01/2024
+- *fit.histogram*: changed figure size to **figures.figsize_large**
+02/02/2024
+- *<class>.write_ser* for all classes in *Spectra*: fixed positional arguments order
 
 ## New classes:
 22/01/2024
@@ -18,6 +32,11 @@ Added new functions for fitting pseudo-2D experiments. Bug corrections.
 ## Modified classes:
 22/01/2024
 - *Pseudo_2D*: added new attribute **F** as a wrapper for a *fit.Voigt_Fit_P2D* object. The **self.F.S** attribute is overwritten every time **self.S** is changed by a function such as *adjph*.
+
+
+
+
+
 
 # Version 0.4a.1
 

@@ -217,6 +217,13 @@ class Spectrum_1D:
         """ Call processing.convdta using self.acqus['GRPDLY'] """
         self.fid = processing.convdta(self.fid, self.acqus['GRPDLY'], scaling)
 
+    def pknl(self):
+        """
+        Reverses the effect of the digital filter by applying a first order phase correction.
+        To be called after having processed the data by 'self.process()'
+        """
+        self.adjph(p1=-360 * self.acqus['GRPDLY'], update=False)
+
     def blp(self, pred=8, order=8, N=2048):
         """
         Call processing.blp on self.fid for the application of backward linear prediction to the data. Important for Oxford benchtop data, where you have to predict 8 points to have a usable spectrum.
@@ -279,6 +286,7 @@ class Spectrum_1D:
 
         # Initialize the integrals attribute
         self.integrals = {}
+
 
     def inv_process(self):
         """
@@ -393,10 +401,10 @@ class Spectrum_1D:
         else:               # Calculate the missing one
             if isHz:    # offppm is missing
                 offhz = offset
-                offppm = misc.freq2ppm(offhz, self.acqus['SFO1'], self.acqus['o1p'])
+                offppm = misc.freq2ppm(offhz, self.acqus['SFO1'])
             else:       # offhz is missing
                 offppm = offset
-                offhz = misc.ppm2freq(offppm, self.acqus['SFO1'], self.acqus['o1p'])
+                offhz = misc.ppm2freq(offppm, self.acqus['SFO1'])
 
         # Apply the calibration
         #   to the scales
@@ -481,7 +489,7 @@ class Spectrum_1D:
         """
         if path is None:
             raise NameError('You must specify a filename!')
-        misc.write_ser(path, ser, acqus['BYTORDA'], acqus['DTYPA'])
+        misc.write_ser(ser, path, acqus['BYTORDA'], acqus['DTYPA'])
 
     def plot(self, name=None, ext='png', dpi=600):
         """
@@ -1448,7 +1456,7 @@ class Spectrum_2D:
         """
         if path is None:
             raise NameError('You must specify a filename!')
-        misc.write_ser(path, ser, acqus['BYTORDA'], acqus['DTYPA'])
+        misc.write_ser(ser, path, acqus['BYTORDA'], acqus['DTYPA'])
 
     def projf1(self, a, b=None):
         """

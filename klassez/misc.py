@@ -1052,23 +1052,21 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True):
             os.makedirs(p)
         return open(filename, 'wb')
 
-    if path[-1] != '/':
-        path = path+'/'
     if len(fid.shape) == 1:
         filename = 'fid'
     else:
         filename = 'ser'
 
-    if os.path.exists(path + filename):
+    if os.path.exists(os.path.join(path,filename)):
         if overwrite is True:
-            os.remove(path + filename)
+            os.remove(os.path.join(path, filename))
         else:
             what_to_do = input('{} already exists. Overwrite it? [YES/no]'.format(filename+path))
             if what_to_do.lower()[0] == 'n':
                 return 0
             else:
-                os.remove(path + filename)
-    f = open_towrite(path + filename)
+                os.remove(os.path.join(path, filename))
+    f = open_towrite(os.path.join(path, filename))
     if np.iscomplexobj(fid):
         fid = uncomplexify_data(fid)
     print('Writing \'{}\' file in {}...'.format(filename, path))

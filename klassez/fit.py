@@ -86,16 +86,15 @@ def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=F
 
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
-    plt.subplots_adjust(left=0.15, bottom=0.15, top=0.925, right=0.95)
+    plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)
+    fig.set_size_inches(figures.figsize_large)
 
     m, s = fit.ax_histogram(ax, data, nbins=nbins, density=density, f_lims=f_lims, xlabel=xlabel, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize)
 
     if name:
-        fig.set_size_inches(figures.figsize_small)
         print(f'Saving {name}.{ext}...')
         plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
-        fig.set_size_inches(figures.figsize_large)
         plt.show()
     plt.close()
     print('Done.')
@@ -2955,6 +2954,8 @@ class Voigt_Fit:
             Components used for the fit
         - total: 1darray
             Sum of all the signals
+        - limits_list: list
+            List of region delimiters, in ppm
         """
         # Select the correct object
         if what == 'iguess':
@@ -2968,19 +2969,89 @@ class Voigt_Fit:
         acqus = { 't1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
         # Placeholder
         signals = []
+        limits_list = []
         # Loop on the regions
         for region in regions:
             # Remove the limits and the intensity from the region dictionary
             param = dict(region)
-            _ = param.pop('limits')
+            limits = param.pop('limits')
             I = param.pop('I')
             # Make the fit.Peak objects
             peaks = {key : fit.Peak(acqus, N=self.S.shape[-1], **value) for key, value in param.items()}
             # Get the arrays from the dictionary and put them in the list
             signals.extend([p(I) for _, p in peaks.items()])
+            limits_list.append(limits)
         # Compute the total trace
         total = np.sum(signals, axis=0)
-        return signals, total
+        return signals, total, limits_list
+
+    def res_histogram(self, what='result', nbins=500, density=True, f_lims=None, xlabel='Residuals', x_symm=True, barcolor='tab:green', fontsize=20, filename=None, ext='tiff', dpi=300):
+        """
+        Computes the histogram of the residuals and saves it.
+        Employs fit.histogram to make the figure.
+        --------
+        Parameters:
+        - what: str
+            'iguess' or 'result' 
+        - nbins : int
+            number of bins to be calculated
+        - density : bool
+            True for normalize data
+        - f_lims : tuple or None
+            limits for the x axis of the figure
+        - xlabel : str or None
+            Text to be displayed under the x axis
+        - x_symm : bool
+            set it to True to make symmetric x-axis with respect to 0
+        - barcolor: str
+            Color of the bins
+        - fontsize: float
+            Biggest fontsize in the figure
+        - name : str
+            name for the figure to be saved
+        - ext: str
+            Format of the image
+        - dpi: int
+            Resolution of the image in dots per inches
+        """
+        # Filename check
+        if filename is None:
+            filename = f'{self.filename}'
+        filename += '_rhist'
+
+        # Select the correct object
+        if what == 'iguess':
+            regions = deepcopy(self.i_guess)
+        elif what == 'result':
+            regions = deepcopy(self.result)
+        else:
+            raise ValueError('Specify what you want to plot: "iguess" or "result"')
+
+        # Make the acqus dictionary for the fit.Peak objects'
+        acqus = { 't1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
+
+        # Get the total function and the limits
+        _, total, limits_list = self.get_fit_lines(what)
+        # Convert the limits in points according to the ppm scale
+        limits_pt_list = [ [misc.ppmfind(self.ppm_scale, w)[0] for w in lims] for lims in limits_list ]
+
+        # Placeholders
+        exp_trim, total_trim = [], []
+        for k, region in enumerate(regions):        # loop on the regions
+            # Compute the slice
+            lims = slice(min(limits_pt_list[k]), max(limits_pt_list[k]))
+            # Trim the experimental data and the total 
+            exp_trim.append(self.S[...,lims].real)
+            total_trim.append(total[...,lims])
+        # Sum on different regions
+        exp_trim = np.sum(exp_trim, axis=0)
+        total_trim = np.sum(total_trim, axis=0)
+
+        # Compute the residuals 
+        residual_arr = exp_trim - total_trim
+
+        fit.histogram(residual_arr, nbins=nbins, density=density, f_lims=f_lims, xlabel=xlabel, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize, name=filename, ext=ext, dpi=dpi)
+
 
 def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
     """
@@ -6033,6 +6104,8 @@ class Voigt_Fit_P2D:
             Components used for the fit
         - total: 2darray
             Sum of all the signals
+        - limits_list: list
+            List of the region delimiters, in ppm
         """
         # Select the correct object
         if what == 'iguess':
@@ -6046,6 +6119,7 @@ class Voigt_Fit_P2D:
         acqus = { 't1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
         # Placeholder
         signals = []
+        limits_list = []
 
         # Loop on the regions
         for region in regions:
@@ -6053,7 +6127,8 @@ class Voigt_Fit_P2D:
             peaklist = list(region)
             for peaks in peaklist:
                 if 'limits' in list(peaks.keys()):
-                    peaks.pop('limits')
+                    limits = peaks.pop('limits')
+            limits_list.append(limits)
 
             # Placeholder
             fit_peaks = [{} for w in range(self.S.shape[0])]
@@ -6068,4 +6143,82 @@ class Voigt_Fit_P2D:
 
         # Compute the total trace
         total = np.sum(signals, axis=1) # sum the peaks 
-        return signals, total
+        return signals, total, limits_list
+
+
+    def res_histogram(self, what='result', nbins=500, density=True, f_lims=None, xlabel='Residuals', x_symm=True, barcolor='tab:green', fontsize=20, filename=None, ext='tiff', dpi=300):
+        """
+        Computes the histogram of the residuals and saves it in the same folder of the fit figures.
+        Employs fit.histogram to make the figure.
+        --------
+        Parameters:
+        - what: str
+            'iguess' or 'result' 
+        - nbins : int
+            number of bins to be calculated
+        - density : bool
+            True for normalize data
+        - f_lims : tuple or None
+            limits for the x axis of the figure
+        - xlabel : str or None
+            Text to be displayed under the x axis
+        - x_symm : bool
+            set it to True to make symmetric x-axis with respect to 0
+        - barcolor: str
+            Color of the bins
+        - fontsize: float
+            Biggest fontsize in the figure
+        - name : str
+            name for the figure to be saved
+        - ext: str
+            Format of the image
+        - dpi: int
+            Resolution of the image in dots per inches
+        """
+        # Filename check
+        if filename is None:
+            filename = f'{self.filename}'
+        try:
+            os.mkdir(f'{filename}_fit')
+        except:
+            pass
+        finally:
+            # Update the filename for the figures by including the new directory
+            filename = os.path.join(filename+f'_fit', f'{filename}_rhist')
+
+        # Select the correct object
+        if what == 'iguess':
+            regions = deepcopy(self.i_guess)
+        elif what == 'result':
+            regions = deepcopy(self.result)
+        else:
+            raise ValueError('Specify what you want to plot: "iguess" or "result"')
+
+        # Make the acqus dictionary for the fit.Peak objects'
+        acqus = { 't1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
+
+        # Get the total function and the limits
+        _, total, limits_list = self.get_fit_lines(what)
+        # Convert the limits in points according to the ppm scale
+        limits_pt_list = [ [misc.ppmfind(self.ppm_scale, w)[0] for w in lims] for lims in limits_list ]
+
+        # Placeholders
+        exp_trim, total_trim = [], []
+        for k, region in enumerate(regions):        # loop on the regions
+            # Compute the slice
+            lims = slice(min(limits_pt_list[k]), max(limits_pt_list[k]))
+            # Trim the experimental data and the total 
+            exp_trim.append(self.S[...,lims].real)
+            total_trim.append(total[...,lims])
+        # Sum on different regions
+        exp_trim = np.sum(exp_trim, axis=0)
+        total_trim = np.sum(total_trim, axis=0)
+
+        # Compute the residuals and concatenate them
+        residual = exp_trim - total_trim
+        residual_arr = np.concatenate([r for r in residual], axis=-1)
+
+        fit.histogram(residual_arr, nbins=nbins, density=density, f_lims=f_lims, xlabel=xlabel, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize, name=filename, ext=ext, dpi=dpi)
+
+
+
