@@ -667,7 +667,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
 
 
 
-def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, itermax=10000, filename='fit'):
+def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, itermax=10000, fit_tol=1e-8, filename='fit'):
     """
     Performs a lineshape deconvolution fit using a Voigt model.
     The initial guess must be read from a .ivf file. All components are treated as independent, regardless from the value of the "group" attribute.
@@ -696,6 +696,8 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         Allow the peaks to change Lorentzian/Gaussian ratio
     - itermax: int
         Maximum number of allowed iterations
+    - fit_tol: float
+        Target value to be set for x_tol and f_tol
     - filename: str
         Name of the file where the fitted values will be saved. The .fvf extension is added automatically
     """
@@ -841,7 +843,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
                 param.add(par_key, value=val)   # Make the Parameter object
                 # Set the limits for each parameter, and fix the ones that have not to be varied during the fit
                 if 'u' in key:  # u: [u-u_tol, u+u_tol]
-                    param[par_key].set(min=val-u_tol, max=val+u_tol)
+                    param[par_key].set(min=max(val-u_tol, min(limits)), max=min(val+u_tol, max(limits)))
                 elif 'fwhm' in key: # fwhm: [max(0, fwhm-f_tol), fwhm+f_tol] (avoid negative fwhm)
                     param[par_key].set(min=max(0, val-f_tol), max=val+f_tol)
                 elif 'k' in key:    # k: [0, 3]
@@ -861,7 +863,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         def start_fit():
             param.add('count', value=0, vary=False)
             minner = l.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I, lims))
-            result = minner.minimize(method='leastsq', max_nfev=int(itermax), xtol=1e-10, ftol=1e-10)
+            result = minner.minimize(method='leastsq', max_nfev=int(itermax), xtol=fit_tol, ftol=fit_tol, gtol=fit_tol)
             print(f'{result.message} Number of function evaluations: {result.nfev}.')
             return result
         # Do the fit
@@ -2856,7 +2858,7 @@ class Voigt_Fit:
         self.result = regions
         print(f'{output_file}.fvf loaded as fit result file.')
 
-    def dofit(self, indep=True, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, itermax=10000, filename=None):
+    def dofit(self, indep=True, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, itermax=10000, fit_tol=1e-8, filename=None):
         """
         Perform a lineshape deconvolution fitting.
         The initial guess is read from the attribute self.i_guess.
@@ -2876,6 +2878,8 @@ class Voigt_Fit:
             Allow the peaks to change Lorentzian/Gaussian ratio
         - itermax: int
             Maximum number of allowed iterations
+        - fit_tol: float
+            Value of the target function to be set as x_tol and f_tol
         - filename: str
             Path to the output file. If None, "<self.filename>.fvf" is used
         """
@@ -2891,7 +2895,7 @@ class Voigt_Fit:
 
         # Do the fit
         if indep is True:
-            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_xg=vary_xg, itermax=itermax, filename=filename)
+            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_xg=vary_xg, itermax=itermax, fit_tol=fit_tol, filename=filename)
         else:
             raise NotImplementedError('More and more exciting adventures in the next release!')
         # Store
