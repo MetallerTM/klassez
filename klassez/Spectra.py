@@ -512,8 +512,6 @@ class Spectrum_1D:
         plt.subplots_adjust(left=0.10, bottom=0.15, right=0.95, top=0.90)
         ax = fig.add_subplot(1,1,1)
 
-
-
         # Plot the spectrum
         spect, = ax.plot(self.ppm, self.r, lw=0.8)
 
@@ -652,6 +650,98 @@ class Spectrum_1D:
             else:   # All the rest
                 f.write('{:12}\t{:.8f}\n'.format(key, value))
         f.close()
+
+    def to_vf(self, filename=None, Hs=None, fvf=True):
+        """
+        Transform a simulated spectrum in a .ivf or .fvf file to be used in a deconvolution procedure.
+        To do this, it reads the peak parameters saved in acqus.
+        The number of signals is determined by acqus['amplitudes'].
+        Multiplets are splitted according to their Js, and saved as components.
+        ---------
+        Parameters:
+        - filename: str or None
+            Path to the filename to be saved, without extension. If None, self.filename is used
+        - Hs: int or None
+            Number of nuclei the spectrum integrates for. If None, the sum of the amplitudes is used.
+        - fvf: bool
+            If True, adds the '.fvf' extension to the filename, if False, adds '.ivf'
+        """
+
+        # Create default filename
+        if filename is None:
+            filename = os.path.join(self.datadir, self.filename)
+        if fvf:
+            filename += '.fvf'
+        else:
+            filename += '.ivf'
+
+        # If Hs is not given, sum the intensities
+        if Hs is None:
+            Hs = np.sum(self.acqus['amplitudes'])
+        # Correct the intensities to get the relative ones
+        A, _ = misc.molfrac(self.acqus['amplitudes'])
+
+        dic = {}    # Placeholder
+        mult_counter = 0    # Multiplets counter, to set "group"
+        peak_counter = 0    # Peak counter, for the dictionary keys
+
+        # Make the fit.Peak objects
+        for k, _ in enumerate(A):
+            # Singlets
+            if self.acqus['mult'][k] == 's':
+                peak_counter += 1       # Increase peak counter
+                # Make the fit.Peak object straightforwardly
+                dic[peak_counter] = fit.Peak(self.acqus,
+                        u = self.acqus['shifts'][k],
+                        fwhm = self.acqus['fwhm'][k],
+                        k = A[k],
+                        x_g = self.acqus['x_g'][k],
+                        N = self.procs['zf'],
+                        group = 0,      # Identifier for singlets
+                        )
+
+            else:
+                mult_counter += 1       # Increase multiplets counter
+                # Get the chemical shifts and intensities of the components of the multiplet
+                u_in, I_in = sim.multiplet(
+                        # CS must be given in Hz
+                        misc.ppm2freq(self.acqus['shifts'][k], self.acqus['SFO1'], self.acqus['o1p']),
+                        A[k],
+                        self.acqus['mult'][k],
+                        self.acqus['Jconst'][k],
+                        )
+                # Make the components one by one
+                for u, I in zip(u_in, I_in):
+                    peak_counter += 1   # Increase peak counter FOR EACH COMPONENT
+                    dic[peak_counter] = fit.Peak(self.acqus,
+                            # Convert the chemical shift given by sim.multiplet back to ppm
+                            u = misc.freq2ppm(u, self.acqus['SFO1'], self.acqus['o1p']),
+                            fwhm = self.acqus['fwhm'][k],
+                            k = I,  # Relative intensity of the component, A[k] is already accounted for
+                            x_g = self.acqus['x_g'][k],
+                            N = self.procs['zf'],
+                            group = mult_counter,   # Identify all the components as part of the same multiplet
+                            )
+
+        # Compute limits to save the spectrum
+        limits = []     # Placeholder
+        i_umax = np.argmax(self.acqus['shifts'])        # Index of the most deshielded peak
+        umax = self.acqus['shifts'][i_umax]             # Chemical shift of the most deshielded peak
+        # FWHM of the most deshielded peak converted to ppm
+        f_umax = misc.freq2ppm(self.acqus['fwhm'][i_umax], self.acqus['SFO1'])
+        i_umin = np.argmin(self.acqus['shifts'])        # Index of the most shielded peak
+        umin = self.acqus['shifts'][i_umin]             # Chemical shift of the most shielded peak
+        # FWHM of the most shielded peak converted to ppm
+        f_umin = misc.freq2ppm(self.acqus['fwhm'][i_umin], self.acqus['SFO1'])
+        # Limits are taken with an extra space of 64 FWHM, to allow them to go to zero
+        limits = umax + 64*f_umax, umin - 64*f_umin
+                
+        # Write the file
+        with open(filename, 'w') as f:
+            f.write('!\n\n')
+        fit.write_vf(filename, dic, lims=limits, I=Hs)
+        print(f'File {filename} generated successfully.')
+
 
 class pSpectrum_1D(Spectrum_1D):
     """

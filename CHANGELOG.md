@@ -4,6 +4,8 @@
 Added new functions for fitting pseudo-2D experiments. Bug corrections.
 29/01/2024
 More bug corrections
+12/02/2024
+New functions, improved fitting
 
 ## New functions:
 22/01/2024
@@ -18,6 +20,8 @@ More bug corrections
 31/01/2024
 - *Spectrum_1D.pknl*
 - *Spectrum_2D.pknl*
+12/02/2024
+- *Spectrum_1D.to_vf*
 
 ## Modified functions:
 22/01/2024
@@ -32,6 +36,9 @@ More bug corrections
 ## Modified classes:
 22/01/2024
 - *Pseudo_2D*: added new attribute **F** as a wrapper for a *fit.Voigt_Fit_P2D* object. The **self.F.S** attribute is overwritten every time **self.S** is changed by a function such as *adjph*.
+12/02/2024
+- *fit.Peak*: instead of zero-filling, the acqusition timescale is extended to match the shape of the spectrum with *misc.extend_taq*
+- *fit.Voigt_Fit*: acqusition timescale extended with *misc.extend_taq*
 
 
 

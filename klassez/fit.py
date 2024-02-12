@@ -1767,7 +1767,7 @@ class Peak:
             Identifier for the component of a multiplet
         """
         # Unpack the acqus dictionary
-        self.t = acqus['t1']
+        self.t = misc.extend_taq(acqus['t1'], N)
         self.SFO1 = acqus['SFO1']
         self.o1p = acqus['o1p']
         self.N = N
@@ -1801,8 +1801,6 @@ class Peak:
         fwhm = self.fwhm * 2 * np.pi                    # conversion to radians
         phi = self.phi * np.pi / 180                    # conversion to radians
         sgn = sim.t_voigt(self.t, v, fwhm, A=A*self.k, phi=phi, x_g=self.x_g) # make the signal
-        if self.N is not None:
-            sgn = processing.zf(sgn, int(self.N))         # zero-fill it
         sgn = processing.ft(sgn)                # transform it
         if cplx:
             return sgn
@@ -2799,7 +2797,7 @@ class Voigt_Fit:
         """
         self.ppm_scale = ppm_scale
         self.S = S
-        self.t_AQ = t_AQ
+        self.t_AQ = misc.extend_taq(t_AQ, self.S.shape[-1])
         self.SFO1 = SFO1
         self.o1p = o1p
         self.filename = filename

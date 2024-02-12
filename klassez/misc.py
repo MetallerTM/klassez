@@ -1727,6 +1727,25 @@ def binomial_triangle(n):
     return np.array(row)
 
 
-
-
+def extend_taq(old_taq, newsize=None):
+    """
+    Extend the acquisition timescale to a longer size, using the same dwell time
+    ---------
+    Parameters:
+    - old_taq: 1darray
+        Old timescale
+    - newsize: int
+        New size of acqusition timescale, in points
+    ---------
+    Returns:
+    - new_taq: 1darray
+        Extended timescale
+    """
+    # Safety check
+    if newsize <= len(old_taq) or newsize is None:  # Extend only if needed
+        new_taq = np.copy(old_taq)
+    else:
+        dw = misc.calcres(olt_taq)      # Get the dwell time
+        new_taq = np.arange(0, dw * newsize, dw)    # Compute new scale
+    return new_taq
 
