@@ -1,48 +1,32 @@
-# Version 0.4a-dev
+# Version 0.4a.2
 
-22/01/2024
 Added new functions for fitting pseudo-2D experiments. Bug corrections.
-29/01/2024
-More bug corrections
-12/02/2024
-New functions, improved fitting
+Improved fitting routines.
 
 ## New functions:
 22/01/2024
-- *fit.write_vf_P2D*
-- *fit.read_vf_P2D*
 - *fit.make_iguess_P2D*
 - *fit.plot_fit_P2D*
+- *fit.read_vf_P2D*
 - *fit.voigt_fit_P2D*
-29/01/2024
+- *fit.write_vf_P2D*
 - *fit.Voigt_Fit.res_histogram*
 - *fit.Voigt_Fit_P2D.res_histogram*
-31/01/2024
 - *Spectrum_1D.pknl*
 - *Spectrum_2D.pknl*
-12/02/2024
 - *Spectrum_1D.to_vf*
 
 ## Modified functions:
-22/01/2024
 - *fit.histogram*: changed figure size to **figures.figsize_large**
-02/02/2024
 - *<class>.write_ser* for all classes in *Spectra*: fixed positional arguments order
 
 ## New classes:
-22/01/2024
 - *fit.Voigt_Fit_P2D*
 
 ## Modified classes:
-22/01/2024
-- *Pseudo_2D*: added new attribute **F** as a wrapper for a *fit.Voigt_Fit_P2D* object. The **self.F.S** attribute is overwritten every time **self.S** is changed by a function such as *adjph*.
-12/02/2024
 - *fit.Peak*: instead of zero-filling, the acqusition timescale is extended to match the shape of the spectrum with *misc.extend_taq*
 - *fit.Voigt_Fit*: acqusition timescale extended with *misc.extend_taq*
-
-
-
-
+- *Pseudo_2D*: added new attribute **F** as a wrapper for a *fit.Voigt_Fit_P2D* object. The **self.F.S** attribute is overwritten every time **self.S** is changed by a function such as *adjph*.
 
 
 # Version 0.4a.1
