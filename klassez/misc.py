@@ -1742,10 +1742,12 @@ def extend_taq(old_taq, newsize=None):
         Extended timescale
     """
     # Safety check
-    if newsize <= len(old_taq) or newsize is None:  # Extend only if needed
+    if newsize is None:
+        new_taq = np.copy(old_taq)
+    elif newsize <= len(old_taq):  # Extend only if needed
         new_taq = np.copy(old_taq)
     else:
-        dw = misc.calcres(olt_taq)      # Get the dwell time
+        dw = misc.calcres(old_taq)      # Get the dwell time
         new_taq = np.arange(0, dw * newsize, dw)    # Compute new scale
     return new_taq
 
