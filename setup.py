@@ -7,7 +7,7 @@ with open('README.md', 'r', encoding='utf-8') as fh:
 
 setup(
         name='klassez',
-        version='0.4a.2',
+        version='0.4a.3',
         author='Francesco Bruno',
         author_email='bruno@cerm.unifi.it',
         description='A collection of functions for NMR data handling.',

@@ -1,3 +1,8 @@
+# Version 0.4a-dev
+
+
+
+
 # Version 0.4a.2
 
 Added new functions for fitting pseudo-2D experiments. Bug corrections.
