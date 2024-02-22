@@ -4463,7 +4463,7 @@ class CostFunc:
     @staticmethod
     def squared_sum(r, s=0):
         """ Quadratic everywhere """
-        return np.sum(r**2)
+        return r 
 
     @staticmethod
     def truncated_quadratic(r, s):
@@ -4471,10 +4471,10 @@ class CostFunc:
         x = np.copy(r)
         for i, x_i in enumerate(x):
             if np.abs(x_i) < s:
-                x[i] = x_i**2
+                pass
             else:
-                x[i] = s**2
-        return np.sum(x)
+                x[i] = np.sign(x_i) * s
+        return x
 
     @staticmethod
     def huber(r, s):
@@ -4482,10 +4482,10 @@ class CostFunc:
         x = np.copy(r)
         for i, x_i in enumerate(x):
             if np.abs(x_i) < s:
-                x[i] = x_i**2
+                pass
             else:
-                x[i] = 2*s*np.abs(x_i) - s**2
-        return np.sum(x)
+                x[i] = np.sign(x_i) * ( 2*s*np.abs(x_i) - s**2 )**0.5
+        return x
 
     @staticmethod
     def asymm_huber(r, s):
@@ -4493,10 +4493,10 @@ class CostFunc:
         x = np.copy(r)
         for i, x_i in enumerate(x):
             if x_i < s:
-                x[i] = x_i**2
+                pass
             else:
-                x[i] = 2*s*x_i - s**2
-        return np.sum(x)
+                x[i] = ( 2*s*x_i - s**2 )**0.5
+        return x
 
     @staticmethod
     def asymm_truncated_quadratic(r, s):
@@ -4504,10 +4504,10 @@ class CostFunc:
         x = np.copy(r)
         for i, x_i in enumerate(x):
             if x_i < s:
-                x[i] = x_i**2
+                pass
             else:
-                x[i] = s**2
-        return np.sum(x)
+                x[i] = s
+        return x
 
 
 def LSP(y, x, n=5):

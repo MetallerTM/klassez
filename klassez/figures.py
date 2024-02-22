@@ -1691,3 +1691,47 @@ def redraw_contours(ax, ppm_f2, ppm_f1, S, lvl, cnt, Neg=False, Ncnt=None, lw=0.
     # Return things
     return cnt, Ncnt
 
+def ongoing_fit(exp, calc, residual, ylims=None, filename=None, dpi=100):
+    """
+    Makes a figure of an ongoing fit. 
+    It displays the experimental data and the model, and the residuals in a separate window.
+    The figure can be either saved or shown.
+    ----------
+    Parameters:
+    - exp: 1darray
+        Experimental data
+    - calc: 1darray
+        Current model
+    - residual: 1darray
+        Residuals of the fit
+    - ylims: tuple
+        Optional limits for y-axis
+    - filename: str or None
+        Filename of the figure to be saved. If None, the figure is shown instead
+    - dpi: int
+        Resolution of the figure in dots per inches
+    """
+    # Make the figure panel
+    fig = plt.figure()
+    # Visual adjustments
+    fig.set_size_inches(figures.figsize_large)
+    # Make two subplots
+    ax = fig.add_subplot(4,1,(1,3))
+    axr = fig.add_subplot(4,1,4)
+    # Plot stuff
+    ax.plot(exp, c='k', lw=0.9)
+    ax.plot(calc, c='tab:blue', lw=0.9)
+    ax.plot(residual, c='tab:green', lw=0.5, ls=':')
+    axr.axhline(0, c='k')   # Guideline for the eyes
+    axr.plot(residual, c='tab:green')
+    if ylims:
+        ax.set_ylim(*ylims)
+    # Save/show the figure
+    fig.tight_layout()
+    if filename:
+        plt.savefig(f'{filename}.png', dpi=dpi)
+    else:
+        plt.show()
+    plt.close()
+
+

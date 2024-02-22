@@ -481,15 +481,16 @@ def ft(data0, alt=False, fcor=0.5):
     """
     data = np.copy(data0)
     if not np.iscomplexobj(data):
-        warnings.warn('WARNING! The input array is not complex.')
+        # Suppress "casting complex to real" warning
+        warnings.simplefilter("ignore")
     size = data.shape[-1]
     data[...,0] = data[...,0] * fcor
-    if not np.iscomplexobj(data):
-        data = data.astype("complex128")
     if alt:
         data[...,1::2] = data[...,1::2] * -1
         data.imag = data.imag * -1
     dataft = np.fft.fftshift(np.fft.fft(data, axis=-1).astype(data.dtype), -1)[...,::-1]
+    # Restore the normal warnings behavior
+    warnings.simplefilter("default")
     return dataft
 
 def ift(data0, alt=False, fcor=0.5):
@@ -511,13 +512,16 @@ def ift(data0, alt=False, fcor=0.5):
     """
     data = np.copy(data0)[...,::-1]
     if not np.iscomplexobj(data):
-        warnings.warn('WARNING! The input array is not complex.')
+        # Suppress "casting complex to real" warning
+        warnings.simplefilter("ignore")
     size = data.shape[-1]
     dataft = np.fft.ifft(np.fft.ifftshift(data, -1), axis=-1).astype(data.dtype)
     if alt:
         dataft[...,1::2] = dataft[...,1::2] * -1
         dataft.imag = dataft.imag * -1
     dataft[...,0] = dataft[...,0] / fcor
+    # Restore the normal warnings behavior
+    warnings.simplefilter("default")
     return dataft
     
 def rev(data):
@@ -4661,3 +4665,45 @@ def stack_fids(*fids, filename=None):
 
     return p2d
 
+
+def hilbert(f):
+    """
+    Computes the Hilbert transform of real vector f in order to retrieve its imaginary part.
+    Make sure that the original spectrum was zero-filled to at least twice the original size of the FID.
+    The algorithm computes the convolution by means of FT, as follows:
+    > make IFT of f = a
+    > compute h = [1j for x in range(N) if x<N/2 else -1j]
+    > Compute b = ha
+    > Build d = a + 1j*b
+    > make FT of d = F
+    > replace Re(F) with f
+    ---------
+    Parameters:
+    - f: ndarray
+        Array of which you want to compute the imaginary part
+    ---------
+    Returns:
+    - f_cplx: ndarray
+        Complex version of f
+    """
+    # Suppress warnings for ft of real data
+    warnings.simplefilter("ignore")
+    # Get the number of points of f
+    N = f.shape[-1]
+    # Apply Hilbert transform:
+    #   make ift of the data
+    a = np.fft.ifft(f.real)
+    #   compute vector h: i for the first half, -i for the other half
+    h = 1j * np.ones_like(a)
+    h[...,N//2:] *= -1
+    #   retrieve imaginary part
+    b = a * h
+    #   make the full, complex signal
+    d = a + 1j * b
+    #   do ft 
+    f_i = np.fft.fft(d)
+    #   replace real part of the data with the original one
+    f_cplx = f.real + 1j*f_i.imag
+    # Re-enable warnings
+    warnings.simplefilter("default")
+    return f_cplx

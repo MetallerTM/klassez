@@ -1,6 +1,17 @@
 # Version 0.4a-dev
 
 
+## New functions:
+22/02/2024
+- *processing.hilbert*
+
+## Modified functions:
+22/02/2024
+- *processing.ft*, *processing.ift*: warnings for non-complex data are now suppressed
+
+## Modified classes:
+21/02/2024
+- *fit.CostFunc*: all methods now compute the array of residuals
 
 
 # Version 0.4a.2
