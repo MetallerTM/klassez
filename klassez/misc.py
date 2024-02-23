@@ -18,6 +18,7 @@ import nmrglue as ng
 import lmfit as l
 from datetime import datetime
 import warnings
+import scipy.io.wavfile as WF
 
 from . import fit, misc, sim, figures, processing
 from .config import CM, COLORS, cron
@@ -1751,3 +1752,40 @@ def extend_taq(old_taq, newsize=None):
         new_taq = np.arange(0, dw * newsize, dw)    # Compute new scale
     return new_taq
 
+def data2wav(data, filename='audiofile', cutoff=None, rate=44100):
+    """
+    Converts an array of data in a .wav file. 
+    The data are converted in float32 format, then normalized to fit the (-1, 1) interval
+    ----------
+    Parameters:
+    - data: ndarray
+        Data to listen to
+    - filename: str
+        Filename for the .wav file, without extension
+    - cutoff: float or None
+        Clipping borders for the audio. If None, no clipping is performed
+    - rate: int
+        Sample rate in samples/sec
+    """
+    def uncomplexify_data(data):
+        """ Transform array z: z_k = x_k + 1j y_k in array Z: Z_{2k} = x_k, Z_{2k+1} = y_k """
+        if not np.iscomplexobj(data):   # do nothing!
+            return data
+        else:
+            # Create new array with last dimension twice as long as the original one
+            newdata = np.zeros((*data.shape[:-1], data.shape[-1] * 2))
+            # Write real part in even positions, imaginary part in odd positions
+            newdata[...,::2] = data.real
+            newdata[...,1::2] = data.imag
+            return newdata
+
+    # Convert complex data to real
+    data = uncomplexify_data(np.copy(data)).flatten().astype(np.float64)
+    if cutoff:
+        # Clip the data according to cutoff
+        data = np.clip(data, -cutoff, cutoff)
+    # Normalize data so they fall in [-1, 1]
+    data /= max(np.abs(data))
+    # Write the .wav file
+    WF.write(f'{filename}.wav', rate, data)
+    print(f'Audio file saved as {filename}.wav')

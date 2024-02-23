@@ -22,7 +22,6 @@ from . import fit, misc, sim, figures, processing
 #from .__init__ import CM
 from .config import CM, COLORS, cron
 
-
 # Suppress warnings that create alarmism
 warnings.filterwarnings(action='ignore', message='Error reading the pulse program')
 warnings.filterwarnings(action='ignore', message=r'[0-9]*cannot')
@@ -741,6 +740,25 @@ class Spectrum_1D:
             f.write('!\n\n')
         fit.write_vf(filename, dic, lims=limits, I=Hs)
         print(f'File {filename} generated successfully.')
+
+    def to_wav(self, filename=None, cutoff=None, rate=44100):
+        """
+        Converts the FID in an audio file by using misc.data2wav.
+        ---------
+        Parameters:
+        - filename: str
+            Path where to save the file. If None, self.filename is used
+        - cutoff: float
+            Clipping limits for the FID
+        - rate: int
+            Sampling rate in samples/sec
+        """
+        if filename is None:
+            cwd = os.getcwd()
+            filename = os.path.join(cwd, self.filename)
+        # Make a shallow copy of the FID
+        data = np.copy(self.fid)
+        misc.data2wav(data, filename, cutoff, rate)
 
 
 class pSpectrum_1D(Spectrum_1D):
@@ -1734,6 +1752,25 @@ class Spectrum_2D:
         plt.show()
         plt.close()
 
+    def to_wav(self, filename=None, cutoff=None, rate=44100):
+        """
+        Converts the FID in an audio file by using misc.data2wav.
+        ---------
+        Parameters:
+        - filename: str
+            Path where to save the file. If None, self.filename is used
+        - cutoff: float
+            Clipping limits for the FID
+        - rate: int
+            Sampling rate in samples/sec
+        """
+        if filename is None:
+            cwd = os.getcwd()
+            filename = os.path.join(cwd, self.filename)
+        # Make a shallow copy of the FID
+        data = np.copy(self.fid)
+        misc.data2wav(data, filename, cutoff, rate)
+
 
 class pSpectrum_2D(Spectrum_2D):
     """
@@ -2584,6 +2621,25 @@ class Pseudo_2D(Spectrum_2D):
 
         # Update the .procs file
         self.write_procs()
+
+    def to_wav(self, filename=None, cutoff=None, rate=44100):
+        """
+        Converts the FID in an audio file by using misc.data2wav.
+        ---------
+        Parameters:
+        - filename: str
+            Path where to save the file. If None, self.filename is used
+        - cutoff: float
+            Clipping limits for the FID
+        - rate: int
+            Sampling rate in samples/sec
+        """
+        if filename is None:
+            cwd = os.getcwd()
+            filename = os.path.join(cwd, self.filename)
+        # Make a shallow copy of the FID
+        data = np.copy(self.fid)
+        misc.data2wav(data, filename, cutoff, rate)
 
 
 

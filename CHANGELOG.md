@@ -4,6 +4,11 @@
 ## New functions:
 22/02/2024
 - *processing.hilbert*
+23/02/2024
+- *misc.data2wav*
+- *Spectrum_1D.to_wav*
+- *Spectrum_2D.to_wav*
+- *Pseudo_2D.to_wav*
 
 ## Modified functions:
 22/02/2024
