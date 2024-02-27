@@ -250,24 +250,25 @@ def load_sim_1D(File):
         Dictionary of the parameters, ready to be read from the simulation functions.
     """
     
-    inp = open(File, 'r').readlines()
+    with open(File, 'r') as f:
+        inp = f.readlines()
     keys = []
     vals = []
     for i in range(len(inp)):
         if inp[i] == '\n' or inp[i][0] == '#':
             continue    # skip empty lines or comments
-        line = inp[i].split('\t', 1)    # separate key from the rest
-        if ' ' in line[0]:
-            line = line[0].split(' ', 1)
+        inp[i] = inp[i].replace('\t', ' ')
+        line = inp[i].split(' ', 1)    # separate key from the rest
+        line[0] = line[0].replace(' ', '')
         keys.append(line[0])
 
         rest = line[1].strip()
-        rest = rest.split('\t')
-        rest = rest[0].split('#')
+        if '#' in rest:
+            rest = rest.split('#')[0]
         try:
-            value = eval(rest[0])
+            value = eval(rest)
         except:
-            value = (f'{rest[0]}')
+            value = (f'{rest}')
         vals.append(value)
 
 
@@ -354,24 +355,25 @@ def load_sim_2D(File, states=True):
     - dic: dict
         Dictionary of the parameters, ready to be read from the simulation functions.
     """
-    inp = open(File, 'r').readlines()
+    with open(File, 'r') as f:
+        inp = f.readlines()
     keys = []
     vals = []
     for i in range(len(inp)):
         if inp[i] == '\n' or inp[i][0] == '#':
             continue
-        line = inp[i].split('\t', 1)
-        if ' ' in line[0]:
-            line = line[0].split(' ', 1)
+        inp[i] = inp[i].replace('\t', ' ')
+        line = inp[i].split(' ', 1)    # separate key from the rest
+        line[0] = line[0].replace(' ', '')
         keys.append(line[0])
 
         rest = line[1].strip()
-        rest = rest.split('\t')
-        rest = rest[0].split('#')
+        if '#' in rest:
+            rest = rest.split('#')[0]
         try:
-            value = eval(rest[0])
+            value = eval(rest)
         except:
-            value = str(rest[0])
+            value = (f'{rest}')
         vals.append(value)
 
     dic = {}

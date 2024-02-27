@@ -1807,6 +1807,24 @@ class Peak:
         else:
             return sgn.real
 
+    def get_fid(self, A=1):
+        """ 
+        Compute and returns the FID encoding for that signal.
+        ----------
+        Parameters:
+        - A: float
+            Absolute intensity value
+        ----------
+        Returns:
+        - sgn : 1darray
+            generated signal in the time domain
+        """
+        v = misc.ppm2freq(self.u, self.SFO1, self.o1p)         # conversion to frequency units
+        fwhm = self.fwhm * 2 * np.pi                    # conversion to radians
+        phi = self.phi * np.pi / 180                    # conversion to radians
+        sgn = sim.t_voigt(self.t, v, fwhm, A=A*self.k, phi=phi, x_g=self.x_g) # make the signal
+        return sgn
+
     def par(self):
         """
         Creates a dictionary with the currently stored attributes and returns it.

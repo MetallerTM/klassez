@@ -9,10 +9,15 @@
 - *Spectrum_1D.to_wav*
 - *Spectrum_2D.to_wav*
 - *Pseudo_2D.to_wav*
+27/02/2024
+- *fit.Peak.get_fid*
 
 ## Modified functions:
 22/02/2024
 - *processing.ft*, *processing.ift*: warnings for non-complex data are now suppressed
+27/02/2024
+- *Pseudo_2D.mount*: the FIDs have now priority on the .npy file
+- *sim.load_sim_1D*, *sim.load_sim_2D*: more intelligent handling of spacings, now writing input files is easier
 
 ## Modified classes:
 21/02/2024

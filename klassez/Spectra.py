@@ -2140,11 +2140,12 @@ class Pseudo_2D(Spectrum_2D):
             filename = f'{filename}.npy'
 
         # Check if the .npy file already exists
-        if os.path.exists(filename):    # then load it
-            self.fid = np.load(filename)
-        else:   # make it
-            if not len(fids):
+        if not len(fids):
+            if os.path.exists(filename):    # then load it
+                self.fid = np.load(filename)
+            else:
                 raise ValueError('You passed no FIDs!')
+        else:   # make it
             self.fid = processing.stack_fids(*fids, filename=filename)
 
         # Replace acqus only if newacqus is a dictionary
