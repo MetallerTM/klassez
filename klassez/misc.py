@@ -1662,8 +1662,8 @@ def cmap2list(cmap, N=10, start=0, end=1):
     colors = cmap(x)
     return colors
 
-def edit_checkboxes(checkbox, xadj=0, yadj=0, length=None, height=None, color=None):
-    """ 
+def edit_checkboxes(checkbox, xadj=0, yadj=0, dim=100, color=None):
+    """
     Edit the size of the box to be checked, and adjust the lines accordingly.
     -----------
     Parameters:
@@ -1673,36 +1673,41 @@ def edit_checkboxes(checkbox, xadj=0, yadj=0, length=None, height=None, color=No
         modifier value for bottom left corner x-coordinate of the rectangle, in checkbox.ax coordinates
     - yadj: float
         modifier value for bottom left corner y-coordinate of the rectangle, in checkbox.ax coordinates
-    - length: float
-        length of the rectangle, in checkbox.ax coordinates
-    - height: float
-        height of the rectangle, in checkbox.ax coordinates
+    - dim: float
+        Area of the square, in pixels. Default value is 25
     - color: str or list or None
         If it is not None, change color to the lines
     """
-    for rekt, lnz in zip(checkbox.rectangles, checkbox.lines):
-        orig = rekt.get_xy()
-        x, y = orig[0]+xadj, orig[1]+yadj
-        rekt.set_xy((x, y))
-        if length is not None:
-            rekt.set_width(length)
-        if height is not None:
-            rekt.set_height(height)
-        length, height = rekt.get_width(), rekt.get_height()
 
-        lx = x, x+length
-        ly = y, y+height
-    
-        lnz[0].set_data(lx, ly[::-1])
-        lnz[1].set_data(lx, ly)
+    # Get number of labels
+    n_labels = len(checkbox.labels)
 
-    if color is not None:
-        if isinstance(color, (tuple, list)):
-            for col, lnz in zip(color, checkbox.lines):
-                [line.set_color(col) for line in lnz]
+    # Get the original positions of the frames
+    xy_frames = checkbox._frames.get_offsets()
+    # Adjust the positions of the frames according to xadj and yadj
+    xy_frames = [[x+xadj, y+yadj] for x, y in xy_frames]
+    # All frames must have same dimension
+    dim_frames = [dim for w in range(n_labels)]
+
+    # Make a dictionary with the new parameters
+    props = {
+            'offsets': xy_frames,
+            'sizes': dim_frames,
+            }
+    # Set the new properties of the frames
+    checkbox.set_frame_props(props)
+
+    if color:   # Add the option for coloring the lines
+        if isinstance(color, str):  # One color fits all
+            props['facecolors'] = [color for w in range(n_labels)]
         else:
-            for lnz in checkbox.lines:
-                [line.set_color(color) for line in lnz]
+            if len(color) < n_labels:
+                raise ValueError('Not enough colors for all the checkboxes!')
+            props['facecolors'] = [color[w] for w in range(n_labels)]
+    # Set the new properties of the checks
+    # They are the same of the frame to keep the fitting
+    checkbox.set_check_props(props)
+
 
 def binomial_triangle(n):
     """

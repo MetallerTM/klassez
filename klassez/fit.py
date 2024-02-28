@@ -3551,7 +3551,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     #       Customize checkbox appearance
     #       ... make boxes more squared
     HBOX = check_box.dataLim.bounds[-1]
-    misc.edit_checkboxes(check, xadj=0, yadj=0.001, length=0.1, height=(HBOX-0.5*HBOX)/len(check_name), color=COLORS)
+    misc.edit_checkboxes(check, xadj=0, yadj=0.001, dim=100, color=COLORS)
 
     # Text that shows the current values of the parameters
     head_print = plt.text(0.725, 0.4,

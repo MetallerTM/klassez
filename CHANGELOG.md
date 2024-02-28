@@ -18,6 +18,9 @@
 27/02/2024
 - *Pseudo_2D.mount*: the FIDs have now priority on the .npy file
 - *sim.load_sim_1D*, *sim.load_sim_2D*: more intelligent handling of spacings, now writing input files is easier
+28/02/2024
+- *misc.edit_checkboxes*: adapted for *matplotlib>=3.7*
+
 
 ## Modified classes:
 21/02/2024
