@@ -19,6 +19,7 @@ import lmfit as l
 from datetime import datetime
 import warnings
 import scipy.io.wavfile as WF
+import math
 
 from . import fit, misc, sim, figures, processing
 from .config import CM, COLORS, cron
@@ -1727,9 +1728,7 @@ def binomial_triangle(n):
     row = []
     n -= 1
     for k in range(n+1):
-        row.append(
-                np.math.factorial(n) / ( np.math.factorial(k) * np.math.factorial(n-k) )
-                )
+        row.append(math.comb(n, k))
     return np.array(row)
 
 

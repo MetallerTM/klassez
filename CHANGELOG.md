@@ -20,6 +20,7 @@
 - *sim.load_sim_1D*, *sim.load_sim_2D*: more intelligent handling of spacings, now writing input files is easier
 28/02/2024
 - *misc.edit_checkboxes*: adapted for *matplotlib>=3.7*
+- *misc.binomial_triangle*: employs the function from the *math* library
 
 
 ## Modified classes:
