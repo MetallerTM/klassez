@@ -2100,11 +2100,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     def write_sens(param):
         """ Updates the current sensitivity value in the text """
-        # Discriminate between total intensity and other parameters
-        if param == 'A':
-            text = f'Sensitivity: $\\pm${10**sens[param]:10.4g}'
-        else:
-            text = f'Sensitivity: $\\pm${sens[param]:10.4g}'
+        text = f'Sensitivity: $\\pm${sens[param]:10.4g}'
         # Update the text
         sens_print.set_text(text)
         # Redraw the figure
@@ -2422,7 +2418,8 @@ def read_vf(filename, n=-1):
         return dic_r
 
     # Read the file
-    ff = open(filename, 'r').read()
+    with open(filename, 'r') as J:
+        ff = J.read()
     # Get the actual section from an output file
     f = ff.split('!')[n]
     # Separate the bigger sections
@@ -3223,9 +3220,9 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
         nonlocal act
         act = names[K]
         value_text.set_text(f'{act}')
-        val_tb.set_val(f'{param[act].value}')
-        min_tb.set_val(f'{param[act].min}')
-        max_tb.set_val(f'{param[act].max}')
+        val_tb.set_val(f'{param[act].value:.5g}')
+        min_tb.set_val(f'{param[act].min:.5g}')
+        max_tb.set_val(f'{param[act].max:.5g}')
         if param[act].vary: # = True
             vary_sl.set_val(1)
         else:               # = False
@@ -3253,7 +3250,7 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
             param[act].value += sens[act]
         if event.button == 'down':
             param[act].value -= sens[act]
-        val_tb.set_val(f'{param[act].value}')
+        val_tb.set_val(f'{param[act].value:.5g}')
 
         # Compute and redraw the model function
         newmodel = model(param, *model_args)

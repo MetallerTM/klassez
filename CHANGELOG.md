@@ -1,30 +1,29 @@
-# Version 0.4a-dev
+# Version 0.4a.3
 
+Added new functions to transform FID in audio files! 
+New function for computing Hilbert transform.
+Adaptation of some codes for the new versions of *numpy* and *scipy*.
+Bug correction.
 
 ## New functions:
-22/02/2024
-- *processing.hilbert*
-23/02/2024
 - *misc.data2wav*
+- *processing.hilbert*
+- *fit.Peak.get_fid*
 - *Spectrum_1D.to_wav*
 - *Spectrum_2D.to_wav*
 - *Pseudo_2D.to_wav*
-27/02/2024
-- *fit.Peak.get_fid*
 
 ## Modified functions:
-22/02/2024
-- *processing.ft*, *processing.ift*: warnings for non-complex data are now suppressed
-27/02/2024
-- *Pseudo_2D.mount*: the FIDs have now priority on the .npy file
-- *sim.load_sim_1D*, *sim.load_sim_2D*: more intelligent handling of spacings, now writing input files is easier
-28/02/2024
-- *misc.edit_checkboxes*: adapted for *matplotlib>=3.7*
 - *misc.binomial_triangle*: employs the function from the *math* library
+- *misc.edit_checkboxes*: adapted for *matplotlib>=3.7*
+- *processing.ft*, *processing.ift*: warnings for non-complex data are now suppressed
+- *processing.qpol*: the polynomion is computed by solving the linear system with *fit.LSP*
+- *sim.load_sim_1D*, *sim.load_sim_2D*: more intelligent handling of spacings, now writing input files is easier
+- *sim.t_voigt*, *sim.t_2Dvoigt*: corrected the parameter **x_G** in order to preserve the linewidth of the signal
+- *Pseudo_2D.mount*: the FIDs have now priority on the .npy file
 
 
 ## Modified classes:
-21/02/2024
 - *fit.CostFunc*: all methods now compute the array of residuals
 
 

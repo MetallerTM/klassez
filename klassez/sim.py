@@ -743,7 +743,7 @@ def t_voigt(t, u, fwhm, A=1, x_g=0, phi=0):
     if fwhm < 1e-8:
         fwhm = 1e-8
     s = fwhm / 2.355
-    S = A * np.exp(1j*phi) * sim.t_gaussian(t, u/2, s*x_g) * sim.t_lorentzian(t, u/2, fwhm*(1-x_g))
+    S = A * np.exp(1j*phi) * sim.t_gaussian(t, u/2, s*(x_g**0.5)) * sim.t_lorentzian(t, u/2, fwhm*(1-x_g))
     return S
 
 
@@ -843,7 +843,7 @@ def t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=1, states=True, alt=True):
     S = A * F1.reshape(-1,1) @ F2.reshape(1,-1)
     return S
 
-def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0.5, states=True, alt=True):
+def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0, states=True, alt=True):
     """
     Generates a 2D pseudo-voigt signal in the time domain.
     x_g states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
@@ -885,7 +885,7 @@ def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0.5, states=True, alt=True
     fid = A * (G + L)
     return fid
 
-def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0.5, states=True, alt=True):
+def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0, states=True, alt=True):
     """
     Generates a 2D Voigt signal in the time domain.
     x_g states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
@@ -934,7 +934,7 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0.5, states=True, alt=True)
     #   Add line-broadening, fist lorentzian then gaussian, using:
     #   hwhm' = (1 - x_g) * hwhm        for L
     #   s' = x_g * s                    for G
-    F2 = freq_2 * np.exp(-(1-x_g)*hwhm2 * t2) * np.exp(-((x_g*s2)**2 * t2**2)/2)
+    F2 = freq_2 * np.exp(-(1-x_g)*hwhm2 * t2) * np.exp(-(x_g * s2**2 * t2**2)/2)
 
     # indirect dimension
     if alt:
@@ -948,7 +948,7 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0.5, states=True, alt=True)
     #   Add line-broadening, fist lorentzian then gaussian, using:
     #   hwhm' = (1 - x_g) * hwhm        for L
     #   s' = x_g * s                    for G
-    F1 = freq_1 * np.exp(-(1-x_g) * hwhm1 * t1) * np.exp(-((x_g*s1)**2 * t1**2)/2)
+    F1 = freq_1 * np.exp(-(1-x_g) * hwhm1 * t1) * np.exp(-(x_g * s1**2 * t1**2)/2)
 
     # The full FID is reconstructed by doing the external product between the two vectors
     S = A * F1.reshape(-1,1) @ F2.reshape(1,-1)

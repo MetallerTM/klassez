@@ -302,55 +302,19 @@ def qpol(fid):
         Self-explanatory.
     -------
     Returns:
-    - fid : ndarray
+    - fid_corr : ndarray
         Processed FID
     """
     # Fits the FID with a 4th degree polinomion
     size = fid.shape[-1]
     x = np.linspace(0, size, size)
-    def p5(x, par):
-        a = par['a']
-        b = par['b']
-        c = par['c']
-        d = par['d']
-        e = par['e']
-        f = par['f']
-        p = a + b*x + c*x**2 + d*x**3 + e*x**4 + f*x**5
-        return p
 
-    def fcn_min(params, x, fid):
-        par = params.valuesdict()
-        p = p5(x, par)
-        r = fid - p
-        return r
+    coeff_re = fit.LSP(fid.real, x, n=5)
+    coeff_im = fit.LSP(fid.imag, x, n=5)
+    c = coeff_re + 1j*coeff_im
 
-    params_re = l.Parameters()
-    params_re.add('a', value=0)
-    params_re.add('b', value=0)
-    params_re.add('c', value=0)
-    params_re.add('d', value=0)
-    params_re.add('e', value=0)
-    params_re.add('f', value=0)
-
-    params_im = l.Parameters()
-    params_im.add('a', value=0)
-    params_im.add('b', value=0)
-    params_im.add('c', value=0)
-    params_im.add('d', value=0)
-    params_im.add('e', value=0)
-    params_im.add('f', value=0)
-
-    m_re = l.Minimizer(fcn_min, params_re, fcn_args=(x, fid.real))
-    result_re = m_re.minimize(method='leastsq', max_nfev=75000, xtol=1e-12, ftol=1e-12)
-    m_im = l.Minimizer(fcn_min, params_im, fcn_args=(x, fid.imag))
-    result_im = m_im.minimize(method='leastsq', max_nfev=75000, xtol=1e-12, ftol=1e-12)
-
-    coeff_re = result_re.params.valuesdict()
-    coeff_im = result_im.params.valuesdict()
-
-    fid.real -= p5(x, coeff_re)
-    fid.imag -= p5(x, coeff_im)
-    return fid
+    fid_corr = fid - misc.polyn(x, c)
+    return fid_corr
 
 # -------------------------------------------------------------------------------------------------------------------------------------------------------
 # window functions
@@ -4392,7 +4356,7 @@ def whittaker_smoother(data, n=2, s_f=1, w=None):
     """
     # Import things to handle sparse matrices
     import scipy.sparse as sps
-    from scipy.sparse.linalg.dsolve import linsolve
+    from scipy.sparse.linalg import spsolve
 
     y = np.copy(data)
     m = data.shape[-1]      # Data dimension
@@ -4413,7 +4377,7 @@ def whittaker_smoother(data, n=2, s_f=1, w=None):
     W.tocsr()       # Conversion to csr
 
     A = sps.csr_matrix(W + s_f * D.T @ D)   # Sparse criterion
-    z = linsolve.spsolve(A, w*y)     # Find solutions using LU factorization
+    z = spsolve(A, w*y)     # Find solutions using LU factorization
 
     return z
 

@@ -1720,9 +1720,9 @@ def ongoing_fit(exp, calc, residual, ylims=None, filename=None, dpi=100):
     axr = fig.add_subplot(4,1,4)
     # Plot stuff
     ax.plot(exp, c='k', lw=0.9)
-    ax.plot(calc, c='tab:blue', lw=0.9)
-    ax.plot(residual, c='tab:green', lw=0.5, ls=':')
-    axr.axhline(0, c='k')   # Guideline for the eyes
+    ax.plot(calc, c='tab:blue', lw=0.7)
+    ax.plot(residual, c='tab:green', lw=0.4, ls=':')
+    axr.axhline(0, c='k', lw=0.6)   # Guideline for the eyes
     axr.plot(residual, c='tab:green')
     if ylims:
         ax.set_ylim(*ylims)
