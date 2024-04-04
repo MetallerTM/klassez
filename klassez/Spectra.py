@@ -990,7 +990,7 @@ class Spectrum_2D:
                 self.ngdic = dic
                 self.fid = data
                 self.acqus = misc.makeacqus_2D(dic)
-                self.fid = np.reshape(self.fid, (self.acqus['TD1'], self.acqus['TD2']))
+                self.fid = np.reshape(self.fid, (self.acqus['TD1'], -1))
                 self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
                 self.acqus['DTYPA'] = dic['acqus']['DTYPA']
                 FnMODE_flag = dic['acqu2s']['FnMODE']       # Get f1 acquisition mode

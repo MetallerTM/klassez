@@ -1,6 +1,8 @@
 # Version 0.4a-dev
 
-
+## Modified functions:
+04/04/2024
+- *Spectrum_2D.__init__*: reshape of the fid is now made with last dimension implicit
 
 # Version 0.4a.3
 
