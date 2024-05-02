@@ -4671,3 +4671,28 @@ def hilbert(f):
     # Re-enable warnings
     warnings.simplefilter("default")
     return f_cplx
+
+def convolve(in1, in2):
+    """
+    Perform the convolution of the two array by multiplying their inverse Fourier transform.
+    The two arrays must have the same dimension.
+    -----------
+    Parameters:
+    - in1: ndarray
+        First array
+    - in2: ndarray
+        Second array
+    -----------
+    Returns:
+    - cnv: ndarray
+        Convolved array
+    """
+    assert in1.shape[-1] == in2.shape[-1], 'The two arrays have different dimensions!'
+    size = in1.shape[-1]
+    in1t = np.fft.ifft(np.fft.ifftshift(in1))
+    in2t = np.fft.ifft(np.fft.ifftshift(in2))
+    cnvt = in1t * in2t
+    # factor size is needed to correct the intensity
+    cnv = size * np.fft.fftshift(np.fft.fft(cnvt))
+    return cnv
+
