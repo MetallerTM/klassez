@@ -1600,7 +1600,7 @@ def print_dict(mydict):
     return outstring
 
 
-def show_cmap(cmap, N=10, start=0, end=1):
+def show_cmap(cmap, N=10, start=0, end=1, filename=None):
     """ 
     Plot the colors extracted from a colormap.
     -------
@@ -1623,7 +1623,7 @@ def show_cmap(cmap, N=10, start=0, end=1):
 
     # Make the figure
     fig = plt.figure()
-    fig.set_size_inches(figures.figsize_large)
+    fig.set_size_inches(12, 3)
     fig.subplots_adjust(left=0.01, right=0.99)
     ax = fig.add_subplot(1,1,1)
 
@@ -1637,7 +1637,10 @@ def show_cmap(cmap, N=10, start=0, end=1):
     ax.set_ylim(0,1)
     ax.tick_params(axis='y', left=False, labelleft=False)
 
-    plt.show()
+    if filename:
+        plt.savefig(f'{filename}.png', dpi=400)
+    else:
+        plt.show()
     plt.close()
 
 

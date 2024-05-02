@@ -7,6 +7,8 @@
 ## Modified functions:
 04/04/2024
 - *Spectrum_2D.__init__*: reshape of the fid is now made with last dimension implicit
+02/05/2024
+- *misc.show_cmap*: added parameter **filename** to save the figure, changed figure size
 
 # Version 0.4a.3
 
