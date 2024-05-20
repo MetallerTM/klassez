@@ -101,7 +101,7 @@ def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=F
 
     return m, s
 
-def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x_symm=False, barcolor='tab:blue', fontsize=10):
+def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x_symm=False, fitG=True, barcolor='tab:blue', fontsize=10):
     """
     Computes an histogram of 'data' and tries to fit it with a gaussian lineshape.
     The parameters of the gaussian function are calculated analytically directly from 'data' using 'scipy.stats.norm'
@@ -146,16 +146,21 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x
     hist, bin_edges = np.histogram(data, bins=nbins, range=lims, density=density)   # Computes the bins for the histogram
 
     x = np.linspace(lims[0], lims[1], len(data))        # Scale for a smooth gaussian
-    m, s = stats.norm.fit(data)                                 # Get mean and standard deviation of 'data'
+    m, s = np.mean(data), np.std(data)                  # Get mean and standard deviation of 'data'
    
     if density:
         A = 1
     else:
         A = np.trapz(hist, dx=bin_edges[1]-bin_edges[0])    # Integral
-    fit_g = sim.f_gaussian(x, m, s, A)  # Gaussian lineshape
+
+    if fitG:
+        fit_g = sim.f_gaussian(x, m, s, A)  # Gaussian lineshape
 
     ax.hist(data, color=barcolor, density=density, bins=bin_edges) 
-    ax.plot(x, fit_g, c='r', lw=0.6, label = 'Theoretical values:\n$\mu = ${:.3g}'.format(m)+'\n$\sigma = ${:.3g}'.format(s))
+    if fitG:
+        ax.plot(x, fit_g, c='r', lw=0.6, label='Gaussian approximation') 
+        ax.legend(loc='upper right')
+
 
     if density:
         ax.set_ylabel('Normalized count')
@@ -172,7 +177,6 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x
 
     misc.mathformat(ax, limits=(-3,3))
 
-    ax.legend(loc='upper right')
 
     misc.set_fontsizes(ax, fontsize)
 
@@ -2601,61 +2605,143 @@ def dic2mat(dic, peak_names, ns, A=None):
 # --------------------------------------------------------------------
 
 
-def test_residuals(R, nbins=100, density=False):
+def test_randomsign(data, thresh=1.96):
     """
-    Test the residuals of a fit to see if it was reliable.
-    Returns two values, SYSDEV and Q_G.
-    SYSDEV is inspired by Svergun's Gnom, and it tells if there are systematic deviations basing on the number of sign changes in the residual. Optimal value must be 1.
-    Q_G is to see the discrepancy between a gaussian function built with the mean and standard deviation of the residuals and the gaussian built fitting the histogram of the residuals. Values go from 0 (worst case) to 1 (best case).
-    -------
+    Test an array of residuals for the randomness of the sign changes.
+    The result it True if the sequence is recognized as random.
+    -----------
     Parameters:
-    - R : 1darray
-        Array of the residuals
-    - nbins : int
-        number of bins of the histogram, i.e. the number of points that will be used to fit the histogram.
-    - density : bool
-        True to normalize the histogram, False otherwise.
-    -------
+    - data: 1darray
+        Residuals to test
+    - thresh: float
+        Significance level. The default is 1.96, which corresponds to 5% significance level.
+    -----------
     Returns:
-    - SYSDEV : float
-        Read full caption
-    - Q_G : float
-        Read full caption
+    - test: bool
+        True if the signs are random, False otherwise
     """
-    # Get theoretical mean and std of the residue
-    m_t, s_t = np.mean(R), np.std(R)
+    # Size of the data
+    N = len(data)
+    # Signs of the entries in the residual
+    signs = np.sign(data)
+    # Number of > 0 residuals
+    n_p = len([x for x in signs if x > 0])
+    # Number of < 0 residuals
+    n_n = len([x for x in signs if x < 0])
+
+    # Where the residuals change sign
+    signchange = ((np.roll(signs, 1) - signs) != 0).astype(int)
+    # Number of adjacent pieces of the residuals with the same sign
+    n_runs = np.sum(signchange)
+
+    # The statistical distribution of runs can be approximated with a Gaussian
+    # with mean = u and std = sigma
+    u = ( 2 * n_p * n_n) / N + 1
+    sigma = ( (u - 1) * (u - 2) / (N - 1) )**0.5
+
+    # If z < thresh, the sign distribution is random
+    z = np.abs(n_runs - u) / sigma
+    return z < thresh
+
+def test_correl(data, subtract_mean=True):
+    """
+    Tests an array of residuals for their correlation.
+    It compares the unit-lag autocorrelation P of the data (see below) with the theoretical value for non-correlated data T_P:
+    P = sum_i^(N-1) r_i r_(i+1) ; T_P = (N-1)^(0.5) \sum_i r_i^2
+    If P < T_P, the residuals are not correlated, and the result is True.
+    ----------
+    Parameters:
+    - data: 1darray
+        Residuals to be test
+    - subtract_mean: bool
+        If True, subtracts from the residuals their mean.
+    ----------
+    Returns:
+    - test: bool
+        True if the residuals are non correlated, False otherwise
+    """
+    # Shallow copy of the residuals
+    r = np.copy(data)
+    # Size of the data
+    N = len(r)
+    if subtract_mean: # Subtract from the residuals their mean
+        r -= np.mean(r)
+
+    # Compute the discrete correlation function of the residuals P
+    r_roll = np.roll(r, 1)
+    P = np.sum( (r * r_roll)[:-1] )
+    # Compute threshold for correlation
+    T_P = 1 / (N - 1)**0.5 * np.sum(r**2)
+
+    # Residuals are not correlated if P < T_P
+    return np.abs(P) < T_P
+
+def test_ks(data, thresh=0.05):
+    """
+    Performs the Kolmogorov-Smirnov test on the residuals to check if they are drawn from a normal distribution.
+    The implementation is scipy.stats.kstest.
+    The result is True if the residuals are Gaussian.
+    ----------
+    Parameters:
+    - data: 1darray
+        Residuals to test
+    - thresh: float
+        Significance level for the test. Default is 5%
+    ---------
+    Returns:
+    - test: bool
+        True if the residuals are Gaussian, False otherwise
+    """
+    # Shallow copy
+    r = np.copy(data)
+    from scipy.stats import kstest
+    ksstat = kstest(r, "norm", args=(np.mean(r), np.std(r)))
+    # Residuals are gaussian distributed if p_value > thresh
+    return ksstat.pvalue > thresh
+
+def test_residuals(res, alpha=0.05):
+    """
+    Tests an array of residuals for their randomness, correlation, and underlying distribution.
+    To do this, it uses the functions "fit.test_randomsign", "fit.test_correl", "fit.test_ks".
+    The results of the tests will be print in standard output and returned.
+    ------------------
+    Parameters:
+    - res: ndarray
+        Residuals to be tested
+    - alpha: float
+        Significance level
+    ------------------
+    Returns:
+    - test_random: bool
+        Randomness of the residuals (True = random)
+    - test_correlation: bool
+        Correlation of the residuals (True = non-correlated)
+    - test_gaussian: bool
+        Normal-distribution of the residuals (True = normally-distributed)
+    """
+    from scipy.stats import norm
     
-    # Calculate SYSDEV
-    N_s = np.sum((np.diff(np.sign(R)) != 0)*1)
-    SYSDEV = N_s / (len(R)/2)
+    # Get the z-score from the significance level
+    z_value = norm.ppf(1 - alpha/2)
+
+    # Convert the residuals to 1D
+    r = np.flatten(res)
     
-    # Make histogram 
-    hist, bin_edges = np.histogram(R, bins=nbins, density=density)   # Computes the bins for the histogram
+    # Compute the tests
+    test_randomness = fit.test_randomsign(r, z_value) 
+    test_correlation = fit.test_correl(r, False) 
+    test_gaussian = fit.test_ks(r, alpha)
 
-    # Set A according to density
-    if density:
-        A_t = 1
-    else:
-        A_t = np.trapz(hist, dx=bin_edges[1]-bin_edges[0])    # Integral
+    # Print the results
+    print('\n'.join([
+        f'{"Random":22s}: {test_randomness}',
+        f'{"Non-correlated":22s}: {test_correlation}',
+        f'{"Normally distributed":22s}: {test_gaussian}',
+        ]))
 
-    # center point of the bin bar
-    x = np.array( [(bin_edges[i]+bin_edges[i+1])/2 for i in range(len(bin_edges)-1)])
+    return test_randomness, test_correlation, test_gaussian
 
-    # Theoretical gaussian function and its integral
-    G_t = sim.f_gaussian(x, m_t, s_t, A_t)
-    I_t = np.trapz(G_t, dx=misc.calcres(x))
 
-    # Fitted gaussian and its integral
-    m_f, s_f, A_f = gaussian_fit(x, hist)
-    G_f = sim.f_gaussian(x, m_f, s_f, A_f)
-    I_f = np.trapz(G_f, dx=misc.calcres(x))
-    
-    # Calculate Q_G
-    Q_G = np.trapz(np.abs(G_t - G_f), dx=misc.calcres(x))
-    # Normalize it. 1- is to make it similar to SYSDEV
-    Q_G = 1 - (Q_G / (I_t + I_f))
-
-    return SYSDEV, Q_G
 
 def write_log(input_file, output_file, limits, V_i, C_i, V_f, C_f, result, runtime, test_res=True, log_file='fit.log'):
     """

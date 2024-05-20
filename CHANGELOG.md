@@ -3,12 +3,18 @@
 ## New functions:
 02/05/2024
 - *processing.convolve*
+20/05/2024
+- *fit.test_randomsign*
+- *fit.test_correl*
+- *fit.test_ks*
 
 ## Modified functions:
 04/04/2024
 - *Spectrum_2D.__init__*: reshape of the fid is now made with last dimension implicit
 02/05/2024
 - *misc.show_cmap*: added parameter **filename** to save the figure, changed figure size
+20/05/2024
+- *fit.test_residuals*: employs three new functions, improved performance
 
 # Version 0.4a.3
 
