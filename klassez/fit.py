@@ -2725,7 +2725,7 @@ def test_residuals(res, alpha=0.05):
     z_value = norm.ppf(1 - alpha/2)
 
     # Convert the residuals to 1D
-    r = np.flatten(res)
+    r = np.copy(res).flatten()
     
     # Compute the tests
     test_randomness = fit.test_randomsign(r, z_value) 
