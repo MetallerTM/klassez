@@ -1077,9 +1077,9 @@ class Spectrum_2D:
         """
         # Make empty self.S according to the zero-filling option in F2
         if self.procs['zf'][1] is None:
-            self.S = np.zeros_like(self.fid)
+            self.S = np.zeros_like(self.fid).astype(self.fid.dtype)
         else:
-            self.S = np.zeros((self.fid.shape[0], self.procs['zf'][1]))
+            self.S = np.zeros((self.fid.shape[0], self.procs['zf'][1])).astype(self.fid.dtype)
 
         # Apply 1D processing on F2 only, row-by-row
         for k in range(self.fid.shape[0]):
@@ -1119,9 +1119,9 @@ class Spectrum_2D:
 
         # Make empty self.S according to the zero-filling option in f1
         if self.procs['zf'][0] is None:
-            self.S = np.zeros_like(self.fid)
+            self.S = np.zeros_like(self.fid).astype(self.fid.dtype)
         else:
-            self.S = np.zeros((self.fid.shape[0], self.procs['zf'][0]))
+            self.S = np.zeros((self.fid.shape[0], self.procs['zf'][0])).astype(self.fid.dtype)
 
         # Apply 1D processing on F1 only, row by row because fid is transposed
         for k in range(self.fid.shape[0]):
@@ -2068,7 +2068,7 @@ class Pseudo_2D(Spectrum_2D):
         """
         # Make empty self.S whose dimensions are given by the zero-filling
         if self.procs['zf'] is None:
-            self.S = np.zeros(self.fid.shape)
+            self.S = np.zeros(self.fid.shape).astype(self.fid.dtype)
         else:
             self.S = np.zeros((self.fid.shape[0], self.procs['zf'])).astype(self.fid.dtype)
 
