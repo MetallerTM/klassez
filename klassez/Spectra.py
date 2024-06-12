@@ -2068,7 +2068,7 @@ class Pseudo_2D(Spectrum_2D):
         """
         # Make empty self.S whose dimensions are given by the zero-filling
         if self.procs['zf'] is None:
-            self.S = np.zeros_like(self.fid)
+            self.S = np.zeros(self.fid.shape)
         else:
             self.S = np.zeros((self.fid.shape[0], self.procs['zf'])).astype(self.fid.dtype)
 
