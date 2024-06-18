@@ -3,6 +3,7 @@
 ## New functions:
 02/05/2024
 - *processing.convolve*
+- *processing.inv_convolve*
 20/05/2024
 - *fit.test_randomsign*
 - *fit.test_correl*
@@ -17,6 +18,10 @@ Modified dtype of empty arrays in Spectra
 - *misc.show_cmap*: added parameter **filename** to save the figure, changed figure size
 20/05/2024
 - *fit.test_residuals*: employs three new functions, improved performance
+18/06/2024
+- *processing.stack_MCR*: now uses positioning matrix
+- *processing.MCR_unpack*: now uses positioning matrix
+- *processing.MCR*: modified parameters to use the new *processing.stack_MCR* and *processing.MCR_unpack*
 
 # Version 0.4a.3
 

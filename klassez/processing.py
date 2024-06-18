@@ -2824,42 +2824,63 @@ def calibration(ppmscale, S):
 
 #-----------------------------------------------------------------------------------------
 # MCR and related
-
-
-def stack_MCR(input_data, H=True):
+def stack_MCR(input_data, P='H'):
     """
-    Performs matrix augmentation converting input_data from dimensions (X, Y, Z) to (Y, X * Z) if H=True, or (X * Y, Z) if H=False.
+    Performs matrix augmentation by assembling input_data according to the positioning matrix P.
+    P has two default modes: 'H' = horizontal stacking; 'V' = vertical stacking. Otherwise, a custom P matrix can be given as follows.
+    The entries of the P matrix are the indices of the data in input_data. The shape of the matrix determines the final arrangement.
+    Example: if input_data is [a, b, c, d, e, f], and one wants to obtain [[a, b], [d,c], [f, e]] the correspondant P matrix is:
+    [[0, 1], [3, 2], [5, 4]]
+    If each dataset in input_data has dimensions (m, n) and P has dimensions (u,v), then the returned data matrix will have dimensions (mu, nv).
     -------
     Parameters:
     - input_data: 3darray
         Contains the spectra to be stacked together. The index that runs on the datasets must be the first one.
-    - H: bool
-        True for horizontal stacking, False for vertical stacking.
+    - P: str or 2darray
+        'H' for horizontal stacking, 'V' for vertical stacking, or custom matrix as explained in the description
     -------
     Returns:
     - data: 2darray
         Augmented data matrix.
     """
+    # Get the number of datasets
     if isinstance(input_data, list):
         nds = len(input_data)
         Q = input_data
-    else:
+    else:   # if it is not a list, make it be manually
         nds = input_data.shape[0]
         Q = [input_data[w] for w in range(nds)]
-    if H:
-        #data = np.concatenate([input_data[w] for w in range(nds)], axis=1).astype('complex128')
-        data = np.concatenate(Q, axis=1).astype('complex128')
-    else:
-        #data = np.concatenate([input_data[w] for w in range(nds)], axis=0).astype('complex128')
-        data = np.concatenate(Q, axis=0).astype('complex128')
+
+    # Compute the P matrix
+    if isinstance(P, str):  # default options
+        if P == 'H':    # Horizontal
+            P = np.arange(nds).reshape(1,-1)
+        elif P == 'V':  # Vertical
+            P = np.arange(nds).reshape(-1,1)
+        else:   # Unknown
+            raise ValueError('Unrecognized P type')
+    elif isinstance(P, np.ndarray): # Check if the dimensions are compatible
+        assert np.prod(P.shape) == nds, 'Wrong P shape'
+
+    # Assemble the data
+    for k in range(nds):
+        # Compute mask matrix
+        Mk = np.zeros_like(P)
+        # Find the position of the k-th spectrum in P
+        i, j = np.where(P == k)
+        # Set that position as a 1 in Mk, all the rest is 0
+        Mk[i[-1],j[-1]] = 1     # np.where returns lists of 1 number each
+        if k == 0:  # Make the variable
+            data = np.kron(Mk, Q[k])
+        else:       # Add it
+            data += np.kron(Mk, Q[k])
     return data
 
 
-def MCR_unpack(C, S, nds, H=True):
+def MCR_unpack(C, S, nds, P='H'):
     """
     Reverts matrix augmentation of stack_MCR.
-    > if H is True: converts C from dimensions (Y, n) to (X, Y, n) and S from dimensions (n, X*Z)  to (X, n, Z)
-    > if H is False:  converts C from dimensions (Y, n) to (X, Y, n) and S from dimensions (n, X*Z)  to (X, n, Z)
+    The denoised spectra can be calculated by matrix multiplication: D[k] = C_f[k] S_f[k], for k = 0,..., nds-1
     --------
     Parameters:
     - C: 2darray
@@ -2868,16 +2889,44 @@ def MCR_unpack(C, S, nds, H=True):
         MCR S matrix
     - nds: int
         number of experiments
-    - H: bool
-        True for horizontal stacking, False for vertical
+    - P: str or 2darray
+        'H' for horizontal stacking, 'V' for vertical stacking, or custom matrix as explained in the description of stack_MCR
+    ---------
+    Returns:
+    - C_f: list of 2darray
+        Disassembled MCR C matrix
+    - S_f: list of 2darray
+        Disassembled MCR C matrix
     """
-    if H:
-        C_f = np.array([C for w in range(nds)])
-        S_f = np.array(np.split(S, nds, axis=1))
-    else:
-        C_f = np.array(np.split(C, nds, axis=0))
-        S_f = np.array([S for w in range(nds)])
-    return C_f, S_f
+    # Compute the P matrix
+    if isinstance(P, str):  # default options
+        if P == 'H':    # Horizontal
+            P = np.arange(nds).reshape(1,-1)
+        elif P == 'V':  # Vertical
+            P = np.arange(nds).reshape(-1,1)
+        else:   # Unknown
+            raise ValueError('Unrecognized P type')
+    elif isinstance(P, np.ndarray): # Check if the dimensions are compatible
+        assert np.prod(P.shape) == nds, 'Wrong P shape'
+
+    # Compute the dimension of each original dataset
+    m = C.shape[0] // P.shape[0]    # num. rows of C / num. exp. per column
+    n = S.shape[-1] // P.shape[-1]  # num. columns of S / num. exp. per row
+    
+    # Initialize variables for storing the final C and S matrices
+    C_f, S_f = [], []
+
+    for k in range(nds):    # Loop on the datasets
+        i, j = np.where(P == k)     # find whe position of the k-th dataset in P
+        # Compute slices for delimiting the k-th spectrum
+        #   in C: all the columns, rows according to P
+        rslice = slice(i[0]*m, i[0]*m + m)  
+        C_f.append(C[rslice, ...])
+        #   in S: all the rows, columns according to P
+        cslice = slice(j[0]*n, j[0]*n + n)
+        S_f.append(S[...,cslice])
+
+    return np.array(C_f), np.array(S_f)
 
 def calc_nc(data, s_n):
     """
@@ -3230,7 +3279,7 @@ def new_MCR_ALS(D, C, S, itermax=10000, tol=1e-5, reg_f=None, reg_fargs=[]):
     return C, S
 
 
-def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True):
+def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, P='H', oncols=True):
     """
     This is an implementation of Multivariate Curve Resolution for the denoising of 2D NMR data.
     Let us consider a matrix D, of dimensions m x n, where the starting data are stored. The final purpose of MCR is to decompose the D matrix as follows:
@@ -3252,8 +3301,8 @@ def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True):
         tolerance for the arrest criterion;
     - itermax: int
         maximum number of allowed iterations
-    - H: bool
-        True for horizontal stacking of data (default), False for vertical;
+    - P: str or 2darray
+        'H' for horizontal stacking, 'V' for vertical stacking, or custom matrix as explained in the description of stack_MCR
     - oncols: bool
         True to estimate S with processing.SIMPLISMA, False to estimate C.
     -------
@@ -3286,7 +3335,7 @@ def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True):
     print('*                                                   *')
     print('*****************************************************\n')
 
-    D = processing.stack_MCR(input_data, H=H)           # Matrix augmentation
+    D = processing.stack_MCR(input_data, P=P)           # Matrix augmentation
 
     # Get initial estimation of C, S and E
     C0, S0 = processing.SIMPLISMA(D, nc, f, oncols=oncols)  
@@ -3295,17 +3344,10 @@ def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True):
     C, S = processing.MCR_ALS(D, C0, S0, itermax=itermax, tol=tol)
 
     # Revert matrix augmentation
-    C_f, S_f = processing.MCR_unpack(C, S, nds, H)
+    C_f, S_f = processing.MCR_unpack(C, S, nds, P)
         
     # Obtain the denoised data of the same shape as the input
-    if isinstance(input_data, list):
-        CS_f = []
-        for j in range(nds):
-            CS_f.append(C_f[j] @ S_f[j])
-    else:
-        CS_f = np.zeros_like(input_data).astype(input_data.dtype)
-        for j in range(nds):
-            CS_f[j] = C_f[j] @ S_f[j]
+    CS_f = [C_f[j] @ S_f[j] for j in range(nds)]
 
     # Reshape if no matrix augmentation is performed
     if nds == 1:
@@ -4696,3 +4738,26 @@ def convolve(in1, in2):
     cnv = size * np.fft.fftshift(np.fft.fft(cnvt))
     return cnv
 
+def inv_convolve(in1, in2):
+    """
+    Perform the inverse-convolution of the two array by dividing their inverse Fourier transform.
+    The two arrays must have the same dimension.
+    -----------
+    Parameters:
+    - in1: ndarray
+        First array
+    - in2: ndarray
+        Second array
+    -----------
+    Returns:
+    - cnv: ndarray
+        Convolved array
+    """
+    assert in1.shape[-1] == in2.shape[-1], 'The two arrays have different dimensions!'
+    size = in1.shape[-1]
+    in1t = np.fft.ifft(np.fft.ifftshift(in1))
+    in2t = np.fft.ifft(np.fft.ifftshift(in2))
+    cnvt = in1t * np.linalg.pinv(in2t)
+    # factor size is needed to correct the intensity
+    cnv = size * np.fft.fftshift(np.fft.fft(cnvt))
+    return cnv
