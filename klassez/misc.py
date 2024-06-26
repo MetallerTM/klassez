@@ -725,7 +725,8 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
         x, y = event.xdata, event.ydata     # x,y position of cursor
         if event.inaxes == ax:     # You are inside the figure
             ix, iy = misc.find_nearest(xgrid, x), misc.find_nearest(ygrid, y)       # Handle to the grid
-            if str(event.button) == 'MouseButton.LEFT' and event.dblclick:     # Left click: add point
+            if str(event.button) == '1' and event.dblclick:     # Left click: add point
+            #if str(event.button) == 'MouseButton.LEFT' and event.dblclick:     # Left click: add point
                 if [ix, iy] not in coord:       # Avoid superimposed peaks
                     coord.append([ix,iy])       # Update list
                     # Update figure:
@@ -736,7 +737,8 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
                     dothline.append(ax.axhline(iy, c='r', lw=0.4))
                     #   add vertical line
                     dotvline.append(ax.axvline(ix, c='r', lw=0.4))
-            if str(event.button) == 'MouseButton.RIGHT':    # Right click: remove point
+            if str(event.button) == '0':     # Left click: add point
+            #if str(event.button) == 'MouseButton.RIGHT':    # Right click: remove point
                 if [ix, iy] in coord:       # only if the point is already selected
                     # Remove coordinates and all figure elements
                     i = coord.index([ix, iy])
