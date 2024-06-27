@@ -1709,7 +1709,7 @@ class Spectrum_2D:
             ax.set_xlabel(X_label)
             ax.set_ylabel(Y_label)
             misc.set_fontsizes(ax, 14)
-            print('{:.3f}'.format(lvl), end='\r')
+            lvl_text.set_text(f'{lvl:.5g}')
             fig.canvas.draw()
 
         # Make the figure
@@ -1722,6 +1722,8 @@ class Spectrum_2D:
         contour_factor = 1.40
 
         lvl = lvl0
+
+        lvl_text = ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
 
         cnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cmap=cmaps[0])
         if Neg:
@@ -2367,7 +2369,7 @@ class Pseudo_2D(Spectrum_2D):
             ax.set_xlabel(X_label)
             ax.set_ylabel(Y_label)
             misc.set_fontsizes(ax, 14)
-            print('{:.3f}'.format(lvl), end='\r')
+            lvl_text.set_text(f'{lvl:.5g}')
             fig.canvas.draw()
 
         # Make the figure
@@ -2384,6 +2386,8 @@ class Pseudo_2D(Spectrum_2D):
         cnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cmap=cmaps[0])
         if Neg:
             Ncnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, -S, lvl=lvl, cmap=cmaps[1])
+
+        lvl_text = ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
 
         # Make pretty x-scale
         misc.pretty_scale(ax, (max(self.ppm_f2), min(self.ppm_f2)), axis='x', n_major_ticks=n_xticks)
