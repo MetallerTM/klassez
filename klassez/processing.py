@@ -113,7 +113,7 @@ def interactive_echo_param(data0):
         except SyntaxError:
             pass
         # Draw the red bars and set them visible
-        [X.set_xdata(k*param['n']+param['i_p']) for k, X in enumerate(sampling)]
+        [X.set_xdata((k*param['n']+param['i_p'],)) for k, X in enumerate(sampling)]
         change_nechoes()
         # Redraw the plots
         update_axs()
@@ -136,7 +136,7 @@ def interactive_echo_param(data0):
         else:
             return
         # Redraw the red bars and set them visible
-        [X.set_xdata(k*param['n']+param['i_p']) for k, X in enumerate(sampling)]
+        [X.set_xdata((k*param['n']+param['i_p']),) for k, X in enumerate(sampling)]
         change_nechoes()
         # Redraw the subplots
         update_axs()
@@ -1921,7 +1921,7 @@ def interactive_phase_1D(ppmscale, S):
 
         data_inside = phase(S, p0, p1, pivot)   # phase the spectrum
         spectrum.set_ydata(data_inside.real)    # update plot
-        pivot_bar.set_xdata(pivot)              # update pivot bar
+        pivot_bar.set_xdata((pivot,))              # update pivot bar
         # Interactively update the vertical limits
         if zoom_adj:
             T = max(data_inside.real)   
@@ -2242,8 +2242,8 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
             # update plots
             t_f2[i].set_ydata(y_f2.real)
             t_f1[i].set_ydata(y_f1.real)
-            p_f2[i].set_xdata(P[0][2])
-            p_f1[i].set_xdata(P[1][2])
+            p_f2[i].set_xdata((P[0][2],))
+            p_f1[i].set_xdata((P[1][2],))
             # Update zoom
             if zoom_adj:
                 misc.set_ylim(ax[2*i], y_f2.real)
@@ -2749,7 +2749,7 @@ def calibration(ppmscale, S):
             nonlocal g_pos, g_idx
             g_pos = x 
             g_idx = misc.ppmfind(ppmscale, g_pos)[0]
-            guide.set_xdata(x)
+            guide.set_xdata((x,))
         gtext.set_text('Ref: {: 9.3f}'.format(g_pos))
         fig.canvas.draw()
         
@@ -2761,7 +2761,7 @@ def calibration(ppmscale, S):
                 nonlocal d_pos, d_idx
                 d_pos = x 
                 d_idx = misc.ppmfind(ppmscale, d_pos)[0]
-                dguide.set_xdata(x)
+                dguide.set_xdata((x,))
             dtext.set_text('Cal: {: 9.3f}'.format(d_pos))
         fig.canvas.draw()
         
@@ -2773,8 +2773,8 @@ def calibration(ppmscale, S):
         if event.button == 'down':
             ppmscale -= calstep
         spect.set_xdata(ppmscale)
-        guide.set_xdata(ppmscale[g_idx])
-        dguide.set_xdata(d_pos)
+        guide.set_xdata((ppmscale[g_idx],))
+        dguide.set_xdata((d_pos,))
         gtext.set_text('Ref: {: 9.3f}'.format(ppmscale[g_idx]))
         dtext.set_text('Cal: {: 9.3f}'.format(d_pos))
         update(0)

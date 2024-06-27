@@ -373,8 +373,8 @@ def get_region(ppmscale, S, rev=True):
         LB, RB = misc.ppmfind(ppmscale, left)[0], misc.ppmfind(ppmscale, right)[0]
         data_inside = S[min(LB,RB):max(LB,RB)]
 
-        L.set_xdata(left)
-        R.set_xdata(right)
+        L.set_xdata((left),)
+        R.set_xdata((right),)
         if rev:
             ax.set_xlim(left+25*res, right-25*res)
         else:

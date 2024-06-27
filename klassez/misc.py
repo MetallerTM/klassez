@@ -840,9 +840,9 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
             ix, iy = misc.find_nearest(xgrid, x), misc.find_nearest(ygrid, y)       # Snap to the grid
             if str(event.button) == '3':    
                 # Update figure:
-                tmp_dot.set_data(ix, iy)
-                tmp_hline.set_ydata(iy)
-                tmp_vline.set_xdata(ix)
+                tmp_dot.set_data((ix,), (iy,))
+                tmp_hline.set_ydata((iy,))
+                tmp_vline.set_xdata((ix,))
                 # Make visible the red crosshair
                 for obj in (tmp_dot, tmp_hline, tmp_vline):
                     obj.set_visible(True)
