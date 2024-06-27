@@ -1610,6 +1610,8 @@ def show_cmap(cmap, N=10, start=0, end=1, filename=None):
         Start point of the sampling. 0 = beginning of the cmap; 1 = end of the cmap.
     - end: float
         End point of the sampling. 0 = beginning of the cmap; 1 = end of the cmap.
+    - filename: str or None
+        Filename of the figure to be saved. The ".png" extension is added automatically. If None, the figure is shown instead
     """
 
     x = np.linspace(start, end, N)

@@ -1663,23 +1663,9 @@ def redraw_contours(ax, ppm_f2, ppm_f1, S, lvl, cnt, Neg=False, Ncnt=None, lw=0.
     # Suppress the 'I cannot find the contours' warning
     warnings.filterwarnings("ignore", message="No contour levels were found within the data range.")
 
-    for c in cnt.collections:
-        # try to remove the positive contours
-        try:
-            c.remove()
-        except Exception as e:
-            if verb:
-                print(e)
-            pass
+    cnt.remove()
     if Neg:
-        # try to remove the negative contours
-        for Nc in Ncnt.collections:
-            try:
-                Nc.remove()
-            except Exception as e:
-                if verb:
-                    print(e)
-                pass
+        Ncnt.remove()
     # Draw new positive contours
     cnt = figures.ax2D(ax, ppm_f2, ppm_f1, S, lvl=lvl, cmap=cmap[0])
     if Neg:

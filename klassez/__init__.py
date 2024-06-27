@@ -17,7 +17,7 @@ from .Spectra import Spectrum_1D, pSpectrum_1D, Spectrum_2D, pSpectrum_2D, Pseud
 __version__ = '0.4a.4'
 
 # Use seaborn's colormaps and save it to a dictionary
-from .config import CM, COLORS, cron
+from .config import CM, CM_2D, COLORS, cron
 
 def open_doc():
     """ Open the documentation .pdf file in the browser. """

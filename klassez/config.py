@@ -26,10 +26,13 @@ global CM, COLORS
 CM = {}
 for key in CMapsNames:
     CM[key] = sns.color_palette(key, as_cmap=True)
+del CMapsNames
+
+# Cmaps for 2D spectra display
+CM_2D = {key: CM[key] for key in ['Greys_r', 'Blues_r', 'Reds_r', 'Greens_r', 'Oranges_r', 'Purples_r', 'copper'] }
 
 
 # List of colors
-
 
 colors = [
 'tab:blue',
