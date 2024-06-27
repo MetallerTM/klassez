@@ -1316,7 +1316,7 @@ def nuc_format(nuc):
         Formatted string.
     """
     import re
-    fnuc = re.split('(\D+)',nuc)
+    fnuc = re.split(r'(\D+)',nuc)
     f_nuc = '$^{' + str(fnuc[0]) + '}$'+str(fnuc[1])
     return f_nuc
 

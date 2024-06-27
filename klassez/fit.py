@@ -420,7 +420,7 @@ def get_region(ppmscale, S, rev=True):
 
     ax.plot(ppmscale, S.real, c='b', lw=0.8)        # Plot the data
     misc.mathformat(ax, 'y')
-    ax.set_xlabel('$\delta\,$ /ppm')
+    ax.set_xlabel(r'$\delta\,$ /ppm')
     ax.set_ylabel('Intensity /a.u.')
     ax.set_title('Press Z to toggle the automatic zoom')
     L = ax.axvline(x=left, lw=0.5, c='r')           # Left selector
@@ -1478,7 +1478,7 @@ def calc_fit_lines(ppm_scale, limits, t_AQ, SFO1, o1p, N, V, C=False):
 
     return sgn, Total, baseline
 
-def integrate(ppm0, data0, X_label='$\delta\,$F1 /ppm'):
+def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
     """
     Allows interactive integration of a NMR spectrum through a dedicated GUI. Returns the values as a dictionary, where the keys are the selected regions truncated to the 2nd decimal figure.
     The returned dictionary contains pre-defined keys, as follows:
@@ -1991,8 +1991,8 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     
     # Make widgets
     #   Buttons
-    up_button = Button(up_box, '$\\uparrow$', hovercolor = '0.975')    
-    down_button = Button(down_box, '$\\downarrow$', hovercolor = '0.975')
+    up_button = Button(up_box, r'$\uparrow$', hovercolor = '0.975')    
+    down_button = Button(down_box, r'$\downarrow$', hovercolor = '0.975')
     save_button = Button(save_box, 'SAVE', hovercolor = '0.975')
     reset_button = Button(reset_box, 'RESET', hovercolor = '0.975')
     plus_button = Button(plus_box, '$+$', hovercolor='0.975')
@@ -2002,7 +2002,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     group_tb = TextBox(group_box, 'Group', textalignment='center')
     
     #   Radiobuttons
-    peak_name = ['$\delta$ /ppm', '$\Gamma$ /Hz', '$k$', '$x_{g}$', '$\phi$', '$A$']
+    peak_name = [r'$\delta$ /ppm', r'$\Gamma$ /Hz', '$k$', '$x_{g}$', r'$\phi$', '$A$']
     peak_radio = RadioButtons(peak_box, peak_name, activecolor='tab:blue')      # Signal parameters
     
     #   Slider
@@ -2260,7 +2260,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     # Header for current values print
     head_print = ax.text(0.75, 0.35, 
             '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}\n{:>7}'.format(
-                '$\delta$', '$\Gamma$', '$k$', '$x_g$', 'Phase', '$A$', 'Group'),
+                r'$\delta$', r'$\Gamma$', '$k$', '$x_g$', 'Phase', '$A$', 'Group'),
             ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5)
     # Text placeholder for the values - linspacing is different to align with the header
     values_print = ax.text(0.85, 0.35, '',
@@ -2903,10 +2903,10 @@ class Voigt_Fit:
         self.o1p = o1p
         self.filename = filename
         if nuc is None:
-            self.X_label = '$\delta\,$ /ppm'
+            self.X_label = r'$\delta\,$ /ppm'
         elif isinstance(nuc, str):
             fnuc = misc.nuc_format(nuc)
-            self.X_label = '$\delta$ ' + fnuc +' /ppm'
+            self.X_label = r'$\delta$ ' + fnuc +' /ppm'
 
     def iguess(self, input_file=None, n=-1):
         """
@@ -3604,8 +3604,8 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     
     # Make widgets
     #   Buttons
-    up_button = Button(su_box, '$\\uparrow$', hovercolor = '0.975')         # increase sensitivity button
-    down_button = Button(giu_box, '$\\downarrow$', hovercolor = '0.975')    # decrease sensitivity button
+    up_button = Button(su_box, r'$\uparrow$', hovercolor = '0.975')         # increase sensitivity button
+    down_button = Button(giu_box, r'\downarrow$', hovercolor = '0.975')    # decrease sensitivity button
     save_button = Button(save_box, 'SAVE', hovercolor = '0.975')            # SAVE button
     reset_button = Button(reset_box, 'RESET', hovercolor = '0.975')         # RESET button
     
@@ -5239,8 +5239,8 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     
     # Make widgets
     #   Buttons
-    up_button = Button(up_box, '$\\uparrow$', hovercolor = '0.975')    
-    down_button = Button(down_box, '$\\downarrow$', hovercolor = '0.975')
+    up_button = Button(up_box, r'$\uparrow$', hovercolor = '0.975')    
+    down_button = Button(down_box, r'$\downarrow$', hovercolor = '0.975')
     save_button = Button(save_box, 'SAVE', hovercolor = '0.975')
     reset_button = Button(reset_box, 'RESET', hovercolor = '0.975')
     plus_button = Button(plus_box, '$+$', hovercolor='0.975')
@@ -5250,7 +5250,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     group_tb = TextBox(group_box, 'Group', textalignment='center')
     
     #   Radiobuttons
-    peak_name = ['$\delta$ /ppm', '$\Gamma$ /Hz', '$k$', '$x_{g}$', '$\phi$', '$A$']
+    peak_name = [r'$\delta$ /ppm', r'$\Gamma$ /Hz', '$k$', '$x_{g}$', r'$\phi$', '$A$']
     peak_radio = RadioButtons(peak_box, peak_name, activecolor='tab:blue')      # Signal parameters
     
     #   Slider
@@ -5513,7 +5513,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     # Header for current values print
     head_print = ax.text(0.75, 0.35, 
             '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}\n{:>7}'.format(
-                '$\delta$', '$\Gamma$', '$k$', '$x_g$', 'Phase', '$A$', 'Group'),
+                r'$\delta$', r'$\Gamma$', '$k$', '$x_g$', 'Phase', '$A$', 'Group'),
             ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5)
     # Text placeholder for the values - linspacing is different to align with the header
     values_print = ax.text(0.85, 0.35, '',
@@ -6061,10 +6061,10 @@ class Voigt_Fit_P2D:
         self.o1p = o1p
         self.filename = filename
         if nuc is None:
-            self.X_label = '$\delta\,$ /ppm'
+            self.X_label = r'$\delta\,$ /ppm'
         elif isinstance(nuc, str):
             fnuc = misc.nuc_format(nuc)
-            self.X_label = '$\delta$ ' + fnuc +' /ppm'
+            self.X_label = r'$\delta$ ' + fnuc +' /ppm'
 
     def iguess(self, input_file=None, expno=0, n=-1,):
         """

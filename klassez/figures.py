@@ -596,7 +596,7 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
     return cnt
 
 
-def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default', c_fac=1.4, Negatives=False, X_label='$\delta\ $ F2 /ppm', Y_label='$\delta\ $ F1 /ppm', lw=0.5, n_xticks=10, n_yticks=10, labels=None, name=None, ext='tiff', dpi=600):
+def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default', c_fac=1.4, Negatives=False, X_label=r'$\delta\ $ F2 /ppm', Y_label=r'$\delta\ $ F1 /ppm', lw=0.5, n_xticks=10, n_yticks=10, labels=None, name=None, ext='tiff', dpi=600):
     """
     Generates the figure of multiple, superimposed spectra, using figures.ax2D.
     --------
@@ -711,7 +711,7 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
     print( 'Done.')
 
 
-def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, fontsize=10, name=None, ext='tiff', dpi=600):
+def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5, X_label=r'$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, fontsize=10, name=None, ext='tiff', dpi=600):
     """
     Makes the figure of a 1D NMR spectrum.
 
@@ -793,7 +793,7 @@ def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.
     print( 'Done.')
 
 
-def ax1D(ax, ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, label=None, fontsize=10):
+def ax1D(ax, ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5, X_label=r'$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, label=None, fontsize=10):
     """
     Makes the figure of a 1D NMR spectrum, placing it in a given figure panel.
     This allows the making of modular figures.
@@ -866,7 +866,7 @@ def ax1D(ax, ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.
     return line
 
 
-def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, X_label='$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, fontsize=10, labels=None, name=None, ext='tiff', dpi=600):
+def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, X_label=r'$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, fontsize=10, labels=None, name=None, ext='tiff', dpi=600):
     """
     Creates the superimposed plot of a series of 1D NMR spectra.
     -------
@@ -1036,7 +1036,7 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, X_la
     print( 'Done.')
 
 
-def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, s_labels=None, X_label='$\delta\,$ F1 /ppm', n_xticks=10, name=None):
+def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, s_labels=None, X_label=r'$\delta\,$ F1 /ppm', n_xticks=10, name=None):
     """
     Makes the figure to show the result of a quantitative fit.
     --------
@@ -1130,7 +1130,7 @@ def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, 
 
 
 
-def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label='$\delta\ $ F1 /ppm', Y_label='Normalized intensity /a.u.', n_xticks=10, labels=None, name=None, ext='tiff', dpi=600):
+def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm', Y_label='Normalized intensity /a.u.', n_xticks=10, labels=None, name=None, ext='tiff', dpi=600):
     """
     Creates a stacked plot of all the spectra contained in the list S. Note that S MUST BE a list. All the spectra must share the same scale.
     --------
@@ -1360,8 +1360,8 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
             ha='right', va='center', transform=check_box.transAxes, fontsize=10))
 
     # Create buttons
-    iz_button = Button(iz_box, label='$\\uparrow$') #!!!
-    dz_button = Button(dz_box, label='$\downarrow$') #!!!
+    iz_button = Button(iz_box, label=r'$\uparrow$') #!!!
+    dz_button = Button(dz_box, label=r'$\downarrow$') #!!!
     adj_button = Button(adj_box, label='Adjust') #!!!
 
     # Connect the widgets to functions
@@ -1382,7 +1382,7 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
 
 
  
-def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label='$\delta\ $ F2 /ppm', Y_label='$\delta\ $ F1 /ppm', n_xticks=10, n_yticks=10, Neg=False):
+def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta\ $ F2 /ppm', Y_label=r'$\delta\ $ F1 /ppm', n_xticks=10, n_yticks=10, Neg=False):
     """
     Interactive display of multiple 2D spectra. They have to share the same scales.
     -------
@@ -1603,8 +1603,8 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label='$\delta\
             ha='right', va='center', transform=check_box.transAxes, fontsize=10))
 
     # Create buttons
-    iz_button = Button(iz_box, label='$\\uparrow$')
-    dz_button = Button(dz_box, label='$\downarrow$')
+    iz_button = Button(iz_box, label=r'$\uparrow$')
+    dz_button = Button(dz_box, label=r'$\downarrow$')
     save_button = Button(ax=save_box, label='Make\nfigure')
 
     # Connect the widgets to functions

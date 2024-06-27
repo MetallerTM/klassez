@@ -929,7 +929,7 @@ def interactive_fp(fid0, acqus, procs):
     tx['gc'] = plt.text(0.93, calcy(gc_box), '{:.2f}'.format(procs['wf']['gc']), ha='left', va='center', transform=fig.transFigure)
     
     # Customize appearance
-    ax.set_xlabel('$\delta $ {} /ppm'.format(misc.nuc_format(acqus['nuc'])))
+    ax.set_xlabel(r'$\delta\,$'+misc.nuc_format(acqus['nuc'])+' /ppm')
     ax.set_ylabel('Intensity /a.u.')
     misc.set_ylim(ax, data.real)
     misc.set_ylim(axf, (-1,1))
@@ -1273,8 +1273,8 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
         hm.set_data(fidp.real)
 
         # Update the limits and make figure pretty
-        ax.set_xlabel('$\delta $ {} /ppm'.format(misc.nuc_format(acqu2s['nuc'])))
-        ax.set_ylabel('$\delta $ {} /ppm'.format(misc.nuc_format(acqu1s['nuc'])))
+        ax.set_xlabel(r'$\delta\,$'+ misc.nuc_format(acqu2s['nuc'])+' /ppm')
+        ax.set_ylabel(r'$\delta\,$'+ misc.nuc_format(acqu1s['nuc'])+' /ppm')
         misc.set_ylim(axf2, (apodf2, -apodf2))
         misc.set_ylim(axf1, (apodf1, -apodf1))
         misc.set_fontsizes(ax, 14)
@@ -1519,8 +1519,8 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
 
     # Customize appearance
     #   Spectrum axis labels
-    ax.set_xlabel('$\delta $ {} /ppm'.format(misc.nuc_format(acqu2s['nuc'])))
-    ax.set_ylabel('$\delta $ {} /ppm'.format(misc.nuc_format(acqu1s['nuc'])))
+    ax.set_xlabel(r'$\delta\,$' + misc.nuc_format(acqu2s['nuc']) + ' /ppm')
+    ax.set_ylabel(r'$\delta\,$' + misc.nuc_format(acqu1s['nuc']) + ' /ppm')
     #   Spectrum axes scales
     misc.pretty_scale(ax, (max(ppm_f2), min(ppm_f2)), axis='x')
     misc.pretty_scale(ax, (max(ppm_f1), min(ppm_f1)), axis='y')
@@ -1853,8 +1853,8 @@ def interactive_phase_1D(ppmscale, S):
     l = Slider(ax=box_l, label='Left', valmin=min(ppmscale), valmax=max(ppmscale), valinit=max(ppmscale), orientation='vertical')
     r = Slider(ax=box_r, label='Right', valmin=min(ppmscale), valmax=max(ppmscale), valinit=min(ppmscale), orientation='vertical')
     #   Buttons
-    up_button = Button(box_us, '$\\uparrow$', hovercolor='0.975')
-    down_button = Button(box_ds, '$\\downarrow$', hovercolor='0.975')
+    up_button = Button(box_us, r'$\uparrow$', hovercolor='0.975')
+    down_button = Button(box_ds, r'$\downarrow$', hovercolor='0.975')
     save_button = Button(box_save, 'SAVE', hovercolor='0.975')
     reset_button = Button(box_reset, 'RESET', hovercolor='0.975')
     saveandexit = Button(box_sande, 'SAVE AND EXIT', hovercolor='0.975')
@@ -1977,7 +1977,7 @@ def interactive_phase_1D(ppmscale, S):
     
 
     # Write axis label
-    plt.text(0.5, 0.05, '$\delta$ /ppm', ha='center', va='center', fontsize=20, transform=fig.transFigure)
+    plt.text(0.5, 0.05, r'$\delta$ /ppm', ha='center', va='center', fontsize=20, transform=fig.transFigure)
 
     phases_text = plt.text(0.75, 0.015, 
             'p0={:7.2f} | p1={:7.2f} | pv={:7.2f}'.format(*P),
@@ -2111,8 +2111,8 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
 
     # Make the sliders
     #   for sensitivity
-    up_button = Button(box_us, '$\\uparrow$', hovercolor='0.975')
-    down_button = Button(box_ds, '$\\downarrow$', hovercolor='0.975')
+    up_button = Button(box_us, r'$\uparrow$', hovercolor='0.975')
+    down_button = Button(box_ds, r'$\downarrow$', hovercolor='0.975')
     #   for zoom
     l_f2 = Slider(ax=box_l_f2, label='Left', valmin=min(ppm_f2), valmax=max(ppm_f2), valinit=max(ppm_f2), orientation='vertical')
     r_f2 = Slider(ax=box_r_f2, label='Right', valmin=min(ppm_f2), valmax=max(ppm_f2), valinit=min(ppm_f2), orientation='vertical')
@@ -2309,12 +2309,12 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
                 T = max(f2[i].real)
                 B = min(f2[i].real)
                 panel = 2 * i
-                ax[panel].set_title('$\delta\,$F1: {:.1f} ppm'.format(coord[i][1]))
+                ax[panel].set_title(r'$\delta\,$F1: '+'{:.1f} ppm'.format(coord[i][1]))
             else:       # right
                 T = max(f1[i].real)
                 B = min(f1[i].real)
                 panel = 2 * i + 1
-                ax[panel].set_title('$\delta\,$F2: {:.1f} ppm'.format(coord[i][0]))
+                ax[panel].set_title(r'$\delta\,$F2: '+'{:.1f} ppm'.format(coord[i][0]))
             
             
             ax[panel].set_ylim(B - 0.01*T, T + 0.01*T)
@@ -2346,8 +2346,8 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
         ax[2*i].axhline(0, c='k', lw=0.2)    # baseline guide
         ax[2*i+1].axhline(0, c='k', lw=0.2)    # baseline guide
 
-    plt.text(0.30, 0.050, '$\delta$ F2 /ppm', ha='center', va='bottom', fontsize=18, transform=fig.transFigure)
-    plt.text(0.65, 0.050, '$\delta$ F1 /ppm', ha='center', va='bottom', fontsize=18, transform=fig.transFigure)
+    plt.text(0.30, 0.050, r'$\delta$ F2 /ppm', ha='center', va='bottom', fontsize=18, transform=fig.transFigure)
+    plt.text(0.65, 0.050, r'$\delta$ F1 /ppm', ha='center', va='bottom', fontsize=18, transform=fig.transFigure)
 
     phases_text = plt.text(0.975, 0.015, 
             'p02={:7.2f} | p12={:7.2f} | pv2={:7.2f} || p01={:7.2f} | p11={:7.2f} | pv1={:7.2f}'.format(*P[0], *P[1]),
@@ -2677,9 +2677,9 @@ def calibration(ppmscale, S):
     box_reset = plt.axes([0.825, 0.475, 0.07, 0.08])
     reset_button = Button(box_reset, 'RESET', hovercolor='0.975')
     box_up = plt.axes([0.905, 0.675, 0.07, 0.08])
-    up_button = Button(box_up, '$\\uparrow$', hovercolor='0.975')
+    up_button = Button(box_up, r'$\uparrow$', hovercolor='0.975')
     box_down = plt.axes([0.825, 0.675, 0.07, 0.08])
-    down_button = Button(box_down, '$\\downarrow$', hovercolor='0.975')
+    down_button = Button(box_down, r'$\downarrow$', hovercolor='0.975')
 
     # RadioButtons
     box_radio = plt.axes([0.825, 0.25, 0.15, 0.2])
@@ -3773,8 +3773,8 @@ def make_polynomion_baseline(ppm, data, limits):
     
     # Make widgets
     #   Buttons
-    up_button = Button(su_box, '$\\uparrow$', hovercolor = '0.975')    
-    down_button = Button(giu_box, '$\\downarrow$', hovercolor = '0.975')
+    up_button = Button(su_box, r'$\uparrow$', hovercolor = '0.975')    
+    down_button = Button(giu_box, r'$\downarrow$', hovercolor = '0.975')
     save_button = Button(save_box, 'SAVE', hovercolor = '0.975')
     reset_button = Button(reset_box, 'RESET', hovercolor = '0.975')
     callspline_button = Button(callspline_box, 'SPLINE BASELINE\nCORRECTION', hovercolor = '0.975')
@@ -4160,7 +4160,7 @@ def interactive_qfil(ppm, data_in):
 
     # Plot 
     #   Original spectrum
-    figures.ax1D(ax, ppm, data, c='tab:blue', lw=0.8, X_label='$\delta\, $/ppm', Y_label='Intensity /a.u.', label='Original')
+    figures.ax1D(ax, ppm, data, c='tab:blue', lw=0.8, X_label=r'$\delta\, $/ppm', Y_label='Intensity /a.u.', label='Original')
     #   Filter
     G_plot, = ax.plot(ppm, G*np.max(data), c='tab:orange', lw=0.6, ls='--', label='Filter')
     #   Processed data

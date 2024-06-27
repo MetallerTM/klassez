@@ -515,7 +515,7 @@ class Spectrum_1D:
         spect, = ax.plot(self.ppm, self.r, lw=0.8)
 
         # Make the label of the x-axis
-        X_label = '$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
+        X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
         ax.set_xlabel(X_label)
 
         # Fancy figure adjustments
@@ -612,7 +612,7 @@ class Spectrum_1D:
         - lims: tuple
             Integrates from lims[0] to lims[1]. If it is None, calls for interactive integration.
         """
-        X_label = '$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
+        X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
         if lims is None:
             integrals = fit.integrate(self.ppm, self.r, X_label=X_label)
             for key, value in integrals.items():
@@ -1661,8 +1661,8 @@ class Spectrum_2D:
         S = self.rr
         n_xticks, n_yticks = 10, 10
 
-        X_label = '$\delta\ $'+misc.nuc_format(self.acqus['nuc2'])+' /ppm'
-        Y_label = '$\delta\ $'+misc.nuc_format(self.acqus['nuc1'])+' /ppm'
+        X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc2'])+' /ppm'
+        Y_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc1'])+' /ppm'
 
         cmaps = ['Blues_r', 'Reds_r']
 
@@ -1738,8 +1738,8 @@ class Spectrum_2D:
         scale_factor = 1
 
         # Create buttons
-        iz_button = Button(iz_box, label='$\\uparrow$')
-        dz_button = Button(dz_box, label='$\downarrow$')
+        iz_button = Button(iz_box, label=r'$\uparrow$')
+        dz_button = Button(dz_box, label=r'$\downarrow$')
 
         # Connect the widgets to functions
         scroll = fig.canvas.mpl_connect('scroll_event', on_scroll)
@@ -2322,7 +2322,7 @@ class Pseudo_2D(Spectrum_2D):
         S = np.copy(self.rr)
         n_xticks, n_yticks = 10, 10
 
-        X_label = '$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
+        X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
 
         cmaps = ['Blues_r', 'Reds_r']
 
@@ -2398,8 +2398,8 @@ class Pseudo_2D(Spectrum_2D):
         scale_factor = 1
 
         # Create buttons
-        iz_button = Button(iz_box, label='$\\uparrow$')
-        dz_button = Button(dz_box, label='$\downarrow$')
+        iz_button = Button(iz_box, label=r'$\uparrow$')
+        dz_button = Button(dz_box, label=r'$\downarrow$')
 
         # Connect the widgets to functions
         scroll = fig.canvas.mpl_connect('scroll_event', on_scroll)
@@ -2469,7 +2469,7 @@ class Pseudo_2D(Spectrum_2D):
                 _, S[k] = misc.trim_data(ppm, s, *lims)
             ppm, _ = misc.trim_data(ppm, s, *lims)
 
-        X_label = '$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
+        X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
 
         # Make the figure
         figures.stacked_plot(
@@ -2493,7 +2493,7 @@ class Pseudo_2D(Spectrum_2D):
         """
         # Select the integration region
         if lims is None:
-            X_label = '$\delta\,$'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
+            X_label = r'$\delta\,$'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
             integrals = fit.integrate(self.ppm_f2, self.rr[which], X_label=X_label)
             for key, _ in integrals.items():
                 if ':' in key:
