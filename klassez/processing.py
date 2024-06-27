@@ -4757,7 +4757,7 @@ def inv_convolve(in1, in2):
     size = in1.shape[-1]
     in1t = np.fft.ifft(np.fft.ifftshift(in1))
     in2t = np.fft.ifft(np.fft.ifftshift(in2))
-    cnvt = in1t * np.linalg.pinv(in2t)
+    cnvt = in1t * np.linalg.pinv(in2t.reshape(-1,1)).reshape(-1)
     # factor size is needed to correct the intensity
     cnv = size * np.fft.fftshift(np.fft.fft(cnvt))
     return cnv

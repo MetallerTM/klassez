@@ -8,7 +8,7 @@ with open('README.md', 'r', encoding='utf-8') as fh:
 setup(
         name='klassez',
         version='0.4a.4',
-        author='Francesco Bruno',
+        author='Francesco Bruno, Letizia Fiorucci',
         author_email='bruno@cerm.unifi.it',
         description='A collection of functions for NMR data handling.',
         url='https://github.com/MetallerTM/klassez',
@@ -20,7 +20,7 @@ setup(
             'License :: OSI Approved :: MIT License'
             ],
         license='LICENSE.txt',
-        install_requires = ['numpy', 'scipy', 'lmfit', 'seaborn', 'nmrglue', 'matplotlib>=3.7', 'csaps'],
+        install_requires = ['numpy', 'scipy', 'lmfit', 'seaborn', 'nmrglue', 'matplotlib>=3.8', 'csaps'],
         packages=['klassez'],
         include_package_data = True,
         python_requires = '>=3.8',

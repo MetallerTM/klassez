@@ -1413,7 +1413,6 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
         Intensity factors when the figure is closed
     """
 
-    cmaps = [key for key in CM.keys() if '_r' in key]   # Use only _r cmaps otherwise you don't see a thing
 
     # Checks on dimensions of S0
     if isinstance(S0, list):
@@ -1429,6 +1428,10 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
             raise ValueError('{}D arrays are not allowed.'.format(len(S0.shape)))
 
     nsp = len(S)        # Number of SPectra
+
+    cmaps = []
+    while len(cmaps) < nsp:
+        cmaps.extend(CM_2D.keys())
 
     # Checks on scales dimensions
     if isinstance(ppm_f1, np.ndarray):

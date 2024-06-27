@@ -1,27 +1,29 @@
-# Version 0.4a-dev
+# Version 0.4a.4
+
+Several changes to allow compatibility with newer versions of **matplotlib**. 
+Added the attribute **CM_2D** in *config*, a dictionary that collects only the colormaps to be used for displaying 2D spectra.
+Modified dtype of empty arrays in *Spectra*.
+Added new functions for convolution, and its reverse. The latter does not work yet.
+Bug corrections. 
 
 ## New functions:
-02/05/2024
 - *processing.convolve*
-- *processing.inv_convolve*
-20/05/2024
+- *processing.inv_convolve* - DOES NOT WORK
 - *fit.test_randomsign*
 - *fit.test_correl*
 - *fit.test_ks*
 
 ## Modified functions:
-13/06/2024
-Modified dtype of empty arrays in Spectra
-04/04/2024
-- *Spectrum_2D.__init__*: reshape of the fid is now made with last dimension implicit
-02/05/2024
+- *misc.select_traces*: changed identifier of mouse buttons
 - *misc.show_cmap*: added parameter **filename** to save the figure, changed figure size
-20/05/2024
-- *fit.test_residuals*: employs three new functions, improved performance
-18/06/2024
-- *processing.stack_MCR*: now uses positioning matrix
-- *processing.MCR_unpack*: now uses positioning matrix
 - *processing.MCR*: modified parameters to use the new *processing.stack_MCR* and *processing.MCR_unpack*
+- *processing.MCR_unpack*: now uses positioning matrix
+- *processing.stack_MCR*: now uses positioning matrix
+- *figures.dotmd_2D*: now uses the new **CM_2D**
+- *figures.redraw_contour*: change for compatibility with matplotlib>3.7
+- *fit.test_residuals*: employs three new functions, improved performance
+- *Spectrum_2D.__init__*: reshape of the fid is now made with last dimension implicit
+
 
 # Version 0.4a.3
 
