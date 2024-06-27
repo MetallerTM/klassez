@@ -2745,7 +2745,7 @@ def calibration(ppmscale, S):
     def move_fixed(event):
         # set position of the red bar
         x = event.xdata
-        if event.dblclick and str(event.button) == 'MouseButton.LEFT':
+        if event.dblclick and str(event.button) == '1':
             nonlocal g_pos, g_idx
             g_pos = x 
             g_idx = misc.ppmfind(ppmscale, g_pos)[0]
@@ -2757,7 +2757,7 @@ def calibration(ppmscale, S):
         # set position of the green bar
         x = event.xdata
         if x is not None:
-            if event.dblclick and str(event.button) == 'MouseButton.LEFT':
+            if event.dblclick and str(event.button) == '1':
                 nonlocal d_pos, d_idx
                 d_pos = x 
                 d_idx = misc.ppmfind(ppmscale, d_pos)[0]
@@ -3699,13 +3699,13 @@ def interactive_basl_windows(ppm, data):
         x = event.xdata     # x,y position of cursor
         if x is not None:     # You are inside the figure
             idx, ix = misc.ppmfind(ppm, x) 
-            if str(event.button) == 'MouseButton.LEFT' and event.dblclick:     # Left click: add point
+            if str(event.button) == '1' and event.dblclick:     # Left click: add point
                 if ix not in coord:       # Avoid superimposed peaks
                     coord.append(ix)       # Update list
                     # Update figure:
                     #   add bullet
                     dotvline.append(ax.axvline(ix, c='r', lw=0.4))
-            if str(event.button) == 'MouseButton.RIGHT':    # Right click: remove point
+            if str(event.button) == '3':    # Right click: remove point
                 if ix in coord:       # only if the point is already selected
                     # Remove coordinates and all figure elements
                     i = coord.index(ix)
