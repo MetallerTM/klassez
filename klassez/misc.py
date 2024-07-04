@@ -1795,3 +1795,26 @@ def data2wav(data, filename='audiofile', cutoff=None, rate=44100):
     # Write the .wav file
     WF.write(f'{filename}.wav', rate, data)
     print(f'Audio file saved as {filename}.wav')
+
+
+def zero_crossing(array, after=False):
+    """
+    Find the indices where the elements in the array change sign.
+    The identified positions are the ones before the sign changes. 
+    This behavior can be modified by setting 'before=False'.
+    -------------------
+    Parameters:
+    - array: 1darray
+        Data to analyze
+    - after: bool
+        If True, returns the indices of the element after the sign change; if False, the indices before.
+    ------------------
+    Returns:
+    - zerocross: 1darray
+        Position of the zero-crossing, according to 'before'
+    """
+    zerocross = np.where(np.diff(np.sign(array)))[0]
+    if after:
+        zerocross += 1
+    return zerocross
+

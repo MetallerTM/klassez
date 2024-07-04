@@ -1,3 +1,9 @@
+# Version 0.4a.5
+
+## New functions:
+04/07/2024
+- *misc.zero_crossing*
+
 # Version 0.4a.4
 
 Several changes to allow compatibility with newer versions of **matplotlib**. 
