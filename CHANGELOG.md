@@ -3,6 +3,17 @@
 ## New functions:
 04/07/2024
 - *misc.zero_crossing*
+08/07/2024
+- *fit.make_iguess_auto*
+
+## Modified functions
+08/07/2024
+- *fit.Voigt_Fit.iguess*: added "auto" flag
+
+## Modified classes
+08/07/2024
+- *fit.Voigt_Fit*: added attribute **SW**, computed on the ppm scale
+
 
 # Version 0.4a.4
 

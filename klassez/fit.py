@@ -6,6 +6,7 @@ import numpy as np
 from numpy import linalg
 from scipy import stats
 from scipy.spatial import ConvexHull
+from scipy.signal import find_peaks, peak_widths
 from scipy import interpolate
 from csaps import csaps
 import random
@@ -2315,6 +2316,508 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     plt.close()
 
 
+def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
+    """
+    GUI to create a .ivf file, used as initial guess for Voigt_Fit.
+    The computation of the peak positions and linewidths employs scipy.signal.find_peaks and scipy.signal.peak_widths, respectively.
+    In addition, peak features may be added manually by clicking with the left button twice. Unwanted features can be removed with right clicks.
+    If the FWHM of a peak cannot be computed automatically, a dummy FWHM of 1 Hz is assigned automatically.
+    The file <filename>.ivf is written upon pressing the SAVE button.
+    Press Z to activate/deactivate the cursor snap.
+    ---------------------
+    Parameters:
+    - ppm: 1darray
+        PPM scale of the spectrum
+    - data: 1darray
+        real part of the spectrum to fit
+    - SW: float
+        Spectral width /Hz
+    - SFO1: float
+        Nucleus Larmor Frequency /MHz
+    - o1p: float
+        Carrier position /ppm
+    - filename: str
+        Path to the file where to save the initial guess. The .ivf extension is added automatically.
+    """
+
+    ## MISCELLANEOUS FUNCTIONS
+    def is_in(x, lims):
+        """ Checks if x is inside the lims interval """
+        return min(lims) <= x and x <= max(lims)
+
+    def check_values():
+        """ Handles event when P is negative and IW is less than 1 """
+        nonlocal P, IW
+        if P < 0:
+            P = 0
+        if IW < 1:
+            IW = 1
+
+    def get_pos(x, y, H, P):
+        """ 
+        Find the position of the peaks given height and prominence with scipy.signal.find_peaks 
+        ------------
+        Parameters:
+        - x: 1darray
+            array of x values
+        - y: 1darray
+            array of y values
+        - H: float
+            Threshold values (height)
+        - P: float
+            Threshold values (prominence)
+        ------------
+        Returns:
+        - ks: list
+            List of indices where the program found peaks
+        """
+        ks, *_ = find_peaks(y, height=H, prominence=P)
+        return ks
+
+    def maketotal(xj):
+        """ 
+        Compute the model trace, given the peak positions
+        ------------------
+        Parameters:
+        - xj: list
+            Indices of peak positions
+        -----------------
+        Returns:
+        - peak_in: list of fit.Peak objects
+            Model peaks
+        """
+        warnings.simplefilter('ignore')
+        # Estimate peak fwhms, in ppm
+        widths, *_ = peak_widths(s, xj)
+        # Convert them to Hz
+        fwhms = misc.ppm2freq(widths * misc.calcres(ppm), SFO1)
+        # Make a dummy 1Hz fwhm for non detected onmes
+        for k, x in enumerate(fwhms):
+            if x == 0:
+                fwhms[k] = 1
+        # Estimate the integrals of the peaks
+        As = [processing.integrate(s, freq, 
+                                   lims=(freq[u]-IW*fwhms[k]/2, freq[u]+IW*fwhms[k]/2)) / (0.5 * SW)
+              for k, u in enumerate(xj)]
+
+        # Make the fit.Peak objects with the estimated parameters
+        q = [(fit.Peak(acqus,
+                          ppm[x], 
+                          fwhms[j],
+                          k=As[j],
+                          )) for j, x in enumerate(xj)]
+        # Select only the peaks that are within the window
+        peak_in = [peak for peak in q if is_in(peak.u, ax.get_xlim())]
+        # Make the total model trace
+        if len(peak_in):    # only if there are peaks inside, to avoid errors
+            total = np.sum([p() for p in peak_in], axis=0)
+        else:   # if there are no peaks, set zero
+            total = np.zeros_like(s)
+        # Update the figure
+        model.set_ydata(total)
+        plt.draw()
+        return peak_in
+
+    ##  Initialize variables
+    # Write the info on the file
+    with open(f'{filename}.ivf', 'a', buffering=1) as f:
+        now = datetime.now()
+        date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
+        f.write('! Initial guess computed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+
+    prev = 0
+    # Dwell time
+    dw = 1/SW
+    # Acquisition points
+    TD = data.shape[-1]
+    # Acquisition timescale
+    t_aq = np.linspace(0, TD*dw, TD)
+    # acquisition parameters for the fit.Peak class
+    acqus = {'t1':t_aq, 'SFO1':SFO1, 'o1p':o1p, 'N':TD}
+
+    # Frequency scale
+    freq = misc.ppm2freq(ppm, SFO1, o1p)
+    # Real part of the spectrum
+    s = np.copy(data.real)
+
+    # Threshold for height detection
+    H = np.max(s) / 4
+    _H = np.max(s) / 4
+    # Prominence value
+    P = np.max(s) / 100
+    _P = np.max(s) / 100
+    # Integration window = IW * fwhm of the peak
+    IW = 2
+    _IW = 2
+
+    # Sensitivity for H
+    sensH = round(np.max(s) / 50, 2)
+    _sensH = round(np.max(s) / 50, 2)
+    # Sensitivity for P
+    sensP = round(np.max(s) / 1000, 2)
+    _sensP = round(np.max(s) / 1000, 2)
+    # Sensitivity for IW
+    sensIW = 0.25
+    _sensIW = 0.25
+
+    # Snap flag
+    snap = True
+
+    # Names of the radiobutton entries
+    radio_labels = 'Height', 'Prominence', 'Int. Window'
+
+    # Get the positions of the peaks automatically according to the values of H and P
+    xj = get_pos(ppm, s, H, P)
+    # Placeholder: manually added peaks
+    xi = []
+    # Placeholder: blacklist. Peak positions that are in here are ignored
+    x_blacklist = []
+    # Number of peaks
+    n_p = len(xj) + len(xi)
+
+
+    ## SLOTS
+
+    def up_sens(event):
+        """
+        Doubles the sensitivity of the active value
+        """
+        sens_fork(2)
+
+    def down_sens(event):
+        """
+        Halves the sensitivity of the active value
+        """
+        sens_fork(0.5)
+
+    def sens_fork(val):
+        """ 
+        Routes the sensitivity modifications to the correct value. 
+        Val is 2 if up_sens, 1/2 if down_sens
+        """
+        if radio.value_selected == 'Height':
+            nonlocal sensH
+            sensH *= val 
+        elif radio.value_selected == 'Prominence':
+            nonlocal sensP
+            sensP *= val
+        elif radio.value_selected == 'Int. Window':
+            nonlocal sensIW
+            sensIW *= val
+        redraw_scales()
+        update_text()
+
+    def update_text(null=0):
+        """ Updates the values texts """
+        Htext.set_text(f'{H:10.3g}'+r' $\pm$ '+f'{sensH:.3g}')
+        Ptext.set_text(f'{P:10.3g}'+r' $\pm$ '+f'{sensP:.3g}')
+        Wtext.set_text(f'{IW:5.3f}'+r'$\Gamma\,\pm$ '+f'{sensIW:.3g}')
+        npeaks.set_text(f'Number of peaks detected: {n_p:5.0f}')
+        plt.draw()
+
+    def update(val):
+        """ 
+        Update the values according to mouse scrolls, compute the trace, updates the figure.
+        val = +1 if scroll up, = -1 if scroll down, 0 in all other cases
+        """
+        nonlocal xj, n_p
+        # Update the selected value in the radiobuttons
+        if radio.value_selected == 'Height':
+            nonlocal H
+            H += val * sensH
+        elif radio.value_selected == 'Prominence':
+            nonlocal P
+            P += val * sensP
+        elif radio.value_selected == 'Int. Window':
+            nonlocal IW
+            IW += val * sensIW
+        # Check if the values are meaningful
+        check_values()
+        # Update the green horizontal line
+        thr.set_ydata((H,))
+
+        # Compute peak positions
+        xj_tmp = get_pos(ppm, s, H, P)
+        # Select the peak positions that are inside the selected window and are not in blacklist
+        xj = [x for x in xj_tmp if is_in(ppm[x], ax.get_xlim()) and x not in x_blacklist]
+        # Compute number of peaks
+        n_p = len(xj)
+        # Draw the crosses for automatically detected peaks
+        crosses.set_data(ppm[xj], s[xj])
+        # Draw the plusses for manually added peaks
+        squares.set_data(ppm[xi], s[xi])
+        # Make xj to include all peaks
+        xj.extend([x for x in xi])
+        # Remove duplicates from xj
+        xj = list(set(xj))
+        # Compute the total trace
+        maketotal(xj)
+        # Make the scales
+        redraw_scales()
+        # Update the figure
+        update_text()
+        plt.draw()
+        
+    def on_scroll(event):
+        """ Handles scroll events """
+        if event.button == 'up':
+            update(+1)
+        if event.button == 'down':
+            update(-1)
+        update_text()
+
+    def redraw_scales(null=0):
+        """ Recompute the scales to fit the active zoom """
+        misc.pretty_scale(ax, ax.get_xlim(), 'x')
+        misc.pretty_scale(ax, ax.get_ylim(), 'y')
+        misc.mathformat(ax)
+        plt.draw()
+
+    def clear_blacklist(event):
+        """ Removes all excluded automatic peaks from the blacklist """
+        nonlocal x_blacklist
+        x_blacklist = []
+        update(0)
+
+    def tracker(event):
+        """ Draws the crosshair """
+        if event.inaxes:    # Make the crosshair visible
+            h_track.set_visible(True)
+            v_track.set_visible(True)
+            o_track.set_visible(True)
+        else:               # hide it
+            h_track.set_visible(False)
+            v_track.set_visible(False)
+            o_track.set_visible(False)
+            return
+        # Find index of x position on ppm
+        i = misc.ppmfind(ppm, event.xdata)[0]
+        # x coordinate is ppm[i]
+        x = ppm[i]
+        if snap:    # y snaps to the spectrum
+            y = s[i]
+        else:       # y is just the y position of the cursor
+            y = event.ydata
+        # Update the crosshair
+        h_track.set_ydata((y,))
+        v_track.set_xdata((x,))
+        o_track.set_data((x,), (y,))
+        plt.draw()
+
+
+    def keybindings(event):
+        """ Handles key press """
+        key = event.key
+        if key == 'z':      # switches snap between True and False
+            nonlocal snap
+            snap = not(snap)
+        if key == '<':      # halves sensitivity
+            sens_fork(0.5)
+        if key == '>':      # doubles sensitivity
+            sens_fork(2)
+        if key == 'pageup': # cycle radiobuttons down
+            i = radio_labels.index(radio.value_selected)
+            j = i - 1
+            if j < 0:   # e.g. j=-1
+                j = len(radio.labels) + j
+            radio.set_active(j)
+        if key == 'pagedown':   # cycle radiobuttons up
+            i = radio_labels.index(radio.value_selected)
+            j = i + 1
+            if j > len(radio.labels) - 1: # e.g. j = 3, len(radio.labels) = 3
+                j = j - len(radio.labels)
+            radio.set_active(j)
+        if key == 'up':     # as scrolling up
+            update(+1)
+        if key == 'down':   # as scrolling down
+            update(-1)
+        redraw_scales()
+
+    def mouseclick(event):
+        """ Manually adds/removes peaks """
+        if not event.inaxes:    # do nothing
+            return
+        # Find the position of the mouse 
+        x = misc.ppmfind(ppm, event.xdata)[0]
+        if event.button == 1 and event.dblclick:    # Left double click
+            nonlocal xi, x_blacklist
+            xi.append(x)    # Append the value to the manual peak list
+            if x in x_blacklist:    # Remove it
+                i = x_blacklist.index(x)    # First find the index of x in the blacklist
+                x_blacklist.pop(i)          # Then, remove it
+            # Redraw everything
+            update(0)
+        if event.button == 3:   # Right single click
+            # Find the closest peak to the point you clicked
+            if len(xi): # first in the manual list
+                closest_i = misc.find_nearest(xi, x)
+            else:   # if it is empty, set None
+                closest_i = None
+            if len(xj): # then in the automatic list
+                closest_j = misc.find_nearest(xj, x)
+            else:   # if it is empty, set None
+                closest_j = None
+
+            if closest_i is not None:   # If there are any peaks in the manual list:
+                # do things only if the closest manual peak is within 10 points to where you actually clicked
+                if np.abs(x - closest_i) < 10:  
+                    # Find the position of such peak
+                    i = xi.index(closest_i)
+                    # Remove it from the list
+                    xi.pop(i)
+                    # Redraw everything, then stop
+                    update(0)
+                    return
+
+            # It gets here only if the closest peak is not manually added and it is not within 10 points to where you actually clicked
+
+            if closest_j is not None:
+                # do things only if the closest automatic peak is within 10 points to where you actually clicked
+                if np.abs(x - closest_j) < 10:
+                    # Add this point to the blacklist
+                    x_blacklist.append(closest_j)
+                    # Redraw everything
+                    update(0)
+                    return
+
+    def save(event):
+        """ Write a section in the output file """
+        nonlocal prev
+        # Adjust the intensities
+
+        peak_in = maketotal(xj)
+        keys = np.arange(prev+1, prev+len(peak_in)+1, 1)
+        peaks = {key: peak_in[k] for k, key in enumerate(keys)}
+        A = np.sum([peak.k for peak in peak_in]) / (0.5 * SW)
+        fit.write_vf(f'{filename}.ivf', peaks, ax.get_xlim(), A, prev)
+        prev += len(peak_in)
+        
+        # Mark a region as "fitted" with a green box
+        ax.axvspan(*ax.get_xlim(), color='tab:green', alpha=0.1)
+        # Call reset to return at the initial situation
+        reset(event)
+
+    def reset(event):
+        # setta H e P come all'inizio
+        nonlocal H, P, IW, sensH, sensP, sensIW
+        H = _H
+        P = _P
+        IW = _IW    
+        sensH = _sensH
+        sensP = _sensP
+        sensIW = _sensIW
+        # resetta i limiti
+        ax.set_xlim(max(ppm), min(ppm))
+        update(0)
+        plt.draw()
+
+
+    #-------------------------------------------------------------------------------------------------------------
+
+    # Make the figure panel
+    fig = plt.figure('Automatic computation of initial guess')
+    fig.set_size_inches(figures.figsize_large)
+    ax = fig.add_subplot(1,1,1)
+    plt.subplots_adjust(left=0.1, right=0.8, top=0.95, bottom=0.1)
+
+    # Boxes where to place the widgets
+    #    radiobuttons
+    box_radio = plt.axes([0.825, 0.6, 0.15, 0.2])
+    #   up_sens button
+    box_up = plt.axes([0.825, 0.85, 0.075, 0.05])
+    #   down_sens button
+    box_down = plt.axes([0.900, 0.85, 0.075, 0.05])
+    #   clear_blacklist button
+    box_cbl = plt.axes([0.900, 0.10, 0.075, 0.05])
+    #   save button
+    box_save = plt.axes([0.825, 0.10, 0.075, 0.05])
+
+    # Make the widgets
+    #   radiobuttons
+    radio = RadioButtons(box_radio, radio_labels)
+    #   up_sens button
+    up_button = Button(box_up, r'$\uparrow$', hovercolor='0.975')
+    #   down_sens button
+    down_button = Button(box_down, r'$\downarrow$', hovercolor='0.975')
+    #   clear_blacklist button
+    cbl_button = Button(box_cbl, r'Clear Blacklist', hovercolor='0.975')
+    #   save button
+    save_button = Button(box_save, r'SAVE', hovercolor='0.975')
+    #   mouse position
+    cursor = Cursor(ax, horizOn=False, vertOn=False, useblit=True, lw=0.2, color='tab:green')
+
+    # Draw the spectrum in blue
+    ax.plot(ppm, s, c='tab:blue', lw=0.8)
+    # Draw the automatic peak positions as crosses
+    crosses, = ax.plot(ppm[xj], s[xj], 'x', c='tab:orange')
+    # Draw the manual peak positions as plusses
+    squares, = ax.plot(ppm[xi], s[xi], '+', c='tab:orange')
+    # Draw a placeholder for the total model trace
+    model, = ax.plot(ppm, np.zeros_like(ppm), c='tab:red', lw=0.8)
+    # Draw a line for the threshold 
+    thr = ax.axhline(H, c='tab:green', lw=0.5, ls='--')
+    # Draw the crosshair, but invisible
+    #   Horizontal line
+    h_track = ax.axhline(0, c='g', lw=0.2, visible=False)
+    #   Vertical line
+    v_track = ax.axvline(0, c='g', lw=0.2, visible=False)
+    #   Cross point
+    o_track, = ax.plot((0,), (0,), c='g', marker='.', markersize=5, visible=False)
+    # Compute the model
+    maketotal(xj)
+
+    # Make the text values to be updated 
+    #   Compute the positions of the text: in the middle between two subsequent radio labels
+    radiolabel_pos = [label.get_position() for label in radio.labels]
+    yshift = (radiolabel_pos[1][1] - radiolabel_pos[0][1]) / 2
+    #   H value text
+    Htext = box_radio.text(0.995, radiolabel_pos[0][1] + yshift, '', ha='right', va='center', transform=box_radio.transAxes)
+    #   P value text
+    Ptext = box_radio.text(0.995, radiolabel_pos[1][1] + yshift, '', ha='right', va='center', transform=box_radio.transAxes)
+    #   IW value text
+    Wtext = box_radio.text(0.995, radiolabel_pos[2][1] + yshift, '', ha='right', va='center', transform=box_radio.transAxes)
+    #   Number of peaks text
+    npeaks = plt.text(0.825, 0.5, '', ha='left', va='center', transform=fig.transFigure)
+    update_text()
+
+    # Instruction text
+    keyboard_text = '\n'.join([
+        f'{"KEYBOARD SHORTCUTS":^50s}',
+        f'{"Key":>5s}: Action',
+        f'-'*50,
+        f'{"<":>5s}: Decrease sens.',
+        f'{">":>5s}: Increase sens.',
+        f'{"Pg"+r"$\uparrow$":>5s}: Change parameter, up',
+        f'{"Pg"+r"$\downarrow$":>5s}: Change parameter, down',
+        f'{r"$\uparrow$":>5s}: Increase value',
+        f'{r"$\downarrow$":>5s}: Decrease value',
+        f'{"z":>5s}: Toggle snap on cursor',
+        f'-'*50,
+        ])
+    keyboard_print = ax.text(0.86, 0.2, keyboard_text, 
+            ha='left', va='bottom', transform=fig.transFigure, fontsize=8, linespacing=1.55)
+
+    # Adjust visual shit
+    misc.pretty_scale(ax, (max(ppm), min(ppm)), 'x')
+    misc.pretty_scale(ax, ax.get_ylim(), 'y')
+    misc.mathformat(ax)
+
+    # Connect widgets to slots
+    up_button.on_clicked(up_sens)
+    down_button.on_clicked(down_sens)
+    cbl_button.on_clicked(clear_blacklist)
+    save_button.on_clicked(save)
+    fig.canvas.mpl_connect('motion_notify_event', tracker)
+    fig.canvas.mpl_connect('scroll_event', on_scroll)
+    fig.canvas.mpl_connect('button_press_event', mouseclick)
+    fig.canvas.mpl_connect('key_press_event', keybindings)
+
+    # Start event loop
+    plt.show()
+
+    # Re-enable warnings
+    warnings.simplefilter('default')
+
 
 # --------------------------------------------------------------------
 def write_vf(filename, peaks, lims, I, prev=0):
@@ -2862,6 +3365,8 @@ class Voigt_Fit:
         Spectrum to fit. Only real part
     - t_AQ: 1darray
         acquisition timescale of the spectrum
+    - SW: float
+        Spectral width /Hz
     - SFO1: float
         Larmor frequency of the nucleus
     - o1p : float
@@ -2900,6 +3405,7 @@ class Voigt_Fit:
         self.S = S
         self.t_AQ = misc.extend_taq(t_AQ, self.S.shape[-1])
         self.SFO1 = SFO1
+        self.SW = np.abs( (max(ppm_scale) - min(ppm_scale)) * SFO1 )
         self.o1p = o1p
         self.filename = filename
         if nuc is None:
@@ -2908,7 +3414,7 @@ class Voigt_Fit:
             fnuc = misc.nuc_format(nuc)
             self.X_label = r'$\delta$ ' + fnuc +' /ppm'
 
-    def iguess(self, input_file=None, n=-1):
+    def iguess(self, input_file=None, n=-1, auto=False):
         """
         Reads, or computes, the initial guess for the fit.
         If the file is there already, it just reads it with fit.read_vf. Otherwise, it calls fit.make_iguess to make it.
@@ -2918,6 +3424,8 @@ class Voigt_Fit:
             Path to the input file. If None, "<self.filename>.ivf" is used
         - n: int
             Index of the initial guess to be read (default: last one)
+        - auto: bool
+            If True, uses the GUI for automatic peak picking, if False, the manual one
         """
         # Set the default filename, if not given
         if input_file is None:
@@ -2928,7 +3436,10 @@ class Voigt_Fit:
         if in_file_exist is True:       # Read everything you need from the file
             regions = fit.read_vf(f'{input_file}.ivf')
         else:                           # Make the initial guess interactively and save the file.
-            fit.make_iguess(self.S, self.ppm_scale, self.t_AQ, self.SFO1, self.o1p, filename=input_file)
+            if auto:
+                fit.make_iguess_auto(self.ppm_scale, self.S, self.SW, self.SFO1, self.o1p, filename=input_file)
+            else:
+                fit.make_iguess(self.S, self.ppm_scale, self.t_AQ, self.SFO1, self.o1p, filename=input_file)
             regions = fit.read_vf(f'{input_file}.ivf')
         # Store it
         self.i_guess = regions
