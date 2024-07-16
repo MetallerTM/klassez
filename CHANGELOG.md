@@ -1,14 +1,27 @@
 # Version 0.4a.5
 
+16/07/2024
+Added titles of all the figures
+
 ## New functions:
 04/07/2024
 - *misc.zero_crossing*
 08/07/2024
 - *fit.make_iguess_auto*
+16/07/2024
+- *Spectrum_1D.add_noise*
+- *Spectrum_1D.scan*
+- *Spectrum_2D.add_noise*
+- *Spectrum_2D.scan*
+- *Pseudo_2D.add_noise*
+- *Pseudo_2D.scan*
 
 ## Modified functions
 08/07/2024
 - *fit.Voigt_Fit.iguess*: added "auto" flag
+16/07/2024
+- *Spectrum_1D.plot*: added tracker for distance measurement
+- *Spectrum_2D.plot*: added tracker for distance measurement
 
 ## Modified classes
 08/07/2024

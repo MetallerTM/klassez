@@ -85,7 +85,7 @@ def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=F
         Standard deviation of data.
     """
 
-    fig = plt.figure()
+    fig = plt.figure('Histogram')
     ax = fig.add_subplot(1,1,1)
     plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)
     fig.set_size_inches(figures.figsize_large)
@@ -408,7 +408,7 @@ def get_region(ppmscale, S, rev=True):
             zoom_toggle = not(zoom_toggle)
 
     # Creation of interactive figure panel
-    fig = plt.figure(1)
+    fig = plt.figure('Region Selector')
     fig.set_size_inches(15,8)
     plt.subplots_adjust(left = 0.10, bottom=0.25, right=0.90, top=0.90)    # Make room for the sliders
     ax = fig.add_subplot(1,1,1)
@@ -579,7 +579,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         t_ppm = ppm_scale[lims]
 
         # Make the figure
-        fig = plt.figure()
+        fig = plt.figure('Fit')
         fig.set_size_inches(figures.figsize_large)
         ax = fig.add_subplot()
         plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)
@@ -615,7 +615,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
 
     ## Total
     # Make the figure
-    fig = plt.figure()
+    fig = plt.figure('Fit')
     fig.set_size_inches(figures.figsize_large)
     plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)
     ax = fig.add_subplot()
@@ -1278,7 +1278,7 @@ def interactive_smoothing(x, y, cmap='RdBu'):
     # --------------------------------------------------------------------------------------------------------
 
     # Make the figure
-    fig = plt.figure(1)
+    fig = plt.figure('Interactive Smoothing with spline')
     fig.set_size_inches(figures.figsize_large)
     plt.subplots_adjust(left=0.1, right=0.85, top=0.95, bottom=0.15)
     ax = fig.add_subplot()
@@ -1511,7 +1511,7 @@ def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
     int_f = processing.integral(data, ppm)
 
     # Make the figure
-    fig = plt.figure()
+    fig = plt.figure('Spectrum Integration')
     fig.set_size_inches(figures.figsize_large)
     plt.subplots_adjust(left=0.10, bottom=0.15, top=0.90, right=0.80)
     ax = fig.add_subplot()
@@ -2249,7 +2249,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     #-------------------------------------------------------------------------------
 
     # Initial figure
-    fig = plt.figure(1)
+    fig = plt.figure('Manual Computation of Inital Guess')
     fig.set_size_inches(15,8)
     plt.subplots_adjust(bottom=0.10, top=0.90, left=0.05, right=0.65)
     ax = fig.add_subplot(1,1,1)
@@ -2715,7 +2715,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     #-------------------------------------------------------------------------------------------------------------
 
     # Make the figure panel
-    fig = plt.figure('Automatic computation of initial guess')
+    fig = plt.figure('Automatic Computation of Initial Guess')
     fig.set_size_inches(figures.figsize_large)
     ax = fig.add_subplot(1,1,1)
     plt.subplots_adjust(left=0.1, right=0.8, top=0.95, bottom=0.1)
@@ -3721,7 +3721,7 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
     sens = {key: sens0 for key in param}    # Initialize the sensitivity dictionary
 
     # Make the figure
-    fig = plt.figure()
+    fig = plt.figure('Computation of General Initial Guess')
     fig.set_size_inches(figures.figsize_large)
     plt.subplots_adjust(top=0.95, bottom=0.05, left=0.05, right=0.8, hspace=0.6, wspace=0.2)
     ax = fig.add_subplot(5,1,(1,4))
@@ -4037,7 +4037,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     """
 
     ### FIRST OF ALL, THE FIGURE!
-    fig = plt.figure()
+    fig = plt.figure('Manual Computation of Initial Guess - 2D')
     fig.set_size_inches(figures.figsize_large)
     plt.subplots_adjust(left=0.05, right=0.65, top=0.90, bottom=0.10, wspace=0.2)
     ax2, ax1 = [fig.add_subplot(1, 2, w+1) for w in range(2)]
@@ -4528,7 +4528,7 @@ class Voigt_Fit_2D:
         fitted_data = np.sum(self.peaks, axis=0)
 
         # Make the figure
-        fig = plt.figure()
+        fig = plt.figure('Fit')
         fig.set_size_inches(figures.figsize_large)
         ax = fig.add_subplot(1,1,1)
         if 'cmap' in kwargs.keys():
@@ -4663,7 +4663,7 @@ class Voigt_Fit_2D:
             Additional options for figures.ax2D
         """
 
-        fig = plt.figure()
+        fig = plt.figure('Picked Peaks')
         fig.set_size_inches(figures.figsize_large)
         ax = fig.add_subplot(1,1,1)
 
@@ -6012,7 +6012,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     #-------------------------------------------------------------------------------
 
     # Initial figure
-    fig = plt.figure(1)
+    fig = plt.figure('Manual Computation of Initial Guess - Pseudo2D')
     fig.set_size_inches(15,8)
     plt.subplots_adjust(bottom=0.10, top=0.90, left=0.05, right=0.65)
     ax = fig.add_subplot(1,1,1)
@@ -6194,7 +6194,7 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
         # One figure per experiment
         for i, _ in enumerate(S):
             # Make the figure
-            fig = plt.figure()
+            fig = plt.figure(f'Fit {i+1}')
             fig.set_size_inches(figures.figsize_large)
             ax = fig.add_subplot()
             plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)
@@ -6232,7 +6232,7 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
     # One figure per experiment
     for i, _ in enumerate(S):
         # Make the figure
-        fig = plt.figure()
+        fig = plt.figure(f'Fit {i+1}')
         fig.set_size_inches(figures.figsize_large)
         ax = fig.add_subplot()
         plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)

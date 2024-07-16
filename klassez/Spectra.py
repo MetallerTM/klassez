@@ -212,6 +212,32 @@ class Spectrum_1D:
             # Write this in datadir
             self.write_procs()
         
+    def add_noise(self, s_n=1):
+        """
+        Adds noise to the FID, using the function sim.noisegen.
+        ------------------
+        Parameters:
+        - s_n: float
+            Standard deviation of the noise
+        """
+        self.fid += sim.noisegen(self.fid.shape, self.acqus['o1'], self.acqus['t1'], s_n=s_n)
+
+    def scan(self, ns=1, s_n=1):
+        """
+        Simulates the acquisition of ns scans, by adding a different realization of noise at each iteration.
+        The function is supposed to start with the FID without noise at all. If not, the results will be biased.
+        --------------------
+        Parameters:
+        - ns: int
+            Number of scans to accumulate
+        - s_n: float
+            Standard deviation of the noise
+        """
+        clean_fid = np.copy(self.fid)   # Save a shallow copy of the FID without noise
+        for k in range(ns):
+            # Each scan is: clean FID + noise
+            self.fid += clean_fid + sim.noisegen(self.fid.shape, self.acqus['o1'], self.acqus['t1'], s_n=s_n)
+
     def convdta(self, scaling=1):
         """ Call processing.convdta using self.acqus['GRPDLY'] """
         self.fid = processing.convdta(self.fid, self.acqus['GRPDLY'], scaling)
@@ -502,17 +528,53 @@ class Spectrum_1D:
         - dpi: int
             Resolution of the image in dots per inches
         """
+        def onselect(xmin, xmax):
+            """ Moves the tracker """
+            # Set the bars visible
+            bar1.set_visible(True)
+            bar2.set_visible(True)
+            # Update the bars positions
+            bar1.set_xdata((xmin,))
+            bar2.set_xdata((xmax,))
+            # Compute distance
+            d_ppm = np.abs(xmin-xmax)
+            # Convert from ppm to Hz
+            d_hz = misc.ppm2freq(d_ppm, self.acqus['SFO1'])
+            # Update the distance text
+            text = f'{d_ppm:12.3f} ppm | {d_hz:12.3f} Hz'
+            text_measure.set_text(text)
+            plt.draw()
+
+        def onclick(event):
+            """ Correct appearance of the tracker with mouse buttons """
+            if not event.inaxes:    # Do things only if click is inside the panel
+                return
+            # Left button interacts also with the span selector, right button only resets
+            if event.button == 1 or event.button == 3:
+                # Erase the text
+                text_measure.set_text('')
+                # Make the bars invisible
+                bar1.set_visible(False)
+                bar2.set_visible(False)
+                plt.draw()
+
         # Default of 10 ticks on the ppm axis
         n_xticks = 10
 
         # Make the figure
-        fig = plt.figure(1)
+        fig = plt.figure(f'{self.filename}')
         fig.set_size_inches(figures.figsize_large)
         plt.subplots_adjust(left=0.10, bottom=0.15, right=0.95, top=0.90)
         ax = fig.add_subplot(1,1,1)
 
         # Plot the spectrum
         spect, = ax.plot(self.ppm, self.r, lw=0.8)
+        # Bars of the spanselector
+        bar1 = ax.axvline(self.ppm[0], c='r', lw=0.4, visible=False)
+        bar2 = ax.axvline(self.ppm[-1], c='r', lw=0.4, visible=False)
+
+        # Placeholder for distance measurement
+        text_measure = plt.text(0.75, 0.05, '', ha='left', va='bottom', transform=fig.transFigure, fontsize=12, color='r')
 
         # Make the label of the x-axis
         X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
@@ -532,6 +594,12 @@ class Spectrum_1D:
 
         # Set a vertical line for inspection
         cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8, horizOn=False)
+
+        # Widget for distance measurement
+        tracker = SpanSelector(ax, onselect, direction='horizontal', useblit=False, button=1, 
+                               props={'alpha':1, 'fill':False, 'color':'r', 'lw':0.4, 'edgecolor':'r'})
+        # Connect mouse buttons
+        fig.canvas.mpl_connect('button_press_event', onclick)
 
         if name:    # Save the figure
             plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
@@ -1067,6 +1135,32 @@ class Spectrum_2D:
         if self.eaeflag:    # Do it only if it was not done before
             self.fid = processing.EAE(self.fid)
             self.eaeflag = 0
+
+    def add_noise(self, s_n=1):
+        """
+        Adds noise to the FID, using the function sim.noisegen.
+        ------------------
+        Parameters:
+        - s_n: float
+            Standard deviation of the noise
+        """
+        self.fid += sim.noisegen(self.fid.shape, self.acqus['o2'], self.acqus['t2'], s_n=s_n)
+
+    def scan(self, ns=1, s_n=1):
+        """
+        Simulates the acquisition of ns scans, by adding a different realization of noise at each iteration.
+        The function is supposed to start with the FID without noise at all. If not, the results will be biased.
+        --------------------
+        Parameters:
+        - ns: int
+            Number of scans to accumulate
+        - s_n: float
+            Standard deviation of the noise
+        """
+        clean_fid = np.copy(self.fid)   # Save a shallow copy of the FID without noise
+        for k in range(ns):
+            # Each scan is: clean FID + noise
+            self.fid += clean_fid + sim.noisegen(self.fid.shape, self.acqus['o2'], self.acqus['t2'], s_n=s_n)
 
     def xf2(self):
         """
@@ -1656,23 +1750,95 @@ class Spectrum_2D:
         - lvl0: float
             Starting contour value with respect to the maximum of the spectrum
         """
+        class FakeSpanSelector:
+            """ 
+            Line selector that stores (x1, y1) when you press the mouse left button,
+            and (x2, y2) when you release it. Then, draws the triangle 
+            [(x1, y1), (x2, y1), (x2, y2)]
+            and writes the distance (x2-x1), (y2-y1) in ppm and in Hz.
+            """
+            def __init__(self, ppm_f2, ppm_f1, acqus):
+                """
+                Set initial values for x1, x2, y1, y2
+                -----------
+                Parameters:
+                - ppm_f2: 1darray
+                    x-axis scale, in ppm
+                - ppm_f1: 1darray
+                    y-axis scale, in ppm
+                - acqus: dict
+                    Dictionary of acquisition parameters of the spectrum. Must contain SFO1 and SFO2.
+                """
+                self.x1 = ppm_f2[0]
+                self.x2 = ppm_f2[-1]
+                self.y1 = ppm_f1[0]
+                self.y2 = ppm_f1[-1]
+                self.acqus = acqus
+
+            def draw_lines(self): #onselect(self, *null):
+                """ Moves the tracker """
+                # Makes the lines visible
+                dots.set_visible(True)
+                lx.set_visible(True)
+                ly.set_visible(True)
+
+                # Updates the values for the lines
+                dots.set_data((self.x1, self.x2), (self.y1, self.y2))
+                lx.set_data((self.x1, self.x2), (self.y1, self.y1))
+                ly.set_data((self.x2, self.x2), (self.y1, self.y2))
+
+                # Compute x-distance
+                xd_ppm = np.abs(self.x1-self.x2)
+                #   convert it in Hz
+                xd_hz = np.abs(misc.ppm2freq(xd_ppm, self.acqus['SFO2']))
+                # Compute y-distance
+                yd_ppm = np.abs(self.y1-self.y2)
+                #   convert it in Hz
+                yd_hz = np.abs(misc.ppm2freq(yd_ppm, self.acqus['SFO1']))
+
+                # Update the measure text
+                text = '\n'.join([
+                    r'$\Delta$'+f'F2: {xd_ppm:12.3f} ppm | {xd_hz:12.3f} Hz',
+                    r'$\Delta$'+f'F1: {yd_ppm:12.3f} ppm | {yd_hz:12.3f} Hz',
+                    ])
+                text_measure.set_text(text)
+                plt.draw()
+
+            def onclick(self, event):
+                """
+                If left click, saves x1 and y1 in the click positions.
+                Right click clears the selection
+                """
+                if not event.inaxes:    # Do things only if click is inside the panel
+                    return
+                if event.button == 1 or event.button == 3:
+                    # Erase the text
+                    text_measure.set_text(_text)
+                    # Make the bars invisible
+                    lx.set_visible(False)
+                    ly.set_visible(False)
+                if event.button == 1:
+                    # Store position of first point
+                    self.x1 = event.xdata
+                    self.y1 = event.ydata
+                    # Draw it
+                    dots.set_data((event.xdata,), (event.ydata,))
+                elif event.button == 3:
+                    dots.set_visible(False)
+                plt.draw()
+
+            def onrelease(self, event):
+                """ If left click, draws the position of the second point, then calls draw_lines. """
+                if not event.inaxes:    # Do things only if click is inside the panel
+                    return
+                if event.button == 1:
+                    # Store position of the second point
+                    self.x2 = event.xdata
+                    self.y2 = event.ydata
+                    # Draw triangle and stuff
+                    self.draw_lines()
+
         warnings.filterwarnings("ignore", message="No contour levels were found within the data range.")
-        # Plots data, set Neg=True to see negative contours
-        S = self.rr
-        n_xticks, n_yticks = 10, 10
-
-        X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc2'])+' /ppm'
-        Y_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc1'])+' /ppm'
-
-        cmaps = ['Blues_r', 'Reds_r']
-
-        # flags for the activation of scroll zoom
-        lvlstep = 0.02
-
-        # define boxes for sliders
-        iz_box = plt.axes([0.925, 0.80, 0.05, 0.05])
-        dz_box = plt.axes([0.925, 0.75, 0.05, 0.05])
-
         # Functions connected to the sliders
         def increase_zoom(event):
             nonlocal lvlstep
@@ -1687,72 +1853,121 @@ class Spectrum_2D:
             if Neg:
                 nonlocal Ncnt
 
+            # Get window limits to reset them after redrawing
             act_xlim = ax.get_xlim()
             act_ylim = ax.get_ylim()
                 
+            # Update level threshold
             if event.button == 'up':
                 lvl += lvlstep 
             elif event.button == 'down':
                 lvl += -lvlstep
+            # Correct if lvl goes out of bounds
             if lvl <= 0:
                 lvl = 1e-6
             elif lvl > 1:
                 lvl = 1
 
+            # Redraw the contours
             if Neg:
                 cnt, Ncnt = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
             else:
                 cnt, _ = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
 
+            # Set the window limits as it was before
             misc.pretty_scale(ax, act_xlim, axis='x', n_major_ticks=n_xticks)
             misc.pretty_scale(ax, act_ylim, axis='y', n_major_ticks=n_yticks)
+            # Correct the labels of the axes
             ax.set_xlabel(X_label)
             ax.set_ylabel(Y_label)
+            # Correct the fontsize
             misc.set_fontsizes(ax, 14)
+            # Update level threshold value
             lvl_text.set_text(f'{lvl:.5g}')
             fig.canvas.draw()
 
+        # copy stuff
+        S = np.copy(self.rr)
+        n_xticks, n_yticks = 10, 10
+
+        # Initialize the custom span selector
+        span = FakeSpanSelector(self.ppm_f2, self.ppm_f1, self.acqus)
+
+        # Compute labels for the axes
+        X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc2'])+' /ppm'
+        Y_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc1'])+' /ppm'
+
+        # Cmaps for positive and negative contours
+        cmaps = ['Blues_r', 'Reds_r']
+
+        # flags for the activation of scroll zoom
+        lvlstep = 0.02
+
         # Make the figure
-        fig = plt.figure(1)
+        fig = plt.figure(f'{self.filename}')
         fig.set_size_inches(15,8)
         plt.subplots_adjust(left = 0.10, bottom=0.10, right=0.90, top=0.95)
         ax = fig.add_subplot(1,1,1)
 
+        # Default values for initial plot
         contour_num = 16
         contour_factor = 1.40
-
         lvl = lvl0
 
+        # Placeholder for levels threshold text
         lvl_text = ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
 
+        # Plot the spectrum
+        #   positive contours
         cnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cmap=cmaps[0])
         if Neg:
+            # Negative contours
             Ncnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, -S, lvl=lvl, cmap=cmaps[1])
 
-        # Make pretty x-scale
+        # Placeholders for tracker
+        dots, = ax.plot((self.ppm_f2[0], self.ppm_f2[-1]), (self.ppm_f1[0], self.ppm_f1[-1]), '--.', c='r',
+                        lw=0.5, markersize=5, visible=False)
+        lx, = ax.plot((self.ppm_f2[0], self.ppm_f2[-1]), (self.ppm_f1[0], self.ppm_f1[0]), '-', c='r',
+                        lw=0.5, visible=False)
+        ly, = ax.plot((self.ppm_f2[-1], self.ppm_f2[-1]), (self.ppm_f1[0], self.ppm_f1[-1]), '-', c='r',
+                        lw=0.5, visible=False)
+
+        # Distance measurement text placeholder
+        text_measure = plt.text(0.75, 0.015, '', ha='left', va='bottom', transform=fig.transFigure, fontsize=12, color='r')
+        _text = '\n'.join([
+            r'$\Delta$'+f'F2: {0:12.3f} ppm | {0:12.3f} Hz',
+            r'$\Delta$'+f'F1: {0:12.3f} ppm | {0:12.3f} Hz',
+            ])
+        text_measure.set_text(_text)
+
+        # Make pretty scales
         misc.pretty_scale(ax, (max(self.ppm_f2), min(self.ppm_f2)), axis='x', n_major_ticks=n_xticks)
         misc.pretty_scale(ax, (max(self.ppm_f1), min(self.ppm_f1)), axis='y', n_major_ticks=n_yticks)
         ax.set_xlabel(X_label)
         ax.set_ylabel(Y_label)
 
-        scale_factor = 1
-
         # Create buttons
+        # define boxes for buttons
+        iz_box = plt.axes([0.925, 0.80, 0.05, 0.05])
+        dz_box = plt.axes([0.925, 0.75, 0.05, 0.05])
         iz_button = Button(iz_box, label=r'$\uparrow$')
         dz_button = Button(dz_box, label=r'$\downarrow$')
+        misc.set_fontsizes(ax, 14)
 
-        # Connect the widgets to functions
-        scroll = fig.canvas.mpl_connect('scroll_event', on_scroll)
+        # Connect the widgets to slots
+        scroll = fig.canvas.mpl_connect('scroll_event', on_scroll) 
+        fig.canvas.mpl_connect('button_press_event', span.onclick)  
+        fig.canvas.mpl_connect('button_release_event', span.onrelease)
             
         iz_button.on_clicked(increase_zoom)
         dz_button.on_clicked(decrease_zoom)
 
-        misc.set_fontsizes(ax, 14)
-
+        # Crosshair for visualization
         cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8)
 
         plt.show()
         plt.close()
+
 
     def to_wav(self, filename=None, cutoff=None, rate=44100):
         """
@@ -2061,6 +2276,32 @@ class Pseudo_2D(Spectrum_2D):
     def convdta(self, scaling=1):
         """ Calls processing.convdta """
         self.fid = processing.convdta(self.fid, self.acqus['GRPDLY'], scaling)
+
+    def add_noise(self, s_n=1):
+        """
+        Adds noise to the FID, using the function sim.noisegen.
+        ------------------
+        Parameters:
+        - s_n: float
+            Standard deviation of the noise
+        """
+        self.fid += sim.noisegen(self.fid.shape, self.acqus['o1'], self.acqus['t1'], s_n=s_n)
+
+    def scan(self, ns=1, s_n=1):
+        """
+        Simulates the acquisition of ns scans, by adding a different realization of noise at each iteration.
+        The function is supposed to start with the FID without noise at all. If not, the results will be biased.
+        --------------------
+        Parameters:
+        - ns: int
+            Number of scans to accumulate
+        - s_n: float
+            Standard deviation of the noise
+        """
+        clean_fid = np.copy(self.fid)   # Save a shallow copy of the FID without noise
+        for k in range(ns):
+            # Each scan is: clean FID + noise
+            self.fid += clean_fid + sim.noisegen(self.fid.shape, self.acqus['o1'], self.acqus['t1'], s_n=s_n)
         
     def process(self):
         """
@@ -2373,7 +2614,7 @@ class Pseudo_2D(Spectrum_2D):
             fig.canvas.draw()
 
         # Make the figure
-        fig = plt.figure(1)
+        fig = plt.figure(f'{self.filename}')
         fig.set_size_inches(15,8)
         plt.subplots_adjust(left = 0.10, bottom=0.10, right=0.90, top=0.95)
         ax = fig.add_subplot(1,1,1)

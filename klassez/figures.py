@@ -96,7 +96,7 @@ def heatmap(data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, 
         extent = max(xscale), min(xscale), max(yscale), min(yscale)
 
     # Create figure panel
-    fig = plt.figure()
+    fig = plt.figure('Heatmap')
     fig.set_size_inches(figsize_small)
     plt.subplots_adjust(left=0.15, bottom=0.15, top=0.90, right=0.85)
     ax = fig.add_subplot()
@@ -258,7 +258,7 @@ def sns_heatmap(data, name=None, ext='tiff', dpi=600):
     """
     data = data.real
 
-    fig = plt.figure()
+    fig = plt.figure('Heatmap')
     fig.set_size_inches(figsize_small)
     ax = fig.add_subplot(1,1,1)
     formatter = matplotlib.ticker.ScalarFormatter(useMathText=True)
@@ -322,7 +322,7 @@ def plot_fid_re(fid, scale=None, c='b', lims=None, name=None, ext='tiff', dpi=60
             scale = np.arange(size)
 
 
-    fig = plt.figure()
+    fig = plt.figure('Real part of FID')
     fig.set_size_inches(figsize_small)
     plt.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.90)
     ax1 = fig.add_subplot(1,1,1)
@@ -359,7 +359,7 @@ def plot_fid(fid, name=None, ext='tiff', dpi=600):
         scale = np.concatenate((scale, temp_scale), axis=-1)
     scale = np.delete(scale, 0)
 
-    fig = plt.figure()
+    fig = plt.figure('FID')
     fig.set_size_inches(5.50, 2.56)
     plt.subplots_adjust(left=0.1, bottom=0.1, top=0.95, right=0.95, wspace=0.20)
     ax1 = fig.add_subplot(1,2,1)
@@ -474,7 +474,7 @@ def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
     cl = contour_start * contour_factor ** np.arange(contour_num)
 
     # Make the figure
-    fig = plt.figure()
+    fig = plt.figure('2D Spectrum')
     fig.set_size_inches(figsize_small)
     plt.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.95)
     ax = fig.add_subplot(1,1,1)
@@ -654,7 +654,7 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
     else:
         ysx, ydx = max(ylims), min(ylims)
 
-    fig = plt.figure()
+    fig = plt.figure('2D Spectra stacked')
     fig.set_size_inches(figsize_small)
     plt.subplots_adjust(left=0.15, bottom=0.2)
     ax = fig.add_subplot(1,1,1)
@@ -761,7 +761,7 @@ def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.
         if Y_label=='Intensity /a.u.':
             Y_label='Normalized Intensity /a.u.'
 
-    fig = plt.figure()
+    fig = plt.figure('1D Spectrum')
     fig.set_size_inches(figsize_small)
     plt.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.90)
     ax = fig.add_subplot(1,1,1)
@@ -986,7 +986,7 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, X_la
             c = tuple(c)
 
     # Make the figure
-    fig = plt.figure()
+    fig = plt.figure('1D Spectra stacked')
     fig.set_size_inches(figsize_small)
     ax = fig.add_subplot(1,1,1)
     plt.subplots_adjust(left=0.20, bottom=0.15, right=0.95, top=0.90)
@@ -1090,7 +1090,7 @@ def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, 
         Total += sgn[i][lim1:lim2].real
 
     # Initial figure
-    fig = plt.figure(1)
+    fig = plt.figure('Fit')
     fig.set_size_inches(figsize_small)
     plt.subplots_adjust(bottom=0.15, top=0.90, left=0.15, right=0.95)
     ax = fig.add_subplot(1,1,1)
@@ -1171,7 +1171,7 @@ def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm',
         xsx, xdx = max(xlims), min(xlims)
 
     # Define the figure
-    fig = plt.figure()
+    fig = plt.figure('Stacked Plot')
     fig.set_size_inches(figsize_small)
     plt.subplots_adjust(left=0.15, bottom=0.2, right=0.95, top=0.95)
     ax = fig.add_subplot(1,1,1)
@@ -1314,7 +1314,7 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
             flags[k] = stat
 
     # Make the figure
-    fig = plt.figure(1)
+    fig = plt.figure('Multiple Display')
     fig.set_size_inches(figsize_large)
     plt.subplots_adjust(left = 0.15, bottom=0.10, right=0.85, top=0.95)    # Make room for the sliders
     ax = fig.add_subplot(1,1,1)
@@ -1550,7 +1550,7 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     # ----------------------------------------------------------------------------------
 
     # Make the figure
-    fig = plt.figure(1)
+    fig = plt.figure('Multiple Display')
     fig.set_size_inches(figsize_large)
     plt.subplots_adjust(left = 0.15, bottom=0.10, right=0.85, top=0.95)    # Make room for the sliders
     ax = fig.add_subplot(1,1,1)
@@ -1701,7 +1701,7 @@ def ongoing_fit(exp, calc, residual, ylims=None, filename=None, dpi=100):
         Resolution of the figure in dots per inches
     """
     # Make the figure panel
-    fig = plt.figure()
+    fig = plt.figure('Ongoing Fit')
     # Visual adjustments
     fig.set_size_inches(figures.figsize_large)
     # Make two subplots

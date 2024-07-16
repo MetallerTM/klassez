@@ -682,7 +682,7 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
     lvlstep = 0.02                  # for mouse scroll
 
     # Make the figure
-    fig = plt.figure()
+    fig = plt.figure('Traces Selector')
     fig.set_size_inches(figures.figsize_large)
     ax = fig.add_subplot(1,1,1)
     ax.set_title('Left double click to add point, right click to remove point')
@@ -912,7 +912,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
     # -----------------------------------------------------------------------------------------------------------------
 
     # Make the figure
-    fig = plt.figure()
+    fig = plt.figure('Manual Peak Picking')
     fig.set_size_inches(figures.figsize_large)
     ax = fig.add_subplot(1,1,1)
     ax.set_title('Drag with left peak for region; select peak with right click')
@@ -1621,7 +1621,7 @@ def show_cmap(cmap, N=10, start=0, end=1, filename=None):
     width = (end - start) / (N - 1)
 
     # Make the figure
-    fig = plt.figure()
+    fig = plt.figure('Colormap Sample')
     fig.set_size_inches(12, 3)
     fig.subplots_adjust(left=0.01, right=0.99)
     ax = fig.add_subplot(1,1,1)

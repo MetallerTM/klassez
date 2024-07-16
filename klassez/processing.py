@@ -61,7 +61,7 @@ def interactive_echo_param(data0):
         raise ValueError('Data shape not supported')
 
     # Make the figure
-    fig = plt.figure()
+    fig = plt.figure('Echo Splitter')
     fig.set_size_inches(figures.figsize_large)
     plt.subplots_adjust(left=0.25, right=0.95, top=0.90, bottom=0.15)
     ax = fig.add_subplot(2,3,(1,5)) # Square plot
@@ -898,7 +898,7 @@ def interactive_fp(fid0, acqus, procs):
     
     
     # Draw the figure panel
-    fig = plt.figure(1)
+    fig = plt.figure('Interactive Processing')
     fig.set_size_inches(15,9)
     plt.subplots_adjust(left=0.1, bottom=0.05, right=0.8, top=0.95, hspace=0.4)
     ax = fig.add_subplot(4,1,(1,3))     # spectrum
@@ -1443,7 +1443,7 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
 
 
     # Draw the figure panel
-    fig = plt.figure(1)
+    fig = plt.figure('Interactive Processing')
     fig.set_size_inches(15,9)
     plt.subplots_adjust(left=0.1, bottom=0.05, right=0.725, top=0.95, hspace=0.75, wspace=0.25)
     ax = fig.add_subplot(4,3,(1,9))     # spectrum
@@ -1758,7 +1758,7 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
     cl = contour_start * contour_factor**np.arange(contour_num)
 
     # Make the figure
-    fig = plt.figure(1)
+    fig = plt.figure('Tabula Rasa')
     fig.set_size_inches(12,8)
     plt.subplots_adjust(left=0.15, bottom=0.15)
     ax = fig.add_subplot(1,1,1)
@@ -1962,7 +1962,7 @@ def interactive_phase_1D(ppmscale, S):
             zoom_adj = not(zoom_adj)
 
     # Make the figure
-    fig = plt.figure(1)
+    fig = plt.figure('Phase Correction')
     fig.set_size_inches(15,8)
     plt.subplots_adjust(left = 0.125, bottom=0.10, right=0.8, top=0.9)    # Make room for the sliders
     ax = fig.add_subplot(1,1,1)
@@ -2288,7 +2288,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
         plt.close()
 
     # Make the figure
-    fig = plt.figure(1)
+    fig = plt.figure('Phase Correction')
     fig.set_size_inches(15,8)
     plt.subplots_adjust(left = 0.125, bottom=0.125, right=0.8, top=0.9, wspace=0.10, hspace=0.20)    # Make room for the sliders
     # Create figure panels: one for each trace
@@ -2531,7 +2531,7 @@ def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, ut
                 (max(ppm_f1), min(ppm_f1))]
 
         # Make the figure
-        fig = plt.figure()
+        fig = plt.figure('Computed Integrals')
         fig.set_size_inches(figures.figsize_large)
         plt.subplots_adjust(left=0.05, right=0.95, bottom=0.10, top=0.90, wspace=0.20)
         
@@ -2781,7 +2781,7 @@ def calibration(ppmscale, S):
         fig.canvas.draw()
         
     # Make the figure 
-    fig = plt.figure(1)
+    fig = plt.figure('Calibration')
     fig.set_size_inches(15,8)
     plt.subplots_adjust(left = 0.1, bottom=0.25, right=0.80, top=0.90)
     ax = fig.add_subplot(1,1,1)
@@ -3674,7 +3674,7 @@ def interactive_basl_windows(ppm, data):
     """
 
     # Make the figure
-    fig = plt.figure()
+    fig = plt.figure('Manual Computation of Polynomial Baseline')
     fig.set_size_inches(15,8)
     ax = fig.add_subplot(1,1,1)
     plt.subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.95)
@@ -3847,7 +3847,7 @@ def make_polynomion_baseline(ppm, data, limits):
 
 
     # Initial figure
-    fig = plt.figure(1)
+    fig = plt.figure('Manual Computation of Polynomial Baseline')
     fig.set_size_inches(15,8)
     plt.subplots_adjust(bottom=0.10, top=0.90, left=0.05, right=0.80)
     ax = fig.add_subplot(1,1,1)
@@ -4153,7 +4153,7 @@ def interactive_qfil(ppm, data_in):
     G /= max(G)     # Normalize it to preserve intensities
 
     # Make the figure
-    fig = plt.figure()
+    fig = plt.figure('Adjust Position and Width for QFIL')
     fig.set_size_inches(figures.figsize_large)
     plt.subplots_adjust(left=0.10, bottom=0.15, right=0.85, top=0.90)
     ax = fig.add_subplot(1,1,1)
