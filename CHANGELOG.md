@@ -1,7 +1,25 @@
 # Version 0.4a.5
 
 16/07/2024
-Added titles of all the figures
+Added titles of all the figures.
+Changed name of the following functions:
+- Module **MISC**:
+    - *SNR* &rarr; *snr*
+    - *SNR_2D* &rarr; *snr_2D*
+- Module **PROCESSING**
+    - *Cadzow* &rarr; *cadzow*
+    - *Cadzow_2D* &rarr; *cadzow_2D*
+    - *EAE* &rarr; *eae*
+    - *LRD* &rarr; *lrd*
+    - *MCR* &rarr; *mcr*
+    - *MCR_ALS* &rarr; *mcr_als*
+    - *MCR_unpack* &rarr; *mcr_unpack*
+    - *stack_MCR* &rarr; *mcr_stack*
+    - *SIMPLISMA* &rarr; *simplisma*
+- Module **FIT**
+    - *LR* &rarr; *lr*
+    - *LSP* &rarr; *lsp*
+    - *SINC_phase* &rarr; *sinc_phase*
 
 ## New functions:
 04/07/2024

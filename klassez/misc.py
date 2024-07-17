@@ -58,7 +58,7 @@ def noise_std(y):
     return noisestd
 
 
-def SNR(data, signal=None, n_reg=None):
+def snr(data, signal=None, n_reg=None):
     """
     Computes the signal to noise ratio of a 1D spectrum.
     -------
@@ -86,7 +86,7 @@ def SNR(data, signal=None, n_reg=None):
     snr = signal / (2 * misc.noise_std(y))
     return snr
 
-def SNR_2D(data, n_reg=None):
+def snr_2D(data, n_reg=None):
     """
     Computes the signal to noise ratio of a 2D spectrum.
     -------
@@ -115,8 +115,8 @@ def SNR_2D(data, n_reg=None):
     f1_trace = data[:,n_reg[0]]
     f2_trace = data[n_reg[1],:]
 
-    snr_f1 = misc.SNR(f1_trace, signal=np.max(data))
-    snr_f2 = misc.SNR(f2_trace, signal=np.max(data))
+    snr_f1 = misc.snr(f1_trace, signal=np.max(data))
+    snr_f2 = misc.snr(f2_trace, signal=np.max(data))
 
     return snr_f1, snr_f2
 

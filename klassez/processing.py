@@ -309,8 +309,8 @@ def qpol(fid):
     size = fid.shape[-1]
     x = np.linspace(0, size, size)
 
-    coeff_re = fit.LSP(fid.real, x, n=5)
-    coeff_im = fit.LSP(fid.imag, x, n=5)
+    coeff_re = fit.lsp(fid.real, x, n=5)
+    coeff_im = fit.lsp(fid.imag, x, n=5)
     c = coeff_re + 1j*coeff_im
 
     fid_corr = fid - misc.polyn(x, c)
@@ -552,7 +552,7 @@ def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False):
     return datap, final_values
     
     
-def EAE(data):
+def eae(data):
     """
     Shuffles data if the spectrum is acquired with FnMODE = Echo-Antiecho.
     NOTE: introduces -90° phase shift in F1, to be corrected after the processing
@@ -2824,7 +2824,7 @@ def calibration(ppmscale, S):
 
 #-----------------------------------------------------------------------------------------
 # MCR and related
-def stack_MCR(input_data, P='H'):
+def mcr_stack(input_data, P='H'):
     """
     Performs matrix augmentation by assembling input_data according to the positioning matrix P.
     P has two default modes: 'H' = horizontal stacking; 'V' = vertical stacking. Otherwise, a custom P matrix can be given as follows.
@@ -2877,9 +2877,9 @@ def stack_MCR(input_data, P='H'):
     return data
 
 
-def MCR_unpack(C, S, nds, P='H'):
+def mcr_unpack(C, S, nds, P='H'):
     """
-    Reverts matrix augmentation of stack_MCR.
+    Reverts matrix augmentation of mcr_stack.
     The denoised spectra can be calculated by matrix multiplication: D[k] = C_f[k] S_f[k], for k = 0,..., nds-1
     --------
     Parameters:
@@ -2890,7 +2890,7 @@ def MCR_unpack(C, S, nds, P='H'):
     - nds: int
         number of experiments
     - P: str or 2darray
-        'H' for horizontal stacking, 'V' for vertical stacking, or custom matrix as explained in the description of stack_MCR
+        'H' for horizontal stacking, 'V' for vertical stacking, or custom matrix as explained in the description of mcr_stack
     ---------
     Returns:
     - C_f: list of 2darray
@@ -2960,9 +2960,9 @@ def calc_nc(data, s_n):
     return n_c
 
 
-def SIMPLISMA(D, nc, f=10, oncols=True):
+def simplisma(D, nc, f=10, oncols=True):
     """
-    Finds the first nc purest components of matrix D using the SIMPLISMA algorithm, proposed by Windig and Guilment (DOI: 10.1021/ac00014a016 ). If oncols=True, this function estimates S with SIMPLISMA, then calculates C = DS+ . If oncols=False, this function estimates C with SIMPLISMA, then calculates S = C+ D. f defines the percentage of allowed noise.
+    Finds the first nc purest components of matrix D using the simplisma algorithm, proposed by Windig and Guilment (DOI: 10.1021/ac00014a016 ). If oncols=True, this function estimates S with simplisma, then calculates C = DS+ . If oncols=False, this function estimates C with simplisma, then calculates S = C+ D. f defines the percentage of allowed noise.
     -------
     Parameters:
     - D: 2darray
@@ -2972,7 +2972,7 @@ def SIMPLISMA(D, nc, f=10, oncols=True):
     - f: float
         Percentage of allowed noise.
     - oncols: bool
-        If True, SIMPLISMA estimates the S matrix, otherwise estimates C.
+        If True, simplisma estimates the S matrix, otherwise estimates C.
     -------
     Returns:
     - C: 2darray
@@ -3143,7 +3143,7 @@ def SIMPLISMA(D, nc, f=10, oncols=True):
     return C, S
 
 
-def MCR_ALS(D, C, S, itermax=10000, tol=1e-5):
+def mcr_als(D, C, S, itermax=10000, tol=1e-5):
     """
     Performs alternating least squares to get the final C and S matrices. Being the fundamental MCR equation:
         D = CS + E
@@ -3279,7 +3279,7 @@ def new_MCR_ALS(D, C, S, itermax=10000, tol=1e-5, reg_f=None, reg_fargs=[]):
     return C, S
 
 
-def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, P='H', oncols=True):
+def mcr(input_data, nc, f=10, tol=1e-5, itermax=1e4, P='H', oncols=True):
     """
     This is an implementation of Multivariate Curve Resolution for the denoising of 2D NMR data.
     Let us consider a matrix D, of dimensions m x n, where the starting data are stored. The final purpose of MCR is to decompose the D matrix as follows:
@@ -3287,7 +3287,7 @@ def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, P='H', oncols=True):
     where C and S are matrices of dimension m x nc and nc x n, respectively, and E contains the part of the data that are not reproduced by the factorization.
     Being D the FID of a NMR spectrum, C will contain time evolutions of the indirect dimension, and S will contain transients in the direct dimension.
 
-    The total MCR workflow can be separated in two parts: a first algorithm that produces an initial guess for the three matrices C, S and E (SIMPLISMA), and an optimization step that aims at the removal of the unwanted features of the data by iteratively filling the E matrix (MCR ALS).
+    The total MCR workflow can be separated in two parts: a first algorithm that produces an initial guess for the three matrices C, S and E (simplisma), and an optimization step that aims at the removal of the unwanted features of the data by iteratively filling the E matrix (MCR ALS).
     This function returns the denoised datasets, CS, and the single C and S matrices.
     -------
     Parameters:
@@ -3302,9 +3302,9 @@ def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, P='H', oncols=True):
     - itermax: int
         maximum number of allowed iterations
     - P: str or 2darray
-        'H' for horizontal stacking, 'V' for vertical stacking, or custom matrix as explained in the description of stack_MCR
+        'H' for horizontal stacking, 'V' for vertical stacking, or custom matrix as explained in the description of mcr_stack
     - oncols: bool
-        True to estimate S with processing.SIMPLISMA, False to estimate C.
+        True to estimate S with processing.simplisma, False to estimate C.
     -------
     Returns:
     - CS_f: 2darray or 3darray
@@ -3335,16 +3335,16 @@ def MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, P='H', oncols=True):
     print('*                                                   *')
     print('*****************************************************\n')
 
-    D = processing.stack_MCR(input_data, P=P)           # Matrix augmentation
+    D = processing.mcr_stack(input_data, P=P)           # Matrix augmentation
 
     # Get initial estimation of C, S and E
-    C0, S0 = processing.SIMPLISMA(D, nc, f, oncols=oncols)  
+    C0, S0 = processing.simplisma(D, nc, f, oncols=oncols)  
 
     # Optimize C and S matrix through Alternating Least Squares
-    C, S = processing.MCR_ALS(D, C0, S0, itermax=itermax, tol=tol)
+    C, S = processing.mcr_als(D, C0, S0, itermax=itermax, tol=tol)
 
     # Revert matrix augmentation
-    C_f, S_f = processing.MCR_unpack(C, S, nds, P)
+    C_f, S_f = processing.mcr_unpack(C, S, nds, P)
         
     # Obtain the denoised data of the same shape as the input
     CS_f = [C_f[j] @ S_f[j] for j in range(nds)]
@@ -3398,22 +3398,22 @@ def new_MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True, ou
     print('*                                                   *')
     print('*****************************************************\n')
 
-    D = processing.stack_MCR(input_data, H=H)           # Matrix augmentation
+    D = processing.mcr_stack(input_data, H=H)           # Matrix augmentation
 
     # Get initial estimation of C, S and E
     if our_function is None:
-        C0, S0 = processing.SIMPLISMA(D, nc, f, oncols=oncols) 
+        C0, S0 = processing.simplisma(D, nc, f, oncols=oncols) 
     else:
         C0, S0, nc = our_function(D, *fargs)
 
     # Optimize C and S matrix through Alternating Least Squares
     if our_function2 is None:
-        C, S = processing.MCR_ALS(D, C0, S0, itermax=itermax, tol=tol)
+        C, S = processing.mcr_als(D, C0, S0, itermax=itermax, tol=tol)
     else:
         C, S = processing.new_MCR_ALS(D, C0, S0, itermax, tol, our_function2, f2args)
 
     # Revert matrix augmentation
-    C_f, S_f = processing.MCR_unpack(C, S, nds, H)
+    C_f, S_f = processing.mcr_unpack(C, S, nds, H)
         
     # Obtain the denoised data of the same shape as the input
     if isinstance(input_data, list):
@@ -3435,7 +3435,7 @@ def new_MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True, ou
 
     return CS_f, C_f, S_f
 
-def LRD(data, nc):
+def lrd(data, nc):
     """
     Denoising method based on Low-Rank Decomposition.
     The algorithm performs a singular value decomposition on data, then keeps only the first nc singular values while setting all the others to 0.
@@ -3474,7 +3474,7 @@ def LRD(data, nc):
     print('\n*****************************************************\n')
     return data_out
 
-def Cadzow(data, n, nc, print_head=True):
+def cadzow(data, n, nc, print_head=True):
     """
     Performs Cadzow denoising on data, which is a 1D array of N points.
     The algorithm works as follows:
@@ -3616,7 +3616,7 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
 
     return datap
 
-def Cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
+def cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
     """
     Performs the Cadzow denoising method on a 2D spectrum, one transient at the time. This function calls either Cadzow or iterCadzow, depending on the parameter 'i': True for iterCadzow, False for normal Cadzow.
 
@@ -3634,7 +3634,7 @@ def Cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
         if i:
             datap[k] = processing.iterCadzow(data[k], n=n, nc=nc, f=f, itermax=itermax, print_head=False, print_time=False)
         else:
-            datap[k] = processing.Cadzow(data[k], n=n, nc=nc, print_head=False)
+            datap[k] = processing.cadzow(data[k], n=n, nc=nc, print_head=False)
     print('Processing has ended!')
     end_time = datetime.now()
     if print_time is True:
@@ -4494,7 +4494,7 @@ def rpbc(data, split_imag=False, n=5, basl_method='huber', basl_thresh=0.2, basl
 
     ## PHASE CORRECTION
     # Compute the phase angles
-    p0, p1 = fit.SINC_phase(y, **phase_kws)
+    p0, p1 = fit.sinc_phase(y, **phase_kws)
     # Apply it
     y, *_ = processing.ps(y, p0=p0, p1=p1)
 

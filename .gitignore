@@ -9,3 +9,6 @@ dist/
 # vim swap files
 *.swp
 *.*~
+
+# obsidian
+.obsidian/

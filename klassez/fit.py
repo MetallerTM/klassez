@@ -218,7 +218,7 @@ def bin_data(data0, nbins=100, density=True, x_symm=False):
     return hist, bin_scale
 
 
-def LR(y, x=None, force_intercept=False):
+def lr(y, x=None, force_intercept=False):
     """ 
     Performs a linear regression of y with a model y_c = mx + q.
     ---------
@@ -5122,7 +5122,7 @@ class CostFunc:
         return x
 
 
-def LSP(y, x, n=5):
+def lsp(y, x, n=5):
     """
     Linear-System Polynomion
     Make a polynomial fit on the experimental data y by solving the linear system
@@ -5243,7 +5243,7 @@ def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
     if c_i:
         c = np.copy(c_i)
     else:
-        c = fit.LSP(y, x, n)
+        c = fit.lsp(y, x, n)
     px_iguess = misc.polyn(x, c)
     print('Done.')
 
@@ -5389,7 +5389,7 @@ class SINC_ObjFunc:
         return g
 
 
-def SINC_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
+def sinc_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
     """
     Perform automatic phase correction according to the SINC algorithm, as described in M. Sawall et. al., Journal of Magnetic Resonance 289 (2018), 132–141.
     The fitting method defaults to "least_squares".

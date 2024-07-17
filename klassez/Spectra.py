@@ -1133,7 +1133,7 @@ class Spectrum_2D:
         Sets self.eaeflag to 0.
         """
         if self.eaeflag:    # Do it only if it was not done before
-            self.fid = processing.EAE(self.fid)
+            self.fid = processing.eae(self.fid)
             self.eaeflag = 0
 
     def add_noise(self, s_n=1):
