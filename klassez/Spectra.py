@@ -10,7 +10,7 @@ import random
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from matplotlib.widgets import Slider, Button, RadioButtons, TextBox, CheckButtons, Cursor, LassoSelector
+from matplotlib.widgets import Slider, Button, RadioButtons, TextBox, CheckButtons, Cursor, LassoSelector, SpanSelector
 from matplotlib.path import Path
 import seaborn as sns
 import nmrglue as ng

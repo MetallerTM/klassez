@@ -5588,7 +5588,8 @@ def read_vf_P2D(filename, n=-1):
         return dic_rr
 
     # Read the file
-    ff = open(filename, 'r').read()
+    with open(filename, 'r') as J:
+        ff = J.read()
     # Get the actual section from an output file
     f = ff.split('!')[n]
     # Separate the bigger sections
@@ -5694,6 +5695,13 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
             return np.zeros_like(ppm_scale)
 
     #-------------------------------------------------------------------------------
+
+    # Initial figure
+    fig = plt.figure('Manual Computation of Initial Guess - Pseudo2D')
+    fig.set_size_inches(15,8)
+    plt.subplots_adjust(bottom=0.10, top=0.90, left=0.05, right=0.65)
+    ax = fig.add_subplot(1,1,1)
+
     # Write the info on the file
     with open(f'{filename}.ivf', 'a', buffering=1) as f:
         now = datetime.now()
@@ -6011,11 +6019,6 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
 
     #-------------------------------------------------------------------------------
 
-    # Initial figure
-    fig = plt.figure('Manual Computation of Initial Guess - Pseudo2D')
-    fig.set_size_inches(15,8)
-    plt.subplots_adjust(bottom=0.10, top=0.90, left=0.05, right=0.65)
-    ax = fig.add_subplot(1,1,1)
 
     ax.plot(ppm_scale[lim1:lim2], S[lim1:lim2], label='Experimental', lw=1.0, c='k')  # experimental
     p_fit = ax.plot(ppm_scale[lim1:lim2], np.zeros_like(S)[lim1:lim2], label='Fit', lw=0.9, c='b')[-1]  # Total trace

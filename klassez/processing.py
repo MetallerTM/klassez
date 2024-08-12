@@ -1823,6 +1823,12 @@ def interactive_phase_1D(ppmscale, S):
         apod = np.exp(1j * (p0 + p1 * (pvscale - pv))).astype(data.dtype)
         return apod * data
 
+    # Make the figure
+    fig = plt.figure('Phase Correction')
+    fig.set_size_inches(15,8)
+    plt.subplots_adjust(left = 0.125, bottom=0.10, right=0.8, top=0.9)    # Make room for the sliders
+    ax = fig.add_subplot(1,1,1)
+
     # sensitivity
     sens = [5,5, 0.1, 0.1]
 
@@ -1961,11 +1967,6 @@ def interactive_phase_1D(ppmscale, S):
         if event.key == 'z':
             zoom_adj = not(zoom_adj)
 
-    # Make the figure
-    fig = plt.figure('Phase Correction')
-    fig.set_size_inches(15,8)
-    plt.subplots_adjust(left = 0.125, bottom=0.10, right=0.8, top=0.9)    # Make room for the sliders
-    ax = fig.add_subplot(1,1,1)
 
     # Set borders and scale
     ax.set_xlim(max(ppmscale), min(ppmscale))
@@ -2077,6 +2078,10 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
             x = misc.get_trace(S_rr, ppm_f2, ppm_f1, coord[i][1], column=False)
             f2.append(x)
         return f1, f2
+    # Make the figure
+    fig = plt.figure('Phase Correction')
+    fig.set_size_inches(15,8)
+    plt.subplots_adjust(left = 0.125, bottom=0.125, right=0.8, top=0.9, wspace=0.10, hspace=0.20)    # Make room for the sliders
 
     # Get the traces on which to see the effects of phase adjustment
     coord = misc.select_traces(ppm_f1, ppm_f2, S_rr)
@@ -2287,10 +2292,6 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
         save(event)
         plt.close()
 
-    # Make the figure
-    fig = plt.figure('Phase Correction')
-    fig.set_size_inches(15,8)
-    plt.subplots_adjust(left = 0.125, bottom=0.125, right=0.8, top=0.9, wspace=0.10, hspace=0.20)    # Make room for the sliders
     # Create figure panels: one for each trace
     ax = []
     for i in range(2*npk):
