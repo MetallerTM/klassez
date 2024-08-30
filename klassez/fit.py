@@ -1979,6 +1979,12 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     # Peaks dictionary
     peaks = {}
 
+    # Initial figure
+    fig = plt.figure('Manual Computation of Inital Guess')
+    fig.set_size_inches(15,8)
+    plt.subplots_adjust(bottom=0.10, top=0.90, left=0.05, right=0.65)
+    ax = fig.add_subplot(1,1,1)
+    
     # make boxes for widgets
     slider_box = plt.axes([0.68, 0.10, 0.01, 0.65])     # Peak selector slider
     peak_box = plt.axes([0.72, 0.45, 0.10, 0.30])       # Radiobuttons
@@ -2248,11 +2254,6 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     #-------------------------------------------------------------------------------
 
-    # Initial figure
-    fig = plt.figure('Manual Computation of Inital Guess')
-    fig.set_size_inches(15,8)
-    plt.subplots_adjust(bottom=0.10, top=0.90, left=0.05, right=0.65)
-    ax = fig.add_subplot(1,1,1)
 
     ax.plot(ppm_scale[lim1:lim2], S[lim1:lim2], label='Experimental', lw=1.0, c='k')  # experimental
     p_fit = ax.plot(ppm_scale[lim1:lim2], np.zeros_like(S)[lim1:lim2], label='Fit', lw=0.9, c='b')[-1]  # Total trace

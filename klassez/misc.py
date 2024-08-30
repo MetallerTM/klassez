@@ -1818,3 +1818,17 @@ def zero_crossing(array, after=False):
         zerocross += 1
     return zerocross
 
+def merge_dict(*dics):
+    """ 
+    Merge a sequence of dictionaries in a single dictionary.
+    ----------------
+    Parameters:
+    - dics: sequence of dict
+        Dictionaries to merge
+    ----------------
+    Returns:
+    - merged_dict: dict
+        Merged dictionary
+    """
+    merged_dict = {k: v for d in dics for k, v in d.items()}
+    return merged_dict

@@ -33,6 +33,8 @@ Changed name of the following functions:
 - *Spectrum_2D.scan*
 - *Pseudo_2D.add_noise*
 - *Pseudo_2D.scan*
+29/08/2024
+- *misc.merge_dict*
 
 ## Modified functions
 08/07/2024

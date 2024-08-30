@@ -1683,6 +1683,11 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
     which contain signal. Returns a masking matrix, of the same shape as data, whose entries
     are 1 inside the selection and 0 outside.
     """
+    # Make the figure
+    fig = plt.figure('Tabula Rasa')
+    fig.set_size_inches(12,8)
+    plt.subplots_adjust(left=0.15, bottom=0.15)
+    ax = fig.add_subplot(1,1,1)
     # Define grid
     xscale = np.arange(data.shape[1])
     yscale = np.arange(data.shape[0])
@@ -1757,11 +1762,6 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
     contour_factor = 1.40
     cl = contour_start * contour_factor**np.arange(contour_num)
 
-    # Make the figure
-    fig = plt.figure('Tabula Rasa')
-    fig.set_size_inches(12,8)
-    plt.subplots_adjust(left=0.15, bottom=0.15)
-    ax = fig.add_subplot(1,1,1)
     ax.contour(xscale, yscale, data, cl, cmap=cmap, linewidths=0.5)     # plot the contours
 
     hull, = ax.plot(0,0, visible=False)             # Create variable for the lasso selection on screen
@@ -2035,6 +2035,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
         (p0_f2, p1_f2, pivot_f2)
     """
 
+
     # Unpack the hyperser
     if hyper:
         S_rr, S_ri, S_ir, S_ii = processing.unpack_2D(S)
@@ -2078,14 +2079,16 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
             x = misc.get_trace(S_rr, ppm_f2, ppm_f1, coord[i][1], column=False)
             f2.append(x)
         return f1, f2
-    # Make the figure
-    fig = plt.figure('Phase Correction')
-    fig.set_size_inches(15,8)
-    plt.subplots_adjust(left = 0.125, bottom=0.125, right=0.8, top=0.9, wspace=0.10, hspace=0.20)    # Make room for the sliders
+
 
     # Get the traces on which to see the effects of phase adjustment
     coord = misc.select_traces(ppm_f1, ppm_f2, S_rr)
     npk = len(coord)
+
+    # Make the figure
+    fig = plt.figure('Phase Correction')
+    fig.set_size_inches(15,8)
+    plt.subplots_adjust(left = 0.125, bottom=0.125, right=0.8, top=0.9, wspace=0.10, hspace=0.20)    # Make room for the sliders
 
     # Get the traces
     f1, f2 = maketraces(coord, S, ppm_f2, ppm_f1, hyper)
@@ -2369,7 +2372,6 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     seldim.on_clicked(change_dim)
     scroll = fig.canvas.mpl_connect('scroll_event', on_scroll)
     fig.canvas.mpl_connect('key_press_event', zoom_onoff)
-
 
     plt.show()
 
