@@ -1,6 +1,5 @@
 # Version 0.4a.5
 
-16/07/2024
 Added titles of all the figures.
 Changed name of the following functions:
 - Module **MISC**:
@@ -21,30 +20,25 @@ Changed name of the following functions:
     - *LSP* &rarr; *lsp*
     - *SINC_phase* &rarr; *sinc_phase*
 
+Several bug corrections.
+
 ## New functions:
-04/07/2024
+- *misc.merge_dict*
 - *misc.zero_crossing*
-08/07/2024
 - *fit.make_iguess_auto*
-16/07/2024
 - *Spectrum_1D.add_noise*
 - *Spectrum_1D.scan*
 - *Spectrum_2D.add_noise*
 - *Spectrum_2D.scan*
 - *Pseudo_2D.add_noise*
 - *Pseudo_2D.scan*
-29/08/2024
-- *misc.merge_dict*
 
 ## Modified functions
-08/07/2024
-- *fit.Voigt_Fit.iguess*: added "auto" flag
-16/07/2024
+- *fit.Voigt_Fit.iguess*: added "auto" flag to use *fit.make_iguess_auto*
 - *Spectrum_1D.plot*: added tracker for distance measurement
 - *Spectrum_2D.plot*: added tracker for distance measurement
 
 ## Modified classes
-08/07/2024
 - *fit.Voigt_Fit*: added attribute **SW**, computed on the ppm scale
 
 
