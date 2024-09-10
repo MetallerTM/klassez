@@ -9,6 +9,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import seaborn as sns
+from copy import deepcopy
 from pprint import pprint
 
 from . import fit, misc, sim, figures, processing
