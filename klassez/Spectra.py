@@ -17,6 +17,7 @@ import nmrglue as ng
 import lmfit as l
 from datetime import datetime
 import warnings
+import jeol_parser
 
 from . import fit, misc, sim, figures, processing
 #from .__init__ import CM
@@ -108,7 +109,7 @@ class Spectrum_1D:
         - isexp: bool
             True if this is an experimental dataset, False if it is simulated
         - spect: str
-            Data file format. Allowed: 'bruker', 'varian', 'magritek', 'oxford'
+            Data file format. Allowed: 'bruker', 'varian', 'magritek', 'oxford', 'jeol'
         """
         ## Set up the filenames
         if isinstance(in_file, dict):   # Simulated data with already given acqus dictionary
@@ -156,7 +157,6 @@ class Spectrum_1D:
                     dic = dict(dic1)
                     dic.update(dic3)
                     dic.update(dic2)        # Important because it contains the ppm scale!
-                    self.fid = data
                     self.acqus = misc.makeacqus_1D_spinsolve(dic)
 
                 elif spect == 'oxford':
@@ -173,6 +173,17 @@ class Spectrum_1D:
                     dic, cplx = ng.jcampdx.read(jdx_file)
                     self.acqus = misc.makeacqus_1D_oxford(dic)
                     data = cplx[0] + 1j*cplx[1]
+                elif spect == 'jeol':
+                    dic = jeol_parser.parse(in_file)
+                    # Compute fid
+                    fid = dic.pop('data')  # remove the data from the dictionary (useless)
+                    # join real and imaginary part
+                    fid_re = np.array(fid['re']).astype('float64')
+                    fid_im = np.array(fid['im']).astype('float64')
+                    # Complex FID
+                    data = (fid_re + 1j*fid_im).reshape(-1)
+                    # Make acqus
+                    self.acqus = misc.makeacqus_1D_jeol(dic)
 
                 else:
                     raise NotImplementedError('Unknown dataset format.')

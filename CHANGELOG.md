@@ -1,5 +1,19 @@
 # Version 0.4a.6
 
+10/09/2024
+Added reading for Jeol. The package **jeol_parser** is now a required installation prerequisite.
+The **sim.gamma** dictionary now is read from a file in the new folder **klassez/tables**. There is another file there, that is read to generate the **sim.jeol_nuclei** dictionary, which is needed for the conversion from Jeol-style nuclei to *klassez* format.
+
+
+## New functions: 
+10/09/2024
+- *misc.makeacqus_1D_jeol*
+
+## Modified functions:
+10/09/2024
+- *Spectrum_1D.__init__*: option **spect=jeol** added
+
+
 
 # Version 0.4a.5
 
