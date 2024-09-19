@@ -1096,6 +1096,7 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True):
             os.makedirs(p)
         return open(filename, 'wb')
 
+    fid = np.squeeze(fid)
     if len(fid.shape) == 1:
         filename = 'fid'
     else:

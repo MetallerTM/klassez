@@ -4600,8 +4600,106 @@ def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
 
     return data_roll, u_cal, u_cal_ppm
 
+def lp(data, pred=1, order=8, mode='b'):
+    """
+    Apply linear prediction on the dataset.
+    This method solves the linear system
+        D a = d
+    where 'a' is the array of lp coefficients.
+    -----------
+    Parameters:
+    - data: 1darray
+        FID to be linear-predicted
+    - pred: int
+        Number of points to predict
+    - order: int
+        Number of coefficients to use for the prediction
+    - mode: str
+        'f' for forward linear prediction, 'b' for backward linear prediction
+    -----------
+    Returns:
+    - newdata: 1darray
+        FID with linear prediction applied.
+    """
+    def make_Dd(x, order, mode):
+        L = len(x) - order      # Dimension of the coefficient array
+        if mode == 'f':         # Forward lp
+            # Characteristic matrix
+            D = misc.hankel(x[:-1], order)
+            # Coefficient vector
+            d = x[order:].reshape(L,1)
+        elif mode == 'b':       # Backward lp
+            # Characteristic matrix
+            D = misc.hankel(x[1:], order)
+            # Coefficient vector
+            d = x[:L].reshape(L,1)
+        return D, d
 
-def blp(data, pred=1, order=8, N=2048):
+    def find_lpc(D, d):
+        """
+        Solve the linear system
+        """
+        # Compute pseudoinverse matrix
+        Dpinv = np.linalg.pinv(D)
+        # Solve the system
+        a = Dpinv @ d
+        return a
+
+    def extrapolate(trace, a, pred, mode):
+        """
+        Apply the correction
+        """
+        m = len(a)          # Number of coefficients
+        M = len(trace)      # Number of points
+        # Make placeholder for the new FID
+        ntrace = np.empty((M+pred), dtype=trace.dtype)
+        if mode == 'f':     # forward lp
+            ntrace[:M] = trace  # Copy the "old" fid at the beginning
+            for i in range(pred):   # Fill the rest point-by-point
+                ntrace[M+i] = np.sum(np.multiply(ntrace[M-m+i: M+i], a.flat))
+        if mode == 'b':     # backward lp
+            ntrace[-M:] = trace # Copy the "old" fid at the end
+            for i in range(pred):   # Fill the rest point-by-point, going backwards
+                ntrace[pred-i-1] = np.sum(np.multiply(ntrace[pred-i: pred+m-i], a.flat))
+        return ntrace
+    if len(data.shape) != 1:
+        raise NotImplementedError('LP available for only 1D datasets')
+
+    N = data.shape[-1]      # Length of the dataset
+    # Cut the data to ease the computational workload
+    t = min( N, max(10*pred, 2048) ) # 500 points or 10x the number of points
+    if mode == 'f':     # Take the last part of the fid
+        x = data[-t:]
+    elif mode == 'b':   # Take the first part of the fid
+        x = data[:t]
+    # Compute the system
+    D, d = make_Dd(x, order, mode)
+    # Solve the system
+    a = find_lpc(D, d)
+    # Apply the correction
+    newdata = extrapolate(data, a, pred, mode)
+    return newdata
+
+def blp(data, pred=1, order=8):
+    """
+    Applies backward linear prediction by calling processing.lp with mode='b'.
+    -----------------
+    Parameters:
+    - data: 1darray
+        FID to be linear-predicted
+    - pred: int
+        Number of points to predict
+    - order: int
+        Number of coefficients to use for the prediction
+    -----------
+    Returns:
+    - lpdata: 1darray
+        FID with linear prediction applied.
+    """
+    lpdata = lp(data, pred, order, mode='b')
+    return lpdata
+
+def blp_ng(data, pred=1, order=8, N=2048):
     """
     Performs backwards linear prediction on data.
     This function calls nmrglue.process.proc_lp.lp with most of the parameters set automatically.

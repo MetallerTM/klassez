@@ -8,10 +8,16 @@ The **sim.gamma** dictionary now is read from a file in the new folder **klassez
 ## New functions: 
 10/09/2024
 - *misc.makeacqus_1D_jeol*
+19/09/2024
+- *processing.lp*
+- *processing.blp_ng*
 
 ## Modified functions:
 10/09/2024
 - *Spectrum_1D.__init__*: option **spect=jeol** added
+19/09/2024
+- *processing.blp*: now uses the new *processing.lp* function.
+- *figures.dotmd*: all traces are deactivated by default
 
 
 

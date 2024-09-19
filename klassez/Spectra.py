@@ -260,7 +260,7 @@ class Spectrum_1D:
         """
         self.adjph(p1=-360 * self.acqus['GRPDLY'], update=False)
 
-    def blp(self, pred=8, order=8, N=2048):
+    def blp(self, pred=8, order=8):
         """
         Call processing.blp on self.fid for the application of backward linear prediction to the data. Important for Oxford benchtop data, where you have to predict 8 points to have a usable spectrum.
         ----------
@@ -272,7 +272,7 @@ class Spectrum_1D:
         - N: int
             Number of FID points to be used for calculation; used to decrease computation time
         """
-        self.fid = processing.blp(self.fid, pred, order=order, N=N)
+        self.fid = processing.blp(self.fid, pred, order=order)
 
     def process(self, interactive=False):
         """

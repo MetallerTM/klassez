@@ -1257,6 +1257,12 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     elif len(labels) != nsp:
         raise ValueError('Shape mismatch: you provided {} labels for {} spectra.'.format(len(labels), nsp)) 
 
+    # Make the figure
+    fig = plt.figure('Multiple Display')
+    fig.set_size_inches(figsize_large)
+    plt.subplots_adjust(left = 0.15, bottom=0.10, right=0.85, top=0.95)    # Make room for the sliders
+    ax = fig.add_subplot(1,1,1)
+
     # define boxes for sliders
     u_box = plt.axes([0.025, 0.85, 0.080, 0.05])
     d_box = plt.axes([0.025, 0.25, 0.080, 0.05])
@@ -1313,12 +1319,6 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
         for k, stat in enumerate(status):
             flags[k] = stat
 
-    # Make the figure
-    fig = plt.figure('Multiple Display')
-    fig.set_size_inches(figsize_large)
-    plt.subplots_adjust(left = 0.15, bottom=0.10, right=0.85, top=0.95)    # Make room for the sliders
-    ax = fig.add_subplot(1,1,1)
-
     # Auto-adjusts the limits for the y-axis
     misc.set_ylim(ax, np.concatenate(S))
     # Make pretty scales
@@ -1349,14 +1349,14 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     checklabels = []
     for k in range(nsp):
         checklabels.append(spectrum[k].get_label()[:12])
-    radio = CheckButtons(check_box, checklabels, list(np.ones(nsp)))
+    radio = CheckButtons(check_box, checklabels, list(np.zeros(nsp)))
     misc.edit_checkboxes(radio, xadj=0, yadj=0.005, dim=100, 
             color=[spec.get_color() for spec in spectrum])
 
     lbl_y = [ Q.get_position()[1] for Q in radio.labels]
     scale_text = []
     for Y, value in zip(lbl_y, scale_factor):
-        scale_text.append(ax.text(0.995, Y, f'{value:.3f}',
+        scale_text.append(check_box.text(0.995, Y, f'{value:.3f}',
             ha='right', va='center', transform=check_box.transAxes, fontsize=10))
 
     # Create buttons
@@ -1451,6 +1451,12 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
         else:
             raise ValueError('There is a problem in the shape of the scale.')
     # ----------------------------------------------------------------------------------
+    # Make the figure
+    fig = plt.figure('Multiple Display')
+    fig.set_size_inches(figsize_large)
+    plt.subplots_adjust(left = 0.15, bottom=0.10, right=0.85, top=0.95)    # Make room for the sliders
+    ax = fig.add_subplot(1,1,1)
+
 
     # flags for the activation of scroll zoom
     flags = np.ones(nsp)
@@ -1548,12 +1554,6 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
             figures.figure2D_multi(ppm_f2, ppm_f1, S, xlims=(l_slider.val, r_slider.val), ylims=(u_slider.val, d_slider.val), lvl=lvl, name=name, X_label=X_label, Y_label=Y_label, n_xticks=10, n_yticks=10, labels=labels)
 
     # ----------------------------------------------------------------------------------
-
-    # Make the figure
-    fig = plt.figure('Multiple Display')
-    fig.set_size_inches(figsize_large)
-    plt.subplots_adjust(left = 0.15, bottom=0.10, right=0.85, top=0.95)    # Make room for the sliders
-    ax = fig.add_subplot(1,1,1)
 
     # Draw the contours
     cnt = [figures.ax2D(ax, ppm_f2[k], ppm_f1[k], S[k], xlims=(max(ppm_f2[k]), min(ppm_f2[k])), ylims=(max(ppm_f1[k]), min(ppm_f1[k])), cmap=cmaps[k], c_fac=1.4, lvl=lvl[k], lw=0.5, X_label=X_label, Y_label=Y_label)
