@@ -1246,7 +1246,7 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
             raise ValueError('There is a problem in the shape of the scale.')
 
     # flags for the activation of scroll zoom
-    flags = np.ones(nsp)
+    flags = np.zeros(nsp)
     lvlstep = 0.1
 
     # Labels of the spectra that appear in the legend
