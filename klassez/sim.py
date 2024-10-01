@@ -147,6 +147,7 @@ def load_sim_1D(File):
         inp[i] = inp[i].replace('\t', ' ')
         line = inp[i].split(' ', 1)    # separate key from the rest
         line[0] = line[0].replace(' ', '')
+        line[0] = line[0].replace('x_g', 'b')
         keys.append(line[0])
 
         rest = line[1].strip()
@@ -211,7 +212,7 @@ def sim_1D(File, pv=False):
     shifts = np.array(in_file['shifts'])    # Chemical shift /ppm
     amplitudes = in_file['amplitudes']      # Relative intensity of the signals
     fwhm = np.array(in_file['fwhm'])        # Full width at half maximum of the signals
-    x_g = in_file['x_g']                    # Fraction of gaussianity of the FID
+    b = in_file['b']                    # Fraction of gaussianity of the FID
     phases = in_file['phases']
 
     freq = misc.ppm2freq(shifts, B0=in_file['SFO1'], o1p=in_file['o1p'])     # peaks center frequency
@@ -221,7 +222,7 @@ def sim_1D(File, pv=False):
         # Account for multiplicity
         u_split, A_split = multiplet(freq[j], amplitudes[j], m=in_file['mult'][j], J=in_file['Jconst'][j])
         for u, I in zip(u_split, A_split):
-            sgn_par = dict(t=in_file['t1'], u=u, fwhm=2*np.pi*fwhm[j], x_g=x_g[j], A=I, phi=phases[j] )
+            sgn_par = dict(t=in_file['t1'], u=u, fwhm=2*np.pi*fwhm[j], b=b[j], A=I, phi=phases[j] )
             if pv:          # Generate pseudo-voigt signals
                 fid += sim.t_pvoigt(**sgn_par)
             else:           # Make Voigt signals
@@ -252,6 +253,7 @@ def load_sim_2D(File, states=True):
         inp[i] = inp[i].replace('\t', ' ')
         line = inp[i].split(' ', 1)    # separate key from the rest
         line[0] = line[0].replace(' ', '')
+        line[0] = line[0].replace('x_g', 'b')
         keys.append(line[0])
 
         rest = line[1].strip()
@@ -330,7 +332,7 @@ def sim_2D(File, states=True, alt=True, pv=False):
     fwhm_f1 = np.array(in_file['fwhm_f1']).reshape(-1)          # FWHM of peaks in F1
     fwhm_f2 = np.array(in_file['fwhm_f2']).reshape(-1)          # FWHM of peaks in F2
     amplitudes = np.array(in_file['amplitudes']).reshape(-1)    # relative intensity
-    x_g = np.array(in_file['x_g']).reshape(-1)                  # fraction of gaussianity
+    b = np.array(in_file['b']).reshape(-1)                  # fraction of gaussianity
 
     # conversion of FWHM from Hz to radians
     fwhm1 = 2 * np.pi * fwhm_f1
@@ -357,9 +359,9 @@ def sim_2D(File, states=True, alt=True, pv=False):
 
     for p in range(ns):
         if pv:              # Generate pseudo-Voigt signal
-            fid += sim.t_2Dpvoigt(t1, t2, freq1[p], freq2[p], fwhm1[p], fwhm2[p], A=amplitudes[p], x_g=x_g[p], states=states, alt=alt)
+            fid += sim.t_2Dpvoigt(t1, t2, freq1[p], freq2[p], fwhm1[p], fwhm2[p], A=amplitudes[p], b=b[p], states=states, alt=alt)
         else:               # Generate Voigt signal
-            fid += sim.t_2Dvoigt(t1, t2, freq1[p], freq2[p], fwhm1[p], fwhm2[p], A=amplitudes[p], x_g=x_g[p], states=states, alt=alt)
+            fid += sim.t_2Dvoigt(t1, t2, freq1[p], freq2[p], fwhm1[p], fwhm2[p], A=amplitudes[p], b=b[p], states=states, alt=alt)
     return fid
 
 def noisegen(size, o2, t2, s_n=1):
@@ -494,7 +496,7 @@ def f_lorentzian(x, u, fwhm, A=1):
     f = A/(np.pi) * hwhm/((x-u)**2 + hwhm**2 )
     return f
 
-def f_pvoigt(x, u, fwhm, A=1, x_g=0):
+def f_pvoigt(x, u, fwhm, A=1, b=0):
     """
     Pseudo-Voigt function in the frequency domain:
     --------
@@ -507,7 +509,7 @@ def f_pvoigt(x, u, fwhm, A=1, x_g=0):
         Full-width at half-maximum
     - A: float
         Intensity
-    - x_g: float
+    - b: float
         Fraction of gaussianity
     --------
     Returns:
@@ -518,7 +520,7 @@ def f_pvoigt(x, u, fwhm, A=1, x_g=0):
     if fwhm < 1e-8:
         fwhm = 1e-8
     s = fwhm / 2.355
-    S = A* (sim.f_gaussian(x, u, s, A=x_g) + sim.f_lorentzian(x, u, fwhm, A=1-x_g))
+    S = A* (sim.f_gaussian(x, u, s, A=b) + sim.f_lorentzian(x, u, fwhm, A=1-b))
     return S
 
 def t_gaussian(t, u, s, A=1, phi=0):
@@ -573,7 +575,7 @@ def t_lorentzian(t, u, fwhm, A=1, phi=0):
     S = A * np.exp(1j*phi) * np.exp((1j *2*np.pi *u * t)-(t*hwhm))
     return S
 
-def t_pvoigt(t, u, fwhm, A=1, x_g=0, phi=0):
+def t_pvoigt(t, u, fwhm, A=1, b=0, phi=0):
     """
     Pseudo-Voigt function in the time domain:
     --------
@@ -586,7 +588,7 @@ def t_pvoigt(t, u, fwhm, A=1, x_g=0, phi=0):
         Full-width at half-maximum, in rad/s
     - A: float
         Intensity
-    - x_g: float
+    - b: float
         Fraction of gaussianity
     - phi: float
         Phase, in radians
@@ -600,12 +602,12 @@ def t_pvoigt(t, u, fwhm, A=1, x_g=0, phi=0):
     if fwhm < 1e-8:
         fwhm = 1e-8
     s = fwhm / 2.355
-    S = A * (sim.t_gaussian(t, u, s, A=x_g, phi=phi) + sim.t_lorentzian(t, u, fwhm, A=1-x_g, phi=phi))
+    S = A * (sim.t_gaussian(t, u, s, A=b, phi=phi) + sim.t_lorentzian(t, u, fwhm, A=1-b, phi=phi))
     return S
 
-def t_voigt(t, u, fwhm, A=1, x_g=0, phi=0):
+def t_voigt(t, u, fwhm, A=1, b=0, phi=0):
     """
-    Voigt function in the time domain. The parameter x_g affects the linewidth of the lorentzian and gaussian contributions.
+    Voigt function in the time domain. The parameter b affects the linewidth of the lorentzian and gaussian contributions.
     --------
     Parameters:
     - t: 1darray
@@ -616,7 +618,7 @@ def t_voigt(t, u, fwhm, A=1, x_g=0, phi=0):
         Full-width at half-maximum, in rad/s
     - A: float
         Intensity
-    - x_g: float
+    - b: float
         Fraction of gaussianity
     - phi: float
         Phase, in radians
@@ -630,7 +632,7 @@ def t_voigt(t, u, fwhm, A=1, x_g=0, phi=0):
     if fwhm < 1e-8:
         fwhm = 1e-8
     s = fwhm / 2.355
-    S = A * np.exp(1j*phi) * sim.t_gaussian(t, u/2, s*(x_g**0.5)) * sim.t_lorentzian(t, u/2, fwhm*(1-x_g))
+    S = A * np.exp(1j*phi) * sim.t_gaussian(t, u/2, s*(b**0.5)) * sim.t_lorentzian(t, u/2, fwhm*(1-b))
     return S
 
 
@@ -730,10 +732,10 @@ def t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=1, states=True, alt=True):
     S = A * F1.reshape(-1,1) @ F2.reshape(1,-1)
     return S
 
-def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0, states=True, alt=True):
+def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
     """
     Generates a 2D pseudo-voigt signal in the time domain.
-    x_g states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
+    b states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
     Indexes ’1’ and ’2’ on the variables stand for ’F1’ and ’F2’, respectively.
     --------
     Parameters:
@@ -751,7 +753,7 @@ def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0, states=True, alt=True):
         Full-width at half maximum in the direct dimension, in rad/s
     - A: float
         Intensity
-    - x_g: float
+    - b: float
         Fraction of gaussianity
     - states: bool
         Set to True for "FnMODE":"States-TPPI
@@ -767,15 +769,15 @@ def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0, states=True, alt=True):
     s1 = fwhm1 / 2.355
     s2 = fwhm2 / 2.355
     # Passing 's' to 'gaussian' and 'fwhm' to 'lorentzian' makes the two parts of the pseudo-voigt signal to have the same width and allow proper summation
-    G = sim.t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=x_g, states=states, alt=alt)
-    L = sim.t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=(1-x_g), states=states, alt=alt)
+    G = sim.t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=b, states=states, alt=alt)
+    L = sim.t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=(1-b), states=states, alt=alt)
     fid = A * (G + L)
     return fid
 
-def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0, states=True, alt=True):
+def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
     """
     Generates a 2D Voigt signal in the time domain.
-    x_g states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
+    b states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
     Indexes ’1’ and ’2’ on the variables stand for ’F1’ and ’F2’, respectively.
     --------
     Parameters:
@@ -793,7 +795,7 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0, states=True, alt=True):
         Full-width at half maximum in the direct dimension, in rad/s
     - A: float
         Intensity
-    - x_g: float
+    - b: float
         Fraction of gaussianity
     - states: bool
         Set to True for "FnMODE":"States-TPPI
@@ -819,9 +821,9 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0, states=True, alt=True):
     freq_2 = np.exp(1j * 2 * np.pi * v2 * t2) 
 
     #   Add line-broadening, fist lorentzian then gaussian, using:
-    #   hwhm' = (1 - x_g) * hwhm        for L
-    #   s' = x_g * s                    for G
-    F2 = freq_2 * np.exp(-(1-x_g)*hwhm2 * t2) * np.exp(-(x_g * s2**2 * t2**2)/2)
+    #   hwhm' = (1 - b) * hwhm        for L
+    #   s' = b * s                    for G
+    F2 = freq_2 * np.exp(-(1-b)*hwhm2 * t2) * np.exp(-(b * s2**2 * t2**2)/2)
 
     # indirect dimension
     if alt:
@@ -833,9 +835,9 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, x_g=0, states=True, alt=True):
     else:
         freq_1 = np.exp(1j * 2 * np.pi * v1 * t1)
     #   Add line-broadening, fist lorentzian then gaussian, using:
-    #   hwhm' = (1 - x_g) * hwhm        for L
-    #   s' = x_g * s                    for G
-    F1 = freq_1 * np.exp(-(1-x_g) * hwhm1 * t1) * np.exp(-(x_g * s1**2 * t1**2)/2)
+    #   hwhm' = (1 - b) * hwhm        for L
+    #   s' = b * s                    for G
+    F1 = freq_1 * np.exp(-(1-b) * hwhm1 * t1) * np.exp(-(b * s1**2 * t1**2)/2)
 
     # The full FID is reconstructed by doing the external product between the two vectors
     S = A * F1.reshape(-1,1) @ F2.reshape(1,-1)

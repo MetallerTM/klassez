@@ -1186,10 +1186,9 @@ def load_ser(path, TD1=1, BYTORDA=0, DTYPA=0, cplx=True):
     return data
 
 
-
-def pretty_scale(ax, limits, axis='x', n_major_ticks=10):
+def pretty_scale(ax, limits, axis='x', n_major_ticks=10, *, minor_each=5, fmt=None):
     """
-    This function computes a pretty scale for your plot. Calculates and sets a scale made of 'n_major_ticks' numbered ticks, spaced by 5*n_major_ticks unnumbered ticks. After that, the plot borders are trimmed according to the given limits.
+    This function computes a pretty scale for your plot. Calculates and sets a scale made of 'n_major_ticks' numbered ticks, spaced by 'minor_each' unnumbered ticks. After that, the plot borders are trimmed according to the given limits.
     --------
     Parameters:
     - ax: matplotlib.AxesSubplot object
@@ -1197,50 +1196,45 @@ def pretty_scale(ax, limits, axis='x', n_major_ticks=10):
     - limits: tuple
         limits to apply of the given axis. (left, right)
     - axis: str
-        'x' for x-axis, 'y' for y-axis
+        'x' for x-axis, 'y' for y-axis, 'z' for z-axis
     - n_major_ticks: int
         Number of numbered ticks in the final scale. An oculated choice gives very pleasant results.
+    - minor_each: int
+        Number of divisions for each interval between two major ticks
+    - fmt: str
+        String-formatting for the numbers on the axis. Should be given as e.g. '.3f'
     """
-
-    import matplotlib.ticker as TKR
-
-    if axis=='x':
-        ax.set_xlim(limits)
-        sx, dx = ax.get_xlim()
-    elif axis=='y':
-        ax.set_ylim(limits)
-        sx, dx = ax.get_ylim()
-    else:
-        raise ValueError('Unknown options for "axis".')
-
-    # Compute major ticks
+    # Convert the input format to something matplotlib can understand
+    # Define optimal division steps
     steps = [1, 2, 4, 5, 10]
-    majorlocs = TKR.MaxNLocator(nbins=n_major_ticks, steps=steps).tick_values(sx, dx)
+    # Compute location of major ticks
+    majorlocs = mpl.ticker.MaxNLocator(nbins=n_major_ticks, steps=steps)
+    # Compute location of minor ticks
+    minorlocs = mpl.ticker.AutoMinorLocator(minor_each)
 
-    # Compute minor ticks manually because matplotlib is complicated
-    ndivs = 5
-    majorstep = majorlocs[1] - majorlocs[0]
-    minorstep = majorstep / ndivs
-
-    vmin, vmax = sx, dx
-    if vmin > vmax:
-        vmin, vmax = vmax, vmin
-
-    t0 = majorlocs[0]
-    tmin = ((vmin - t0) // minorstep + 1) * minorstep
-    tmax = ((vmax - t0) // minorstep + 1) * minorstep
-    minorlocs = np.arange(tmin, tmax, minorstep) + t0
-
-    # Set the computed ticks and update the limits
+    # Find on which axis to apply modifications
     if axis == 'x':
-        ax.set_xticks(majorlocs)
-        ax.set_xticks(minorlocs, minor=True)
-        ax.set_xlim(sx,dx)
+        target_axis = ax.xaxis
+        lim_function = ax.set_xlim
     elif axis == 'y':
-        ax.set_yticks(majorlocs)
-        ax.set_yticks(minorlocs, minor=True)
-        ax.set_ylim(sx,dx)
+        target_axis = ax.yaxis
+        lim_function = ax.set_ylim
+    elif axis == 'z':
+        target_axis = ax.yaxis
+        lim_function = ax.set_zlim
+    else:
+        raise ValueError(f'Unrecognized Axis "{axis}"')
 
+    # Apply the given settings 
+    target_axis.set_major_locator(majorlocs)
+    target_axis.set_minor_locator(minorlocs)
+    if fmt: # Change the format only if explicitely given
+        fmt = r'{x:' + fmt + r'}'
+        # Here it is passed as mpl.ticker.ScalarFormatter
+        target_axis.set_major_formatter(fmt)
+
+    # Set the limits on the given axis
+    lim_function(limits)
 
 def molfrac(n):
     """

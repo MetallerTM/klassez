@@ -444,7 +444,7 @@ def get_region(ppmscale, S, rev=True):
 
 
 
-def make_signal(t, u, s, k, x_g, phi, A, SFO1=701.125, o1p=0, N=None):
+def make_signal(t, u, s, k, b, phi, A, SFO1=701.125, o1p=0, N=None):
     """
     Generates a voigt signal on the basis of the passed parameters in the time domain. Then, makes the Fourier transform and returns it.
     -------
@@ -457,7 +457,7 @@ def make_signal(t, u, s, k, x_g, phi, A, SFO1=701.125, o1p=0, N=None):
         full-width at half-maximum /Hz
     - k : float
         relative intensity
-    - x_g : float
+    - b : float
         fraction of gaussianity
     - phi : float
         phase of the signal, in degrees
@@ -477,7 +477,7 @@ def make_signal(t, u, s, k, x_g, phi, A, SFO1=701.125, o1p=0, N=None):
     U = misc.ppm2freq(u, SFO1, o1p)         # conversion to frequency units
     S = s * 2 * np.pi                       # conversion to radians
     phi = phi * np.pi / 180                 # conversion to radians
-    sgn = sim.t_voigt(t, U, S, A=A*k, phi=phi, x_g=x_g) # make the signal
+    sgn = sim.t_voigt(t, U, S, A=A*k, phi=phi, b=b) # make the signal
     if isinstance(N, int):
         sgn = processing.zf(sgn, N)         # zero-fill it
     sgn = processing.ft(sgn)                # transform it
@@ -672,7 +672,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
 
 
 
-def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, itermax=10000, fit_tol=1e-8, filename='fit'):
+def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename='fit'):
     """
     Performs a lineshape deconvolution fit using a Voigt model.
     The initial guess must be read from a .ivf file. All components are treated as independent, regardless from the value of the "group" attribute.
@@ -697,7 +697,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         Maximum allowed displacement of the linewidth from the initial value /ppm
     - vary_phase: bool
         Allow the peaks to change phase
-    - vary_xg: bool
+    - vary_b: bool
         Allow the peaks to change Lorentzian/Gaussian ratio
     - itermax: int
         Maximum number of allowed iterations
@@ -735,7 +735,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
     def peaks_frompar(peaks, par):
         """
         Replaces the values of a "peaks" dictionary, which contains a fit.Peak object for each key "idx", with the values contained in the "par" dictionary.
-        The par dictionary keys must have keys of the form <parameter>_<idx>, where <parameter> is in [u, fwhm, k, 'x_g', 'phi'], and <idx> are the keys of the peaks dictionary.
+        The par dictionary keys must have keys of the form <parameter>_<idx>, where <parameter> is in [u, fwhm, k, 'b', 'phi'], and <idx> are the keys of the peaks dictionary.
         -----------
         Parameters:
         - peaks: dict
@@ -751,7 +751,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
             peak.u = par[f'u_{idx}']
             peak.fwhm = par[f'fwhm_{idx}']
             peak.k = par[f'k_{idx}']
-            peak.x_g = par[f'x_g_{idx}']
+            peak.b = par[f'b_{idx}']
             peak.phi = par[f'phi_{idx}']
         return peaks
 
@@ -835,7 +835,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
             fit_peaks[key] = fit.Peak(acqus, N=N, **peakval)
 
         # Add the peaks' parameters to a lmfit Parameters object
-        peak_keys = ['u', 'fwhm', 'k', 'x_g', 'phi']
+        peak_keys = ['u', 'fwhm', 'k', 'b', 'phi']
         param = l.Parameters()
         for idx, peak in fit_peaks.items():
             # Name of the object: <parameter>_<index>
@@ -855,8 +855,8 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
                     param[par_key].set(min=0, max=3)
                 elif 'phi' in key:  # phi: [-180°, +180°]
                     param[par_key].set(min=-180, max=180, vary=vary_phase)
-                elif 'x_g' in key:  # x_g: [0, 1]
-                    param[par_key].set(min=0, max=1, vary=vary_xg)
+                elif 'b' in key:  # b: [0, 1]
+                    param[par_key].set(min=0, max=1, vary=vary_b)
 
 
         # Convert the limits from ppm to points and make the slice
@@ -897,11 +897,11 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
 
 
 @cron
-def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=None, procs=None, utol=(1,1), s1tol=(0,500), s2tol=(0,500), vary_xg=False, logfile=None):
+def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=None, procs=None, utol=(1,1), s1tol=(0,500), s2tol=(0,500), vary_b=False, logfile=None):
     """
     Function that performs the fit of a 2D peak using multiple components. 
     The program reads a parameter matrix, that contains:
-        u1 /ppm, u2 /ppm, fwhm1 /Hz, fwhm2 /Hz, I /a.u., x_g
+        u1 /ppm, u2 /ppm, fwhm1 /Hz, fwhm2 /Hz, I /a.u., b
     in each row. The number of rows corresponds to the number of components used for the computation of the final signal.
     The function returns the analogue version of the parameters matrix, but with the optimized values.
     --------
@@ -930,8 +930,8 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
         Range of variations for the fwhm in f1, in Hz
     - s2tol: tuple of floats
         Range of variations for the fwhm in f2, in Hz
-    - vary_xg: bool
-        Choose if to fix the x_g value or not
+    - vary_b: bool
+        Choose if to fix the b value or not
     - logfile: str or None
         Path to a file where to write the fit information. If it is None, they will be printed into standard output.
     -------
@@ -974,7 +974,7 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
                 P[f's1_{i+1}'],
                 P[f's2_{i+1}'],
                 P[f'k_{i+1}'] * P['A'],
-                P[f'xg_{i+1}'],
+                P[f'b_{i+1}'],
                 ] for i in range(n_sgn)])
 
         # Feed the peaks to build_2D_sgn to make the calculated spectrum
@@ -1016,7 +1016,7 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
         param.add(f's1_{i+1}', value=parameters[i,2])   # fwhm f1 /Hz
         param.add(f's2_{i+1}', value=parameters[i,3])   # fwhm f2 /Hz
         param.add(f'k_{i+1}', value=k_values[i])        # relative intensity
-        param.add(f'xg_{i+1}', value=parameters[i,5], min=0-1e-5, max=1+1e-5)   # Fraction of gaussianity
+        param.add(f'b_{i+1}', value=parameters[i,5], min=0-1e-5, max=1+1e-5)   # Fraction of gaussianity
     
     # Set limits to u and s
     u1tol, u2tol = utol # Unpack tolerances for chemical shifts
@@ -1030,8 +1030,8 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
     [param[f's2_{i+1}'].set(max=max(s2tol)) for i in range(n_sgn)]  # max fwhm2
     [param[f'k_{i+1}'].set(min=0) for i in range(n_sgn)]    # min rel int to 0
     [param[f'k_{i+1}'].set(max=5) for i in range(n_sgn)]    # max rel int to 5
-    if vary_xg is False:    # fix it
-        [param[f'xg_{i+1}'].set(vary=False) for i in range(n_sgn)]
+    if vary_b is False:    # fix it
+        [param[f'b_{i+1}'].set(vary=False) for i in range(n_sgn)]
         
     # Initialize the fit
     minner = l.Minimizer(f2min, param, fcn_args=(n_sgn, x_scale, y_scale, data_exp, lim_f2, lim_f1))
@@ -1062,7 +1062,7 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
         return uncert
 
     # Parameters
-    keys_list = 'u1', 'u2', 's1', 's2', 'k', 'xg'
+    keys_list = 'u1', 'u2', 's1', 's2', 'k', 'b'
     stderr = calc_uncert(result.params, n_sgn, keys_list)   # Uncertainties
 
     # Get dictionary of parameters
@@ -1074,7 +1074,7 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
         popt[f's1_{i+1}'],
         popt[f's2_{i+1}'],
         popt[f'k_{i+1}'] * popt['A'],   # Put absolute intensity of each component
-        popt[f'xg_{i+1}'],
+        popt[f'b_{i+1}'],
         ] for i in range(n_sgn)])
 
     # Print the outcome of the fit
@@ -1742,14 +1742,14 @@ class Peak:
         Linewidth /Hz
     - k: float
         Intensity, relative
-    - x_g: float
-        Fraction of gaussianity (x_g=0 equals pure lorentzian)
+    - b: float
+        Fraction of gaussianity (b=0 equals pure lorentzian)
     - phi: float
         Phase /degrees
     - group: int
         Identifier for the component of a multiplet
     """
-    def __init__(self, acqus, u=None, fwhm=5, k=1, x_g=0, phi=0, N=None, group=0):
+    def __init__(self, acqus, u=None, fwhm=5, k=1, b=0, phi=0, N=None, group=0):
         """
         Initialize the class with the configuration parameters, and with defauls values, if not given.
         ----------
@@ -1762,8 +1762,8 @@ class Peak:
             Linewidth /Hz
         - k: float
             Intensity, relative
-        - x_g: float
-            Fraction of gaussianity (x_g=0 equals pure lorentzian)
+        - b: float
+            Fraction of gaussianity (b=0 equals pure lorentzian)
         - phi: float
             Phase /degrees
         - N: int
@@ -1784,7 +1784,7 @@ class Peak:
         self.u = u
         self.fwhm = fwhm
         self.k = k
-        self.x_g = x_g
+        self.b = b
         self.phi = phi
         self.group = int(group)
 
@@ -1805,7 +1805,7 @@ class Peak:
         v = misc.ppm2freq(self.u, self.SFO1, self.o1p)         # conversion to frequency units
         fwhm = self.fwhm * 2 * np.pi                    # conversion to radians
         phi = self.phi * np.pi / 180                    # conversion to radians
-        sgn = sim.t_voigt(self.t, v, fwhm, A=A*self.k, phi=phi, x_g=self.x_g) # make the signal
+        sgn = sim.t_voigt(self.t, v, fwhm, A=A*self.k, phi=phi, b=self.b) # make the signal
         sgn = processing.ft(sgn)                # transform it
         if cplx:
             return sgn
@@ -1827,7 +1827,7 @@ class Peak:
         v = misc.ppm2freq(self.u, self.SFO1, self.o1p)         # conversion to frequency units
         fwhm = self.fwhm * 2 * np.pi                    # conversion to radians
         phi = self.phi * np.pi / 180                    # conversion to radians
-        sgn = sim.t_voigt(self.t, v, fwhm, A=A*self.k, phi=phi, x_g=self.x_g) # make the signal
+        sgn = sim.t_voigt(self.t, v, fwhm, A=A*self.k, phi=phi, b=self.b) # make the signal
         return sgn
 
     def par(self):
@@ -1842,7 +1842,7 @@ class Peak:
                 'u': self.u,
                 'fwhm': self.fwhm,
                 'k': self.k,
-                'x_g': self.x_g,
+                'b': self.b,
                 'phi': self.phi,
                 'group': self.group
                 }
@@ -1971,7 +1971,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
             'u': np.abs(limits[0] - limits[1]) / 50,    # 1/50 of the SW
             'fwhm': 2.5,
             'k': 0.05,
-            'x_g': 0.1,
+            'b': 0.1,
             'phi': 10,
             'A': 10**(np.floor(np.log10(A)-1))    # approximately
             }
@@ -2053,9 +2053,9 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         else:
             nonlocal peaks
             peaks[idx].__dict__[param] += sens[param]
-            # Make safety check for x_g
-            if peaks[idx].x_g > 1:
-                peaks[idx].x_g = 1
+            # Make safety check for b
+            if peaks[idx].b > 1:
+                peaks[idx].b = 1
 
     def down_value(param, idx):
         """ Decrease the value of param of idx-th peak """
@@ -2068,9 +2068,9 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
             # Safety check for fwhm
             if peaks[idx].fwhm < 0:
                 peaks[idx].fwhm = 0
-            # Safety check for x_g
-            if peaks[idx].x_g < 0:
-                peaks[idx].x_g = 0
+            # Safety check for b
+            if peaks[idx].b < 0:
+                peaks[idx].b = 0
 
     def scroll(event):
         """ Connection to mouse scroll """
@@ -2102,7 +2102,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
             dic = dict(peaks[idx].par())
             dic['A'] = A
             # Update the text
-            values_print.set_text('{u:+7.3f}\n{fwhm:5.3f}\n{k:5.3f}\n{x_g:5.3f}\n{phi:+07.3f}\n{A:5.2e}\n{group:5.0f}'.format(**dic))
+            values_print.set_text('{u:+7.3f}\n{fwhm:5.3f}\n{k:5.3f}\n{b:5.3f}\n{phi:+07.3f}\n{A:5.2e}\n{group:5.0f}'.format(**dic))
             # Color the heading line of the same color of the trace
             head_print.set_color(p_sgn[idx].get_color())
         else:   # Clear the text and set the header to be black
@@ -2262,7 +2262,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     # Header for current values print
     head_print = ax.text(0.75, 0.35, 
             '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}\n{:>7}'.format(
-                r'$\delta$', r'$\Gamma$', '$k$', '$x_g$', 'Phase', '$A$', 'Group'),
+                r'$\delta$', r'$\Gamma$', '$k$', '$b$', 'Phase', '$A$', 'Group'),
             ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5)
     # Text placeholder for the values - linspacing is different to align with the header
     values_print = ax.text(0.85, 0.35, '',
@@ -2397,9 +2397,14 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
             if x == 0:
                 fwhms[k] = 1
         # Estimate the integrals of the peaks
-        As = [processing.integrate(s, freq, 
-                                   lims=(freq[u]-IW*fwhms[k]/2, freq[u]+IW*fwhms[k]/2)) / (0.5 * SW)
-              for k, u in enumerate(xj)]
+        As = []
+        for k, u in enumerate(xj):
+            lims=(freq[u]-IW*fwhms[k]/2, freq[u]+IW*fwhms[k]/2)
+            try:
+                As.append( processing.integrate(s, freq, lims=lims) / (0.5 * SW) )
+            except:
+                As.append(1)
+                print(lims)
 
         # Make the fit.Peak objects with the estimated parameters
         q = [(fit.Peak(acqus,
@@ -2689,8 +2694,8 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         peak_in = maketotal(xj)
         keys = np.arange(prev+1, prev+len(peak_in)+1, 1)
         peaks = {key: peak_in[k] for k, key in enumerate(keys)}
-        A = np.sum([peak.k for peak in peak_in]) / (0.5 * SW)
-        fit.write_vf(f'{filename}.ivf', peaks, ax.get_xlim(), A, prev)
+        # Use 1 as A because the relative intensities are calculated inside write_wf
+        fit.write_vf(f'{filename}.ivf', peaks, ax.get_xlim(), 1, prev)
         prev += len(peak_in)
         
         # Mark a region as "fitted" with a green box
@@ -2853,13 +2858,13 @@ def write_vf(filename, peaks, lims, I, prev=0):
     # Info on the peaks
     #   Header
     f.write('{:>4};\t{:>8};\t{:>8};\t{:>8};\t{:>8};\t{:>8};\t{:>8}\n'.format(
-        '#', 'u', 'fwhm', 'Rel. I.', 'Phase', 'x_g', 'Group'))
+        '#', 'u', 'fwhm', 'Rel. I.', 'Phase', 'b', 'Group'))
     f.write('-'*96+'\n')
     #   Values
     for k, key in enumerate(peaks.keys()):
         peak = peaks[key]
         f.write('{:>4.0f};\t{:=8.3f};\t{:8.3f};\t{:8.5f};\t{:-8.3f};\t{:8.3f};\t{:>8.0f}\n'.format(
-            k+prev+1, peak.u, peak.fwhm, r_i[k], peak.phi, peak.x_g, peak.group))
+            k+prev+1, peak.u, peak.fwhm, r_i[k], peak.phi, peak.b, peak.group))
     f.write('-'*96+'\n\n')
 
     # Add region separator and close the file
@@ -2907,13 +2912,13 @@ def read_vf(filename, n=-1):
             if n_bp == 2:       # Second section: peak parameters
                 line = r.split(';') # Separate the values
                 # Unpack the line
-                idx, u, fwhm, k, phi, x_g, group = [eval(w) for w in line]
+                idx, u, fwhm, k, phi, b, group = [eval(w) for w in line]
                 # Put the values in a dictionary
                 dic_p = {
                         'u': u,
                         'fwhm': fwhm,
                         'k': k,
-                        'x_g': x_g,
+                        'b': b,
                         'phi': phi,
                         'group': group
                         }
@@ -3030,7 +3035,7 @@ def write_par(V, C, limits, filename='i_guess.inp'):
     f.write('{:=7.2f}\t{:=7.2f}\n\n'.format(limits[0], limits[1]))
 
     f.write('***{:^60}***\n'.format('SIGNAL PARAMETERS'))
-    f.write('{:<4}\t{:>7}\t{:>5}\t{:>5}\t{:>5}\t{:>5}\t{:<9}\n'.format('#', 'u', 's', 'k', 'x_g', 'phi', 'A'))
+    f.write('{:<4}\t{:>7}\t{:>5}\t{:>5}\t{:>5}\t{:>5}\t{:<9}\n'.format('#', 'u', 's', 'k', 'b', 'phi', 'A'))
     for i in range(V.shape[0]):
         f.write('{:<4.0f}\t{:=7.2f}\t{:5.0f}\t{:5.3f}\t{:5.2f}\t{: 5.2f}\t{:5.2e}\n'.format( i+1, V[i,0], V[i,1], V[i,2], V[i,3], V[i,4], V[i,5]))
     f.write('***{:^60}***\n'.format('END OF SIGNAL PARAMETERS'))
@@ -3059,7 +3064,7 @@ def print_par(V, C, limits=[None,None]):
         Trim limits for the spectrum (left, right). If None, the whole spectrum is used.
     """
     print('***{:^60}***'.format('SIGNAL PARAMETERS'))
-    print('{:<4}\t{:>7}\t{:>5}\t{:>5}\t{:>5}\t{:>5}\t{:<9}'.format('#', 'u', 's', 'k', 'x_g', 'phi', 'A'))
+    print('{:<4}\t{:>7}\t{:>5}\t{:>5}\t{:>5}\t{:>5}\t{:<9}'.format('#', 'u', 's', 'k', 'b', 'phi', 'A'))
     for i in range(V.shape[0]):
         print('{:<4.0f}\t{:=7.2f}\t{:5.0f}\t{:5.3f}\t{:5.2f}\t{: 5.2f}\t{:5.2e}'.format( i+1, V[i,0], V[i,1], V[i,2], V[i,3], V[i,4], V[i,5]))
 
@@ -3090,7 +3095,7 @@ def dic2mat(dic, peak_names, ns, A=None):
         Matrix containing the parameters.
     """
     V = []
-    #   u   s   k   xg  phi A   
+    #   u   s   k   b  phi A   
     for i in range(ns):
         V.append([])
         for j in range(len(peak_names)):
@@ -3469,7 +3474,7 @@ class Voigt_Fit:
         self.result = regions
         print(f'{output_file}.fvf loaded as fit result file.')
 
-    def dofit(self, indep=True, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, itermax=10000, fit_tol=1e-8, filename=None):
+    def dofit(self, indep=True, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None):
         """
         Perform a lineshape deconvolution fitting.
         The initial guess is read from the attribute self.i_guess.
@@ -3485,7 +3490,7 @@ class Voigt_Fit:
             Determines the displacement of the linewidth (in Hz) from the starting value.
         - vary_phase: bool
             Allow the peaks to change phase (True) or not (False)
-        - vary_xg: bool
+        - vary_b: bool
             Allow the peaks to change Lorentzian/Gaussian ratio
         - itermax: int
             Maximum number of allowed iterations
@@ -3506,7 +3511,7 @@ class Voigt_Fit:
 
         # Do the fit
         if indep is True:
-            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_xg=vary_xg, itermax=itermax, fit_tol=fit_tol, filename=filename)
+            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_b=vary_b, itermax=itermax, fit_tol=fit_tol, filename=filename)
         else:
             raise NotImplementedError('More and more exciting adventures in the next release!')
         # Store
@@ -4032,7 +4037,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     -------
     Returns:
     - final_parameters: 2darray
-        Matrix of dimension (# signals, 6) that contains, for each row: v1(Hz), v2(Hz), fwhm1(Hz), fwhm2(Hz), A, x_g
+        Matrix of dimension (# signals, 6) that contains, for each row: v1(Hz), v2(Hz), fwhm1(Hz), fwhm2(Hz), A, b
     - fit_interval: tuple of tuple
         Fitting window. ( (left_f1, right_f1), (left_f2, right_f2) )
     """
@@ -4058,9 +4063,8 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         'u2': u2,   # ppm
         'fwhm1': fwhm0, # Hz
         'fwhm2': fwhm0, # Hz
-        #'k': 0.1,   # relative intensity
         'k': 0.1,   # relative intensity
-        'x_g': 0.5, # fraction of gaussianity
+        'b': 0.5, # fraction of gaussianity
         } for w in range(10)]
     I1 = processing.integrate(tr1, x=ppm_f1, lims=lim_f1)
     I2 = processing.integrate(tr2, x=ppm_f2, lims=lim_f2)
@@ -4074,7 +4078,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         'fwhm1': 10, # Hz
         'fwhm2': 10, # Hz
         'k': 0.01,  # 1%
-        'x_g': 0.1, # 10%
+        'b': 0.1, # 10%
         'A': np.floor(np.log10(A)) - 1      # This goes according to order of magnitudes
         }
 
@@ -4089,7 +4093,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
             r'$\delta$ /ppm': 'u',
             r'$\Gamma$ /Hz': 'fwhm',
             r'$k$': 'k',
-            r'$x_{g}$': 'x_g',
+            r'$\beta$': 'b',
             }
 
     #--------------------------------------------------------------------------
@@ -4126,7 +4130,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     TB2 = [TextBox(box, '', initial=f'{value:.2f}', textalignment='center') for box, value in zip(tb2_boxes, lim_f2)]   # set limits for F2
 
     #   Radiobuttons for parameter selection
-    peak_name = [r'$\delta$ /ppm', r'$\Gamma$ /Hz', r'$k$', r'$x_{g}$', r'$A$']         # Labels for the parameters
+    peak_name = [r'$\delta$ /ppm', r'$\Gamma$ /Hz', r'$k$', r'$\beta$', r'$A$']         # Labels for the parameters
     peak_radio = RadioButtons(peak_box, peak_name, active=2, activecolor='tab:blue')      # Actual radiobuttons
     
     #   Sliders
@@ -4155,7 +4159,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
             '{:9s}:'.format(r'$\Gamma$ F2') + f'{V[0]["fwhm2"]:-9.2f}\n'+
             '{:9s}:'.format(r'$\Gamma$ F1') + f'{V[0]["fwhm1"]:-9.2f}\n'+
             '{:9s}:'.format(r'$k$') + f'{V[0]["k"]:-9.2f}\n'+
-            '{:9s}:'.format(r'$x_g$') + f'{V[0]["x_g"]:-9.2f}\n'+
+            '{:9s}:'.format(r'$\beta$') + f'{V[0]["b"]:-9.2f}\n'+
             '{:9s}:'.format(r'$A$') + f'{A:-9.2e}\n',
             ha='left', va='top', transform=fig.transFigure, fontsize=12, color=COLORS[0])
 
@@ -4202,7 +4206,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         -------
         Parameters:
         - final_parameters: list or 2darray
-            sequence of the parameters: u1, u2, fwhm1, fwhm2, I, x_g
+            sequence of the parameters: u1, u2, fwhm1, fwhm2, I, b
         - acqus: dict
             2D-like acqus dictionary containing the acquisition timescales (keys t1 and t2)
         - N: tuple of int
@@ -4224,7 +4228,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
                 values[2] * 2 * np.pi,    # fwhm1 from Hz to radians
                 values[3] * 2 * np.pi,    # fwhm2 from Hz to radians
                 values[4],  # Intensity
-                values[5],   # x_g
+                values[5],   # b
                 ]
         signal = sim.t_2Dvoigt(t1, t2, *to_pass)    # Make the 2D signal
 
@@ -4245,7 +4249,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         label = peak_radio.value_selected    # active parameter
         if label in conv_r2d.keys():    # i.e. it is not A
             key2edit = f'{conv_r2d[label]}'
-            if 'k' not in key2edit and 'x_g' not in key2edit:   # i.e. it is u or fwhm
+            if 'k' not in key2edit and 'b' not in key2edit:   # i.e. it is u or fwhm
                 key2edit += F   # add 1 for f1 or 2 for f2
         else:
             key2edit = 'A'
@@ -4258,7 +4262,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         """
         nonlocal sgn_1, sgn_2
         # Organize the parameters
-        values = [V[s_idx][f'{key}'] for key in ('u1', 'u2', 'fwhm1', 'fwhm2', 'k', 'x_g')]
+        values = [V[s_idx][f'{key}'] for key in ('u1', 'u2', 'fwhm1', 'fwhm2', 'k', 'b')]
         values[-2] *= A
         # Compute the 2D signal and extract the traces
         sgn_1[s_idx], sgn_2[s_idx] = make_sgn_2D(values, acqus, N=(N1,N2), procs=procs)
@@ -4296,11 +4300,11 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
             V[s_idx]['fwhm1'] = 1
         if V[s_idx]['fwhm2'] <= 1:
             V[s_idx]['fwhm2'] = 1
-        # Safety check for x_g
-        if V[s_idx]['x_g'] <= 0:
-            V[s_idx]['x_g'] = 0
-        elif V[s_idx]['x_g'] >= 1:
-            V[s_idx]['x_g'] = 1
+        # Safety check for b
+        if V[s_idx]['b'] <= 0:
+            V[s_idx]['b'] = 0
+        elif V[s_idx]['b'] >= 1:
+            V[s_idx]['b'] = 1
         update(s_idx)   # Redraw everything and update text
 
     def up_sens(event):
@@ -4324,7 +4328,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     def redraw_text(event):
         """ Updates the text according to the current values. Also changes its color. """
         s_idx = slider.val - 1  # python numbering
-        value_string = '{:9s}:'.format(r'$\delta$ F2') + f'{V[s_idx]["u2"]:-9.2f}\n'+ '{:9s}:'.format(r'$\delta$ F1') + f'{V[s_idx]["u1"]:-9.2f}\n'+ '{:9s}:'.format(r'$\Gamma$ F2') + f'{V[s_idx]["fwhm2"]:-9.2f}\n'+ '{:9s}:'.format(r'$\Gamma$ F1') + f'{V[s_idx]["fwhm1"]:-9.2f}\n'+ '{:9s}:'.format(r'$k$') + f'{V[s_idx]["k"]:-9.2f}\n'+ '{:9s}:'.format(r'$x_g$') + f'{V[s_idx]["x_g"]:-9.2f}\n'+ '{:9s}:'.format(r'$A$') + f'{A:-9.2e}\n'
+        value_string = '{:9s}:'.format(r'$\delta$ F2') + f'{V[s_idx]["u2"]:-9.2f}\n'+ '{:9s}:'.format(r'$\delta$ F1') + f'{V[s_idx]["u1"]:-9.2f}\n'+ '{:9s}:'.format(r'$\Gamma$ F2') + f'{V[s_idx]["fwhm2"]:-9.2f}\n'+ '{:9s}:'.format(r'$\Gamma$ F1') + f'{V[s_idx]["fwhm1"]:-9.2f}\n'+ '{:9s}:'.format(r'$k$') + f'{V[s_idx]["k"]:-9.2f}\n'+ '{:9s}:'.format(r'$\beta$') + f'{V[s_idx]["b"]:-9.2f}\n'+ '{:9s}:'.format(r'$A$') + f'{A:-9.2e}\n'
         head_print.set_text(value_string)
         head_print.set_color(COLORS[s_idx]) # color of the active signal
         fig.canvas.draw()
@@ -4332,13 +4336,13 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     def save(event):
         """ Slot for the save button: store the current values into the final variables """
         nonlocal final_parameters, fit_interval
-        final_parameters = [[   # u1, u2, fwhm1, fwhm2, k*A, x_g
+        final_parameters = [[   # u1, u2, fwhm1, fwhm2, k*A, b
                     misc.ppm2freq(V[x]['u1'], acqus['SFO1'], acqus['o1p']),
                     misc.ppm2freq(V[x]['u2'], acqus['SFO2'], acqus['o2p']),
                     V[x]['fwhm1'],
                     V[x]['fwhm2'],
                     V[x]['k'] * A,
-                    V[x]['x_g'],
+                    V[x]['b'],
                     ] for x in range(len(V)) if check.get_status()[x]]
         # ( (L_F1, R_F1), (L_F2, R_F2) )
         fit_interval = tuple([eval(x.text) for x in TB1]), tuple([eval(x.text) for x in TB2])
@@ -4368,7 +4372,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     sgn_1, sgn_2 = [], []
     for k, Vline in enumerate(V_in):
         # Organize parameters
-        values = [Vline[f'{key}'] for key in ('u1', 'u2', 'fwhm1', 'fwhm2', 'k', 'x_g')]
+        values = [Vline[f'{key}'] for key in ('u1', 'u2', 'fwhm1', 'fwhm2', 'k', 'b')]
         values[-2] *= A
         # Build the 2D signal and extract the traces
         tmp1, tmp2 = make_sgn_2D(values, acqus, N=(N1, N2), procs=procs)
@@ -4441,7 +4445,7 @@ def build_2D_sgn(parameters, acqus, N=None, procs=None):
     -------
     Parameters:
     - parameters: list or 2darray
-        sequence of the parameters: u1, u2, fwhm1, fwhm2, I, x_g. Multiple components are allowed
+        sequence of the parameters: u1, u2, fwhm1, fwhm2, I, b. Multiple components are allowed
     - acqus: dict
         2D-like acqus dictionary containing the acquisition timescales (keys t1 and t2)
     - N: tuple of int
@@ -4721,7 +4725,7 @@ class Voigt_Fit_2D:
         Reads the initial guess file with the parameters of the peaks, separates the values and stores them into attributes.
         In particular: 
             > idx will contain the peak index (first column of the file), 
-            > Vi will contain [u1, u2, fwhm1, fwhm2, Im, x_g] for each peak,
+            > Vi will contain [u1, u2, fwhm1, fwhm2, Im, b] for each peak,
             > Wi will contain the fitting interval as ( (L_f1, R_f1), (L_f2, R_f2) )
         --------
         Parameters:
@@ -4757,7 +4761,7 @@ class Voigt_Fit_2D:
         Then, uses these values to compute the peaks and save them into self.peaks.
         In particular: 
             > idx will contain the peak index (first column of the file), 
-            > Vf will contain [u1, u2, fwhm1, fwhm2, Im, x_g] for each peak,
+            > Vf will contain [u1, u2, fwhm1, fwhm2, Im, b] for each peak,
             > Wf will contain the fitting interval as ( (L_f1, R_f1), (L_f2, R_f2) )
         --------
         Parameters:
@@ -4813,13 +4817,13 @@ class Voigt_Fit_2D:
             lim_f2 = u2 + 100/np.abs(acqus['SFO2']), u2 - 100/np.abs(acqus['SFO2'])
             interval = lim_f1, lim_f2
             # Parameters
-            parameters = [[   # u1, u2, fwhm1, fwhm2, k*A, x_g
+            parameters = [[   # u1, u2, fwhm1, fwhm2, k*A, b
                 misc.ppm2freq(u1, acqus['SFO1'], acqus['o1p']), # v1 /Hz
                 misc.ppm2freq(u2, acqus['SFO2'], acqus['o2p']), # v2 /Hz
                 fwhm0,  # fwhm1 /Hz
                 fwhm0,  # fwhm2 /Hz
                 1,     # I
-                0.5,    # x_g
+                0.5,    # b
                 ]] 
             # Integral
             A0 = np.max(self.data) / np.prod(self.data.shape)**0.5
@@ -4931,7 +4935,7 @@ class Voigt_Fit_2D:
         - f: TextIOWrapper
             writable file generated by open(filename, 'w'/'a')
         """
-        f.write(f'{"#":<4s}\t{"clu":>4s}\t{"u1":>8s}\t{"u2":>8s}\t{"fwhm1":>8s}\t{"fwhm2":>8s}\t{"I":>8s}\t{"x_g":>8s}\t{"Fit. interv.":>20s}\n')
+        f.write(f'{"#":<4s}\t{"clu":>4s}\t{"u1":>8s}\t{"u2":>8s}\t{"fwhm1":>8s}\t{"fwhm2":>8s}\t{"I":>8s}\t{"b":>8s}\t{"Fit. interv.":>20s}\n')
 
     def _write_par_line(self, f, acqus, index, clu, values, interval_f1=None, interval_f2=None, conv_u=True):
         """ 
@@ -4947,7 +4951,7 @@ class Voigt_Fit_2D:
         - clu: int
             Cluster index
         - values: 1darray
-            u1, u2, fwhm1, fwhm2, I, xg
+            u1, u2, fwhm1, fwhm2, I, b
         - interval_f1: tuple
             left limit F1, right limit F1
         - interval_f2: tuple
@@ -4965,7 +4969,7 @@ class Voigt_Fit_2D:
             interval_f2 = tuple([eval(f'{x:4.1f}') for x in interval_f2])
         interval = f'{interval_f1},{interval_f2}'
 
-        v1, v2, fwhm1, fwhm2, I, x_g = values   # Unpack
+        v1, v2, fwhm1, fwhm2, I, b = values   # Unpack
         if conv_u:
             # Convert u1, u2 from Hz to ppm
             u1, u2 = [misc.freq2ppm(x, acqus[f'SFO{y}'], acqus[f'o{y}p']) for x, y in zip([v1, v2], [1, 2])]
@@ -4973,7 +4977,7 @@ class Voigt_Fit_2D:
             u1, u2 = v1, v2
 
         # Write the line
-        f.write(f'{index:4.0f}\t{clu:4.0f}\t{u1:8.2f}\t{u2:8.2f}\t{fwhm1:8.1f}\t{fwhm2:8.1f}\t{I:8.3e}\t{x_g:8.4f}\t{interval}\n')
+        f.write(f'{index:4.0f}\t{clu:4.0f}\t{u1:8.2f}\t{u2:8.2f}\t{fwhm1:8.1f}\t{fwhm2:8.1f}\t{I:8.3e}\t{b:8.4f}\t{interval}\n')
 
     def _read_par_line(self, line):
         """ Splits the line into the three attributes """
@@ -5488,13 +5492,13 @@ def write_vf_P2D(filename, peaks, lims, prev=0):
     # Info on the peaks
     #   Header
     f.write('{:>4};\t{:>8};\t{:>8};\t{:>8};\t{:>8};\t{:>8}\n'.format(
-        '#', 'u', 'fwhm', 'Phase', 'x_g', 'Group'))
+        '#', 'u', 'fwhm', 'Phase', 'Beta', 'Group'))
     f.write('-'*96+'\n')
     #   Values
     for k, key in enumerate(peaks[0].keys()):
         peak = peaks[0][key]
         f.write('{:>4.0f};\t{:=8.3f};\t{:8.3f};\t{:-8.3f};\t{:8.3f};\t{:>8.0f}\n'.format(
-            k+prev+1, peak.u, peak.fwhm, peak.phi, peak.x_g, peak.group))
+            k+prev+1, peak.u, peak.fwhm, peak.phi, peak.b, peak.group))
     f.write('-'*96+'\n\n')
 
     #   Intensities
@@ -5555,13 +5559,13 @@ def read_vf_P2D(filename, n=-1):
             if n_bp == 2:       # Second section: peak parameters
                 line = r.split(';') # Separate the values
                 # Unpack the line
-                idx, u, fwhm, phi, x_g, group = [eval(w) for w in line]
+                idx, u, fwhm, phi, b, group = [eval(w) for w in line]
                 # Put the values in a dictionary
                 dic_p = {
                         'u': u,
                         'fwhm': fwhm,
                         'k': 0,     # they will be added later, in section 3
-                        'x_g': x_g,
+                        'b': b,
                         'phi': phi,
                         'group': group
                         }
@@ -5738,7 +5742,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
             'u': np.abs(limits[0] - limits[1]) / 50,    # 1/50 of the SW
             'fwhm': 2.5,
             'k': 0.05,
-            'x_g': 0.1,
+            'b': 0.1,
             'phi': 10,
             'A': 10**(np.floor(np.log10(A)-1))    # approximately
             }
@@ -5814,9 +5818,9 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
         else:
             nonlocal peaks
             peaks[idx].__dict__[param] += sens[param]
-            # Make safety check for x_g
-            if peaks[idx].x_g > 1:
-                peaks[idx].x_g = 1
+            # Make safety check for b
+            if peaks[idx].b > 1:
+                peaks[idx].b = 1
 
     def down_value(param, idx):
         """ Decrease the value of param of idx-th peak """
@@ -5829,9 +5833,9 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
             # Safety check for fwhm
             if peaks[idx].fwhm < 0:
                 peaks[idx].fwhm = 0
-            # Safety check for x_g
-            if peaks[idx].x_g < 0:
-                peaks[idx].x_g = 0
+            # Safety check for b
+            if peaks[idx].b < 0:
+                peaks[idx].b = 0
 
     def scroll(event):
         """ Connection to mouse scroll """
@@ -5863,7 +5867,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
             dic = dict(peaks[idx].par())
             dic['A'] = A
             # Update the text
-            values_print.set_text('{u:+7.3f}\n{fwhm:5.3f}\n{k:5.3f}\n{x_g:5.3f}\n{phi:+07.3f}\n{A:5.2e}\n{group:5.0f}'.format(**dic))
+            values_print.set_text('{u:+7.3f}\n{fwhm:5.3f}\n{k:5.3f}\n{b:5.3f}\n{phi:+07.3f}\n{A:5.2e}\n{group:5.0f}'.format(**dic))
             # Color the heading line of the same color of the trace
             head_print.set_color(p_sgn[idx].get_color())
         else:   # Clear the text and set the header to be black
@@ -6028,7 +6032,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     # Header for current values print
     head_print = ax.text(0.75, 0.35, 
             '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}\n{:>7}'.format(
-                r'$\delta$', r'$\Gamma$', '$k$', '$x_g$', 'Phase', '$A$', 'Group'),
+                r'$\delta$', r'$\Gamma$', '$k$', r'$\beta$', 'Phase', '$A$', 'Group'),
             ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5)
     # Text placeholder for the values - linspacing is different to align with the header
     values_print = ax.text(0.85, 0.35, '',
@@ -6271,7 +6275,7 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
 
 
 
-def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_xg=False, itermax=10000, filename='fit'):
+def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_b=False, itermax=10000, filename='fit'):
     """
     Performs a lineshape deconvolution fit on a pseudo-2D experiment using a Voigt model.
     The initial guess must be read from a .ivf file. All components are treated as independent, regardless from the value of the "group" attribute.
@@ -6297,7 +6301,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
         Maximum allowed displacement of the linewidth from the initial value /ppm
     - vary_phase: bool
         Allow the peaks to change phase
-    - vary_xg: bool
+    - vary_b: bool
         Allow the peaks to change Lorentzian/Gaussian ratio
     - itermax: int
         Maximum number of allowed iterations
@@ -6336,7 +6340,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
     def peaks_frompar(peaks, par, e_idx):
         """
         Replaces the values of a "peaks" dictionary, which contains a fit.Peak object for each key "idx", with the values contained in the "par" dictionary.
-        The par dictionary keys must have keys of the form <parameter>_<idx>, where <parameter> is in [u, fwhm, k, 'x_g', 'phi'], and <idx> are the keys of the peaks dictionary.
+        The par dictionary keys must have keys of the form <parameter>_<idx>, where <parameter> is in [u, fwhm, k, 'b', 'phi'], and <idx> are the keys of the peaks dictionary.
         The intensity values of the peaks are stored as k_<idx>_<experiment>, where <experiment> is the associated trace of the pseudo-2D, starting from 1.
         -----------
         Parameters:
@@ -6355,7 +6359,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
             peak.u = par[f'u_{idx}']
             peak.fwhm = par[f'fwhm_{idx}']
             peak.k = par[f'k_{idx}_{e_idx}']
-            peak.x_g = par[f'x_g_{idx}']
+            peak.b = par[f'b_{idx}']
             peak.phi = par[f'phi_{idx}']
         return peaks
 
@@ -6467,7 +6471,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
         # Make the lmfit.Parameters object
         param = l.Parameters()
         # Add the peaks' parameters to a lmfit Parameters object
-        peak_keys = ['u', 'fwhm', 'k', 'x_g', 'phi']
+        peak_keys = ['u', 'fwhm', 'k', 'b', 'phi']
 
         for j, peaks in enumerate(fit_peaks):       # j is the index of the experiment
             for idx, peak in peaks.items():
@@ -6492,8 +6496,8 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
                         param[par_key].set(min=0, max=2)
                     elif 'phi' in key:  # phi: [-180°, +180°]
                         param[par_key].set(min=-180, max=180, vary=vary_phase)
-                    elif 'x_g' in key:  # x_g: [0, 1]
-                        param[par_key].set(min=0, max=1, vary=vary_xg)
+                    elif 'b' in key:  # b: [0, 1]
+                        param[par_key].set(min=0, max=1, vary=vary_b)
 
         # Wrap the fitting routine in a function in order to use @cron for measuring the runtime of the fit
         @cron
@@ -6632,7 +6636,7 @@ class Voigt_Fit_P2D:
         self.result = regions
         print(f'{output_file}.fvf loaded as fit result file.')
 
-    def dofit(self, u_tol=1, f_tol=10, vary_phase=False, vary_xg=True, itermax=10000, filename=None):
+    def dofit(self, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, filename=None):
         """
         Perform a lineshape deconvolution fitting by calling fit.voigt_fit_P2D.
         The initial guess is read from the attribute self.i\_guess.
@@ -6644,7 +6648,7 @@ class Voigt_Fit_P2D:
             Determines the displacement of the linewidth (in Hz) from the starting value.
         - vary_phase: bool
             Allow the peaks to change phase (True) or not (False)
-        - vary_xg: bool
+        - vary_b: bool
             Allow the peaks to change Lorentzian/Gaussian ratio
         - itermax: int
             Maximum number of allowed iterations
@@ -6662,7 +6666,7 @@ class Voigt_Fit_P2D:
             filename = f'{self.filename}'
 
         # Do the fit
-        fit.voigt_fit_P2D(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_xg=vary_xg, itermax=itermax, filename=filename)
+        fit.voigt_fit_P2D(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_b=vary_b, itermax=itermax, filename=filename)
         # Store
         self.result = fit.read_vf_P2D(f'{filename}.fvf')
 

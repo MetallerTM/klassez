@@ -3,6 +3,8 @@
 10/09/2024
 Added reading for Jeol. The package **jeol_parser** is now a required installation prerequisite.
 The **sim.gamma** dictionary now is read from a file in the new folder **klassez/tables**. There is another file there, that is read to generate the **sim.jeol_nuclei** dictionary, which is needed for the conversion from Jeol-style nuclei to *klassez* format.
+01/10/2024
+All **x_g** labels were changed to **b**. Scripts written with previous versions of *klassez* may be corrected accordingly.
 
 
 ## New functions: 
@@ -18,6 +20,8 @@ The **sim.gamma** dictionary now is read from a file in the new folder **klassez
 19/09/2024
 - *processing.blp*: now uses the new *processing.lp* function.
 - *figures.dotmd*: all traces are deactivated by default
+01/10/2024
+- *misc.pretty_scale*: now the scale is automatically recomputed. Additional options possible.
 
 
 
