@@ -8,7 +8,7 @@ from scipy import linalg as slinalg
 from scipy import stats
 from scipy.spatial import ConvexHull
 import random
-import matplotlib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.widgets import Slider, Button, RadioButtons, TextBox, CheckButtons, Cursor, LassoSelector, RectangleSelector
@@ -1473,7 +1473,7 @@ def set_fontsizes(ax, fontsize=10):
             columnspacing = l.columnspacing,
             ncol = l._ncols,
             mode = l._mode,
-            fancybox = type(l.legendPatch.get_boxstyle())==matplotlib.patches.BoxStyle.Round,
+            fancybox = type(l.legendPatch.get_boxstyle())==mpl.patches.BoxStyle.Round,
             shadow = l.shadow,
             title = l.get_title().get_text() if l._legend_title_box.get_visible() else None,
             framealpha = l.get_frame().get_alpha(),
