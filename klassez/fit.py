@@ -672,7 +672,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
 
 
 
-def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename='fit'):
+def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename='fit', method='leastsq'):
     """
     Performs a lineshape deconvolution fit using a Voigt model.
     The initial guess must be read from a .ivf file. All components are treated as independent, regardless from the value of the "group" attribute.
@@ -705,6 +705,8 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         Target value to be set for x_tol and f_tol
     - filename: str
         Name of the file where the fitted values will be saved. The .fvf extension is added automatically
+    - method: str
+        Method to be used for the optimization. See lmfit for details.
     """
 
     ## USED FUNCTIONS
@@ -868,7 +870,10 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         def start_fit():
             param.add('count', value=0, vary=False)
             minner = l.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I, lims))
-            result = minner.minimize(method='leastsq', max_nfev=int(itermax), xtol=fit_tol, ftol=fit_tol, gtol=fit_tol)
+            if method == 'leastsq':
+                result = minner.minimize(method='leastsq', max_nfev=int(itermax), xtol=fit_tol, ftol=fit_tol, gtol=fit_tol)
+            else:
+                result = minner.minimize(method=method, max_nfev=int(itermax), tol=fit_tol)
             print(f'{result.message} Number of function evaluations: {result.nfev}.')
             return result
         # Do the fit
@@ -3474,7 +3479,7 @@ class Voigt_Fit:
         self.result = regions
         print(f'{output_file}.fvf loaded as fit result file.')
 
-    def dofit(self, indep=True, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None):
+    def dofit(self, indep=True, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None, method='leastsq'):
         """
         Perform a lineshape deconvolution fitting.
         The initial guess is read from the attribute self.i_guess.
@@ -3498,6 +3503,8 @@ class Voigt_Fit:
             Value of the target function to be set as x_tol and f_tol
         - filename: str
             Path to the output file. If None, "<self.filename>.fvf" is used
+        - method: str
+            Method to use for the optimization (see lmfit)
         """
 
         # Make a shallow copy of the real part of the experimental spectrum
@@ -3511,7 +3518,7 @@ class Voigt_Fit:
 
         # Do the fit
         if indep is True:
-            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_b=vary_b, itermax=itermax, fit_tol=fit_tol, filename=filename)
+            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_b=vary_b, itermax=itermax, fit_tol=fit_tol, filename=filename, method=method)
         else:
             raise NotImplementedError('More and more exciting adventures in the next release!')
         # Store

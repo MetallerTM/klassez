@@ -773,7 +773,7 @@ class Spectrum_1D:
                         u = self.acqus['shifts'][k],
                         fwhm = self.acqus['fwhm'][k],
                         k = A[k],
-                        x_g = self.acqus['x_g'][k],
+                        b = self.acqus['b'][k],
                         N = self.procs['zf'],
                         group = 0,      # Identifier for singlets
                         )
@@ -796,7 +796,7 @@ class Spectrum_1D:
                             u = misc.freq2ppm(u, self.acqus['SFO1'], self.acqus['o1p']),
                             fwhm = self.acqus['fwhm'][k],
                             k = I,  # Relative intensity of the component, A[k] is already accounted for
-                            x_g = self.acqus['x_g'][k],
+                            b = self.acqus['b'][k],
                             N = self.procs['zf'],
                             group = mult_counter,   # Identify all the components as part of the same multiplet
                             )

@@ -773,6 +773,12 @@ def interactive_fp(fid0, acqus, procs):
     ppm_scale = misc.freq2ppm(fq_scale, acqus['SFO1'], acqus['o1p'])
     
     
+    # Make the figure panel
+    fig = plt.figure('Interactive Processing')
+    fig.set_size_inches(15,9)
+    plt.subplots_adjust(left=0.1, bottom=0.05, right=0.8, top=0.95, hspace=0.4)
+    ax = fig.add_subplot(4,1,(1,3))     # spectrum
+    axf = fig.add_subplot(4,1,4)        # fid
     # Define useful things 
     modes = ['No', 'em', 'sin', 'qsin', 'gm', 'gmb']   # entries for the radiobuttons
     act_keys = {    # Active Parameters:
@@ -898,11 +904,6 @@ def interactive_fp(fid0, acqus, procs):
     
     
     # Draw the figure panel
-    fig = plt.figure('Interactive Processing')
-    fig.set_size_inches(15,9)
-    plt.subplots_adjust(left=0.1, bottom=0.05, right=0.8, top=0.95, hspace=0.4)
-    ax = fig.add_subplot(4,1,(1,3))     # spectrum
-    axf = fig.add_subplot(4,1,4)        # fid
     
     ax.axhline(0, c='k', lw=0.4)    # baseline
     axf.axhline(0, c='k', lw=0.4)   # baseline
