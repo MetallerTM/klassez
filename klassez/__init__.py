@@ -15,7 +15,7 @@ from pprint import pprint
 from . import fit, misc, sim, figures, processing
 from .Spectra import Spectrum_1D, pSpectrum_1D, Spectrum_2D, pSpectrum_2D, Pseudo_2D
 
-__version__ = '0.4a.6'
+__version__ = '0.4a.7'
 
 # Use seaborn's colormaps and save it to a dictionary
 from .config import CM, CM_2D, COLORS, cron
