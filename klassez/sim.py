@@ -26,6 +26,7 @@ from .config import CM, COLORS, cron
 #from .__init__ import CM
 
 # gyromagnetic ratio of all NMR active nuclei in MHz/T
+print(impresources.files(tables))
 with open(impresources.files(tables)/'gamma.dic', 'r') as f:
     gamma = eval(f.read())
 with open(impresources.files(tables)/'nuclei_jeol.dic', 'r') as f:

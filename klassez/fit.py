@@ -668,10 +668,6 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
     print('Done.')
 
 
-
-
-
-
 def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename='fit', method='leastsq'):
     """
     Performs a lineshape deconvolution fit using a Voigt model.
@@ -757,7 +753,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
             peak.phi = par[f'phi_{idx}']
         return peaks
 
-    def f2min(param, S, fit_peaks, I, lims):
+    def f2min(param, S, fit_peaks, I, lims, first_residual=1):
         """
         Function that calculates the residual to be minimized in the least squares sense.
         This function requires a set of pre-built fit.Peak objects, stored in a dictionary. The parameters of the peaks are replaced on this dictionary according to the values in the lmfit.Parameter object. At this point, the total trace is computed and the residual is returned as the difference between the experimental spectrum and the total trace, only in the region delimited by the "lims" tuple.
@@ -773,6 +769,8 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
             Absolute intensity.
         - lims: slice
             Trimming region corresponding to the fitting window, in points
+        - first_residual: float
+            Target value at the first call of this function. Used to compute the relative target function.
         -----------
         Returns:
         - residual: 1darray
@@ -782,14 +780,18 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         # Unpack the lmfit.Parameters object
         par = param.valuesdict()
         # create a shallow copy of the fit_peaks dictionary to prevent overwriting
-        peaks = dict(fit_peaks)
+        peaks = deepcopy(fit_peaks)
         # Update the peaks dictionary according to how lmfit is moving the fit parameters
         peaks = peaks_frompar(peaks, par)
         # Compute the total trace and the residuals
         total = calc_total(peaks, 1)
-        residual = S[lims]/I - total[lims]
-        print(f'Step: {par["count"]:6.0f} | Target: {np.sum(residual**2):10.5e}', end='\r')
-        return residual
+        exp = S[lims]/I
+        calc = total[lims]
+        correction_factor, _ = fit.fit_int(exp, calc)
+        residual = exp - calc * correction_factor
+        param['correction_factor'].set(value=correction_factor)
+        print(f'Step: {par["count"]:6.0f} | Target: {np.sum(residual**2)/first_residual:10.5e}', end='\r')
+        return residual 
 
     def gen_reg(regions):
         """
@@ -802,11 +804,10 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
             if 1:   # Switch: turn this print on and off
                 print(f'Fitting of region {k+1}/{Nr}. [{limits[0]:.3f}:{limits[1]:.3f}] ppm')
             # Make a copy of the region dictionary and remove what is not a peak
-            peaks = dict(region)
+            peaks = deepcopy(region)
             peaks.pop('limits')
             peaks.pop('I')
             yield limits, I, peaks
-
 
     # -----------------------------------------------------------------------------
     # Make the acqus dictionary to be fed into the fit.Peak objects
@@ -823,6 +824,8 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
 
     # Generate the values from the regions dictionary with the gen_reg generator
     Q = gen_reg(regions)
+    with open('cnvg', 'w') as f:
+        pass
 
     # Start fitting loop
     prev = 0
@@ -860,7 +863,6 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
                 elif 'b' in key:  # b: [0, 1]
                     param[par_key].set(min=0, max=1, vary=vary_b)
 
-
         # Convert the limits from ppm to points and make the slice
         limits_pt = misc.ppmfind(ppm_scale, limits[0])[0], misc.ppmfind(ppm_scale, limits[1])[0]
         lims = slice(min(limits_pt), max(limits_pt))
@@ -869,9 +871,14 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         @cron
         def start_fit():
             param.add('count', value=0, vary=False)
-            minner = l.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I, lims))
-            if method == 'leastsq':
-                result = minner.minimize(method='leastsq', max_nfev=int(itermax), xtol=fit_tol, ftol=fit_tol, gtol=fit_tol)
+            param.add('correction_factor', value=1, vary=False)
+            with open(os.devnull, 'w') as sys.stdout:
+                first_residual = np.sum(f2min(param, S, fit_peaks, I, lims, 1)**2)
+                param['count'].set(value=0)
+            sys.stdout = sys.__stdout__
+            minner = l.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I, lims, first_residual))
+            if method == 'leastsq' or method == 'least_squares':
+                result = minner.minimize(method='leastsq', max_nfev=int(itermax), ftol=fit_tol)
             else:
                 result = minner.minimize(method=method, max_nfev=int(itermax), tol=fit_tol)
             print(f'{result.message} Number of function evaluations: {result.nfev}.')
@@ -886,20 +893,14 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         # Correct the intensities
         #   Get the correct ones
         r_i, I_corr = misc.molfrac([peak.k for _, peak in fit_peaks.items()])
-        I *= I_corr
+        I *= I_corr * popt['correction_factor']
         #   Replace them
         for k, idx in enumerate(fit_peaks.keys()):
             fit_peaks[idx].k = r_i[k]
-        
+
         # Write a section of the output file
         fit.write_vf(f'{filename}.fvf', fit_peaks, limits, I, prev)
         prev += Np
-
-
-
-        
-
-
 
 @cron
 def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=None, procs=None, utol=(1,1), s1tol=(0,500), s2tol=(0,500), vary_b=False, logfile=None):
@@ -1793,7 +1794,7 @@ class Peak:
         self.phi = phi
         self.group = int(group)
 
-    def __call__(self, A=1, cplx=False):
+    def __call__(self, A=1, cplx=False, get_fid=False):
         """
         Generates a voigt signal on the basis of the stored attributes, in the time domain. Then, makes the Fourier transform and returns it after the eventual zero-filling.
         ----------
@@ -1802,17 +1803,17 @@ class Peak:
             Absolute intensity value
         - cplx: bool
             Returns the complex (True) or only the real part (False) of the signal
+        - get_fid: bool
+            If True, returns the FID instead of the transformed signal
         ----------
         Returns:
         - sgn : 1darray
             generated signal in the frequency domain
         """
-        v = misc.ppm2freq(self.u, self.SFO1, self.o1p)         # conversion to frequency units
-        fwhm = self.fwhm * 2 * np.pi                    # conversion to radians
-        phi = self.phi * np.pi / 180                    # conversion to radians
-        sgn = sim.t_voigt(self.t, v, fwhm, A=A*self.k, phi=phi, b=self.b) # make the signal
-        sgn = processing.ft(sgn)                # transform it
-        if cplx:
+        sgn = self.get_fid(A=A)
+        if not get_fid:
+            sgn = processing.ft(sgn)                # transform it
+        if cplx or get_fid:
             return sgn
         else:
             return sgn.real
@@ -2792,16 +2793,18 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     update_text()
 
     # Instruction text
+    uparrow_text = r'$\uparrow$'
+    downarrow_text = r'$\downarrow$'
     keyboard_text = '\n'.join([
         f'{"KEYBOARD SHORTCUTS":^50s}',
         f'{"Key":>5s}: Action',
         f'-'*50,
         f'{"<":>5s}: Decrease sens.',
         f'{">":>5s}: Increase sens.',
-        f'{"Pg"+r"$\uparrow$":>5s}: Change parameter, up',
-        f'{"Pg"+r"$\downarrow$":>5s}: Change parameter, down',
-        f'{r"$\uparrow$":>5s}: Increase value',
-        f'{r"$\downarrow$":>5s}: Decrease value',
+        f'{"Pg"+uparrow_text:>5s}: Change parameter, up',
+        f'{"Pg"+downarrow_text:>5s}: Change parameter, down',
+        f'{uparrow_text:>5s}: Increase value',
+        f'{downarrow_text:>5s}: Decrease value',
         f'{"z":>5s}: Toggle snap on cursor',
         f'-'*50,
         ])
@@ -2858,17 +2861,17 @@ def write_vf(filename, peaks, lims, I, prev=0):
     f.write('-'*96+'\n')
     #   Values
     region = '{:-.3f}:{:-.3f}'.format(*lims)   # From the zoom of the figure
-    f.write(f'{region:>16};\t{I*I_corr:12.6e}\n\n')
+    f.write(f'{region:>16};\t{I*I_corr:14.8e}\n\n')
 
     # Info on the peaks
     #   Header
-    f.write('{:>4};\t{:>8};\t{:>8};\t{:>8};\t{:>8};\t{:>8};\t{:>8}\n'.format(
-        '#', 'u', 'fwhm', 'Rel. I.', 'Phase', 'b', 'Group'))
+    f.write('{:>4};\t{:>12};\t{:>12};\t{:>8};\t{:>8};\t{:>8};\t{:>8}\n'.format(
+        '#', 'u', 'fwhm', 'Rel. I.', 'Phase', 'Beta', 'Group'))
     f.write('-'*96+'\n')
     #   Values
     for k, key in enumerate(peaks.keys()):
         peak = peaks[key]
-        f.write('{:>4.0f};\t{:=8.3f};\t{:8.3f};\t{:8.5f};\t{:-8.3f};\t{:8.3f};\t{:>8.0f}\n'.format(
+        f.write('{:>4.0f};\t{:=12.8f};\t{:12.6f};\t{:8.6f};\t{:-8.3f};\t{:8.5f};\t{:>8.0f}\n'.format(
             k+prev+1, peak.u, peak.fwhm, r_i[k], peak.phi, peak.b, peak.group))
     f.write('-'*96+'\n\n')
 
@@ -3425,59 +3428,63 @@ class Voigt_Fit:
             fnuc = misc.nuc_format(nuc)
             self.X_label = r'$\delta$ ' + fnuc +' /ppm'
 
-    def iguess(self, input_file=None, n=-1, auto=False):
+    def iguess(self, filename=None, n=-1, ext='ivf', auto=False):
         """
         Reads, or computes, the initial guess for the fit.
         If the file is there already, it just reads it with fit.read_vf. Otherwise, it calls fit.make_iguess to make it.
         --------
         Parameters:
-        - input_file: str or None
+        - filename: str or None
             Path to the input file. If None, "<self.filename>.ivf" is used
         - n: int
             Index of the initial guess to be read (default: last one)
+        - ext: str
+            Extension of the file to be used
         - auto: bool
             If True, uses the GUI for automatic peak picking, if False, the manual one
         """
         # Set the default filename, if not given
-        if input_file is None:
-            input_file = f'{self.filename}'
+        if filename is None:
+            filename = f'{self.filename}'
         # Check if the file exists
-        in_file_exist = os.path.exists(f'{input_file}.ivf')
+        in_file_exist = os.path.exists(f'{filename}.{ext}')
 
         if in_file_exist is True:       # Read everything you need from the file
-            regions = fit.read_vf(f'{input_file}.ivf')
+            regions = fit.read_vf(f'{filename}.{ext}')
         else:                           # Make the initial guess interactively and save the file.
             if auto:
-                fit.make_iguess_auto(self.ppm_scale, self.S, self.SW, self.SFO1, self.o1p, filename=input_file)
+                fit.make_iguess_auto(self.ppm_scale, self.S, self.SW, self.SFO1, self.o1p, filename=filename)
             else:
-                fit.make_iguess(self.S, self.ppm_scale, self.t_AQ, self.SFO1, self.o1p, filename=input_file)
-            regions = fit.read_vf(f'{input_file}.ivf')
+                fit.make_iguess(self.S, self.ppm_scale, self.t_AQ, self.SFO1, self.o1p, filename=filename)
+            regions = fit.read_vf(f'{filename}.{ext}')
         # Store it
         self.i_guess = regions
-        print(f'{input_file}.ivf loaded as input file.')
+        print(f'{filename}.{ext} loaded as input file.')
 
-    def load_fit(self, output_file=None, n=-1):
+    def load_fit(self, filename=None, n=-1, ext='fvf'):
         """
         Reads a file with fit.read_vf and stores the result in self.result.
         ---------
         Parameters:
-        - output_file: str
+        - filename: str
             Path to the .fvf file to be read. If None, "<self.filename>.fvf" is used.
         - n: int
             Index of the fit to be read (default: last one)
+        - ext: str
+            Extension of the file to be used
         """
         # Set the default filename, if not given
-        if output_file is None:
-            output_file = f'{self.filename}'
+        if filename is None:
+            filename = f'{self.filename}'
         # Check if the file exists
-        out_file_exist = os.path.exists(f'{output_file}.fvf')
+        out_file_exist = os.path.exists(f'{filename}.{ext}')
         if out_file_exist is True:       # Read everything you need from the file
-            regions = fit.read_vf(f'{output_file}.fvf', n=n)
+            regions = fit.read_vf(f'{filename}.{ext}', n=n)
         else:
-            raise NameError(f'{output_file}.fvf does not exist.')
+            raise NameError(f'{filename}.{ext} does not exist.')
         # Store
         self.result = regions
-        print(f'{output_file}.fvf loaded as fit result file.')
+        print(f'{filename}.{ext} loaded as fit result file.')
 
     def dofit(self, indep=True, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None, method='leastsq'):
         """
@@ -3552,16 +3559,15 @@ class Voigt_Fit:
         """
         # select the correct object to plot
         if what == 'iguess':
-            regions = list(self.i_guess)
+            regions = deepcopy(self.i_guess)
         elif what == 'result':
-            regions = list(self.result)
+            regions = deepcopy(self.result)
         else:
             raise ValueError('Specify what you want to plot: "iguess" or "result"')
                
         # Set the filename, if not given
         if filename is None:
             filename = f'{self.filename}'
-
 
         # Make the figures
         S = np.copy(self.S.real)
@@ -3586,9 +3592,9 @@ class Voigt_Fit:
         """
         # Select the correct object
         if what == 'iguess':
-            regions = list(self.i_guess)
+            regions = deepcopy(self.i_guess)
         elif what == 'result':
-            regions = list(self.result)
+            regions = deepcopy(self.result)
         else:
             raise ValueError('Specify what you want to plot: "iguess" or "result"')
 
@@ -3600,7 +3606,7 @@ class Voigt_Fit:
         # Loop on the regions
         for region in regions:
             # Remove the limits and the intensity from the region dictionary
-            param = dict(region)
+            param = deepcopy(region)
             limits = param.pop('limits')
             I = param.pop('I')
             # Make the fit.Peak objects

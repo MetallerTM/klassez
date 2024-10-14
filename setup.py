@@ -22,7 +22,6 @@ setup(
         license='LICENSE.txt',
         install_requires = ['numpy', 'scipy', 'lmfit', 'seaborn', 'nmrglue', 'matplotlib>=3.8', 'csaps', 'jeol_parser'],
         packages=['klassez'],
-        #package_data={'': ['klassez/gamma.dic', 'klassez/jeol_nuclei.dic']},
         include_package_data = True,
-        python_requires = '>=3.8',
+        python_requires = '>=3.9',
         )

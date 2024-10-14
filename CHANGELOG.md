@@ -3,8 +3,11 @@
 10/09/2024
 Added reading for Jeol. The package **jeol_parser** is now a required installation prerequisite.
 The **sim.gamma** dictionary now is read from a file in the new folder **klassez/tables**. There is another file there, that is read to generate the **sim.jeol_nuclei** dictionary, which is needed for the conversion from Jeol-style nuclei to *klassez* format.
+The required minimum python version is then changed to 3.9.
 01/10/2024
 All **x_g** labels were changed to **b**. Scripts written with previous versions of *klassez* may be corrected accordingly.
+14/10/2024
+Improved fitting routines. Bug fixes.
 
 
 ## New functions: 

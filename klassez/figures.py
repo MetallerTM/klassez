@@ -1713,6 +1713,13 @@ def ongoing_fit(exp, calc, residual, ylims=None, filename=None, dpi=100):
     ax.plot(residual, c='tab:green', lw=0.4, ls=':')
     axr.axhline(0, c='k', lw=0.6)   # Guideline for the eyes
     axr.plot(residual, c='tab:green')
+    misc.pretty_scale(ax, ax.get_ylim(), 'y')
+    res_ylim = np.abs(axr.get_ylim())
+    misc.pretty_scale(axr, (-max(res_ylim), max(res_ylim)), 'y', 5)
+    for axis in [ax, axr]:
+        misc.pretty_scale(axis, axis.get_xlim(), 'x')
+        misc.mathformat(axis, 'y')
+
     if ylims:
         ax.set_ylim(*ylims)
     # Save/show the figure
