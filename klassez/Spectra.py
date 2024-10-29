@@ -33,7 +33,9 @@ wf0 = {
         'mode':None,
         'ssb':2,
         'lb':5,
-        'gb':10,
+        'gb':0.1,
+        'lb_gm': 0,
+        'gb_gm': 0.1,
         'gc':0,
         'sw':None
         }

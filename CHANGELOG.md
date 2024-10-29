@@ -1,5 +1,20 @@
 # Version 0.4a.7
 
+29/10/2024
+Changed gm and gmb. Now they use two different sets of lb and gb
+processing.fp and processing.interactive_fp modified accordingly.
+SIMPLISMA correction.
+Bug fixes.
+
+## Modified functions:
+- *processing.gm*: now it works.
+- *processing.gmb*: now it works.
+- *processing.fp*: **gm** and **gmb** now use two different sets of parameters.
+- *processing.interactive_fp*: **gm** and **gmb** now use two different sets of parameters.
+- *processing.simplisma*: The first purest variable is computed after the correction for the first weight.
+- *fit.write_vf*: added **header** parameter to allow the writing of a separator.
+
+
 
 
 # Version 0.4a.6

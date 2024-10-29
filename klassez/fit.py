@@ -2834,7 +2834,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
 
 
 # --------------------------------------------------------------------
-def write_vf(filename, peaks, lims, I, prev=0):
+def write_vf(filename, peaks, lims, I, prev=0, header=False):
     """
     Write a section in a fit report file, which shows the fitting region and the parameters of the peaks to feed into a Voigt lineshape model.
     -----------
@@ -2849,6 +2849,8 @@ def write_vf(filename, peaks, lims, I, prev=0):
         Absolute intensity value
     - prev: int
         Number of previous peaks already saved. Increases the peak index
+    - header: bool
+        If True, adds a "!" starting line to separate fit trials
     """
     # Adjust the intensities
     r_i, I_corr = misc.molfrac([peak.k for _, peak in peaks.items()])
@@ -2856,6 +2858,10 @@ def write_vf(filename, peaks, lims, I, prev=0):
     # Open the file in append mode
     f = open(f'{filename}', 'a', buffering=1)
     # Info on the region to be fitted
+    if header:
+        now = datetime.now()
+        date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
+        f.write('! Fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
     #   Header
     f.write('{:>16};\t{:>12}\n'.format('Region', 'Intensity'))
     f.write('-'*96+'\n')
