@@ -1871,22 +1871,20 @@ def interactive_phase_1D(ppmscale, S):
     # Make the figure
     fig = plt.figure('Phase Correction')
     fig.set_size_inches(15,8)
-    plt.subplots_adjust(left = 0.125, bottom=0.10, right=0.8, top=0.9)    # Make room for the sliders
+    plt.subplots_adjust(left = 0.075, bottom=0.10, right=0.8, top=0.9)    # Make room for the sliders
     ax = fig.add_subplot(1,1,1)
 
     # sensitivity
-    sens = [5,5, 0.1, 0.1]
+    sens = [5, 5, 0.1]
 
     # create empty variables for the phases and pivot to be returned
     p0_f = 0
     p1_f = 0
-    pivot_f = round(np.mean([min(ppmscale),max(ppmscale)]), 2)
+    pivot_f = round(np.mean(ppmscale), 2)
 
     # Boxes for widgets
     box_us = plt.axes([0.815, 0.825, 0.08, 0.075])      # increase sensitivity
     box_ds = plt.axes([0.905, 0.825, 0.08, 0.075])      # decrease sensitivity
-    box_l = plt.axes([0.025, 0.15, 0.015, 0.7])         # left border
-    box_r = plt.axes([0.060, 0.15, 0.015, 0.7])         # right border
     box_save = plt.axes([0.81, 0.15, 0.085, 0.04])      # save button
     box_reset = plt.axes([1-0.095, 0.15, 0.085, 0.04])  # reset button
     box_sande = plt.axes([0.81, 0.10, 0.18, 0.04])      # save and exit button
@@ -1900,9 +1898,6 @@ def interactive_phase_1D(ppmscale, S):
 
     
     # Make widgets
-    #   Sliders
-    l = Slider(ax=box_l, label='Left', valmin=min(ppmscale), valmax=max(ppmscale), valinit=max(ppmscale), orientation='vertical')
-    r = Slider(ax=box_r, label='Right', valmin=min(ppmscale), valmax=max(ppmscale), valinit=min(ppmscale), orientation='vertical')
     #   Buttons
     up_button = Button(box_us, r'$\uparrow$', hovercolor='0.975')
     down_button = Button(box_ds, r'$\downarrow$', hovercolor='0.975')
@@ -1915,8 +1910,7 @@ def interactive_phase_1D(ppmscale, S):
     # Array 'status': 1 means active, 0 means inactive.
     stat = np.array([1, 0, 0])
     # values:     p0 p1 pivot
-    P = np.array([0, 0, round(np.mean([min(ppmscale),max(ppmscale)]), 2) ] )
-
+    P = np.array([0, 0, float(round(np.mean(ppmscale), 2))] )
 
     zoom_adj = True
 
@@ -2019,7 +2013,9 @@ def interactive_phase_1D(ppmscale, S):
     B = min(S.real)
     ax.set_ylim(B - 0.01*T, T + 0.01*T)
     # Make pretty scale
-    misc.pretty_scale(ax, (max(ppmscale), min(ppmscale)))
+    misc.pretty_scale(ax, ax.get_xlim(), 'x')
+    misc.pretty_scale(ax, ax.get_ylim(), 'y')
+    misc.mathformat(ax)
     
 
     # Write axis label
@@ -2032,11 +2028,9 @@ def interactive_phase_1D(ppmscale, S):
     ax.axhline(0, c='k', lw=0.2)    # baseline guide
 
     spectrum, = ax.plot(ppmscale, S.real, c='b', lw=0.8)        # Plot the data
-    pivot_bar = ax.axvline((min(ppmscale)+max(ppmscale))/2, c='r', lw=0.5)  # Plot the pivot bar
+    pivot_bar = ax.axvline(P[2], c='r', lw=0.5)  # Plot the pivot bar
 
     # Link widgets to functions
-    l.on_changed(update_lim)
-    r.on_changed(update_lim)
     up_button.on_clicked(sens_up)
     down_button.on_clicked(sens_down)
     radio.on_clicked(statmod)

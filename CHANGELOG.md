@@ -7,12 +7,16 @@ SIMPLISMA correction.
 Bug fixes.
 
 ## Modified functions:
+29/10/2024
 - *processing.gm*: now it works.
 - *processing.gmb*: now it works.
 - *processing.fp*: **gm** and **gmb** now use two different sets of parameters.
 - *processing.interactive_fp*: **gm** and **gmb** now use two different sets of parameters.
 - *processing.simplisma*: The first purest variable is computed after the correction for the first weight.
 - *fit.write_vf*: added **header** parameter to allow the writing of a separator.
+01/11/2024
+- *processing.interactive_phase_1D*: bug fix, removed sliders
+
 
 
 
