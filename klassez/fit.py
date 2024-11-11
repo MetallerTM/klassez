@@ -33,23 +33,7 @@ Functions for performing fits.
 
 s_colors=[ 'tab:cyan', 'tab:red', 'tab:green', 'tab:purple', 'tab:pink', 'tab:gray', 'tab:brown', 'tab:olive', 'salmon', 'indigo' ]
 
-def f_t1(t, A, B, T1):
-    """
-    Function that models the buildup of magnetization due to T1 relaxation:
-        $ f(t) = A (1 - e^{-t/T_1}) + B $
-    """
-    f = A * (1 - np.exp(-t/T1) ) + B
-    return f
-
-def f_t2(t, A, B, T2):
-    """
-    Function that models the decay of magnetization due to T2 relaxation
-        $ f(t) = A e^{-t/T_2} + B $
-    """
-    f = A * np.exp(-t/T2) + B
-    return f
-
-def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=False, barcolor='tab:blue', fontsize=10, name=None, ext='tiff', dpi=600):
+def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=False, fitG=True, barcolor='tab:blue', fontsize=10, name=None, ext='tiff', dpi=600):
     """
     Computes an histogram of 'data' and tries to fit it with a gaussian lineshape.
     The parameters of the gaussian function are calculated analytically directly from 'data' using 'scipy.stats.norm'
@@ -67,6 +51,8 @@ def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=F
         Text to be displayed under the x axis
     - x_symm : bool
         set it to True to make symmetric x-axis with respect to 0
+    - fitG: bool
+        Shows the gaussian approximation
     - barcolor: str
         Color of the bins
     - fontsize: float
@@ -90,7 +76,7 @@ def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=F
     plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)
     fig.set_size_inches(figures.figsize_large)
 
-    m, s = fit.ax_histogram(ax, data, nbins=nbins, density=density, f_lims=f_lims, xlabel=xlabel, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize)
+    m, s = fit.ax_histogram(ax, data, nbins=nbins, density=density, f_lims=f_lims, xlabel=xlabel, x_symm=x_symm, fitG=fitG, barcolor=barcolor, fontsize=fontsize)
 
     if name:
         print(f'Saving {name}.{ext}...')
@@ -122,6 +108,8 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x
         Text to be displayed under the x axis
     - x_symm : bool
         set it to True to make symmetric x-axis with respect to 0
+    - fitG: bool
+        Shows the gaussian approximation
     - barcolor: str
         Color of the bins
     - fontsize: float
@@ -176,7 +164,7 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x
         misc.pretty_scale(ax, ax.get_xlim(), 'x')
     misc.pretty_scale(ax, ax.get_ylim(), 'y')
 
-    misc.mathformat(ax, limits=(-3,3))
+    misc.mathformat(ax, axis='both', limits=(-3,3))
 
 
     misc.set_fontsizes(ax, fontsize)
@@ -284,7 +272,7 @@ def calc_R2(y, y_c):
 
 
 
-def fit_int(y, y_c):
+def fit_int(y, y_c, q=True):
     """
     Computes the optimal intensity and intercept of a linear model in the least squares sense.
     Let y be the experimental data and y_c the model, and let <w> the mean of variable w.
@@ -297,6 +285,8 @@ def fit_int(y, y_c):
         Experimental data
     - y_c: 1darray
         Model data
+    - q: bool
+        If True, includes the offset in the calculation. If False, only the intensity factor is computed.
     ----------
     Returns:
     - A: float
@@ -305,15 +295,20 @@ def fit_int(y, y_c):
         Optimized intercept
     """
 
-    # Apply the formulaes, numerator only
-    A = np.mean(y_c * y) - np.mean(y_c) * np.mean(y)
-    q = np.mean(y_c**2) * np.mean(y) - np.mean(y_c) * np.mean(y * y_c)
+    if q:
+        # Apply the formulaes, numerator only
+        A = np.mean(y_c * y) - np.mean(y_c) * np.mean(y)
+        q = np.mean(y_c**2) * np.mean(y) - np.mean(y_c) * np.mean(y * y_c)
 
-    # Compute denominator
-    Q = np.mean(y_c**2) - np.mean(y_c)**2
-    # Divide
-    A /= Q
-    q /= Q
+        # Compute denominator
+        Q = np.mean(y_c**2) - np.mean(y_c)**2
+        # Divide
+        A /= Q
+        q /= Q
+    else:
+        # Apply other formula
+        A = np.mean(y_c * y) / np.mean(y_c**2)
+        q = 0
 
     return A, q
 
@@ -668,7 +663,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
     print('Done.')
 
 
-def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename='fit', method='leastsq'):
+def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k_lim=(0, 3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename='fit', method='leastsq'):
     """
     Performs a lineshape deconvolution fit using a Voigt model.
     The initial guess must be read from a .ivf file. All components are treated as independent, regardless from the value of the "group" attribute.
@@ -687,10 +682,12 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         Nucleus Larmor frequency /MHz
     - o1p: float
         Carrier frequency /ppm
-    - u_tol: float
+    - u_lim: float
         Maximum allowed displacement of the chemical shift from the initial value /ppm
-    - f_tol: float
+    - f_lim: float
         Maximum allowed displacement of the linewidth from the initial value /ppm
+    - k_lim: float or tuple
+        If tuple, minimum and maximum allowed values for k during the fit. If float, maximum displacement from the initial guess
     - vary_phase: bool
         Allow the peaks to change phase
     - vary_b: bool
@@ -787,7 +784,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
         total = calc_total(peaks, 1)
         exp = S[lims]/I
         calc = total[lims]
-        correction_factor, _ = fit.fit_int(exp, calc)
+        correction_factor, _ = fit.fit_int(exp, calc, q=False)
         residual = exp - calc * correction_factor
         param['correction_factor'].set(value=correction_factor)
         print(f'Step: {par["count"]:6.0f} | Target: {np.sum(residual**2)/first_residual:10.5e}', end='\r')
@@ -853,11 +850,14 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, v
                 param.add(par_key, value=val)   # Make the Parameter object
                 # Set the limits for each parameter, and fix the ones that have not to be varied during the fit
                 if 'u' in key:  # u: [u-u_tol, u+u_tol]
-                    param[par_key].set(min=max(val-u_tol, min(limits)), max=min(val+u_tol, max(limits)))
+                    param[par_key].set(min=max(val-u_lim, min(limits)), max=min(val+u_lim, max(limits)))
                 elif 'fwhm' in key: # fwhm: [max(0, fwhm-f_tol), fwhm+f_tol] (avoid negative fwhm)
-                    param[par_key].set(min=max(0, val-f_tol), max=val+f_tol)
+                    param[par_key].set(min=max(0, val-f_lim), max=val+f_lim)
                 elif 'k' in key:    # k: [0, 3]
-                    param[par_key].set(min=0, max=3)
+                    if isinstance(k_lim, float):
+                        param[par_key].set(min=param[par_key].value-k_lim, max=param[par_key].value+k_lim)
+                    else:
+                        param[par_key].set(min=min(k_lim), max=max(k_lim))
                 elif 'phi' in key:  # phi: [-180°, +180°]
                     param[par_key].set(min=-180, max=180, vary=vary_phase)
                 elif 'b' in key:  # b: [0, 1]
@@ -1856,7 +1856,6 @@ class Peak:
 
 
 
-
 def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     """
     Creates the initial guess for a lineshape deconvolution fitting procedure, using a dedicated GUI.
@@ -2146,6 +2145,11 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         """ Update the text when you move the slider """
         idx = int(np.floor(slider.val * Np) + 1)
         if Np:
+            for key, line in p_sgn.items():
+                if key == idx:
+                    line.set_lw(3)
+                else:
+                    line.set_lw(0.8)
             write_par(idx)
         redraw()
 
@@ -3492,7 +3496,7 @@ class Voigt_Fit:
         self.result = regions
         print(f'{filename}.{ext} loaded as fit result file.')
 
-    def dofit(self, indep=True, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None, method='leastsq'):
+    def dofit(self, indep=True, u_lim=1, f_lim=10, k_lim=(0,3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None, method='leastsq'):
         """
         Perform a lineshape deconvolution fitting.
         The initial guess is read from the attribute self.i_guess.
@@ -3502,10 +3506,12 @@ class Voigt_Fit:
         Parameters:
         - indep: bool
             True to consider all the components to be independent
-        - u_tol: float
+        - u_lim: float
             Determines the displacement of the chemical shift (in ppm) from the starting value.
-        - f_tol: float
+        - f_lim: float
             Determines the displacement of the linewidth (in Hz) from the starting value.
+        - k_lim: float or tuple
+            If tuple, minimum and maximum allowed values for k during the fit. If float, maximum displacement from the initial guess
         - vary_phase: bool
             Allow the peaks to change phase (True) or not (False)
         - vary_b: bool
@@ -3531,7 +3537,7 @@ class Voigt_Fit:
 
         # Do the fit
         if indep is True:
-            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_tol=u_tol, f_tol=f_tol, vary_phase=vary_phase, vary_b=vary_b, itermax=itermax, fit_tol=fit_tol, filename=filename, method=method)
+            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_lim=u_lim, f_lim=f_lim, k_lim=k_lim, vary_phase=vary_phase, vary_b=vary_b, itermax=itermax, fit_tol=fit_tol, filename=filename, method=method)
         else:
             raise NotImplementedError('More and more exciting adventures in the next release!')
         # Store
@@ -3683,8 +3689,8 @@ class Voigt_Fit:
             exp_trim.append(self.S[...,lims].real)
             total_trim.append(total[...,lims])
         # Sum on different regions
-        exp_trim = np.sum(exp_trim, axis=0)
-        total_trim = np.sum(total_trim, axis=0)
+        exp_trim = np.concatenate(exp_trim, axis=-1)
+        total_trim = np.concatenate(total_trim, axis=-1)
 
         # Compute the residuals 
         residual_arr = exp_trim - total_trim

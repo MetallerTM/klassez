@@ -321,6 +321,10 @@ def qpol(fid):
 def qsin(data, ssb):
     """
     Sine-squared apodization.
+    --------
+    Parameters:
+    - ssb: int
+        Sine bell shift. 
     """
 
     if ssb == 0 or ssb == 1:
@@ -335,6 +339,10 @@ def qsin(data, ssb):
 def sin(data, ssb):
     """
     Sine apodization.
+    --------
+    Parameters:
+    - ssb: int
+        Sine bell shift. 
     """
     if ssb == 0 or ssb == 1:
         off = 0
@@ -577,6 +585,14 @@ def eae(data):
     pdata[::2] = (data[::2].real - data[1::2].real) + 1j*(data[::2].imag - data[1::2].imag)
     pdata[1::2] = -(data[::2].imag + data[1::2].imag) + 1j*(data[::2].real + data[1::2].real)
 
+    ---------
+    Parameters:
+    - data: 2darray
+        FID in echo-antiecho format
+    ---------
+    Returns:
+    - pdata: 2darray
+        FID in States-TPPI format
     """
     pdata = np.zeros_like(data)
     pdata[::2] = (data[::2].real - data[1::2].real) + 1j*(data[::2].imag - data[1::2].imag)
@@ -3527,6 +3543,20 @@ def cadzow(data, n, nc, print_head=True):
     5. Average the antidiagonals to rebuild the Hankel-type structure, then make 1D array
 
     Set print_head=True to display the fancy heading.
+    -------------
+    Parameters:
+    - data: 1darray
+        Input data
+    - n: int
+        Number of columns of the Hankel matrix.
+    - nc: int
+        Number of singular values to keep.
+    - print_head: bool
+        Set it to True to display the fancy heading.
+    -------------
+    Returns:
+    - datap: 1darray
+        Denoised data
     """
     if print_head is True:
         print('\n*****************************************************')
@@ -3660,8 +3690,29 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
 
 def cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
     """
-    Performs the Cadzow denoising method on a 2D spectrum, one transient at the time. This function calls either Cadzow or iterCadzow, depending on the parameter 'i': True for iterCadzow, False for normal Cadzow.
-
+    Performs the Cadzow denoising method on a 2D spectrum, one transient at the time. 
+    This function calls either Cadzow or iterCadzow, depending on the parameter 'i': 
+    True for iterCadzow, False for normal Cadzow.
+    ----------
+    Parameters:
+    - data: 2darray
+        Input data
+    - n: int
+        Number of columns of the Hankel matrix.
+    - nc: int
+        Number of singular values to keep.
+    - i: bool
+        Calls processing.cadzow if i=False, or processing.iterCadzow if i=True.
+    - itermax: int
+        Maximum number of iterations allowed.
+    - f: float
+        Factor for the arrest criterion.
+    - print_time: bool
+        Set it to True to display the time spent.
+    ----------
+    Returns:
+    - datap: 2darray
+        Denoised data
     """
     start_time = datetime.now()
     print('\n*****************************************************')

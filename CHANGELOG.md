@@ -5,6 +5,10 @@ Changed gm and gmb. Now they use two different sets of lb and gb
 processing.fp and processing.interactive_fp modified accordingly.
 SIMPLISMA correction.
 Bug fixes.
+11/11/2024
+Remade user manual
+Bug fixes
+Corrected a few docstrings
 
 ## Modified functions:
 29/10/2024
@@ -16,6 +20,10 @@ Bug fixes.
 - *fit.write_vf*: added **header** parameter to allow the writing of a separator.
 01/11/2024
 - *processing.interactive_phase_1D*: bug fix, removed sliders
+05/11/2024
+- *fit.histogram*: added option **fitG** to draw the gaussian or not
+11/10/2024
+- *fit.voigt_fit_indep*: changed **_tol** to **_lim**, added **k_lim**
 
 
 

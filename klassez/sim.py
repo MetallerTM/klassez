@@ -48,7 +48,8 @@ def calc_splitting(u0, I0, m=1, J=0):
     Returns:
     - u_s: 1darray
         Frequencies of the splitted signal (Hz)
-    - I_s: Intensities of the splitted signal 
+    - I_s: 1darray 
+        Intensities of the splitted signal 
     """
     # FREQUENCIES
     u_s = []

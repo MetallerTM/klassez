@@ -12,3 +12,8 @@ dist/
 
 # obsidian
 .obsidian/
+
+# figures
+*.png
+# test files
+test/
