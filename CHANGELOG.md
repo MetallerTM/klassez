@@ -1,3 +1,8 @@
+# Version 0.4a.8
+
+
+
+
 # Version 0.4a.7
 
 Changed *processing.gm* and *processing.gmb* implementation, and to use two different sets of **lb** and **gb** in the *Spectra.procs* classes.
