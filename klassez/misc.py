@@ -40,20 +40,16 @@ def noise_std(y):
         The standard deviation of the noise.
     """
     N = len(y)
-    n = N//2 + 1
+    n = N//2
     # W
-    W = 0
-    for k in range(N):
-        W += y[k]
-    W = W**2
+    W = np.sum(y)**2
     # Y
-    Y=0
-    for k in range(N):
-        Y += y[k]**2
+    Y = np.sum(y**2)
     # X
-    X=0
-    for k in range(1,n):
-        X += k * (y[-k] - y[k-1])
+    if N%2 == 0:
+        X = np.sum([(k+1) * (y[n+k] - y[n-k-1]) for k in range(n)])
+    else:
+        X = np.sum([(k+1) * (y[n+k] - y[n-k-1]) for k in range(n)])
     noisestd = (N-1)**(-0.5) * np.sqrt( Y - 1/N * (W + 3 * X**2 / (N**2 -1) ))
     return noisestd
 
@@ -1362,9 +1358,7 @@ def nuc_format(nuc):
 
 def set_ylim(ax, data_inp): 
     """ 
-    Sets the y-limits of ax as follows: 
-    Bottom:     min(data) - 5% max(data) 
-    Top:        max(data) + 5% max(data) 
+    Sets the y-limits of ax by calling misc.get_ylim to compute the values.
     ------- 
     Parameters: 
     - ax: matplotlib.Subplot Object 
@@ -1841,7 +1835,7 @@ def zero_crossing(array, after=False):
     """
     Find the indices where the elements in the array change sign.
     The identified positions are the ones before the sign changes. 
-    This behavior can be modified by setting 'before=False'.
+    This behavior can be modified by setting 'after=True'.
     -------------------
     Parameters:
     - array: 1darray
@@ -1851,7 +1845,7 @@ def zero_crossing(array, after=False):
     ------------------
     Returns:
     - zerocross: 1darray
-        Position of the zero-crossing, according to 'before'
+        Position of the zero-crossing, according to 'after'
     """
     zerocross = np.where(np.diff(np.sign(array)))[0]
     if after:

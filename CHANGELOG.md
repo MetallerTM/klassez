@@ -1,3 +1,29 @@
+# Version 0.4a.7
+
+Changed *processing.gm* and *processing.gmb* implementation, and to use two different sets of **lb** and **gb** in the *Spectra.procs* classes.
+*processing.fp* and *processing.interactive_fp* were also modified accordingly.
+SIMPLISMA correction.
+
+Corrected a few docstrings.
+Remade user manual and added new test scripts.
+Bug fixes.
+
+## Modified functions:
+- *misc.noise_snr*: corrected error in the formula, now also use *np.sum* instead of loops
+- *processing.fp*: **gm** and **gmb** now use two different sets of parameters.
+- *processing.gm*: now it works.
+- *processing.gmb*: now it works.
+- *processing.interactive_fp*: **gm** and **gmb** now use two different sets of parameters.
+- *processing.interactive_phase_1D*: bug fix, removed sliders
+- *processing.simplisma*: The first purest variable is computed after the correction for the first weight.
+- *fit.histogram*: added option **fitG** to draw the gaussian or not
+- *fit.fit_int*: change of behavior if one wants to compute intensity only, or also the offset
+- *fit.make_iguess*: active peak is now drawn with a thicker line
+- *fit.voigt_fit_indep*: changed <b>_tol</b> to <b>_lim</b>, added <b>k_lim</b>
+- *fit.write_vf*: added **header** parameter to allow the writing of a separator.
+
+
+
 # Version 0.4a.6
 
 Added reading for Jeol. The package **jeol_parser** is now a required installation prerequisite.

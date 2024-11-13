@@ -26,7 +26,6 @@ from .config import CM, COLORS, cron
 #from .__init__ import CM
 
 # gyromagnetic ratio of all NMR active nuclei in MHz/T
-print(impresources.files(tables))
 with open(impresources.files(tables)/'gamma.dic', 'r') as f:
     gamma = eval(f.read())
 with open(impresources.files(tables)/'nuclei_jeol.dic', 'r') as f:
@@ -49,7 +48,8 @@ def calc_splitting(u0, I0, m=1, J=0):
     Returns:
     - u_s: 1darray
         Frequencies of the splitted signal (Hz)
-    - I_s: Intensities of the splitted signal 
+    - I_s: 1darray 
+        Intensities of the splitted signal 
     """
     # FREQUENCIES
     u_s = []

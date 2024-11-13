@@ -321,6 +321,10 @@ def qpol(fid):
 def qsin(data, ssb):
     """
     Sine-squared apodization.
+    --------
+    Parameters:
+    - ssb: int
+        Sine bell shift. 
     """
 
     if ssb == 0 or ssb == 1:
@@ -335,6 +339,10 @@ def qsin(data, ssb):
 def sin(data, ssb):
     """
     Sine apodization.
+    --------
+    Parameters:
+    - ssb: int
+        Sine bell shift. 
     """
     if ssb == 0 or ssb == 1:
         off = 0
@@ -357,46 +365,62 @@ def em(data, lb, sw):
     - sw: float
         Spectral width /Hz
     """
-    lb = lb / (2*sw)
+    lb = lb / sw
     apod = np.exp(-np.pi * np.arange(data.shape[-1]) * lb).astype(data.dtype)
     return apod * data
 
-def gm(data, lb, gb, sw, gc=0):
+def gm(data, lb, gb, gc, sw):
     """
-    Gaussian apodization
+    Gaussian apodization.
+    The parameter 'lb' controls the sharpening factor of a rising exponential, and behaves exactly as in processing.em.
+    In contrast, 'gb' controls the gaussian decay factor.
+    Apply this function VERY CAREFULLY. Choose the right values through the interactive processing.
     -------
     Parameters:
     - data: ndarray
         Input data
     - lb: float
-        Lorentzian broadening /Hz. It should be negative.
+        Lorentzian sharpening /Hz. It should be negative.
     - gb: float
-        Gaussian broadening /Hz. It should be positive.
-    - sw: float
-        Spectral width /Hz
+        Gaussian broadening. It should be positive.
     - gc: float
         Gaussian center, relatively to the FID length: 0 <= gc <= 1
+    - sw: float
+        Spectral width /Hz
     -------
     Returns:
     - pdata: ndarray
         Processed data
     """
     size = data.shape[-1]
-    a = np.pi * lb / sw * np.arange(size)
-    b = 0.6 * np.pi * (gb / sw) * (gc * (size-1) - np.arange(size) ) 
-    apod = np.exp(a - b**2)
+    x = np.arange(size)
+    A = - np.pi * lb / sw * x
+    B = np.pi * gb / sw * (gc * (size - 1) - x)
+    apod = np.exp(A - B**2)
     return apod * data
 
 def gmb(data, lb, gb, sw):
     """
-    Gaussian apodization, Bruker-like
+    Bruker-style Gaussian apodization.
+    Apply this function VERY CAREFULLY. Choose the right values through the interactive processing.
+    --------
+    Parameters:
+    - data: ndarray
+        Input data
+    - lb: float
+        Lorentzian sharpening /Hz. It should be negative.
+    - gb: float
+        Gaussian broadening. It should be positive.
+    - sw: float
+        Spectral width /Hz
+    -------
+    Returns:
+    - pdata: ndarray
+        Processed data
     """
     size = data.shape[-1]
-    t = np.arange(size) / sw
-    aq = size / sw
-    a = np.pi * lb
-    b = - a / (2 *  gb * aq)
-    apod = np.exp(a * t - b**2 * t**2)
+    x = np.arange(size)/size
+    apod = np.exp(- np.pi / sw * size * (lb * x - lb / (2 * gb) * x**2))
     return apod * data
 
 # zero-filling
@@ -561,6 +585,14 @@ def eae(data):
     pdata[::2] = (data[::2].real - data[1::2].real) + 1j*(data[::2].imag - data[1::2].imag)
     pdata[1::2] = -(data[::2].imag + data[1::2].imag) + 1j*(data[::2].real + data[1::2].real)
 
+    ---------
+    Parameters:
+    - data: 2darray
+        FID in echo-antiecho format
+    ---------
+    Returns:
+    - pdata: 2darray
+        FID in States-TPPI format
     """
     pdata = np.zeros_like(data)
     pdata[::2] = (data[::2].real - data[1::2].real) + 1j*(data[::2].imag - data[1::2].imag)
@@ -712,7 +744,7 @@ def fp(data, wf=None, zf=None, fcor=0.5, tdeff=0):
         if wf['mode'] == 'em':
             datap = processing.em(datap, lb=wf['lb'], sw=wf['sw'])
         if wf['mode'] == 'gm':
-            datap = processing.gm(datap, lb=wf['lb'], gb=wf['gb'], sw=wf['sw'], gc=wf['gc'])
+            datap = processing.gm(datap, lb=wf['lb_gm'], gb=wf['gb_gm'], sw=wf['sw'], gc=wf['gc'])
         if wf['mode'] == 'gmb':
             datap = processing.gmb(datap, lb=wf['lb'], gb=wf['gb'], sw=wf['sw'])
     # Zero-filling
@@ -786,7 +818,7 @@ def interactive_fp(fid0, acqus, procs):
             'em': ['lb'],
             'sin': ['ssb'],
             'qsin': ['ssb'],
-            'gm': ['lb', 'gb', 'gc'],
+            'gm': ['lb_gm', 'gb_gm', 'gc'],
             'gmb': ['lb', 'gb'],
             }
     tx = {} # Dictionary of the texts
@@ -795,10 +827,12 @@ def interactive_fp(fid0, acqus, procs):
     SI_box = plt.axes([0.85, 0.85, 0.07, 0.04])
     tdeff_box = plt.axes([0.85, 0.80, 0.07, 0.04])
     mode_box = plt.axes([0.825, 0.5, 0.15, 0.25])
-    ssb_box = plt.axes([0.85, 0.25, 0.07, 0.04])
-    lb_box = plt.axes([0.85, 0.20, 0.07, 0.04])
-    gb_box = plt.axes([0.85, 0.15, 0.07, 0.04])
-    gc_box = plt.axes([0.85, 0.1, 0.07, 0.04])
+    ssb_box = plt.axes([0.85, 0.40, 0.07, 0.04])
+    lb_box = plt.axes([0.85, 0.35, 0.07, 0.04])
+    gb_box = plt.axes([0.85, 0.30, 0.07, 0.04])
+    lb_gm_box = plt.axes([0.85, 0.25, 0.07, 0.04])
+    gb_gm_box = plt.axes([0.85, 0.20, 0.07, 0.04])
+    gc_box = plt.axes([0.85, 0.15, 0.07, 0.04])
     
     # Define widgets
     SI_tb = TextBox(SI_box, 'SI', textalignment='center')
@@ -807,6 +841,8 @@ def interactive_fp(fid0, acqus, procs):
     ssb_tb = TextBox(ssb_box, 'SSB', textalignment='center')
     lb_tb = TextBox(lb_box, 'LB', textalignment='center')
     gb_tb = TextBox(gb_box, 'GB', textalignment='center')
+    lb_gm_tb = TextBox(lb_box, 'LB_GM', textalignment='center')
+    gb_gm_tb = TextBox(gb_box, 'GB_GM', textalignment='center')
     gc_tb = TextBox(gc_box, 'GC', textalignment='center')
     
     
@@ -880,6 +916,26 @@ def interactive_fp(fid0, acqus, procs):
             pass
         tx['gb'].set_text('{:.2f}'.format(procs['wf']['gb']))
         update()
+
+    def update_lb_gm(v):
+        nonlocal procs
+        try:
+            lb = eval(v)
+            procs['wf']['lb_gm'] = lb
+        except:
+            pass
+        tx['lb_gm'].set_text('{:.0f}'.format(procs['wf']['lb_gm']))
+        update()
+            
+    def update_gb_gm(v):
+        nonlocal procs
+        try:
+            gb = eval(v)
+            procs['wf']['gb_gm'] = gb
+        except:
+            pass
+        tx['gb_gm'].set_text('{:.2f}'.format(procs['wf']['gb_gm']))
+        update()
     
     def update_gc(v):
         nonlocal procs
@@ -927,6 +983,8 @@ def interactive_fp(fid0, acqus, procs):
     tx['ssb'] = plt.text(0.93, calcy(ssb_box), '{:.0f}'.format(procs['wf']['ssb']), ha='left', va='center', transform=fig.transFigure)
     tx['lb'] = plt.text(0.93, calcy(lb_box), '{:.0f}'.format(procs['wf']['lb']), ha='left', va='center', transform=fig.transFigure)
     tx['gb'] = plt.text(0.93, calcy(gb_box), '{:.2f}'.format(procs['wf']['gb']), ha='left', va='center', transform=fig.transFigure)
+    tx['lb_gm'] = plt.text(0.93, calcy(lb_gm_box), '{:.0f}'.format(procs['wf']['lb_gm']), ha='left', va='center', transform=fig.transFigure)
+    tx['gb_gm'] = plt.text(0.93, calcy(gb_gm_box), '{:.2f}'.format(procs['wf']['gb_gm']), ha='left', va='center', transform=fig.transFigure)
     tx['gc'] = plt.text(0.93, calcy(gc_box), '{:.2f}'.format(procs['wf']['gc']), ha='left', va='center', transform=fig.transFigure)
     
     # Customize appearance
@@ -948,6 +1006,8 @@ def interactive_fp(fid0, acqus, procs):
     ssb_tb.on_submit(update_ssb)
     lb_tb.on_submit(update_lb)
     gb_tb.on_submit(update_gb)
+    lb_gm_tb.on_submit(update_lb_gm)
+    gb_gm_tb.on_submit(update_gb_gm)
     gc_tb.on_submit(update_gc)
     
     plt.show()
@@ -1827,22 +1887,20 @@ def interactive_phase_1D(ppmscale, S):
     # Make the figure
     fig = plt.figure('Phase Correction')
     fig.set_size_inches(15,8)
-    plt.subplots_adjust(left = 0.125, bottom=0.10, right=0.8, top=0.9)    # Make room for the sliders
+    plt.subplots_adjust(left = 0.075, bottom=0.10, right=0.8, top=0.9)    # Make room for the sliders
     ax = fig.add_subplot(1,1,1)
 
     # sensitivity
-    sens = [5,5, 0.1, 0.1]
+    sens = [5, 5, 0.1]
 
     # create empty variables for the phases and pivot to be returned
     p0_f = 0
     p1_f = 0
-    pivot_f = round(np.mean([min(ppmscale),max(ppmscale)]), 2)
+    pivot_f = round(np.mean(ppmscale), 2)
 
     # Boxes for widgets
     box_us = plt.axes([0.815, 0.825, 0.08, 0.075])      # increase sensitivity
     box_ds = plt.axes([0.905, 0.825, 0.08, 0.075])      # decrease sensitivity
-    box_l = plt.axes([0.025, 0.15, 0.015, 0.7])         # left border
-    box_r = plt.axes([0.060, 0.15, 0.015, 0.7])         # right border
     box_save = plt.axes([0.81, 0.15, 0.085, 0.04])      # save button
     box_reset = plt.axes([1-0.095, 0.15, 0.085, 0.04])  # reset button
     box_sande = plt.axes([0.81, 0.10, 0.18, 0.04])      # save and exit button
@@ -1856,9 +1914,6 @@ def interactive_phase_1D(ppmscale, S):
 
     
     # Make widgets
-    #   Sliders
-    l = Slider(ax=box_l, label='Left', valmin=min(ppmscale), valmax=max(ppmscale), valinit=max(ppmscale), orientation='vertical')
-    r = Slider(ax=box_r, label='Right', valmin=min(ppmscale), valmax=max(ppmscale), valinit=min(ppmscale), orientation='vertical')
     #   Buttons
     up_button = Button(box_us, r'$\uparrow$', hovercolor='0.975')
     down_button = Button(box_ds, r'$\downarrow$', hovercolor='0.975')
@@ -1871,8 +1926,7 @@ def interactive_phase_1D(ppmscale, S):
     # Array 'status': 1 means active, 0 means inactive.
     stat = np.array([1, 0, 0])
     # values:     p0 p1 pivot
-    P = np.array([0, 0, round(np.mean([min(ppmscale),max(ppmscale)]), 2) ] )
-
+    P = np.array([0, 0, float(round(np.mean(ppmscale), 2))] )
 
     zoom_adj = True
 
@@ -1975,7 +2029,9 @@ def interactive_phase_1D(ppmscale, S):
     B = min(S.real)
     ax.set_ylim(B - 0.01*T, T + 0.01*T)
     # Make pretty scale
-    misc.pretty_scale(ax, (max(ppmscale), min(ppmscale)))
+    misc.pretty_scale(ax, ax.get_xlim(), 'x')
+    misc.pretty_scale(ax, ax.get_ylim(), 'y')
+    misc.mathformat(ax)
     
 
     # Write axis label
@@ -1988,11 +2044,9 @@ def interactive_phase_1D(ppmscale, S):
     ax.axhline(0, c='k', lw=0.2)    # baseline guide
 
     spectrum, = ax.plot(ppmscale, S.real, c='b', lw=0.8)        # Plot the data
-    pivot_bar = ax.axvline((min(ppmscale)+max(ppmscale))/2, c='r', lw=0.5)  # Plot the pivot bar
+    pivot_bar = ax.axvline(P[2], c='r', lw=0.5)  # Plot the pivot bar
 
     # Link widgets to functions
-    l.on_changed(update_lim)
-    r.on_changed(update_lim)
     up_button.on_clicked(sens_up)
     down_button.on_clicked(sens_down)
     radio.on_clicked(statmod)
@@ -3001,13 +3055,6 @@ def simplisma(D, nc, f=10, oncols=True):
         a = 0.01 * f * max(m)
 
         print('Computing 1° purest variable...', end='\r')
-        p1 = s / (m + a)    # First purity spectrum
-        pv, ipv = [], []    # Purest variables and correspondant index
-
-        # 1st purest variable
-        pv.append(max(p1))
-        ipv.append(np.argmax(p1))
-
         # Rescaling of data for lambda: makes determinant of COO
         # proportional only to the independance between variables
         l = ( s**2 + (m + a)**2 )**0.5  # lambda corrected for alpha
@@ -3025,8 +3072,15 @@ def simplisma(D, nc, f=10, oncols=True):
 
         # First weight
         w[:,0] =  (s**2 + m**2) / (s**2 + (m + a)**2)
-        p_s[:,0] = w[:,0] * p1
+        p0 = s / (m + a)    # First purity spectrum
+        pv, ipv = [], []    # Purest variables and correspondant index
+
+        p_s[:,0] = w[:,0] * p0
         s_s[:,0] = w[:,0] * s
+
+        # 1st purest variable
+        pv.append(max(p_s[:,0]))
+        ipv.append(np.argmax(p_s[:,0]))
 
         # Matrix for computing the determinants
         #   It has the following structure, where Q denotes the COO matrix
@@ -3050,10 +3104,10 @@ def simplisma(D, nc, f=10, oncols=True):
                         W[k,q] = Q[ipv[k-1],ipv[q-1]]   # all the rest, going row per row
                 w[i,c] = linalg.det(W)
 
-            p_s[:,c] = p_s[:,0] * w[:,c]      # Create pure spectrum of c-th component
-            s_s[:,c] = s_s[:,0] * w[:,c]      # Create STD spectrum of c-th component
-            pv.append(max(p_s[:,c]))          # Update pure component
-            ipv.append(np.argmax(p_s[:,c]))   # Update pure variable
+            p_s[:,c] = p0 * w[:,c]              # Create pure spectrum of c-th component
+            s_s[:,c] = s_s[:,0] * w[:,c]        # Create STD spectrum of c-th component
+            pv.append(max(p_s[:,c]))            # Update pure component
+            ipv.append(np.argmax(p_s[:,c]))     # Update pure variable
 
         print('Purest variables succesfully found.\n')
         for c in range(nc):
@@ -3489,6 +3543,20 @@ def cadzow(data, n, nc, print_head=True):
     5. Average the antidiagonals to rebuild the Hankel-type structure, then make 1D array
 
     Set print_head=True to display the fancy heading.
+    -------------
+    Parameters:
+    - data: 1darray
+        Input data
+    - n: int
+        Number of columns of the Hankel matrix.
+    - nc: int
+        Number of singular values to keep.
+    - print_head: bool
+        Set it to True to display the fancy heading.
+    -------------
+    Returns:
+    - datap: 1darray
+        Denoised data
     """
     if print_head is True:
         print('\n*****************************************************')
@@ -3622,8 +3690,29 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
 
 def cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
     """
-    Performs the Cadzow denoising method on a 2D spectrum, one transient at the time. This function calls either Cadzow or iterCadzow, depending on the parameter 'i': True for iterCadzow, False for normal Cadzow.
-
+    Performs the Cadzow denoising method on a 2D spectrum, one transient at the time. 
+    This function calls either Cadzow or iterCadzow, depending on the parameter 'i': 
+    True for iterCadzow, False for normal Cadzow.
+    ----------
+    Parameters:
+    - data: 2darray
+        Input data
+    - n: int
+        Number of columns of the Hankel matrix.
+    - nc: int
+        Number of singular values to keep.
+    - i: bool
+        Calls processing.cadzow if i=False, or processing.iterCadzow if i=True.
+    - itermax: int
+        Maximum number of iterations allowed.
+    - f: float
+        Factor for the arrest criterion.
+    - print_time: bool
+        Set it to True to display the time spent.
+    ----------
+    Returns:
+    - datap: 2darray
+        Denoised data
     """
     start_time = datetime.now()
     print('\n*****************************************************')

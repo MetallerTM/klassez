@@ -33,7 +33,9 @@ wf0 = {
         'mode':None,
         'ssb':2,
         'lb':5,
-        'gb':10,
+        'gb':0.1,
+        'lb_gm': 0,
+        'gb_gm': 0.1,
         'gc':0,
         'sw':None
         }
@@ -774,6 +776,7 @@ class Spectrum_1D:
                         fwhm = self.acqus['fwhm'][k],
                         k = A[k],
                         b = self.acqus['b'][k],
+                        phi = self.acqus['phases'][k] * 180 / np.pi,
                         N = self.procs['zf'],
                         group = 0,      # Identifier for singlets
                         )
@@ -797,6 +800,7 @@ class Spectrum_1D:
                             fwhm = self.acqus['fwhm'][k],
                             k = I,  # Relative intensity of the component, A[k] is already accounted for
                             b = self.acqus['b'][k],
+                            phi = self.acqus['phases'][k] * 180 / np.pi,
                             N = self.procs['zf'],
                             group = mult_counter,   # Identify all the components as part of the same multiplet
                             )
