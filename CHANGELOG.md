@@ -1,5 +1,9 @@
 # Version 0.4a.8
 
+## New functions:
+04/12/2024
+- *processing.splitcomb* 
+- *Spectrum_2D.splitcomb*
 
 
 

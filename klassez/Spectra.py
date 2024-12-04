@@ -1212,6 +1212,19 @@ class Spectrum_2D:
         self.freq_f1 = np.arange(self.S.shape[0])
         self.ppm_f1 = np.arange(self.S.shape[0])
 
+    def splitcomb(self, J=53.8):
+        """
+        Applies the IPAP virtual decoupling scheme by calling processing.splitcomb with appropriate parameters.
+        Replaces the FID.
+        -----------
+        Parameters:
+        - J: float
+            Scalar coupling constant, in Hz, of the coupling to be suppressed.
+        """
+        fid = deepcopy(self.fid)
+        newfid = processing.splitcomb(fid, self.acqus['t2'], J=J)
+        self.fid = newfid
+
     def xf1(self):
         """
         Process only the indirect dimension. 

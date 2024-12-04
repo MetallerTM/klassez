@@ -4952,3 +4952,52 @@ def inv_convolve(in1, in2):
     # factor size is needed to correct the intensity
     cnv = size * np.fft.fftshift(np.fft.fft(cnvt))
     return cnv
+
+
+def splitcomb(data, taq, J=53.8):
+    """
+    Applies the processing required for the IPAP virtual decoupling scheme in the direct dimension.
+    The data structure must be with the IP in the first half of the direct dimension, and with AP in the second half.
+    The default J is 53.8 Hz, correspondant to the CO-Ca coupling.
+    ---------------
+    Parameters:
+    - data: 2darray
+        FID of the spectrum to process
+    - taq: 1darray
+        Acquisition timescale
+    - J: float
+        Scalar coupling constant of the coupling to suppress, in Hz
+    --------------
+    Returns:
+    - datap: 2darray
+        Decoupled data. The direct dimension is halved with respect to the original FID
+    """
+
+    # Split IP and AP FIDs
+    N = data.shape[-1]
+    # Left one: IP
+    data_ip = data[...,:N//2]
+    # Right one: AP
+    data_ap = data[...,N//2:]
+
+    # Get single feature of the doublet
+    data_sum = data_ip + data_ap
+    data_dif = data_ip - data_ap
+
+    # Make sure the acquisition timescale matches the dimensions
+    taq_ext = misc.extend_taq(taq, N//2)
+
+    # Make Dirac delta functions to shift the data
+    delta_sx = np.exp(+1j * np.pi * J * taq)
+    delta_dx = np.exp(-1j * np.pi * J * taq)
+
+    # The sum spectrum must go right
+    data_sum *= delta_sx
+    # The diff spectrum must go left
+    data_dif *= delta_dx
+
+    # Now sum the two to double sensitivity
+    datap = data_sum + data_dif
+
+    return datap
+
