@@ -21,7 +21,7 @@ import warnings
 from . import fit, misc, sim, figures, processing
 s_colors=[ 'tab:cyan', 'tab:red', 'tab:green', 'tab:purple', 'tab:pink', 'tab:gray', 'tab:brown', 'tab:olive', 'salmon', 'indigo' ]
 
-from .config import CM, COLORS, cron
+from .config import CM, COLORS, cron, CM_2D
 
 figsize_small = (3.59, 2.56)
 figsize_large = (15, 8)

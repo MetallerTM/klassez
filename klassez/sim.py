@@ -401,15 +401,28 @@ def noisegen(size, o2, t2, s_n=1):
     return noise
 
 
-def mult_noise(data_size, mean, s_n):
-    """ Multiplicative noise model. """
+def mult_noise(data_size, mean=0, s_n=0.1):
+    """
+    Multiplicative noise model. 
+    ---------
+    Parameters:
+    - data_size: tuple
+        Dimension of the FID array
+    - mean: float
+        Mean of the random array distribution
+    - s_n: float
+        Standard deviation of the random array distribution
+    --------
+    Returns: 
+    - noisemat: 2darray
+        Multiplicative noise array matrix
+    """
+
     N = data_size[0]
 
-    white = np.random.lognormal(mean, s_n, N)
-    #white = np.random.normal(0, s_n, N)
+    white = np.random.normal(mean, s_n, N)
 
-    #noisemat = np.diag(1 - 0.25 * white)
-    noisemat = np.diag(white)
+    noisemat = np.diag(np.ones_like(white) - white)
     return noisemat
 
 
@@ -737,7 +750,7 @@ def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
     """
     Generates a 2D pseudo-voigt signal in the time domain.
     b states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
-    Indexes ’1’ and ’2’ on the variables stand for ’F1’ and ’F2’, respectively.
+    Indexes '1' and '2' on the variables stand for 'F1' and 'F2', respectively.
     --------
     Parameters:
     - t1: 1darray
@@ -779,7 +792,7 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
     """
     Generates a 2D Voigt signal in the time domain.
     b states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
-    Indexes ’1’ and ’2’ on the variables stand for ’F1’ and ’F2’, respectively.
+    Indexes '1' and '2' on the variables stand for 'F1' and 'F2', respectively.
     --------
     Parameters:
     - t1: 1darray
