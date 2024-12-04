@@ -18,6 +18,8 @@ import lmfit as l
 from datetime import datetime
 import warnings
 import jeol_parser
+from copy import deepcopy
+
 
 from . import fit, misc, sim, figures, processing
 #from .__init__ import CM
@@ -129,7 +131,7 @@ class Spectrum_1D:
         ## Read the data
         if isexp is False:  # Simulate the dataset 
             if isinstance(in_file, dict):   # using the provided dictionary
-                self.acqus = dict(in_file)
+                self.acqus = deepcopy(in_file)
             else:   # or building it from the file
                 self.acqus = sim.load_sim_1D(in_file)
             # Generate the FID
@@ -156,7 +158,7 @@ class Spectrum_1D:
                     dic2, _, = ng.spinsolve.read(in_file, specfile='spectrum.1d')       # for config
                     dic3, _, = ng.spinsolve.read(in_file, specfile='nmr_fid.dx')        # for config
                     # Join the dictionary together
-                    dic = dict(dic1)
+                    dic = deepcopy(dic1)
                     dic.update(dic3)
                     dic.update(dic2)        # Important because it contains the ppm scale!
                     self.acqus = misc.makeacqus_1D_spinsolve(dic)
@@ -209,7 +211,7 @@ class Spectrum_1D:
         # Otherwise, initialize it with default values
         else:
             self.procs = {} 
-            proc_init_1D = (dict(wf0), None, 0.5, 0)    # Make a shallow copy
+            proc_init_1D = (deepcopy(wf0), None, 0.5, 0)    # Make a shallow copy
             for k, key in enumerate(proc_keys_1D):  # Loop in this way to keep the order
                 self.procs[key] = proc_init_1D[k]         
             self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
@@ -941,7 +943,7 @@ class pSpectrum_1D(Spectrum_1D):
                 self.procs = self.read_procs()
             else:
                 self.procs = {}
-                proc_init_1D = (dict(wf0), None, 0.5, 0)
+                proc_init_1D = (deepcopy(wf0), None, 0.5, 0)
                 for k, key in enumerate(proc_keys_1D):
                     self.procs[key] = proc_init_1D[k]         # Processing parameters
                 self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
@@ -955,7 +957,7 @@ class pSpectrum_1D(Spectrum_1D):
                 self.procs['cal'] = 0
 
         else:   # Copy it
-            self.procs = dict(procs)
+            self.procs = deepcopy(procs)
 
         # Write the .procs file
         self.write_procs()
@@ -1100,7 +1102,7 @@ class Spectrum_2D:
             self.procs = self.read_procs()
         else:
             proc_init_2D = (
-                    [dict(wf0), dict(wf0)],     # window function
+                    [deepcopy(wf0), deepcopy(wf0)],     # window function
                     [None, None],   # zero-fill
                     [0.5, 0.5],     # fcor
                     [0,0]           # tdeff
@@ -2115,7 +2117,7 @@ class pSpectrum_2D(Spectrum_2D):
             self.procs = self.read_procs()
         else:
             proc_init_2D = (
-                    [dict(wf0), dict(wf0)],     # window function
+                    [deepcopy(wf0), deepcopy(wf0)],     # window function
                     [None, None],   # zero-fill
                     [0.5, 0.5],     # fcor
                     [0,0]           # tdeff
@@ -2245,7 +2247,7 @@ class Pseudo_2D(Spectrum_2D):
 
         if isexp is False:      # It is simulated experiment
             if isinstance(in_file, dict):       # acqus dictionary provided
-                self.acqus = dict(in_file)  # Just read it
+                self.acqus = deepcopy(in_file)  # Just read it
             else:   # acqus is in the file: read it
                 self.acqus = sim.load_sim_1D(in_file)
             self.fid = None     # FID must be loaded with mount
@@ -2286,7 +2288,7 @@ class Pseudo_2D(Spectrum_2D):
         # Otherwise, initialize it with default values
         else:
             self.procs = {}
-            proc_init_1D = (dict(wf0), None, 0.5, 0)
+            proc_init_1D = (deepcopy(wf0), None, 0.5, 0)
             for k, key in enumerate(proc_keys_1D):
                 self.procs[key] = proc_init_1D[k]         # Processing parameters
             self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
@@ -2421,7 +2423,7 @@ class Pseudo_2D(Spectrum_2D):
 
         # Replace acqus only if newacqus is a dictionary
         if isinstance(newacqus, dict):
-            self.acqus = dict(newacqus)
+            self.acqus = deepcopy(newacqus)
 
         # Update the TD1 key
         self.acqus['TD1'] = self.fid.shape[0]
