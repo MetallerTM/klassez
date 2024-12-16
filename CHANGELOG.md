@@ -35,32 +35,24 @@ Bug fixes.
 
 # Version 0.4a.6
 
-10/09/2024
 Added reading for Jeol. The package **jeol_parser** is now a required installation prerequisite.
+New function for linear prediction. The previous function for backwards linear prediction was kept as a legacy option in *processing.blp_ng*
 The **sim.gamma** dictionary now is read from a file in the new folder **klassez/tables**. There is another file there, that is read to generate the **sim.jeol_nuclei** dictionary, which is needed for the conversion from Jeol-style nuclei to *klassez* format.
 The required minimum python version is then changed to 3.9.
-01/10/2024
 All **x_g** labels were changed to **b**. Scripts written with previous versions of *klassez* may be corrected accordingly.
-14/10/2024
 Improved fitting routines. Bug fixes.
 
 
 ## New functions: 
-10/09/2024
 - *misc.makeacqus_1D_jeol*
-19/09/2024
 - *processing.lp*
 - *processing.blp_ng*
 
 ## Modified functions:
-10/09/2024
-- *Spectrum_1D.__init__*: option **spect=jeol** added
-19/09/2024
+- *misc.pretty_scale*: now the scale is automatically recomputed. Additional options possible.
 - *processing.blp*: now uses the new *processing.lp* function.
 - *figures.dotmd*: all traces are deactivated by default
-01/10/2024
-- *misc.pretty_scale*: now the scale is automatically recomputed. Additional options possible.
-
+- *Spectrum_1D.__init__*: option **spect=jeol** added
 
 
 # Version 0.4a.5
