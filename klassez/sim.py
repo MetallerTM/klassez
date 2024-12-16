@@ -18,7 +18,7 @@ import lmfit as l
 from datetime import datetime
 import warnings
 
-from importlib import resources as impresources
+from pkg_resources import resource_stream
 from . import tables
 
 from . import fit, misc, sim, figures, processing
@@ -26,9 +26,9 @@ from .config import CM, COLORS, cron
 #from .__init__ import CM
 
 # gyromagnetic ratio of all NMR active nuclei in MHz/T
-with open(impresources.files(tables)/'gamma.dic', 'r') as f:
+with resource_stream(__name__, os.path.join('tables', 'gamma.dic')) as f:
     gamma = eval(f.read())
-with open(impresources.files(tables)/'nuclei_jeol.dic', 'r') as f:
+with resource_stream(__name__, os.path.join('tables', 'nuclei_jeol.dic')) as f:
     jeol_nuclei = eval(f.read())
 
 def calc_splitting(u0, I0, m=1, J=0):
