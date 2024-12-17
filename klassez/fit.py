@@ -1168,6 +1168,12 @@ def interactive_smoothing(x, y, cmap='RdBu'):
     - weights: 1darray
         Weights vector
     """
+    # Make the figure
+    fig = plt.figure('Interactive Smoothing with spline')
+    fig.set_size_inches(figures.figsize_large)
+    plt.subplots_adjust(left=0.1, right=0.85, top=0.95, bottom=0.15)
+    ax = fig.add_subplot()
+
     cmap = CM[f'{cmap}']        # Read the colormap
 
     # Get the limits for the figure
@@ -1283,11 +1289,6 @@ def interactive_smoothing(x, y, cmap='RdBu'):
 
     # --------------------------------------------------------------------------------------------------------
 
-    # Make the figure
-    fig = plt.figure('Interactive Smoothing with spline')
-    fig.set_size_inches(figures.figsize_large)
-    plt.subplots_adjust(left=0.1, right=0.85, top=0.95, bottom=0.15)
-    ax = fig.add_subplot()
 
     ax.set_title('Press SPACE to set the weights')
 
@@ -1305,7 +1306,7 @@ def interactive_smoothing(x, y, cmap='RdBu'):
     misc.pretty_scale(ax, ax.get_ylim(), 'y')
     misc.mathformat(ax)
     misc.set_fontsizes(ax, 16)
-    ax.legend(fontsize=12)
+    ax.legend(fontsize=12, loc='upper right')
 
     # Connect widget to function
     sf_tb.on_submit(update_sf)

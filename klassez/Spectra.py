@@ -260,9 +260,15 @@ class Spectrum_1D:
     def pknl(self):
         """
         Reverses the effect of the digital filter by applying a first order phase correction.
-        To be called after having processed the data by 'self.process()'
+        If the 'S' attribute exists, the processing is applied on the processed data. Otherwise, the correction is performed on the FID.
+        This function calls processing.pknl with the parameter grpdly read from the acqus dictionary.
         """
-        self.adjph(p1=-360 * self.acqus['GRPDLY'], update=False)
+        if hasattr(self, 'S'):
+            self.S = processing.pknl(self.S, grpdly=self.acqus['GRPDLY'], onfid=False)
+            self.r = self.S.real
+            self.i = self.S.imag
+        else:
+            self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
 
     def blp(self, pred=8, order=8):
         """
@@ -1479,9 +1485,19 @@ class Spectrum_2D:
     def pknl(self):
         """
         Reverses the effect of the digital filter by applying a first order phase correction.
-        To be called after having processed the data by 'self.process()'
+        If the 'S' attribute exists, the processing is applied on the processed data. Otherwise, the correction is performed on the FID.
+        This function calls processing.pknl with the parameter grpdly read from the acqus dictionary.
         """
-        self.adjph(p12=-360 * self.acqus['GRPDLY'], update=False)
+        if hasattr(self, 'S'):
+            self.S = processing.pknl(self.S, grpdly=self.acqus['GRPDLY'], onfid=False)
+            rr, ir, ri, ii = processing.unpack_2D(self.S)
+            self.rr = rr
+            self.ri = ri
+            self.ir = ir
+            self.ii = ii
+        else:
+            self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
+
 
 
     def qfil(self, which=None, u=None, s=None):
@@ -2526,7 +2542,12 @@ class Pseudo_2D(Spectrum_2D):
         Reverses the effect of the digital filter by applying a first order phase correction.
         To be called after having processed the data by 'self.process()'
         """
-        self.adjph(p1=-360 * self.acqus['GRPDLY'], update=False)
+        if hasattr(self, 'S'):
+            self.S = processing.pknl(self.S, grpdly=self.acqus['GRPDLY'], onfid=False)
+            self.rr = self.S.real
+            self.ii = self.S.imag
+        else:
+            self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
 
     def projf1(self, a, b=None):
         """

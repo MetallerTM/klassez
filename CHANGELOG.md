@@ -1,9 +1,15 @@
 # Version 0.4a.8
 
+Fixed import statement in the *sim* module.
+
 ## New functions:
 04/12/2024
 - *processing.splitcomb* 
 - *Spectrum_2D.splitcomb*
+
+## Modified functions:
+16/12/2024
+- *Spectrum_1D.pknl*: now it works automatically either on FID or processed data by calling *processing.pknl*
 
 
 
