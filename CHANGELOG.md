@@ -1,6 +1,9 @@
 # Version 0.4a.8
 
 Fixed import statement in the *sim* module.
+Added option to click with the mouse middle button as an alternative to left double click.
+Now the rulers in the *plot* function of *Spectrum_1D* and *Spectrum_2D* are dragged with the right mouse button.
+Bug fixes.
 
 ## New functions:
 04/12/2024
