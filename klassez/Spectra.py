@@ -617,7 +617,7 @@ class Spectrum_1D:
         cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8, horizOn=False)
 
         # Widget for distance measurement
-        tracker = SpanSelector(ax, onselect, direction='horizontal', useblit=False, button=1, 
+        tracker = SpanSelector(ax, onselect, direction='horizontal', useblit=False, button=3, 
                                props={'alpha':1, 'fill':False, 'color':'r', 'lw':0.4, 'edgecolor':'r'})
         # Connect mouse buttons
         fig.canvas.mpl_connect('button_press_event', onclick)
@@ -1863,13 +1863,13 @@ class Spectrum_2D:
                     # Make the bars invisible
                     lx.set_visible(False)
                     ly.set_visible(False)
-                if event.button == 1:
+                if event.button == 3:
                     # Store position of first point
                     self.x1 = event.xdata
                     self.y1 = event.ydata
                     # Draw it
                     dots.set_data((event.xdata,), (event.ydata,))
-                elif event.button == 3:
+                elif event.button == 1:
                     dots.set_visible(False)
                 plt.draw()
 
@@ -1877,7 +1877,7 @@ class Spectrum_2D:
                 """ If left click, draws the position of the second point, then calls draw_lines. """
                 if not event.inaxes:    # Do things only if click is inside the panel
                     return
-                if event.button == 1:
+                if event.button == 3:
                     # Store position of the second point
                     self.x2 = event.xdata
                     self.y2 = event.ydata
