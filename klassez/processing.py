@@ -1906,6 +1906,14 @@ def interactive_phase_1D(ppmscale, S):
     box_sande = plt.axes([0.81, 0.10, 0.18, 0.04])      # save and exit button
     box_radio = plt.axes([0.81, 0.55, 0.18, 0.25])      # radio buttons
 
+    box_z = plt.axes([0.05, 0.02, 0.02, 0.06])          # Zoom state button
+    # Remove ticks
+    box_z.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
+    # Make it green
+    box_z.set_alpha(0.4)
+    box_z.set_facecolor('tab:green')
+    box_z.text(0.5, 0.5, 'Z', ha='center', va='center', fontsize=15, transform=box_z.transAxes)
+
     radiolabels = [     # labels for the radio buttons
             '0$^{th}$-order\nphase correction', 
             '1$^{st}$-order\nphase correction', 
@@ -2021,6 +2029,11 @@ def interactive_phase_1D(ppmscale, S):
         nonlocal zoom_adj
         if event.key == 'z':
             zoom_adj = not(zoom_adj)
+            if zoom_adj:
+                box_z.set_facecolor('tab:green')
+            else:
+                box_z.set_facecolor('tab:red')
+            plt.draw()
 
 
     # Set borders and scale
@@ -2045,6 +2058,7 @@ def interactive_phase_1D(ppmscale, S):
 
     spectrum, = ax.plot(ppmscale, S.real, c='b', lw=0.8)        # Plot the data
     pivot_bar = ax.axvline(P[2], c='r', lw=0.5)  # Plot the pivot bar
+    ax.set_title('Use mouse scroll to adjust the phases. Press Z to toggle zoom adjustment')
 
     # Link widgets to functions
     up_button.on_clicked(sens_up)
@@ -2154,17 +2168,19 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     #   for sentitivity sliders
     box_us = plt.axes([0.815, 0.825, 0.08, 0.075])      # increase sensitivity
     box_ds = plt.axes([0.905, 0.825, 0.08, 0.075])      # decrease sensitivity
-    #   for zoom sliders
-    box_l_f2 = plt.axes([0.025, 0.15, 0.015, 0.30])
-    box_r_f2 = plt.axes([0.060, 0.15, 0.015, 0.30])
-    box_l_f1 = plt.axes([0.025, 0.60, 0.015, 0.30])
-    box_r_f1 = plt.axes([0.060, 0.60, 0.015, 0.30])
     #   for buttons
     box_save = plt.axes([0.81, 0.15, 0.085, 0.04])      # save button
     box_reset = plt.axes([1-0.095, 0.15, 0.085, 0.04])  # reset button
     box_sande = plt.axes([0.81, 0.10, 0.18, 0.04])      # save and exit button
     box_radio = plt.axes([0.81, 0.55, 0.18, 0.25])      # radio buttons
     box_dimen = plt.axes([0.81, 0.35, 0.18, 0.18])      # radio buttons
+    box_z = plt.axes([0.05, 0.02, 0.02, 0.06])          # Zoom state button
+    # Remove ticks
+    box_z.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
+    # Make it green
+    box_z.set_alpha(0.4)
+    box_z.set_facecolor('tab:green')
+    box_z.text(0.5, 0.5, 'Z', ha='center', va='center', fontsize=15, transform=box_z.transAxes)
 
     radiolabels = [     # labels for the radio buttons
             '0$^{th}$-order\nphase correction', 
@@ -2176,11 +2192,6 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     #   for sensitivity
     up_button = Button(box_us, r'$\uparrow$', hovercolor='0.975')
     down_button = Button(box_ds, r'$\downarrow$', hovercolor='0.975')
-    #   for zoom
-    l_f2 = Slider(ax=box_l_f2, label='Left', valmin=min(ppm_f2), valmax=max(ppm_f2), valinit=max(ppm_f2), orientation='vertical')
-    r_f2 = Slider(ax=box_r_f2, label='Right', valmin=min(ppm_f2), valmax=max(ppm_f2), valinit=min(ppm_f2), orientation='vertical')
-    l_f1 = Slider(ax=box_l_f1, label='Left', valmin=min(ppm_f1), valmax=max(ppm_f1), valinit=max(ppm_f1), orientation='vertical')
-    r_f1 = Slider(ax=box_r_f1, label='Right', valmin=min(ppm_f1), valmax=max(ppm_f1), valinit=min(ppm_f1), orientation='vertical')
     # Make the buttons
     save_button = Button(box_save, 'SAVE', hovercolor='0.975')
     reset_button = Button(box_reset, 'RESET', hovercolor='0.975')
@@ -2317,6 +2328,11 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
         nonlocal zoom_adj
         if event.key == 'z':
             zoom_adj = not(zoom_adj)
+            if zoom_adj:
+                box_z.set_facecolor('tab:green')
+            else:
+                box_z.set_facecolor('tab:red')
+            fig.canvas.draw()
 
     def update_lim(val):
         # Update zoom
@@ -2407,16 +2423,14 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
 
     plt.text(0.30, 0.050, r'$\delta$ F2 /ppm', ha='center', va='bottom', fontsize=18, transform=fig.transFigure)
     plt.text(0.65, 0.050, r'$\delta$ F1 /ppm', ha='center', va='bottom', fontsize=18, transform=fig.transFigure)
+    plt.text(0.5, 0.98, 'Use mouse scroll to adjust the phases. Press Z to toggle zoom adjustment',
+             ha='center', va='top', transform=fig.transFigure, fontsize=16)
 
     phases_text = plt.text(0.975, 0.015, 
             'p02={:7.2f} | p12={:7.2f} | pv2={:7.2f} || p01={:7.2f} | p11={:7.2f} | pv1={:7.2f}'.format(*P[0], *P[1]),
             ha='right', va='bottom', transform=fig.transFigure, fontsize=10)
 
     # Connect the widgets to the functions
-    l_f2.on_changed(update_lim)
-    r_f2.on_changed(update_lim)
-    l_f1.on_changed(update_lim)
-    r_f1.on_changed(update_lim)
     reset_button.on_clicked(reset)
     save_button.on_clicked(save)
     saveandexit.on_clicked(save_and_exit)
@@ -2803,7 +2817,7 @@ def calibration(ppmscale, S):
     def move_fixed(event):
         # set position of the red bar
         x = event.xdata
-        if event.dblclick and str(event.button) == '1':
+        if (event.dblclick and event.button == 1) or event.button == 2:
             nonlocal g_pos, g_idx
             g_pos = x 
             g_idx = misc.ppmfind(ppmscale, g_pos)[0]
@@ -2815,7 +2829,7 @@ def calibration(ppmscale, S):
         # set position of the green bar
         x = event.xdata
         if x is not None:
-            if event.dblclick and str(event.button) == '1':
+            if (event.dblclick and event.button == 1) or event.button == 2:
                 nonlocal d_pos, d_idx
                 d_pos = x 
                 d_idx = misc.ppmfind(ppmscale, d_pos)[0]
@@ -3792,13 +3806,13 @@ def interactive_basl_windows(ppm, data):
         x = event.xdata     # x,y position of cursor
         if x is not None:     # You are inside the figure
             idx, ix = misc.ppmfind(ppm, x) 
-            if str(event.button) == '1' and event.dblclick:     # Left click: add point
+            if (event.button == 1 and event.dblclick) or event.button == 2:     # Left click: add point
                 if ix not in coord:       # Avoid superimposed peaks
                     coord.append(ix)       # Update list
                     # Update figure:
                     #   add bullet
                     dotvline.append(ax.axvline(ix, c='r', lw=0.4))
-            if str(event.button) == '3':    # Right click: remove point
+            if event.button == 3:    # Right click: remove point
                 if ix in coord:       # only if the point is already selected
                     # Remove coordinates and all figure elements
                     i = coord.index(ix)

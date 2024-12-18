@@ -2655,7 +2655,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
             return
         # Find the position of the mouse 
         x = misc.ppmfind(ppm, event.xdata)[0]
-        if event.button == 1 and event.dblclick:    # Left double click
+        if (event.button == 1 and event.dblclick) or event.button == 2:    # Left double click or middle click
             nonlocal xi, x_blacklist
             xi.append(x)    # Append the value to the manual peak list
             if x in x_blacklist:    # Remove it
