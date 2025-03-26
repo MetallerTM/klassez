@@ -3,7 +3,11 @@
 Fixed import statement in the *sim* module.
 Added option to click with the mouse middle button as an alternative to left double click.
 Now the rulers in the *plot* function of *Spectrum_1D* and *Spectrum_2D* are dragged with the right mouse button.
-Bug fixes.
+Phase adjustments are now possible with respect to another spectrum imported as reference.
+The interactive plots are possible also as function of the frequency scales.
+
+Bug fixed in the calibration functions.
+Other bug fixes.
 
 ## New functions:
 04/12/2024
@@ -13,6 +17,10 @@ Bug fixes.
 ## Modified functions:
 16/12/2024
 - *Spectrum_1D.pknl*: now it works automatically either on FID or processed data by calling *processing.pknl*
+xx/03/2025
+- *Spectrum_nD.plot*: new argument **fqscale**
+- *processing.ps*: new argument **reference**
+- *Spectrum_nD.adjph*: uses the new *processing.ps*
 
 
 
