@@ -17,7 +17,10 @@ import nmrglue as ng
 import lmfit as l
 from datetime import datetime
 import warnings
-import jeol_parser
+try:
+    import jeol_parser
+except ImportError:
+    pass
 from copy import deepcopy
 
 
