@@ -5,6 +5,10 @@ from setuptools import setup, find_packages
 with open('README.md', 'r', encoding='utf-8') as fh:
     long_description = fh.read()
 
+extras = {
+   'jeolproc': ['jeol_parser']
+}
+
 setup(
         name='klassez',
         version='0.4a.8',
@@ -20,7 +24,8 @@ setup(
             'License :: OSI Approved :: MIT License'
             ],
         license='LICENSE.txt',
-        install_requires = ['numpy', 'scipy', 'lmfit', 'seaborn', 'nmrglue', 'matplotlib>=3.8', 'csaps', 'jeol_parser'],
+        install_requires = ['numpy', 'scipy', 'lmfit', 'seaborn', 'nmrglue', 'matplotlib>=3.8', 'csaps'],
+        extras_require=extras,
         packages=['klassez'],
         include_package_data = True,
         python_requires = '>=3.9',
