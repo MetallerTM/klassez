@@ -19,7 +19,7 @@ from datetime import datetime
 import warnings
 try:
     import jeol_parser
-except ImportError:
+except ImportError or ModuleNotFoundError:
     pass
 from copy import deepcopy
 
