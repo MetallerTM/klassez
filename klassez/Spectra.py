@@ -267,6 +267,7 @@ class Spectrum_1D:
             self.S = processing.pknl(self.S, grpdly=self.acqus['GRPDLY'], onfid=False)
             self.r = self.S.real
             self.i = self.S.imag
+            self.F.S = self.S
         else:
             self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
 
@@ -356,7 +357,7 @@ class Spectrum_1D:
 
         self.F.S = self.r
 
-    def adjph(self, p0=None, p1=None, pv=None, update=True):
+    def adjph(self, p0=None, p1=None, pv=None, update=True, reference=None):
         """
         Adjusts the phases of the spectrum according to the given parameters, or interactively if they are left as default.
         Calls for processing.ps
@@ -372,7 +373,7 @@ class Spectrum_1D:
             Choose if you want to update the procs dictionary or not
         """
         # Adjust the phases
-        self.S, values = processing.ps(self.S, self.ppm, p0=p0, p1=p1, pivot=pv)
+        self.S, values = processing.ps(self.S, self.ppm, p0=p0, p1=p1, pivot=pv, reference=reference)
         self.r = self.S.real
         self.i = self.S.imag
 
@@ -387,6 +388,7 @@ class Spectrum_1D:
 
         # Put the phased spectrum in S
         self.F.S = self.S
+        return values
 
     def acme(self, **method_kws):
         """
@@ -537,11 +539,13 @@ class Spectrum_1D:
             raise NameError('You must specify a filename!')
         misc.write_ser(ser, path, acqus['BYTORDA'], acqus['DTYPA'])
 
-    def plot(self, name=None, ext='png', dpi=600):
+    def plot(self, fqscale=False, name=None, ext='png', dpi=600):
         """
         Plots the real part of the spectrum.
         ---------
         Parameters:
+        - fqscale: bool
+            Display using frequency scale instead of ppm
         - name: str
             Filename for the figure. If None, it is shown instead.
         - ext: str
@@ -582,6 +586,11 @@ class Spectrum_1D:
         # Default of 10 ticks on the ppm axis
         n_xticks = 10
 
+        if fqscale:
+            x = self.freq
+        else:
+            x = self.ppm
+
         # Make the figure
         fig = plt.figure(f'{self.filename}')
         fig.set_size_inches(figures.figsize_large)
@@ -589,10 +598,10 @@ class Spectrum_1D:
         ax = fig.add_subplot(1,1,1)
 
         # Plot the spectrum
-        spect, = ax.plot(self.ppm, self.r, lw=0.8)
+        spect, = ax.plot(x, self.r, lw=0.8)
         # Bars of the spanselector
-        bar1 = ax.axvline(self.ppm[0], c='r', lw=0.4, visible=False)
-        bar2 = ax.axvline(self.ppm[-1], c='r', lw=0.4, visible=False)
+        bar1 = ax.axvline(x[0], c='r', lw=0.4, visible=False)
+        bar2 = ax.axvline(x[-1], c='r', lw=0.4, visible=False)
 
         # Placeholder for distance measurement
         text_measure = plt.text(0.75, 0.05, '', ha='left', va='bottom', transform=fig.transFigure, fontsize=12, color='r')
@@ -603,7 +612,7 @@ class Spectrum_1D:
 
         # Fancy figure adjustments
         #   Make pretty x-scale
-        xsx, xdx = max(self.ppm), min(self.ppm) # Order it as a ppm scale
+        xsx, xdx = max(x), min(x) # Order it as a ppm scale
         misc.pretty_scale(ax, (xsx, xdx), axis='x', n_major_ticks=n_xticks)
         #   Auto-adjusts the limits for the y-axis
         misc.set_ylim(ax, self.r)
@@ -1550,10 +1559,10 @@ class Spectrum_2D:
         - update: bool
             Choose if to update the procs dictionary or not
         """
-        def _calibrate(ppm, trace, SFO1, o1p):
+        def _calibrate(ppm, trace, SFO1):
             """ Main function that calls the real calibration """
             offppm = processing.calibration(ppm, trace)
-            offhz = misc.ppm2freq(offppm, SFO1, o1p)
+            offhz = misc.ppm2freq(offppm, SFO1)
             return offppm, offhz
 
         # Get the missing entries
@@ -1567,25 +1576,25 @@ class Spectrum_2D:
 
         if offset[1] is None:   # Get it
             ppm_f2 = np.copy(self.ppm_f2)
-            offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO2'], self.acqus['o2p'])
+            offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO2'])
         else:   # Calculate offh2 from offp2 or viceversa
             if isHz:    # offp2 is missing
                 offh2 = offset[1]
-                offp2 = misc.freq2ppm(offh2, self.acqus['SFO2'], self.acqus['o2p']) 
+                offp2 = misc.freq2ppm(offh2, self.acqus['SFO2']) 
             else:       # offh2 is missing
                 offp2 = offset[1]
-                offh2 = misc.ppm2freq(offp2, self.acqus['SFO2'], self.acqus['o2p']) 
+                offh2 = misc.ppm2freq(offp2, self.acqus['SFO2']) 
             
         if offset[0] is None:   # Get it
             ppm_f1 = np.copy(self.ppm_f1)
-            offp1, offh1 = _calibrate(ppm_f1, Y, self.acqus['SFO1'], self.acqus['o1p'])
+            offp1, offh1 = _calibrate(ppm_f1, Y, self.acqus['SFO1'])
         else:   # Calculate offh1 from offp1 or viceversa
             if isHz:    # offp1 is missing
                 offh1 = offset[0]
-                offp1 = misc.freq2ppm(offh1, self.acqus['SFO1'], self.acqus['o1p']) 
+                offp1 = misc.freq2ppm(offh1, self.acqus['SFO1']) 
             else:       # offh1 is missing
                 offp1 = offset[0]
-                offh1 = misc.ppm2freq(offp1, self.acqus['SFO1'], self.acqus['o1p']) 
+                offh1 = misc.ppm2freq(offp1, self.acqus['SFO1']) 
 
         # Apply the calibration
         self.freq_f2 += offh2
@@ -1786,11 +1795,13 @@ class Spectrum_2D:
             f.write('{:12}\t{:12}\t\t{:20.5e}\n'.format(ppm2, ppm1, value))
         f.close()
 
-    def plot(self, Neg=True, lvl0=0.2):
+    def plot(self, fqscale=False, Neg=True, lvl0=0.2):
         """
         Plots the real part of the spectrum. Use the mouse scroll to adjust the contour starting level.
         -------
         Parameters:
+        - fqscale: bool
+            Display using frequency scale instead of ppm
         - Neg: bool
             Plot (True) or not (False) the negative contours.
         - lvl0: float
@@ -1916,9 +1927,9 @@ class Spectrum_2D:
 
             # Redraw the contours
             if Neg:
-                cnt, Ncnt = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+                cnt, Ncnt = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
             else:
-                cnt, _ = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+                cnt, _ = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
 
             # Set the window limits as it was before
             misc.pretty_scale(ax, act_xlim, axis='x', n_major_ticks=n_xticks)
@@ -1932,6 +1943,12 @@ class Spectrum_2D:
             lvl_text.set_text(f'{lvl:.5g}')
             fig.canvas.draw()
 
+        if fqscale:
+            x_f1 = self.freq_f1
+            x_f2 = self.freq_f2
+        else:
+            x_f1 = self.ppm_f1
+            x_f2 = self.ppm_f2
         # copy stuff
         S = np.copy(self.rr)
         n_xticks, n_yticks = 10, 10
@@ -1965,17 +1982,17 @@ class Spectrum_2D:
 
         # Plot the spectrum
         #   positive contours
-        cnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cmap=cmaps[0])
+        cnt = figures.ax2D(ax, x_f2, x_f1, S, lvl=lvl, cmap=cmaps[0])
         if Neg:
             # Negative contours
-            Ncnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, -S, lvl=lvl, cmap=cmaps[1])
+            Ncnt = figures.ax2D(ax, x_f2, x_f1, -S, lvl=lvl, cmap=cmaps[1])
 
         # Placeholders for tracker
-        dots, = ax.plot((self.ppm_f2[0], self.ppm_f2[-1]), (self.ppm_f1[0], self.ppm_f1[-1]), '--.', c='r',
+        dots, = ax.plot((x_f2[0], x_f2[-1]), (x_f1[0], x_f1[-1]), '--.', c='r',
                         lw=0.5, markersize=5, visible=False)
-        lx, = ax.plot((self.ppm_f2[0], self.ppm_f2[-1]), (self.ppm_f1[0], self.ppm_f1[0]), '-', c='r',
+        lx, = ax.plot((x_f2[0], x_f2[-1]), (x_f1[0], x_f1[0]), '-', c='r',
                         lw=0.5, visible=False)
-        ly, = ax.plot((self.ppm_f2[-1], self.ppm_f2[-1]), (self.ppm_f1[0], self.ppm_f1[-1]), '-', c='r',
+        ly, = ax.plot((x_f2[-1], x_f2[-1]), (x_f1[0], x_f1[-1]), '-', c='r',
                         lw=0.5, visible=False)
 
         # Distance measurement text placeholder
@@ -1987,8 +2004,8 @@ class Spectrum_2D:
         text_measure.set_text(_text)
 
         # Make pretty scales
-        misc.pretty_scale(ax, (max(self.ppm_f2), min(self.ppm_f2)), axis='x', n_major_ticks=n_xticks)
-        misc.pretty_scale(ax, (max(self.ppm_f1), min(self.ppm_f1)), axis='y', n_major_ticks=n_yticks)
+        misc.pretty_scale(ax, (max(x_f2), min(x_f2)), axis='x', n_major_ticks=n_xticks)
+        misc.pretty_scale(ax, (max(x_f1), min(x_f1)), axis='y', n_major_ticks=n_yticks)
         ax.set_xlabel(X_label)
         ax.set_ylabel(Y_label)
 
@@ -2546,6 +2563,7 @@ class Pseudo_2D(Spectrum_2D):
             self.S = processing.pknl(self.S, grpdly=self.acqus['GRPDLY'], onfid=False)
             self.rr = self.S.real
             self.ii = self.S.imag
+            self.F.S = self.S
         else:
             self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
 
@@ -2597,11 +2615,13 @@ class Pseudo_2D(Spectrum_2D):
         self.trf2[label] = f2
         self.Trf2[label] = pSpectrum_1D(f2, acqus=self.acqus, procs=self.procs, istrace=True)
 
-    def plot(self, Neg=True, lvl0=0.2, Y_label=''):
+    def plot(self, fqscale=False, Neg=True, lvl0=0.2, Y_label=''):
         """
         Plots the real part of the spectrum as a 2D contour plot.
         -------
         Parameters:
+        - fqscale: bool
+            Display using frequency scale instead of ppm
         - Neg: bool
             Plot (True) or not (False) the negative contours.
         - lvl0: float
@@ -2613,6 +2633,19 @@ class Pseudo_2D(Spectrum_2D):
         # Plots data, set Neg=True to see negative contours
         S = np.copy(self.rr)
         n_xticks, n_yticks = 10, 10
+
+        if fqscale:
+            x_f1 = self.freq_f1
+            x_f2 = self.freq_f2
+        else:
+            x_f1 = self.ppm_f1
+            x_f2 = self.ppm_f2
+
+        # Make the figure
+        fig = plt.figure(f'{self.filename}')
+        fig.set_size_inches(15,8)
+        plt.subplots_adjust(left = 0.10, bottom=0.10, right=0.90, top=0.95)
+        ax = fig.add_subplot(1,1,1)
 
         X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
 
@@ -2652,9 +2685,9 @@ class Pseudo_2D(Spectrum_2D):
                 lvl = 1
 
             if Neg:
-                cnt, Ncnt = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+                cnt, Ncnt = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
             else:
-                cnt, _ = figures.redraw_contours(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+                cnt, _ = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
 
             misc.pretty_scale(ax, act_xlim, axis='x', n_major_ticks=n_xticks)
             misc.pretty_scale(ax, act_ylim, axis='y', n_major_ticks=n_yticks)
@@ -2664,26 +2697,21 @@ class Pseudo_2D(Spectrum_2D):
             lvl_text.set_text(f'{lvl:.5g}')
             fig.canvas.draw()
 
-        # Make the figure
-        fig = plt.figure(f'{self.filename}')
-        fig.set_size_inches(15,8)
-        plt.subplots_adjust(left = 0.10, bottom=0.10, right=0.90, top=0.95)
-        ax = fig.add_subplot(1,1,1)
 
         contour_num = 16
         contour_factor = 1.40
 
         lvl = lvl0
 
-        cnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, S, lvl=lvl, cmap=cmaps[0])
+        cnt = figures.ax2D(ax, x_f2, x_f1, S, lvl=lvl, cmap=cmaps[0])
         if Neg:
-            Ncnt = figures.ax2D(ax, self.ppm_f2, self.ppm_f1, -S, lvl=lvl, cmap=cmaps[1])
+            Ncnt = figures.ax2D(ax, x_f2, x_f1, -S, lvl=lvl, cmap=cmaps[1])
 
         lvl_text = ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
 
         # Make pretty x-scale
-        misc.pretty_scale(ax, (max(self.ppm_f2), min(self.ppm_f2)), axis='x', n_major_ticks=n_xticks)
-        misc.pretty_scale(ax, (max(self.ppm_f1), min(self.ppm_f1)), axis='y', n_major_ticks=n_yticks)
+        misc.pretty_scale(ax, (max(x_f2), min(x_f2)), axis='x', n_major_ticks=n_xticks)
+        misc.pretty_scale(ax, (max(x_f1), min(x_f1)), axis='y', n_major_ticks=n_yticks)
         ax.set_xlabel(X_label)
         ax.set_ylabel(Y_label)
 

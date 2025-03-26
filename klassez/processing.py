@@ -365,8 +365,8 @@ def em(data, lb, sw):
     - sw: float
         Spectral width /Hz
     """
-    lb = lb / sw
-    apod = np.exp(-np.pi * np.arange(data.shape[-1]) * lb).astype(data.dtype)
+    lb = lb / (2*sw)
+    apod = np.exp(- np.pi * np.arange(data.shape[-1]) * lb).astype(data.dtype)
     return apod * data
 
 def gm(data, lb, gb, gc, sw):
@@ -520,7 +520,7 @@ def rev(data):
     return datarev
     
     # phase correction
-def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False):
+def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False, reference=None):
     """
     Applies phase correction on the last dimension of data.
     The pivot is set at the center of the spectrum by default.
@@ -539,6 +539,8 @@ def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False):
         First-order phase correction pivot /ppm. If None, it is the center of the spectrum.
     - interactive: bool
         If True, all the parameters will be ignored and the interactive phase correction panel will be opened.
+    - reference: bool
+        Reference spectrum to be used for phasing
     --------
     Returns:
     - datap: ndarray
@@ -560,7 +562,7 @@ def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False):
         raise ValueError('PPM scale not supplied. Aborting...')
     
     if interactive is True and len(data.shape) < 2:
-        datap, final_values = processing.interactive_phase_1D(ppmscale, data)
+        datap, final_values = processing.interactive_phase_1D(ppmscale, data, reference)
     else:
         p0 = p0 * np.pi / 180
         p1 = p1 * np.pi / 180
@@ -1852,7 +1854,7 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
 
 
 # Phase correction
-def interactive_phase_1D(ppmscale, S):
+def interactive_phase_1D(ppmscale, S, reference=None):
     """
     This function allow to adjust the phase of 1D spectra interactively. Use the mouse scroll to regulate the values.
     -------
@@ -1861,6 +1863,8 @@ def interactive_phase_1D(ppmscale, S):
         ppm scale of the spectrum. Used to regulate the pivot position
     - S:  1darray
         Spectrum to be phased. Must be complex!
+    - reference: bool
+        Reference spectrum to be used for phasing
     -------
     Returns:
     - phased_data: 1darray
@@ -1889,6 +1893,9 @@ def interactive_phase_1D(ppmscale, S):
     fig.set_size_inches(15,8)
     plt.subplots_adjust(left = 0.075, bottom=0.10, right=0.8, top=0.9)    # Make room for the sliders
     ax = fig.add_subplot(1,1,1)
+
+    if reference is not None:
+        ax.plot(ppmscale, reference.real, c='k', lw=1, label='Reference')
 
     # sensitivity
     sens = [5, 5, 0.1]
