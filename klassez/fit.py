@@ -479,7 +479,7 @@ def make_signal(t, u, s, k, b, phi, A, SFO1=701.125, o1p=0, N=None):
     return sgn
 
 
-def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='tiff', dpi=600):
+def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, show_basl=False, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='tiff', dpi=600):
     """
     Plots either the initial guess or the result of the fit, and saves all the figures. Calls fit.plot_fit.
     The figure <filename>_full will show the whole model and the whole spectrum. 
@@ -552,6 +552,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
 
 
     ## Single regions
+    whole_basl = np.zeros_like(ppm_scale)
     for k, region in enumerate(regions):        # Loop on the regions
         # Shallow copy of the region dict
         in_region = dict(region)
@@ -564,6 +565,11 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         lims = slice(min(limits_pt), max(limits_pt))
         # Get the absolute intensity
         I = in_region.pop('I')
+        if 'bas_c' in region.keys():
+            bas_c = I * region['bas_c']
+            in_region.pop('bas_c')
+        else:
+            bas_c = np.zeros(5)
 
         # Create a dictionary of fit.Peak objects with the same structure of in_region
         peaks = {key: fit.Peak(acqus, N=N, **peakval) for key, peakval in in_region.items()}
@@ -572,6 +578,11 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
 
         # Trim the ppm scale according to the fitting region
         t_ppm = ppm_scale[lims]
+
+        # Baseline computation
+        x = np.linspace(0, 1, len(t_ppm))
+        basl = misc.polyn(x, bas_c)
+        whole_basl = misc.sum_overlay(whole_basl, basl, max(limits), ppm_scale)
 
         # Make the figure
         fig = plt.figure('Fit')
@@ -583,7 +594,9 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         ax.plot(t_ppm, S_r[lims], c='k', lw=1, label='Experimental')
 
         if show_total is True:  # Plot the total trace in blue
-            ax.plot(t_ppm, total[lims], c='b', lw=0.5, label='Fit')
+            ax.plot(t_ppm, total[lims]+basl, c='b', lw=0.5, label='Fit')
+        if show_basl is True:
+            ax.plot(t_ppm, basl, c='mediumorchid', lw=0.5, label='Baseline', zorder=3)
 
         for key, peak in peaks.items(): # Plot the components
             p_sgn, = ax.plot(t_ppm, peak(I)[lims], lw=0.6, label=f'{key}')
@@ -592,8 +605,8 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
 
         if show_res is True:    # Plot the residuals
             # Compute the absolute value of the offset
-            r_off = min(S_r[lims]) + res_offset * (max(S_r[lims])-min(S_r[lims]))
-            ax.plot(t_ppm, (S_r - total)[lims] - r_off, c='g', ls=':', lw=0.6, label='Residuals')
+            r_off = res_offset * (max(S_r[lims])-min(S_r[lims]))
+            ax.plot(t_ppm, (S_r - total)[lims] - basl - r_off, c='g', ls=':', lw=0.6, label='Residuals')
 
         # Visual adjustments
         ax.set_xlabel(X_label)
@@ -632,6 +645,10 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         lims_pt.append(lims)    # Save it in the list
         # Get the absolute intensity
         I = in_region.pop('I')
+        if 'bas_c' in region.keys():
+            in_region.pop('bas_c')
+        else:
+            pass
         # Make the dictionary of fit.Peak objects
         peaks = {key: fit.Peak(acqus, N=N, **peakval) for key, peakval in in_region.items()}
         # Plot the components
@@ -644,10 +661,12 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         total += calc_total(peaks, I)
 
     # Residuals
-    R = S_r - total
+    R = S_r - total - whole_basl
     
     if show_total is True:  # Plot the total trace
-        ax.plot(ppm_scale, total, c='b', lw=0.5, label='Fit', zorder=2)
+        ax.plot(ppm_scale, total+whole_basl, c='b', lw=0.5, label='Fit', zorder=2)
+    if show_basl is True:
+        ax.plot(ppm_scale, whole_basl, c='mediumorchid', lw=0.5, label='Baseline', zorder=3)
 
     # Visual adjustments
     ax.set_xlabel(X_label)
@@ -663,7 +682,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
     print('Done.')
 
 
-def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k_lim=(0, 3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename='fit', method='leastsq'):
+def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k_lim=(0, 3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename='fit', method='leastsq', basl_fit='no'):
     """
     Performs a lineshape deconvolution fit using a Voigt model.
     The initial guess must be read from a .ivf file. All components are treated as independent, regardless from the value of the "group" attribute.
@@ -750,7 +769,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
             peak.phi = par[f'phi_{idx}']
         return peaks
 
-    def f2min(param, S, fit_peaks, I, lims, first_residual=1):
+    def f2min(param, S, fit_peaks, I, lims, x, first_residual=1, basl_fit='no'):
         """
         Function that calculates the residual to be minimized in the least squares sense.
         This function requires a set of pre-built fit.Peak objects, stored in a dictionary. The parameters of the peaks are replaced on this dictionary according to the values in the lmfit.Parameter object. At this point, the total trace is computed and the residual is returned as the difference between the experimental spectrum and the total trace, only in the region delimited by the "lims" tuple.
@@ -784,8 +803,21 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         total = calc_total(peaks, 1)
         exp = S[lims]/I
         calc = total[lims]
-        correction_factor, _ = fit.fit_int(exp, calc, q=False)
+        # compute the baseline
+        if basl_fit != 'calc':
+            bas_c = np.array([par[f'c{w}'] for w in range(5)]) 
+            basl = misc.polyn(x, bas_c)
+            calc += basl
+            correction_factor, _ = fit.fit_int(exp, calc, q=False)
+        else:
+            correction_factor = 1
         residual = exp - calc * correction_factor
+        if basl_fit == 'calc':
+            bas_c = fit.lsp(residual, x, 5) 
+            basl = misc.polyn(x, bas_c)
+            for k, c in enumerate(bas_c):
+                param[f'c{k}'].set(value=c)
+            residual -= basl
         param['correction_factor'].set(value=correction_factor)
         print(f'Step: {par["count"]:6.0f} | Target: {np.sum(residual**2)/first_residual:10.5e}', end='\r')
         return residual 
@@ -798,13 +830,19 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
             # Get limits and total intensity from the dictionary
             limits = region['limits']
             I = region['I']
+            if 'bas_c' in region.keys():
+                bas_c = region['bas_c']
+            else:
+                bas_c = np.zeros(5)
             if 1:   # Switch: turn this print on and off
                 print(f'Fitting of region {k+1}/{Nr}. [{limits[0]:.3f}:{limits[1]:.3f}] ppm')
             # Make a copy of the region dictionary and remove what is not a peak
             peaks = deepcopy(region)
             peaks.pop('limits')
             peaks.pop('I')
-            yield limits, I, peaks
+            if 'bas_c' in region.keys():
+                peaks.pop('bas_c')
+            yield limits, I, peaks, bas_c
 
     # -----------------------------------------------------------------------------
     # Make the acqus dictionary to be fed into the fit.Peak objects
@@ -826,8 +864,9 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
 
     # Start fitting loop
     prev = 0
+    lmfit_results = []
     for q in Q:
-        limits, I, peaks = q    # Unpack
+        limits, I, peaks, bas_c = q    # Unpack
         Np = len(peaks.keys())  # Number of Peaks
 
         # Create a dictionary which contains Peak objects
@@ -839,6 +878,19 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         # Add the peaks' parameters to a lmfit Parameters object
         peak_keys = ['u', 'fwhm', 'k', 'b', 'phi']
         param = l.Parameters()
+        # Add baseline coefficients to the Parameters object
+        for n in range(5):
+            if basl_fit == 'no':
+                v = 0
+                vary = False
+            elif basl_fit == 'fixed' or basl_fit == 'calc':
+                v = bas_c[n]
+                vary = False
+            elif basl_fit == 'fit':
+                v = bas_c[n]
+                vary = True
+            param.add(f'c{n}', value=v, vary=vary)
+
         for idx, peak in fit_peaks.items():
             # Name of the object: <parameter>_<index>
             p_key = f'_{idx}'
@@ -866,41 +918,62 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         # Convert the limits from ppm to points and make the slice
         limits_pt = misc.ppmfind(ppm_scale, limits[0])[0], misc.ppmfind(ppm_scale, limits[1])[0]
         lims = slice(min(limits_pt), max(limits_pt))
+        x = np.linspace(0,1,int(np.abs(limits_pt[1]-limits_pt[0])))
 
         # Wrap the fitting routine in a function in order to use @cron for measuring the runtime of the fit
         @cron
-        def start_fit():
+        def start_fit(method):
             param.add('count', value=0, vary=False)
             param.add('correction_factor', value=1, vary=False)
             with open(os.devnull, 'w') as sys.stdout:
-                first_residual = np.sum(f2min(param, S, fit_peaks, I, lims, 1)**2)
+                first_residual = np.sum(f2min(param, S, fit_peaks, I, lims, x, 1, basl_fit)**2)
                 param['count'].set(value=0)
             sys.stdout = sys.__stdout__
-            minner = l.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I, lims, first_residual))
-            if method == 'leastsq' or method == 'least_squares':
-                result = minner.minimize(method='leastsq', max_nfev=int(itermax), ftol=fit_tol)
+            minner = l.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I, lims, x, first_residual, basl_fit))
+            if isinstance(method, str):
+                method = [method]
+            elif isinstance(method, (list, tuple)):
+                pass
             else:
-                result = minner.minimize(method=method, max_nfev=int(itermax), tol=fit_tol)
-            print(f'{result.message} Number of function evaluations: {result.nfev}.')
+                raise ValueError('The "method" flag must be a string or a list of strings.')
+            for k, mthd in enumerate(method):
+                if k == 0:
+                    params = None
+                else:
+                    params = result.params
+
+                print(f'Optimization {k+1:4.0f}/{len(method)}, method = {mthd}')
+                if mthd == 'leastsq' or mthd == 'least_squares':
+                    result = minner.minimize(method='leastsq', max_nfev=int(itermax), ftol=fit_tol, params=params)
+                else:
+                    result = minner.minimize(method=mthd, max_nfev=int(itermax), tol=fit_tol, params=params)
+                print(f'{result.message} Number of function evaluations: {result.nfev}.\n')
             return result
         # Do the fit
-        result = start_fit()
+        result = start_fit(method)
         # Unpack the fitted values
         popt = result.params.valuesdict()
 
         # Replace the initial values with the fitted ones
         fit_peaks = peaks_frompar(fit_peaks, popt)
+        # The baseline coefficients must be normalized to the I at the end
+        # Hence, first multiply them, and then divide them afterwards for the corrected I
+        bas_c_opt = np.array([popt[f'c{k}'] for k in range(5)]) * I
         # Correct the intensities
         #   Get the correct ones
         r_i, I_corr = misc.molfrac([peak.k for _, peak in fit_peaks.items()])
         I *= I_corr * popt['correction_factor']
+        # Here correct the baseline coefficients
+        bas_c_opt /= I
         #   Replace them
         for k, idx in enumerate(fit_peaks.keys()):
             fit_peaks[idx].k = r_i[k]
 
         # Write a section of the output file
-        fit.write_vf(f'{filename}.fvf', fit_peaks, limits, I, prev)
+        fit.write_vf(f'{filename}.fvf', fit_peaks, limits, I, prev, bas_c=bas_c_opt)
         prev += Np
+        lmfit_results.append(result)
+    return lmfit_results
 
 @cron
 def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=None, procs=None, utol=(1,1), s1tol=(0,500), s2tol=(0,500), vary_b=False, logfile=None):
@@ -1963,6 +2036,14 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     # Make an acqus dictionary based on the input parameters.
     acqus = {'t1': t_AQ, 'SFO1': SFO1, 'o1p': o1p}
 
+    # Baseline scale
+    x_bsl = np.linspace(0,1,N)
+    # Baseline - from where to where?
+    x_bsl_lims = [max(ppm_scale), min(ppm_scale)]
+    # for the plot
+    x_bsl_2plot = np.linspace(*x_bsl_lims, len(x_bsl))
+    whole_basl = np.zeros_like(ppm_scale)
+
     # Set limits
     limits = [max(ppm_scale), min(ppm_scale)]
     
@@ -1972,6 +2053,9 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     # Calculate the absolute intensity (or something that resembles it)
     A = np.trapz(S[lim1:lim2], dx=misc.calcres(ppm_scale*SFO1))*2*misc.calcres(acqus['t1'])
     _A = 1 * A
+    # Baseline constant
+    B = 10**np.floor(np.log10(A))
+    _B = 1 * B
     # Make a sensitivity dictionary
     sens = {
             'u': np.abs(limits[0] - limits[1]) / 50,    # 1/50 of the SW
@@ -1979,9 +2063,19 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
             'k': 0.05,
             'b': 0.1,
             'phi': 10,
-            'A': 10**(np.floor(np.log10(A)-1))    # approximately
+            'A': 10**(np.floor(np.log10(A)-1)),    # approximately
+            'c0': 0.1,
+            'c1': 0.1,
+            'c2': 0.1,
+            'c3': 0.1,
+            'c4': 0.1,
+            'B' : 1,
             }
     _sens = dict(sens)                          # RESET value
+    # baseline coefficients
+    bas_c = np.zeros(5)
+    basl = np.zeros_like(x_bsl)
+
     # Peaks dictionary
     peaks = {}
 
@@ -1993,14 +2087,18 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     
     # make boxes for widgets
     slider_box = plt.axes([0.68, 0.10, 0.01, 0.65])     # Peak selector slider
-    peak_box = plt.axes([0.72, 0.45, 0.10, 0.30])       # Radiobuttons
+    peak_box = plt.axes([0.875, 0.275, 0.10, 0.425])       # Radiobuttons
     up_box = plt.axes([0.815, 0.825, 0.08, 0.075])      # Increase sensitivity button
     down_box = plt.axes([0.894, 0.825, 0.08, 0.075])    # Decrease sensitivity button
     save_box = plt.axes([0.7, 0.825, 0.085, 0.04])      # Save button
     reset_box = plt.axes([0.7, 0.865, 0.085, 0.04])     # Reset button
-    group_box = plt.axes([0.76, 0.40, 0.06, 0.04])      # Textbox for the group selection
-    plus_box = plt.axes([0.894, 0.65, 0.08, 0.075])     # Add button
-    minus_box = plt.axes([0.894, 0.55, 0.08, 0.075])    # Minus button
+    group_box = plt.axes([0.72, 0.50, 0.06, 0.04])      # Textbox for the group selection
+    plus_box = plt.axes([0.72, 0.65, 0.08, 0.075])     # Add button
+    minus_box = plt.axes([0.72, 0.55, 0.08, 0.075])    # Minus button
+    basset_box = plt.axes([0.875, 0.71, 0.08, 0.04])    # baseline box
+    basset_flagbox = plt.axes([0.955, 0.71, 0.02, 0.04])
+    basset_flagbox.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    basset_flagbox.set_fc('tab:red')
     
     # Make widgets
     #   Buttons
@@ -2010,13 +2108,16 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     reset_button = Button(reset_box, 'RESET', hovercolor = '0.975')
     plus_button = Button(plus_box, '$+$', hovercolor='0.975')
     minus_button = Button(minus_box, '$-$', hovercolor='0.975')
+    basset_button = Button(basset_box, 'Set BASL', hovercolor='0.975')
 
     #   Textbox
     group_tb = TextBox(group_box, 'Group', textalignment='center')
     
     #   Radiobuttons
-    peak_name = [r'$\delta$ /ppm', r'$\Gamma$ /Hz', '$k$', '$x_{g}$', r'$\phi$', '$A$']
+    peak_name = [r'$\delta$ /ppm', r'$\Gamma$ /Hz', '$k$', r'$\beta$', r'$\phi$', '$A$', 
+                 r'$c_0$', r'$c_1$', r'$c_2$', r'$c_3$', r'$c_4$', r'$B$' ]
     peak_radio = RadioButtons(peak_box, peak_name, activecolor='tab:blue')      # Signal parameters
+    peak_box.text(0, 0.5, '-'*30, ha='left', va='center', transform=peak_box.transAxes)
     
     #   Slider
     slider = Slider(ax=slider_box, label='Active\nSignal', valmin=0, valmax=1-1e-3, valinit=0, valstep=1e-10, orientation='vertical', color='tab:blue')
@@ -2024,9 +2125,24 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     #-------------------------------------------------------------------------------
     ## SLOTS
+    def make_x_basl(event):
+        nonlocal x_bsl_lims, x_bsl, B, basl
+        
+        x_bsl_lims = sorted(ax.get_xlim())
+        n_pts_basl = int(np.abs(x_bsl_lims[1] - x_bsl_lims[0]) / misc.calcres(ppm_scale))
+        x_bsl = np.linspace(0, 1, n_pts_basl)
+        B = 10**np.floor(np.log10(A))
+        x_bsl_2plot = np.linspace(*x_bsl_lims, n_pts_basl)[::-1]
+        basl = B * misc.polyn(x_bsl, bas_c)
+        basl_plot.set_data(x_bsl_2plot, basl)
+        basset_flagbox.set_fc('tab:green')
+        plt.draw()
 
     def redraw():
-        misc.pretty_scale(ax, ax.get_xlim(), 'x')
+        for v1, v2 in zip(sorted(ax.get_xlim()), sorted(x_bsl_lims)):
+            if np.abs(v1 - v2) > 1e-4:
+                basset_flagbox.set_fc('tab:red')
+                break
         plt.draw()
 
     def radio_changed(event):
@@ -2056,6 +2172,13 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         if param == 'A':        # It is outside the peaks dictionary!
             nonlocal A
             A += sens['A']
+        elif param == 'B':
+            nonlocal B
+            B += sens['B']
+        elif 'c' in param:
+            nonlocal bas_c
+            i_c = int(eval(param.replace('c', '')))
+            bas_c[i_c] += sens[param]
         else:
             nonlocal peaks
             peaks[idx].__dict__[param] += sens[param]
@@ -2068,6 +2191,13 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         if param == 'A':    # It is outside the peaks dictionary!
             nonlocal A
             A -= sens['A']
+        elif param == 'B':
+            nonlocal B
+            B -= sens['B']
+        elif 'c' in param:
+            nonlocal bas_c
+            i_c = int(eval(param.replace('c', '')))
+            bas_c[i_c] -= sens[param]
         else:
             nonlocal peaks
             peaks[idx].__dict__[param] -= sens[param]
@@ -2080,27 +2210,42 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     def scroll(event):
         """ Connection to mouse scroll """
-        if Np == 0: # No peaks!
-            return
         # Get the active parameter and convert it into Peak's attribute
         active = peak_name.index(peak_radio.value_selected)
         param = list(sens.keys())[active]
         # Get the active peak
-        idx = int(np.floor(slider.val * Np) + 1)
-        # Fork for up/down
-        if event.button == 'up':
-            up_value(param, idx)
-        if event.button == 'down':
-            down_value(param, idx)
+        if Np == 0: # No peaks!
+            idx = 0
+        else:
+            idx = int(np.floor(slider.val * Np) + 1)
+        if Np != 0 or 'c' in param or 'B' in param:
+            nonlocal whole_basl
+            # Fork for up/down
+            if event.button == 'up':
+                up_value(param, idx)
+            if event.button == 'down':
+                down_value(param, idx)
 
-        # Recompute the components
-        for k, _ in enumerate(peaks):
-            p_sgn[k+1].set_ydata(peaks[k+1](A)[lim1:lim2])
-        # Recompute the total trace
-        p_fit.set_ydata(calc_total(peaks)[lim1:lim2])
+        # Recompute the baseline
+            basl = B * misc.polyn(x_bsl, bas_c)
+            whole_basl = misc.sum_overlay(np.zeros_like(ppm_scale), basl, max(x_bsl_lims), ppm_scale)
+            basl_plot.set_ydata(basl)
+
+        if Np != 0:
+            # Recompute the components
+            for k, _ in enumerate(peaks):
+                p_sgn[k+1].set_ydata(peaks[k+1](A)[lim1:lim2])
+
+            # Recompute the total trace
+            p_fit.set_ydata(whole_basl[lim1:lim2]+calc_total(peaks)[lim1:lim2])
         # Update the text
         write_par(idx)
+        write_bpar()
         redraw()
+
+    def write_bpar():
+        valuesb_print.set_text('{:+7.3f}\n{:+7.3f}\n{:+7.3f}\n{:+7.3f}\n{:+7.3f}\n{:5.2e}'.format(*bas_c, B))
+
 
     def write_par(idx):
         """ Write the text to keep track of your amounts """
@@ -2140,6 +2285,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         group_tb.text_disp.set_text('')
         peaks[idx].group = group
         write_par(idx)
+        write_bpar()
         redraw()
 
     def selector(event):
@@ -2152,11 +2298,14 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
                 else:
                     line.set_lw(0.8)
             write_par(idx)
+            write_bpar()
         redraw()
 
     def key_binding(event):
         """ Keyboard """
         key = event.key
+        if key == 'w':
+            make_x_basl(0)
         if key == '<':
             down_sens(0)
         if key == '>':
@@ -2179,14 +2328,22 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     def reset(event):
         """ Return everything to default """
-        nonlocal Np, peaks, p_sgn, A, sens
+        nonlocal Np, peaks, p_sgn, A, sens, bas_c, basl, whole_basl
+        bas_c = np.zeros(5)
+        basl = np.zeros_like(x_bsl)
+        basl_plot.set_ydata(basl)
+        whole_basl = np.zeros_like(ppm_scale)
         Q = Np
         for k in range(Q):
             remove_peak(event)
         A = _A
+
         sens = dict(_sens)
         ax.set_xlim(*_xlim)
         ax.set_ylim(*_ylim)
+        active = peak_name.index(peak_radio.value_selected)
+        param = list(sens.keys())[active]
+        write_sens(param)
         redraw()
 
     def add_peak(event):
@@ -2205,9 +2362,10 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         # Calculate the total trace with the new peak
         total = calc_total(peaks)
         # Update the total trace plot
-        p_fit.set_ydata(total[lim1:lim2])
+        p_fit.set_ydata(whole_basl[lim1:lim2] + total[lim1:lim2])
         # Update the text
         write_par(Np)
+        write_bpar()
         redraw()
 
     def remove_peak(event):
@@ -2232,16 +2390,18 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         # Calculate the total trace without that peak
         total = calc_total(peaks)
         # Update the total trace plot
-        p_fit.set_ydata(total[lim1:lim2])
+        p_fit.set_ydata(whole_basl[lim1:lim2] + total[lim1:lim2])
         # Change the slider position
         if Np == 0: # to zero and do not make it move
             slider.set_val(0)
             slider.valstep = 1e-10
             write_par(0)
+            write_bpar()
         elif Np == 1:   # To zero and that's it
             slider.set_val(0)
             slider.valstep = 1 / Np
             write_par(1)
+            write_bpar()
         else:   # To the previous point
             if idx == 1:
                 slider.set_val(0)
@@ -2249,13 +2409,16 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
                 slider.set_val( (idx - 2) / Np)     # (idx - 1) -1
             slider.valstep = 1 / Np
             write_par(int(np.floor(slider.val * Np) + 1))
+            write_bpar()
         redraw()
 
     def save(event):
         """ Write a section in the output file """
         nonlocal prev
         # Adjust the intensities
-        fit.write_vf(f'{filename}.ivf', peaks, ax.get_xlim(), A, prev)
+        # Convert the baseline coefficients
+        bas_c_norm = B / A * bas_c
+        fit.write_vf(f'{filename}.ivf', peaks, ax.get_xlim(), A, prev, bas_c=bas_c_norm)
         prev += len(peaks)
         
         # Mark a region as "fitted" with a green box
@@ -2267,17 +2430,26 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
 
     ax.plot(ppm_scale[lim1:lim2], S[lim1:lim2], label='Experimental', lw=1.0, c='k')  # experimental
-    p_fit = ax.plot(ppm_scale[lim1:lim2], np.zeros_like(S)[lim1:lim2], label='Fit', lw=0.9, c='b')[-1]  # Total trace
+    p_fit = ax.plot(ppm_scale[lim1:lim2], np.zeros_like(S)[lim1:lim2], label='Fit', lw=0.9, c='b', zorder=10)[-1]  # Total trace
+    basl_plot = ax.plot(x_bsl_2plot, basl, label='Baseline', lw=1.0, c='mediumorchid')[-1]  # Baseline
     p_sgn = {}  # Components
     
     # Header for current values print
-    head_print = ax.text(0.75, 0.35, 
+    head_print = ax.text(0.75, 0.4750, 
             '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}\n{:>7}'.format(
-                r'$\delta$', r'$\Gamma$', '$k$', '$b$', 'Phase', '$A$', 'Group'),
+                r'$\delta$', r'$\Gamma$', '$k$', r'$\beta$', r'$\phi$', '$A$', 'Group'),
             ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5)
     # Text placeholder for the values - linspacing is different to align with the header
-    values_print = ax.text(0.85, 0.35, '',
+    values_print = ax.text(0.85, 0.4750, '',
             ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.55)
+    headb_print = ax.text(0.75, 0.2250, 
+            '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}'.format(
+                r'$c_0$', r'$c_1$', '$c_2$', '$c_3$', '$c_4$', '$B$'),
+            ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5, color='mediumorchid')
+    # Text placeholder for the values - linspacing is different to align with the header
+    valuesb_print = ax.text(0.85, 0.2250, '',
+            ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.55)
+    write_bpar()
     # Text to display the active sensitivity values
     sens_print = ax.text(0.875, 0.775, f'Sensitivity: $\\pm${sens["u"]:10.4g}',
             ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
@@ -2321,6 +2493,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     reset_button.on_clicked(reset)
     save_button.on_clicked(save)
     peak_radio.on_clicked(radio_changed)
+    basset_button.on_clicked(make_x_basl)
     fig.canvas.mpl_connect('scroll_event', scroll)
     fig.canvas.mpl_connect('key_press_event', key_binding)
 
@@ -2839,7 +3012,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
 
 
 # --------------------------------------------------------------------
-def write_vf(filename, peaks, lims, I, prev=0, header=False):
+def write_vf(filename, peaks, lims, I, prev=0, header=False, bas_c=None):
     """
     Write a section in a fit report file, which shows the fitting region and the parameters of the peaks to feed into a Voigt lineshape model.
     -----------
@@ -2856,6 +3029,8 @@ def write_vf(filename, peaks, lims, I, prev=0, header=False):
         Number of previous peaks already saved. Increases the peak index
     - header: bool
         If True, adds a "!" starting line to separate fit trials
+    - bas_c: None or 1darray
+        Baseline coefficients 
     """
     # Adjust the intensities
     r_i, I_corr = misc.molfrac([peak.k for _, peak in peaks.items()])
@@ -2885,6 +3060,9 @@ def write_vf(filename, peaks, lims, I, prev=0, header=False):
         f.write('{:>4.0f};\t{:=12.8f};\t{:12.6f};\t{:8.6f};\t{:-8.3f};\t{:8.5f};\t{:>8.0f}\n'.format(
             k+prev+1, peak.u, peak.fwhm, r_i[k], peak.phi, peak.b, peak.group))
     f.write('-'*96+'\n\n')
+
+    if bas_c is not None:
+        f.write('BASLC:\t'+'; '.join([f'{w/(I*I_corr):+12.8f}' for w in bas_c])+'\n\n')
 
     # Add region separator and close the file
     f.write('='*96+'\n\n')
@@ -2945,6 +3123,10 @@ def read_vf(filename, n=-1):
                 dic_r[idx] = dic_p
 
             if n_bp == 3:   # End of file: stop reading
+                if 'BASLC' in r:
+                    line = r.split(':', 1)[-1]
+                    bas_c = np.array(eval(line.replace(';', ',')))
+                    dic_r['bas_c'] = bas_c
                 break
 
         return dic_r
@@ -3497,7 +3679,7 @@ class Voigt_Fit:
         self.result = regions
         print(f'{filename}.{ext} loaded as fit result file.')
 
-    def dofit(self, indep=True, u_lim=1, f_lim=10, k_lim=(0,3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None, method='leastsq'):
+    def dofit(self, indep=True, u_lim=1, f_lim=10, k_lim=(0,3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None, method='leastsq', basl_fit='no'):
         """
         Perform a lineshape deconvolution fitting.
         The initial guess is read from the attribute self.i_guess.
@@ -3525,6 +3707,12 @@ class Voigt_Fit:
             Path to the output file. If None, "<self.filename>.fvf" is used
         - method: str
             Method to use for the optimization (see lmfit)
+        - basl_fit: str
+            Flag to set how to address the computation of the baseline during the fit.
+            > no: No baseline used
+            > fixed: the baseline is computed once at the beginning and not optimized
+            > auto: the baseline is optimized in the nonlinear fit
+            > calc: the baseline coefficients are taken out from the optimization and calculated in the linear least-squares sense
         """
 
         # Make a shallow copy of the real part of the experimental spectrum
@@ -3538,14 +3726,15 @@ class Voigt_Fit:
 
         # Do the fit
         if indep is True:
-            fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_lim=u_lim, f_lim=f_lim, k_lim=k_lim, vary_phase=vary_phase, vary_b=vary_b, itermax=itermax, fit_tol=fit_tol, filename=filename, method=method)
+            lmfit_results = fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_lim=u_lim, f_lim=f_lim, k_lim=k_lim, vary_phase=vary_phase, vary_b=vary_b, itermax=itermax, fit_tol=fit_tol, filename=filename, method=method, basl_fit=basl_fit)
         else:
             raise NotImplementedError('More and more exciting adventures in the next release!')
         # Store
         self.result = fit.read_vf(f'{filename}.fvf')
+        return lmfit_results
 
 
-    def plot(self, what='result', show_total=True, show_res=False, res_offset=0, labels=None, filename=None, ext='tiff', dpi=600):
+    def plot(self, what='result', show_total=True, show_res=False, res_offset=0, show_basl=False, labels=None, filename=None, ext='tiff', dpi=600):
         """
         Plots either the initial guess or the result of the fit, and saves all the figures. Calls fit.plot_fit.
         The figure <filename>_full will show the whole model and the whole spectrum. 
@@ -3584,7 +3773,7 @@ class Voigt_Fit:
 
         # Make the figures
         S = np.copy(self.S.real)
-        fit.plot_fit(S, self.ppm_scale, regions, self.t_AQ, self.SFO1, self.o1p, show_total=show_total, show_res=show_res, res_offset=res_offset, X_label=self.X_label, labels=labels, filename=filename, ext=ext, dpi=dpi)
+        fit.plot_fit(S, self.ppm_scale, regions, self.t_AQ, self.SFO1, self.o1p, show_total=show_total, show_res=show_res, res_offset=res_offset, show_basl=show_basl, X_label=self.X_label, labels=labels, filename=filename, ext=ext, dpi=dpi)
 
     def get_fit_lines(self, what='result'):
         """

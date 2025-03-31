@@ -1866,3 +1866,53 @@ def merge_dict(*dics):
     """
     merged_dict = {k: v for d in dics for k, v in d.items()}
     return merged_dict
+
+
+
+def sum_overlay(y1, y2, x0, x=None):
+    """
+    Compute the sum of two arrays y1 and y2 of different dimensions.
+    The sum starts at x0 (on the scale x) as left anchor point.
+    ---------
+    Parameters:
+    - y1: 1darray
+        Original array
+    - y2: 1darray
+        Array to sum
+    - x0: float
+        Value on the x scale as left anchor point
+    - x: 1darray
+        Reference scale. If None, the index points is used.
+    ---------
+    Returns:
+    - ym: 1darray
+        Summed arrays
+    """
+    if x is None:
+        # Compute the index points
+        x = np.arange(len(y1))
+    # Find left anchor point
+    x0p = misc.ppmfind(x, x0)[0]
+    # Find right anchor point
+    x1p = x0p + len(y2)
+    # Make the sum
+    ym = np.copy(y1)
+    ym[x0p:x1p] += y2
+    return ym
+
+def lenslice(a):
+    """
+    Calculates the length of a slice, i.e. the length an array would have when sliced with this slice.
+    ----------
+    Parameters:
+    - a: slice
+        Slice of which to calculate the length
+    ----------
+    Returns:
+    - length: int
+        Length of the slice
+    """
+    if a.step is None:
+        a.step = 1
+    length = int(a.stop - a.start) // a.step
+    return length
