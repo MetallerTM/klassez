@@ -1,5 +1,8 @@
 # Version 0.4a.9
 
+07/04/2025
+Approx. value 2.355 converted in 2 * (2 ln 2)^0.5
+
 ## New functions:
 07/04/2025
 - *misc.sum_overlay*

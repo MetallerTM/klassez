@@ -2569,7 +2569,7 @@ def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, ut
     def f2min(param, T, x, SFO1):
         """ Cost function """
         par = param.valuesdict()
-        sigma = misc.freq2ppm(par['fwhm'], np.abs(SFO1)) / 2.355    # Convert FWHM to ppm and then to std
+        sigma = misc.freq2ppm(par['fwhm'], np.abs(SFO1)) / (2 * (2 * np.log(2))**0.5)     # Convert FWHM to ppm and then to std
         model = sim.f_gaussian(x, par['u'], sigma, A=par['I'])      # Compute gaussian
         par['I'] = fit.fit_int(T, model)                            # Calculate integral
         residual = par['I'] * model - T
@@ -2588,7 +2588,7 @@ def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, ut
         res = result.residual
 
         # Calculate the model, update the popt dictionary
-        sigma = misc.freq2ppm(popt['fwhm'], np.abs(SFO1)) / 2.355
+        sigma = misc.freq2ppm(popt['fwhm'], np.abs(SFO1)) / (2 * (2 * np.log(2))**0.5) 
         model_0 = sim.f_gaussian(ppm, popt['u'], sigma, A=popt['I'])
         popt['I'] = fit.fit_int(T, model_0)
         model_0 *= popt['I']

@@ -340,8 +340,8 @@ def sim_2D(File, states=True, alt=True, pv=False):
     fwhm2 = 2 * np.pi * fwhm_f2
 
     # calculation of stdev for gaussian peaks
-    sigma1 = fwhm1 / 2.355
-    sigma2 = fwhm2 / 2.355
+    sigma1 = fwhm1 / (2 * (2 * np.log(2))**0.5) 
+    sigma2 = fwhm2 / (2 * (2 * np.log(2))**0.5) 
 
     # conversion of chemical shift from ppm to rad/s
     freq1 = misc.ppm2freq(shifts_f1, B0=in_file['SFO1'], o1p=in_file['o1p'])     # peaks center frequency
@@ -452,7 +452,7 @@ def water7(N, t2, vW, fwhm=300, A=1, spread=701.125):
 
 
     uW = np.random.normal(vW, spread, N)
-    s = fwhm / 2.355        # conversion from fwhm to sigma
+    s = fwhm / (2 * (2 * np.log(2))**0.5)         # conversion from fwhm to sigma
     ridge = np.zeros((N, len(t2)), dtype='complex64')
     for i in range(N):
         # each transient features a gaussian signal with the parameters specified above
@@ -533,7 +533,7 @@ def f_pvoigt(x, u, fwhm, A=1, b=0):
     fwhm = np.abs(fwhm)
     if fwhm < 1e-8:
         fwhm = 1e-8
-    s = fwhm / 2.355
+    s = fwhm / (2 * (2 * np.log(2))**0.5) 
     S = A* (sim.f_gaussian(x, u, s, A=b) + sim.f_lorentzian(x, u, fwhm, A=1-b))
     return S
 
@@ -615,7 +615,7 @@ def t_pvoigt(t, u, fwhm, A=1, b=0, phi=0):
     fwhm = np.abs(fwhm)
     if fwhm < 1e-8:
         fwhm = 1e-8
-    s = fwhm / 2.355
+    s = fwhm / (2 * (2 * np.log(2))**0.5) 
     S = A * (sim.t_gaussian(t, u, s, A=b, phi=phi) + sim.t_lorentzian(t, u, fwhm, A=1-b, phi=phi))
     return S
 
@@ -645,7 +645,7 @@ def t_voigt(t, u, fwhm, A=1, b=0, phi=0):
     fwhm = np.abs(fwhm)
     if fwhm < 1e-8:
         fwhm = 1e-8
-    s = fwhm / 2.355
+    s = fwhm / (2 * (2 * np.log(2))**0.5) 
     S = A * np.exp(1j*phi) * sim.t_gaussian(t, u/2, s*(b**0.5)) * sim.t_lorentzian(t, u/2, fwhm*(1-b))
     return S
 
@@ -780,8 +780,8 @@ def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
     """
 
     # stdev computed for the gaussian part.
-    s1 = fwhm1 / 2.355
-    s2 = fwhm2 / 2.355
+    s1 = fwhm1 / (2 * (2 * np.log(2))**0.5) 
+    s2 = fwhm2 / (2 * (2 * np.log(2))**0.5) 
     # Passing 's' to 'gaussian' and 'fwhm' to 'lorentzian' makes the two parts of the pseudo-voigt signal to have the same width and allow proper summation
     G = sim.t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=b, states=states, alt=alt)
     L = sim.t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=(1-b), states=states, alt=alt)
@@ -821,8 +821,8 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
         Voigt function.
     """
     # stdev computed for the gaussian part.
-    s1 = fwhm1 / 2.355
-    s2 = fwhm2 / 2.355
+    s1 = fwhm1 / (2 * (2 * np.log(2))**0.5) 
+    s2 = fwhm2 / (2 * (2 * np.log(2))**0.5) 
     # hwhm computed for the lorentzian part.
     hwhm1 = fwhm1 / 2
     hwhm2 = fwhm2 / 2
