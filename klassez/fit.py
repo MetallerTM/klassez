@@ -481,7 +481,7 @@ def make_signal(t, u, s, k, b, phi, A, SFO1=701.125, o1p=0, N=None):
 
 def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, show_basl=False, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='tiff', dpi=600):
     """
-    Plots either the initial guess or the result of the fit, and saves all the figures. Calls fit.plot_fit.
+    Plots either the initial guess or the result of the fit, and saves all the figures.
     The figure <filename>_full will show the whole model and the whole spectrum. 
     The figures labelled with _R<k> will depict a detail of the fit in the k-th fitting region.
     Optional labels for the components can be given: in this case, the structure of 'labels' should match the structure of 'regions'. This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
@@ -499,14 +499,14 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         Larmor frequency of the observed nucleus, in MHz
     - o1p: float
         Carrier position, in ppm
-    - nuc: str
-        Observed nucleus. Used to customize the x-scale of the figures.
     - show_total: bool
         Show the total trace (i.e. sum of all the components) or not
     - show_res: bool
         Show the plot of the residuals
     - res_offset: float
         Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental spectrum. res_offset > 0 will move the residuals BELOW the zero-line!
+    - show_basl: bool
+        If True, displays the baseline on the spectrum and uses it to compute the total trace.
     - X_label: str
         Text to show as label for the chemical shift axis
     - labels: list of list
@@ -518,8 +518,6 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
     - dpi: int
         Resolution of the figures, in dots per inches
     """
-
-
     def calc_total(peaks, A=1):
         """
         Calculates the sum trace from a collection of peaks stored in a dictionary.
@@ -717,8 +715,18 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         Target value to be set for x_tol and f_tol
     - filename: str
         Name of the file where the fitted values will be saved. The .fvf extension is added automatically
-    - method: str
-        Method to be used for the optimization. See lmfit for details.
+    - method: str or list of str
+        Method to be used for the optimization. See lmfit for details. There is the option to run multiple optimizations in series.
+    - basl_fit: str
+        How to address the baseline fit. The options are:
+        > "no": Do not use baseline (default)
+        > "fixed": The baseline is computed once and kept fixed during the optimization
+        > "fit": The baseline coefficients enter as fit parameters during the nonlinear optimization
+        > "calc": The baseline coefficients are calculated during the optimization via linear least-squares optimization
+    -----------
+    Returns:
+    - lmfit_results: list of lmfit.minimizer.MinimizerResult
+        Sequence of the fit results, ordered as the regions dictionary
     """
 
     ## USED FUNCTIONS
@@ -864,7 +872,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
 
     # Start fitting loop
     prev = 0
-    lmfit_results = []
+    lmfit_results = []      # placeholder 
     for q in Q:
         limits, I, peaks, bas_c = q    # Unpack
         Np = len(peaks.keys())  # Number of Peaks
@@ -918,17 +926,24 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         # Convert the limits from ppm to points and make the slice
         limits_pt = misc.ppmfind(ppm_scale, limits[0])[0], misc.ppmfind(ppm_scale, limits[1])[0]
         lims = slice(min(limits_pt), max(limits_pt))
+        # Baseline x-scale
         x = np.linspace(0,1,int(np.abs(limits_pt[1]-limits_pt[0])))
 
         # Wrap the fitting routine in a function in order to use @cron for measuring the runtime of the fit
         @cron
         def start_fit(method):
+            # Initialize the nonused fit parameters
             param.add('count', value=0, vary=False)
             param.add('correction_factor', value=1, vary=False)
+            # Compute the first residual as reference, suppress the output
             with open(os.devnull, 'w') as sys.stdout:
                 first_residual = np.sum(f2min(param, S, fit_peaks, I, lims, x, 1, basl_fit)**2)
+                # Reset the iteration counter
                 param['count'].set(value=0)
+            # Redirect output to stdout
             sys.stdout = sys.__stdout__
+
+            # Initialize the fit
             minner = l.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I, lims, x, first_residual, basl_fit))
             if isinstance(method, str):
                 method = [method]
@@ -1941,6 +1956,9 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     The sensitivity of the mouse scroll can be regulated using the "up arrow" and "down arrow" buttons. 
     The active peak can be changed in any moment using the slider.
 
+    The baseline can be computed first by initializing the x-scale on the selected window through the "SET BASL" button. The informer light next to the button becomes green if it is properly set. 
+    The baseline coefficients can be set with the mouse scroll analogously to any other parameter. 
+
     When you are satisfied with your fit, press "SAVE" to write the information in the output file. Then, the GUI is brought back to the initial situation, and the region you were working on will be marked with a green rectangle. You can repeat the procedure as many times as you wish, to prepare the guess on multiple spectral windows.
 
     Keyboard shortcuts:
@@ -2126,12 +2144,11 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     #-------------------------------------------------------------------------------
     ## SLOTS
     def make_x_basl(event):
-        nonlocal x_bsl_lims, x_bsl, B, basl
+        nonlocal x_bsl_lims, x_bsl, basl
         
         x_bsl_lims = sorted(ax.get_xlim())
         n_pts_basl = int(np.abs(x_bsl_lims[1] - x_bsl_lims[0]) / misc.calcres(ppm_scale))
         x_bsl = np.linspace(0, 1, n_pts_basl)
-        B = 10**np.floor(np.log10(A))
         x_bsl_2plot = np.linspace(*x_bsl_lims, n_pts_basl)[::-1]
         basl = B * misc.polyn(x_bsl, bas_c)
         basl_plot.set_data(x_bsl_2plot, basl)
@@ -2226,7 +2243,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
             if event.button == 'down':
                 down_value(param, idx)
 
-        # Recompute the baseline
+            # Recompute the baseline
             basl = B * misc.polyn(x_bsl, bas_c)
             whole_basl = misc.sum_overlay(np.zeros_like(ppm_scale), basl, max(x_bsl_lims), ppm_scale)
             basl_plot.set_ydata(basl)
@@ -2245,7 +2262,6 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     def write_bpar():
         valuesb_print.set_text('{:+7.3f}\n{:+7.3f}\n{:+7.3f}\n{:+7.3f}\n{:+7.3f}\n{:5.2e}'.format(*bas_c, B))
-
 
     def write_par(idx):
         """ Write the text to keep track of your amounts """
@@ -2328,7 +2344,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     def reset(event):
         """ Return everything to default """
-        nonlocal Np, peaks, p_sgn, A, sens, bas_c, basl, whole_basl
+        nonlocal Np, peaks, p_sgn, A, sens, bas_c, basl, whole_basl, B
         bas_c = np.zeros(5)
         basl = np.zeros_like(x_bsl)
         basl_plot.set_ydata(basl)
@@ -2337,6 +2353,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         for k in range(Q):
             remove_peak(event)
         A = _A
+        B = _B
 
         sens = dict(_sens)
         ax.set_xlim(*_xlim)
@@ -3705,14 +3722,18 @@ class Voigt_Fit:
             Value of the target function to be set as x_tol and f_tol
         - filename: str
             Path to the output file. If None, "<self.filename>.fvf" is used
-        - method: str
-            Method to use for the optimization (see lmfit)
+        - method: str or list of str
+            Method to be used for the optimization. See lmfit for details. There is the option to run multiple optimizations in series.
         - basl_fit: str
-            Flag to set how to address the computation of the baseline during the fit.
-            > no: No baseline used
-            > fixed: the baseline is computed once at the beginning and not optimized
-            > auto: the baseline is optimized in the nonlinear fit
-            > calc: the baseline coefficients are taken out from the optimization and calculated in the linear least-squares sense
+            How to address the baseline fit. The options are:
+            > "no": Do not use baseline (default)
+            > "fixed": The baseline is computed once and kept fixed during the optimization
+            > "fit": The baseline coefficients enter as fit parameters during the nonlinear optimization
+            > "calc": The baseline coefficients are calculated during the optimization via linear least-squares optimization
+        -----------
+        Returns:
+        - lmfit_results: list of lmfit.minimizer.MinimizerResult
+            Sequence of the fit results, ordered as the regions dictionary
         """
 
         # Make a shallow copy of the real part of the experimental spectrum
@@ -3750,6 +3771,8 @@ class Voigt_Fit:
             Show the plot of the residuals
         - res_offset: float
             Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental spectrum. res_offset > 0 will move the residuals BELOW the zero-line!
+        - show_basl: bool
+            If True, displays the baseline on the spectrum and uses it to compute the total trace.
         - labels: list of list
             Optional labels for the components. The structure of this parameter must match the structure of self.result
         - filename: str
@@ -3791,6 +3814,8 @@ class Voigt_Fit:
             Sum of all the signals
         - limits_list: list
             List of region delimiters, in ppm
+        - whole_basl: 1darray
+            Computed baseline
         """
         # Select the correct object
         if what == 'iguess':
@@ -3802,15 +3827,29 @@ class Voigt_Fit:
 
         # Make the acqus dictionary for the fit.Peak objects
         acqus = { 't1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
-        # Placeholder
+        # Placeholders
         signals = []
         limits_list = []
+        whole_basl = np.zeros_like(self.ppm_scale)
         # Loop on the regions
         for region in regions:
             # Remove the limits and the intensity from the region dictionary
             param = deepcopy(region)
             limits = param.pop('limits')
             I = param.pop('I')
+            if 'bas_c' in region.keys():
+                bas_c = I * region['bas_c']
+                in_region.pop('bas_c')
+            else:
+                bas_c = np.zeros(5)
+            # Convert the limits from ppm to points and make the slice
+            limits_pt = misc.ppmfind(self.ppm_scale, limits[0])[0], misc.ppmfind(self.ppm_scale, limits[1])[0]
+            lims = slice(min(limits_pt), max(limits_pt))
+            # Baseline x-scale
+            x = np.linspace(0,1,int(np.abs(limits_pt[1]-limits_pt[0])))
+            # Compute baseline
+            basl = misc.polyn(x, bas_c)
+            whole_basl = misc.sum_overlay(whole_basl, basl, max(limits), self.ppm_scale)
             # Make the fit.Peak objects
             peaks = {key : fit.Peak(acqus, N=self.S.shape[-1], **value) for key, value in param.items()}
             # Get the arrays from the dictionary and put them in the list
@@ -3818,7 +3857,7 @@ class Voigt_Fit:
             limits_list.append(limits)
         # Compute the total trace
         total = np.sum(signals, axis=0)
-        return signals, total, limits_list
+        return signals, total, limits_list, whole_basl
 
     def res_histogram(self, what='result', nbins=500, density=True, f_lims=None, xlabel='Residuals', x_symm=True, barcolor='tab:green', fontsize=20, filename=None, ext='tiff', dpi=300):
         """
@@ -3866,7 +3905,7 @@ class Voigt_Fit:
         acqus = { 't1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
 
         # Get the total function and the limits
-        _, total, limits_list = self.get_fit_lines(what)
+        _, total, limits_list, whole_basl = self.get_fit_lines(what)
         # Convert the limits in points according to the ppm scale
         limits_pt_list = [ [misc.ppmfind(self.ppm_scale, w)[0] for w in lims] for lims in limits_list ]
 
@@ -3877,7 +3916,7 @@ class Voigt_Fit:
             lims = slice(min(limits_pt_list[k]), max(limits_pt_list[k]))
             # Trim the experimental data and the total 
             exp_trim.append(self.S[...,lims].real)
-            total_trim.append(total[...,lims])
+            total_trim.append((total+whole_basl)[...,lims])
         # Sum on different regions
         exp_trim = np.concatenate(exp_trim, axis=-1)
         total_trim = np.concatenate(total_trim, axis=-1)

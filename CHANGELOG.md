@@ -1,5 +1,22 @@
 # Version 0.4a.9
 
+## New functions:
+07/04/2025
+- *misc.sum_overlay*
+- *misc.lenslice*
+
+## Modified functions:
+07/04/2025
+- *fit.plot_fit*: new argument **show_basl**
+- *fit.voigt_fit_indep*: new argument **basl_fit**, returns **lmfit_results**
+- *fit.make_iguess*: now allows to compute the baseline as well
+- *fit.write_vf*: also writes the baseline coefficients
+- *fit.read_vf*: it reads the baseline coefficients and puts them in the key **bas_c**
+- *fit.Voigt_Fit.dofit*: added argument **basl_fit**, returns **lmfit_results**
+- *fit.Voigt_Fit.plot*: modified to use *fit.plot_fit*
+- *fit.Voigt_Fit.get_fit_lines*: now returns also **whole_basl**
+- *fit.Voigt_Fit.res_hist*: the baseline is accounted for in the residuals computation
+
 
 
 # Version 0.4a.8
