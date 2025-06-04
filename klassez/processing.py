@@ -1108,45 +1108,49 @@ def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5,0.5], tdeff=[0,0], u=T
         data = processing.zf(data, zf[1])
     # FT
     data = processing.ft(data, fcor=fcor[1])
-    
-    # Processing the indirect dimension
-    # If FnMODE is 'QF', do normal transpose instead of hyper
-    if FnMODE == 'QF':
-        data = data.T
+
+    if FnMODE == 'QF-nofreq' or FnMODE == 'No':
+        pass
     else:
-        data = processing.tp_hyper(data)
-    
-    # Window function
-    if wf[0] is not None:
-        if wf[0]['mode'] == 'qsin':
-            data = processing.qsin(data, ssb=wf[0]['ssb'])
-        if wf[0]['mode'] == 'sin':
-            data = processing.sin(data, ssb=wf[0]['ssb'])
-        if wf[0]['mode'] == 'em':
-            data = processing.em(data, lb=wf[0]['lb'], sw=wf[0]['sw'])
-        if wf[0]['mode'] == 'gm':
-            data = processing.gm(data, lb=wf[0]['lb'], gb=wf[0]['gb'], sw=wf[0]['sw'])
-    # Zero-filling
-    if zf[0] is not None:
-        data = processing.zf(data, zf[0])
-    # FT
-    # Discriminate between F1 acquisition modes
-    if FnMODE == 'States-TPPI':
-        data = processing.ft(data, alt=True, fcor=fcor[0])
-    elif FnMODE == 'Echo-Antiecho' or FnMODE == 'QF':
-        data = processing.ft(data, fcor=fcor[0])
-    else:
-        raise NotImplementedError('Unknown acquisition mode in F1. Aborting...')
-    if FnMODE == 'States-TPPI' or FnMODE == 'QF':
-        data = processing.rev(data)                     # reverse data
-    # Transpose back
-    if FnMODE == 'QF':
-        data = data.T
-    else:
-        data = processing.tp_hyper(data)
-    # Unpack and/or return processed data
-    if u:                                           # unpack or not
+        
+        # Processing the indirect dimension
+        # If FnMODE is 'QF', do normal transpose instead of hyper
         if FnMODE == 'QF':
+            data = data.T
+        else:
+            data = processing.tp_hyper(data)
+        
+        # Window function
+        if wf[0] is not None:
+            if wf[0]['mode'] == 'qsin':
+                data = processing.qsin(data, ssb=wf[0]['ssb'])
+            if wf[0]['mode'] == 'sin':
+                data = processing.sin(data, ssb=wf[0]['ssb'])
+            if wf[0]['mode'] == 'em':
+                data = processing.em(data, lb=wf[0]['lb'], sw=wf[0]['sw'])
+            if wf[0]['mode'] == 'gm':
+                data = processing.gm(data, lb=wf[0]['lb'], gb=wf[0]['gb'], sw=wf[0]['sw'])
+        # Zero-filling
+        if zf[0] is not None:
+            data = processing.zf(data, zf[0])
+        # FT
+        # Discriminate between F1 acquisition modes
+        if FnMODE == 'States-TPPI':
+            data = processing.ft(data, alt=True, fcor=fcor[0])
+        elif FnMODE == 'Echo-Antiecho' or FnMODE == 'QF':
+            data = processing.ft(data, fcor=fcor[0])
+        else:
+            raise NotImplementedError('Unknown acquisition mode in F1. Aborting...')
+        if FnMODE == 'States-TPPI' or FnMODE == 'QF':
+            data = processing.rev(data)                     # reverse data
+        # Transpose back
+        if FnMODE == 'QF':
+            data = data.T
+        else:
+            data = processing.tp_hyper(data)
+        # Unpack and/or return processed data
+    if u:                                           # unpack or not
+        if FnMODE in ['QF', 'QF-nofreq', 'No']:
             return data.real, data.imag
         else:
             return processing.unpack_2D(data)           # rr, ir, ri, ii
