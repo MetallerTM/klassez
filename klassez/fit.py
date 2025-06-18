@@ -332,6 +332,12 @@ def get_region(ppmscale, S, rev=True):
         Right border of the selected spectral window
     """
 
+    # Creation of interactive figure panel
+    fig = plt.figure('Region Selector')
+    fig.set_size_inches(15,8)
+    plt.subplots_adjust(left = 0.10, bottom=0.25, right=0.90, top=0.90)    # Make room for the sliders
+    ax = fig.add_subplot(1,1,1)
+
     # Set the slider initial values
     if rev:
         left = max(ppmscale)
@@ -369,8 +375,8 @@ def get_region(ppmscale, S, rev=True):
         LB, RB = misc.ppmfind(ppmscale, left)[0], misc.ppmfind(ppmscale, right)[0]
         data_inside = S[min(LB,RB):max(LB,RB)]
 
-        L.set_xdata((left),)
-        R.set_xdata((right),)
+        L.set_xdata([left])
+        R.set_xdata([right])
         if rev:
             ax.set_xlim(left+25*res, right-25*res)
         else:
@@ -402,11 +408,6 @@ def get_region(ppmscale, S, rev=True):
         if event.key == 'z':
             zoom_toggle = not(zoom_toggle)
 
-    # Creation of interactive figure panel
-    fig = plt.figure('Region Selector')
-    fig.set_size_inches(15,8)
-    plt.subplots_adjust(left = 0.10, bottom=0.25, right=0.90, top=0.90)    # Make room for the sliders
-    ax = fig.add_subplot(1,1,1)
 
     misc.pretty_scale(ax, (left, right))
     if rev:
@@ -479,7 +480,7 @@ def make_signal(t, u, s, k, b, phi, A, SFO1=701.125, o1p=0, N=None):
     return sgn
 
 
-def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, show_basl=False, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='tiff', dpi=600):
+def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, show_basl=False, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='tiff', dpi=600, dim=None):
     """
     Plots either the initial guess or the result of the fit, and saves all the figures.
     The figure <filename>_full will show the whole model and the whole spectrum. 
@@ -517,6 +518,8 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         Format of the saved figures
     - dpi: int
         Resolution of the figures, in dots per inches
+    - dim: tuple
+        Size of the figure in inches (length, height)
     """
     def calc_total(peaks, A=1):
         """
@@ -584,7 +587,10 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
 
         # Make the figure
         fig = plt.figure('Fit')
-        fig.set_size_inches(figures.figsize_large)
+        if dim is None:
+            fig.set_size_inches(figures.figsize_large)
+        else:
+            fig.set_size_inches(dim)
         ax = fig.add_subplot()
         plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)
 
@@ -3079,7 +3085,7 @@ def write_vf(filename, peaks, lims, I, prev=0, header=False, bas_c=None):
     f.write('-'*96+'\n\n')
 
     if bas_c is not None:
-        f.write('BASLC:\t'+'; '.join([f'{w/(I*I_corr):+12.8f}' for w in bas_c])+'\n\n')
+        f.write('BASLC:\t'+'; '.join([f'{w/(I_corr):+12.8f}' for w in bas_c])+'\n\n')
 
     # Add region separator and close the file
     f.write('='*96+'\n\n')
@@ -3144,6 +3150,7 @@ def read_vf(filename, n=-1):
                     line = r.split(':', 1)[-1]
                     bas_c = np.array(eval(line.replace(';', ',')))
                     dic_r['bas_c'] = bas_c
+                    print('!!!', bas_c)
                 break
 
         return dic_r
@@ -3755,7 +3762,7 @@ class Voigt_Fit:
         return lmfit_results
 
 
-    def plot(self, what='result', show_total=True, show_res=False, res_offset=0, show_basl=False, labels=None, filename=None, ext='tiff', dpi=600):
+    def plot(self, what='result', show_total=True, show_res=False, res_offset=0, show_basl=False, labels=None, filename=None, ext='tiff', dpi=600, dim=None):
         """
         Plots either the initial guess or the result of the fit, and saves all the figures. Calls fit.plot_fit.
         The figure <filename>_full will show the whole model and the whole spectrum. 
@@ -3796,7 +3803,7 @@ class Voigt_Fit:
 
         # Make the figures
         S = np.copy(self.S.real)
-        fit.plot_fit(S, self.ppm_scale, regions, self.t_AQ, self.SFO1, self.o1p, show_total=show_total, show_res=show_res, res_offset=res_offset, show_basl=show_basl, X_label=self.X_label, labels=labels, filename=filename, ext=ext, dpi=dpi)
+        fit.plot_fit(S, self.ppm_scale, regions, self.t_AQ, self.SFO1, self.o1p, show_total=show_total, show_res=show_res, res_offset=res_offset, show_basl=show_basl, X_label=self.X_label, labels=labels, filename=filename, ext=ext, dpi=dpi, dim=dim)
 
     def get_fit_lines(self, what='result'):
         """
@@ -3839,7 +3846,7 @@ class Voigt_Fit:
             I = param.pop('I')
             if 'bas_c' in region.keys():
                 bas_c = I * region['bas_c']
-                in_region.pop('bas_c')
+                param.pop('bas_c')
             else:
                 bas_c = np.zeros(5)
             # Convert the limits from ppm to points and make the slice

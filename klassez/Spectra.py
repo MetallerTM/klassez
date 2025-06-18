@@ -2410,7 +2410,8 @@ class Pseudo_2D(Spectrum_2D):
         # Align the spectrum
         if self.procs['roll_ppm'] is not None:
             for k, experiment in enumerate(self.S):
-                roll_pt = int(ppm_shift / self.procs['roll_ppm'][k])    # Compute the circular shift in points
+                #roll_pt = int(ppm_shift / self.procs['roll_ppm'][k])    # Compute the circular shift in points
+                roll_pt = int(self.procs['roll_ppm'][k] / misc.calcres(self.ppm_f2))    # Compute the circular shift in points
                 self.S[k] = np.roll(experiment, roll_pt)                # Apply it to each experiment
             # Unpack S
             self.rr = self.S.real
@@ -2881,13 +2882,18 @@ class Pseudo_2D(Spectrum_2D):
         """
         # Get the region of the reference peak
         if lims is None:
-            lims = fit.get_region(self.ppm_f2, self.r, rev=True)
+            lims = fit.get_region(self.ppm_f2, self.rr[ref_idx], rev=True)
         # Align
         self.S, roll_pt, roll_ppm = processing.align(self.ppm_f2, self.S, lims, u_off, ref_idx)
         # Unpack S
         self.rr = self.S.real
         self.ii = self.S.imag
         # Update the procs dictionary
+        if 'roll_ppm' not in self.procs.keys():
+            self.procs['roll_ppm'] = np.zeros(self.S.shape[0])
+        if self.procs['roll_ppm'] is None:
+            self.procs['roll_ppm'] = np.zeros(self.S.shape[0])
+        print(self.procs['roll_ppm'])
         self.procs['roll_ppm'] += roll_ppm
         # Update the .procs file
         self.write_procs()
