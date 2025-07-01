@@ -720,7 +720,7 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
     """
     cmaps = 'Blues_r', 'Reds_r'
     # Select traces from a 2D spectrum, save the coordinates in a list
-    lvlstep = 0.02                  # for mouse scroll
+    lvlstep = 1.4                  # for mouse scroll
 
     # Make the figure
     fig = plt.figure('Traces Selector')
@@ -801,11 +801,9 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
         ysx, ydx = ax.get_ylim()
 
         if event.button == 'up':
-            livello += lvlstep 
+            livello *= lvlstep 
         if event.button == 'down':
-            livello += -lvlstep
-        if livello < 1e-5:
-            livello = 1e-5
+            livello /= lvlstep
         if livello > 1:
             livello = 1
         cnt, Ncnt = figures.redraw_contours(ax, ppm_f2, ppm_f1, data, lvl=livello, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=cmaps)
@@ -847,7 +845,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
     """
 
     cmaps = CM['Blues_r'], CM['Reds_r']
-    lvlstep = 0.02                  # Increase step for contours when scroll the mouse1
+    lvlstep = 1.4                  # Increase step for contours when scroll the mouse1
 
     # Make an underlying grid to snap the pointer
     xgrid = np.copy(ppm_f2)
@@ -899,11 +897,9 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
 
         # Read the input
         if event.button == 'up':
-            lvl0 += lvlstep 
+            lvl0 *= lvlstep 
         if event.button == 'down':
-            lvl0 += -lvlstep
-        if lvl0 < 0:
-            lvl0 = 1e-10
+            lvl0 /= lvlstep
         if lvl0 > 1:
             lvl0 = 1
 

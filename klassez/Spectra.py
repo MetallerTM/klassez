@@ -1939,11 +1939,13 @@ class Spectrum_2D:
         # Functions connected to the sliders
         def increase_zoom(event):
             nonlocal lvlstep
-            lvlstep *= 2
+            lvlstep += 0.05
 
         def decrease_zoom(event):
             nonlocal lvlstep
-            lvlstep /= 2
+            lvlstep -= 0.05
+            if lvlstep <= 1:
+                lvlstep = 1.05
 
         def on_scroll(event):
             nonlocal lvl, cnt
@@ -1956,13 +1958,11 @@ class Spectrum_2D:
                 
             # Update level threshold
             if event.button == 'up':
-                lvl += lvlstep 
+                lvl *= lvlstep 
             elif event.button == 'down':
-                lvl += -lvlstep
+                lvl /= lvlstep
             # Correct if lvl goes out of bounds
-            if lvl <= 0:
-                lvl = 1e-6
-            elif lvl > 1:
+            if lvl > 1:
                 lvl = 1
 
             # Redraw the contours
@@ -2004,7 +2004,7 @@ class Spectrum_2D:
         cmaps = ['Blues_r', 'Reds_r']
 
         # flags for the activation of scroll zoom
-        lvlstep = 0.02
+        lvlstep = 1.4
 
         # Make the figure
         fig = plt.figure(f'{self.filename}')
@@ -2708,7 +2708,7 @@ class Pseudo_2D(Spectrum_2D):
         cmaps = ['Blues_r', 'Reds_r']
 
         # flags for the activation of scroll zoom
-        lvlstep = 0.02
+        lvlstep = 1.4
 
         # define boxes for sliders
         iz_box = plt.axes([0.925, 0.80, 0.05, 0.05])
@@ -2717,11 +2717,13 @@ class Pseudo_2D(Spectrum_2D):
         # Functions connected to the sliders
         def increase_zoom(event):
             nonlocal lvlstep
-            lvlstep *= 2
+            lvlstep += 0.05
 
         def decrease_zoom(event):
             nonlocal lvlstep
-            lvlstep /= 2
+            lvlstep -= 0.05
+            if lvlstep <= 1:
+                lvlstep = 1.05
 
         def on_scroll(event):
             nonlocal lvl, cnt
@@ -2732,12 +2734,10 @@ class Pseudo_2D(Spectrum_2D):
             act_ylim = ax.get_ylim()
 
             if event.button == 'up':
-                lvl += lvlstep 
+                lvl *= lvlstep 
             elif event.button == 'down':
-                lvl += -lvlstep
-            if lvl <= 0:
-                lvl = 1e-6
-            elif lvl > 1:
+                lvl /= lvlstep
+            if lvl > 1:
                 lvl = 1
 
             if Neg:
