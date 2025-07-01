@@ -3150,7 +3150,6 @@ def read_vf(filename, n=-1):
                     line = r.split(':', 1)[-1]
                     bas_c = np.array(eval(line.replace(';', ',')))
                     dic_r['bas_c'] = bas_c
-                    print('!!!', bas_c)
                 break
 
         return dic_r

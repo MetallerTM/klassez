@@ -430,7 +430,7 @@ class Spectrum_1D:
         # Update the .procs file
         self.write_procs()
 
-    def cal(self, offset=None, isHz=False, update=True):
+    def cal(self, offset=None, isHz=False, update=True, from_procs=True):
         """
         Calibrates the ppm and frequency scale according to a given value, or interactively.
         Calls processing.calibration
@@ -443,31 +443,49 @@ class Spectrum_1D:
         - update: bool
             Choose if to update the procs dictionary or not
         """
-        # Make shallow copies
-        in_ppm = np.copy(self.ppm)
-        in_S = np.copy(self.r)
-        if offset is None:  # Get the values interactively
-            offppm = processing.calibration(in_ppm, in_S)
-            offhz = misc.ppm2freq(offppm, self.acqus['SFO1'], self.acqus['o1p'])
-        else:               # Calculate the missing one
-            if isHz:    # offppm is missing
-                offhz = offset
-                offppm = misc.freq2ppm(offhz, self.acqus['SFO1'])
-            else:       # offhz is missing
-                offppm = offset
-                offhz = misc.ppm2freq(offppm, self.acqus['SFO1'])
+        if offset is not None:
+            from_procs = False
 
-        # Apply the calibration
-        #   to the scales
-        self.freq += offhz
-        self.ppm += offppm
-        #   to the offset, so that it stays in the center of the SW
-        self.acqus['o1p'] += offppm
-        self.acqus['o1'] += offhz
-        if update:  # update the procs dictionary
-            self.procs['cal'] += offppm
-        # Update the .procs file
-        self.write_procs()
+        if from_procs and 'cal' in self.procs.keys():
+            offppm = self.procs['cal']
+            offhz = misc.ppm2freq(offppm, self.acqus['SFO1'])
+            # Apply the calibration
+            #   to the scales
+            self.freq += offhz
+            self.ppm += offppm
+            #   to the offset, so that it stays in the center of the SW
+            self.acqus['o1p'] += offppm
+            self.acqus['o1'] += offhz
+        else:
+            # Make shallow copies
+            in_ppm = np.copy(self.ppm)
+            in_S = np.copy(self.r)
+            if offset is None:  # Get the values interactively
+                offppm = processing.calibration(in_ppm, in_S)
+                offhz = misc.ppm2freq(offppm, self.acqus['SFO1'])
+            else:               # Calculate the missing one
+                if isHz:    # offppm is missing
+                    offhz = offset
+                    offppm = misc.freq2ppm(offhz, self.acqus['SFO1'])
+                else:       # offhz is missing
+                    offppm = offset
+                    offhz = misc.ppm2freq(offppm, self.acqus['SFO1'])
+
+            # Apply the calibration
+            #   to the scales
+            self.freq += offhz
+            self.ppm += offppm
+            #   to the offset, so that it stays in the center of the SW
+            self.acqus['o1p'] += offppm
+            self.acqus['o1'] += offhz
+            if update:  # update the procs dictionary
+                self.procs['cal'] += offppm
+            # Update the .procs file
+            self.write_procs()
+
+        # Update the F attribute
+        self.F.S = self.S
+        self.F.ppm_scale = self.ppm
 
     def write_acqus(self, other_dir=None):
         """
@@ -1549,7 +1567,7 @@ class Spectrum_2D:
         else:
             self.rr, self.ir, self.ri, self.ii = processing.unpack_2D(self.S)
 
-    def cal(self, offset=[None,None], isHz=False, update=True):
+    def cal(self, offset=[None,None], isHz=False, update=True, from_procs=True):
         """
         Calibration of the ppm and frequency scales according to a given value, or interactively. In this latter case, a reference peak must be chosen.
         Calls processing.calibration
@@ -1568,53 +1586,72 @@ class Spectrum_2D:
             offhz = misc.ppm2freq(offppm, SFO1)
             return offppm, offhz
 
-        # Get the missing entries
-        if offset[0] is None or offset[1] is None:  # Select the reference traces
-            coord = misc.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
-            ix, iy = coord[0][0], coord[0][1]   # Position of the first crosshair
-            # F2 reference spectrum
-            X = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
-            # F1 reference spectrum
-            Y = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, ix, column=True)
+        if not(offset[0] is None and offset[1] is None): 
+            from_procs = False
 
-        if offset[1] is None:   # Get it
-            ppm_f2 = np.copy(self.ppm_f2)
-            offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO2'])
-        else:   # Calculate offh2 from offp2 or viceversa
-            if isHz:    # offp2 is missing
-                offh2 = offset[1]
-                offp2 = misc.freq2ppm(offh2, self.acqus['SFO2']) 
-            else:       # offh2 is missing
-                offp2 = offset[1]
-                offh2 = misc.ppm2freq(offp2, self.acqus['SFO2']) 
-            
-        if offset[0] is None:   # Get it
-            ppm_f1 = np.copy(self.ppm_f1)
-            offp1, offh1 = _calibrate(ppm_f1, Y, self.acqus['SFO1'])
-        else:   # Calculate offh1 from offp1 or viceversa
-            if isHz:    # offp1 is missing
-                offh1 = offset[0]
-                offp1 = misc.freq2ppm(offh1, self.acqus['SFO1']) 
-            else:       # offh1 is missing
-                offp1 = offset[0]
-                offh1 = misc.ppm2freq(offp1, self.acqus['SFO1']) 
+        if from_procs and 'cal_1' in self.procs.keys() and 'cal_2' in self.procs.keys():
+            offp2 = self.procs['cal_2']
+            offh2 = misc.ppm2freq(offp2, self.acqus['SFO2'])
+            offp1 = self.procs['cal_1']
+            offh1 = misc.ppm2freq(offp1, self.acqus['SFO1'])
+            # Apply the calibration
+            self.freq_f2 += offh2
+            self.ppm_f2 += offp2
+            self.freq_f1 += offh1
+            self.ppm_f1 += offp1
+            # Move the offsets to the center of the SW
+            self.acqus['o1p'] += offp1
+            self.acqus['o1'] += offh1
+            self.acqus['o2p'] += offp2
+            self.acqus['o2'] += offh2
+        else:
+            # Get the missing entries
+            if offset[0] is None or offset[1] is None:  # Select the reference traces
+                coord = misc.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
+                ix, iy = coord[0][0], coord[0][1]   # Position of the first crosshair
+                # F2 reference spectrum
+                X = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
+                # F1 reference spectrum
+                Y = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, ix, column=True)
 
-        # Apply the calibration
-        self.freq_f2 += offh2
-        self.ppm_f2 += offp2
-        self.freq_f1 += offh1
-        self.ppm_f1 += offp1
-        # Move the offsets to the center of the SW
-        self.acqus['o1p'] += offp1
-        self.acqus['o1'] += offh1
-        self.acqus['o2p'] += offp2
-        self.acqus['o2'] += offh2
-        # Update the procs dictionary
-        if update:  
-            self.procs['cal_1'] += offp1
-            self.procs['cal_2'] += offp2
-        # Update the .procs file
-        self.write_procs()
+            if offset[1] is None:   # Get it
+                ppm_f2 = np.copy(self.ppm_f2)
+                offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO2'])
+            else:   # Calculate offh2 from offp2 or viceversa
+                if isHz:    # offp2 is missing
+                    offh2 = offset[1]
+                    offp2 = misc.freq2ppm(offh2, self.acqus['SFO2']) 
+                else:       # offh2 is missing
+                    offp2 = offset[1]
+                    offh2 = misc.ppm2freq(offp2, self.acqus['SFO2']) 
+                
+            if offset[0] is None:   # Get it
+                ppm_f1 = np.copy(self.ppm_f1)
+                offp1, offh1 = _calibrate(ppm_f1, Y, self.acqus['SFO1'])
+            else:   # Calculate offh1 from offp1 or viceversa
+                if isHz:    # offp1 is missing
+                    offh1 = offset[0]
+                    offp1 = misc.freq2ppm(offh1, self.acqus['SFO1']) 
+                else:       # offh1 is missing
+                    offp1 = offset[0]
+                    offh1 = misc.ppm2freq(offp1, self.acqus['SFO1']) 
+
+            # Apply the calibration
+            self.freq_f2 += offh2
+            self.ppm_f2 += offp2
+            self.freq_f1 += offh1
+            self.ppm_f1 += offp1
+            # Move the offsets to the center of the SW
+            self.acqus['o1p'] += offp1
+            self.acqus['o1'] += offh1
+            self.acqus['o2p'] += offp2
+            self.acqus['o2'] += offh2
+            # Update the procs dictionary
+            if update:  
+                self.procs['cal_1'] += offp1
+                self.procs['cal_2'] += offp2
+            # Update the .procs file
+            self.write_procs()
 
 
     def calf2(self, value=None, isHz=False):
@@ -2465,7 +2502,7 @@ class Pseudo_2D(Spectrum_2D):
         # Update the TD1 key
         self.acqus['TD1'] = self.fid.shape[0]
 
-    def cal(self, offset=None, isHz=False, update=True):
+    def cal(self, offset=None, isHz=False, update=True, from_procs=True):
         """
         Calibration of the ppm and frequency scales according to a given value, or interactively. In this latter case, a reference peak must be chosen.
         Calls processing.calibration
@@ -2478,42 +2515,57 @@ class Pseudo_2D(Spectrum_2D):
         - update: bool
             Choose if to update the procs dictionary or not
         """
-        def _calibrate(ppm, trace, SFO1, o1p):
+        def _calibrate(ppm, trace, SFO1):
             """ Main function that calls the real calibration """
             offppm = processing.calibration(ppm, trace)
-            offhz = misc.ppm2freq(offppm, SFO1, o1p)
+            offhz = misc.ppm2freq(offppm, SFO1)
             return offppm, offhz
 
-        # Get the missing entries
-        if offset is None: # Select the reference traces
-            coord = misc.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
-            ix, iy = coord[0][0], coord[0][1]   # Position of the first crosshair
-            # F2 reference spectrum
-            X = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
-            # F1 reference spectrum
-            Y = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, ix, column=True)
+        if offset is not None:
+            from_procs = False
 
-            ppm_f2 = np.copy(self.ppm_f2)
-            offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO1'], self.acqus['o1p'])
-        else:   # Calculate offh2 from offp2 or viceversa
-            if isHz:    # offp2 is missing
-                offh2 = offset
-                offp2 = misc.freq2ppm(offh2, self.acqus['SFO1'], self.acqus['o1p']) 
-            else:       # offh2 is missing
-                offp2 = offset
-                offh2 = misc.ppm2freq(offp2, self.acqus['SFO1'], self.acqus['o1p']) 
-            
-        # Apply the calibration
-        self.freq_f2 += offh2
-        self.ppm_f2 += offp2
-        # Move the offsets to the center of the SW
-        self.acqus['o1p'] += offp2
-        self.acqus['o1'] += offh2
-        # Update the procs dictionary
-        if update:  
-            self.procs['cal'] += offp2
-        # Update the .procs file
-        self.write_procs()
+        if from_procs and 'cal' in self.procs.keys():
+            offp2 = self.procs['cal']
+            offh2 = misc.ppm2freq(offp2, self.acqus['SFO1']) 
+                
+            # Apply the calibration
+            self.freq_f2 += offh2
+            self.ppm_f2 += offp2
+            # Move the offsets to the center of the SW
+            self.acqus['o1p'] += offp2
+            self.acqus['o1'] += offh2
+
+        else:
+            # Get the missing entries
+            if offset is None: # Select the reference traces
+                coord = misc.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
+                ix, iy = coord[0][0], coord[0][1]   # Position of the first crosshair
+                # F2 reference spectrum
+                X = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
+                # F1 reference spectrum
+                Y = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, ix, column=True)
+
+                ppm_f2 = np.copy(self.ppm_f2)
+                offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO1'])
+            else:   # Calculate offh2 from offp2 or viceversa
+                if isHz:    # offp2 is missing
+                    offh2 = offset
+                    offp2 = misc.freq2ppm(offh2, self.acqus['SFO1']) 
+                else:       # offh2 is missing
+                    offp2 = offset
+                    offh2 = misc.ppm2freq(offp2, self.acqus['SFO1']) 
+                
+            # Apply the calibration
+            self.freq_f2 += offh2
+            self.ppm_f2 += offp2
+            # Move the offsets to the center of the SW
+            self.acqus['o1p'] += offp2
+            self.acqus['o1'] += offh2
+            # Update the procs dictionary
+            if update:  
+                self.procs['cal'] += offp2
+            # Update the .procs file
+            self.write_procs()
 
         # Update F
         self.F.ppm_scale = self.ppm_f2
