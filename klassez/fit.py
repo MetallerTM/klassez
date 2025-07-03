@@ -33,7 +33,7 @@ Functions for performing fits.
 
 s_colors=[ 'tab:cyan', 'tab:red', 'tab:green', 'tab:purple', 'tab:pink', 'tab:gray', 'tab:brown', 'tab:olive', 'salmon', 'indigo' ]
 
-def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=False, fitG=True, barcolor='tab:blue', fontsize=10, name=None, ext='tiff', dpi=600):
+def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=False, fitG=True, barcolor='tab:blue', fontsize=10, name=None, ext='png', dpi=600):
     """
     Computes an histogram of 'data' and tries to fit it with a gaussian lineshape.
     The parameters of the gaussian function are calculated analytically directly from 'data' using 'scipy.stats.norm'
@@ -480,7 +480,7 @@ def make_signal(t, u, s, k, b, phi, A, SFO1=701.125, o1p=0, N=None):
     return sgn
 
 
-def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, show_basl=False, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='tiff', dpi=600, dim=None):
+def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, show_basl=False, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='png', dpi=600, dim=None):
     """
     Plots either the initial guess or the result of the fit, and saves all the figures.
     The figure <filename>_full will show the whole model and the whole spectrum. 
@@ -3761,7 +3761,7 @@ class Voigt_Fit:
         return lmfit_results
 
 
-    def plot(self, what='result', show_total=True, show_res=False, res_offset=0, show_basl=False, labels=None, filename=None, ext='tiff', dpi=600, dim=None):
+    def plot(self, what='result', show_total=True, show_res=False, res_offset=0, show_basl=False, labels=None, filename=None, ext='png', dpi=600, dim=None):
         """
         Plots either the initial guess or the result of the fit, and saves all the figures. Calls fit.plot_fit.
         The figure <filename>_full will show the whole model and the whole spectrum. 
@@ -3865,7 +3865,7 @@ class Voigt_Fit:
         total = np.sum(signals, axis=0)
         return signals, total, limits_list, whole_basl
 
-    def res_histogram(self, what='result', nbins=500, density=True, f_lims=None, xlabel='Residuals', x_symm=True, barcolor='tab:green', fontsize=20, filename=None, ext='tiff', dpi=300):
+    def res_histogram(self, what='result', nbins=500, density=True, f_lims=None, xlabel='Residuals', x_symm=True, barcolor='tab:green', fontsize=20, filename=None, ext='png', dpi=300):
         """
         Computes the histogram of the residuals and saves it.
         Employs fit.histogram to make the figure.
@@ -4989,7 +4989,7 @@ class Voigt_Fit_2D:
             misc.set_fontsizes(ax, 14)
             plt.show()
         else:
-            plt.savefig(f'{name}.tiff', dpi=dpi)
+            plt.savefig(f'{name}.png', dpi=dpi)
         plt.close()
 
     @staticmethod
@@ -5066,7 +5066,7 @@ class Voigt_Fit_2D:
             if len(self.label_list) < len(self.coord):
                 raise ValueError('The number of provided labels is not enough for the peaks.')
 
-    def draw_coord(self, filename=None, labelsize=8, ext='tiff', dpi=600, **kwargs):
+    def draw_coord(self, filename=None, labelsize=8, ext='png', dpi=600, **kwargs):
         """
         Makes a figure with the experimental dataset and the peak-picked signals as crosshairs.
         --------
@@ -6502,7 +6502,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     plt.close()
 
 
-def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='tiff', dpi=600):
+def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='png', dpi=600):
     """
     Plots either the initial guess or the result of the fit, and saves all the figures. 
     A new folder named <filename>_fit will be created.
@@ -7086,7 +7086,7 @@ class Voigt_Fit_P2D:
         self.result = fit.read_vf_P2D(f'{filename}.fvf')
 
 
-    def plot(self, what='result', show_total=True, show_res=False, res_offset=0, labels=None, filename=None, ext='tiff', dpi=600):
+    def plot(self, what='result', show_total=True, show_res=False, res_offset=0, labels=None, filename=None, ext='png', dpi=600):
         """
         Plots either the initial guess or the result of the fit, and saves all the figures. Calls fit.plot_fit_P2D.
         The figures <filename>_full will show the whole model and the whole spectrum. 
@@ -7183,7 +7183,7 @@ class Voigt_Fit_P2D:
         return signals, total, limits_list
 
 
-    def res_histogram(self, what='result', nbins=500, density=True, f_lims=None, xlabel='Residuals', x_symm=True, barcolor='tab:green', fontsize=20, filename=None, ext='tiff', dpi=300):
+    def res_histogram(self, what='result', nbins=500, density=True, f_lims=None, xlabel='Residuals', x_symm=True, barcolor='tab:green', fontsize=20, filename=None, ext='png', dpi=300):
         """
         Computes the histogram of the residuals and saves it in the same folder of the fit figures.
         Employs fit.histogram to make the figure.
