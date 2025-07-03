@@ -4,6 +4,8 @@
 Approx. value 2.355 converted in 2 * (2 ln 2)^0.5
 03/07/2025
 Changed way to compute the contours in the 2D interactive plots
+The function *cal* of the *Spectra* classes must now be called explicitely. New argument **from_procs**
+Bug fixes
 
 ## New functions:
 07/04/2025
@@ -15,6 +17,7 @@ Changed way to compute the contours in the 2D interactive plots
 ## Modified functions:
 07/04/2025
 - *fit.plot_fit*: new argument **show_basl**
+- *fit.plot_fit*: new argument **dim**
 - *fit.voigt_fit_indep*: new argument **basl_fit**, returns **lmfit_results**
 - *fit.make_iguess*: now allows to compute the baseline as well
 - *fit.write_vf*: also writes the baseline coefficients
@@ -23,6 +26,10 @@ Changed way to compute the contours in the 2D interactive plots
 - *fit.Voigt_Fit.plot*: modified to use *fit.plot_fit*
 - *fit.Voigt_Fit.get_fit_lines*: now returns also **whole_basl**
 - *fit.Voigt_Fit.res_hist*: the baseline is accounted for in the residuals computation
+03/07/2025
+- *Spectrum_1D.cal*: new argument **from_procs**
+- *Spectrum_2D.cal*: new argument **from_procs**
+- *Pseudo_2D.cal*: new argument **from_procs**
 
 
 

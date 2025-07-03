@@ -331,8 +331,6 @@ class Spectrum_1D:
 
         # Apply phase correction according to procs
         self.adjph(p0=self.procs['p0'], p1=self.procs['p1'], pv=self.procs['pv'], update=False) # Do not update because otherwise it accumulates the phase
-        # Calibrate
-        self.cal(self.procs['cal'], update=False)
 
         # Initialize the integrals attribute
         self.integrals = {}
@@ -1377,9 +1375,6 @@ class Spectrum_2D:
 
         # Apply phase correction according to procs
         self.adjph(p02=self.procs['p0_2'], p12=self.procs['p1_2'], pv2=self.procs['pv_2'], p01=self.procs['p0_1'], p11=self.procs['p1_1'], pv1=self.procs['pv_1'], update=False)
-
-        # Apply calibration according to procs
-        self.cal([self.procs['cal_1'], self.procs['cal_2']], update=False)
 
 
     def inv_process(self):
@@ -2453,9 +2448,6 @@ class Pseudo_2D(Spectrum_2D):
             # Unpack S
             self.rr = self.S.real
             self.ii = self.S.imag
-
-        # Calibrate the f2 scale. 
-        self.cal(self.procs['cal'], update=False)
 
         self.integrals = {}
         
