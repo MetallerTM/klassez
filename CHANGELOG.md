@@ -2,11 +2,15 @@
 
 07/04/2025
 Approx. value 2.355 converted in 2 * (2 ln 2)^0.5
+03/07/2025
+Changed way to compute the contours in the 2D interactive plots
 
 ## New functions:
 07/04/2025
 - *misc.sum_overlay*
 - *misc.lenslice*
+03/07/2025
+- *fit.Voigt_Fit.to_tragico*
 
 ## Modified functions:
 07/04/2025

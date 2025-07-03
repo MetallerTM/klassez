@@ -2075,7 +2075,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     lim1 = misc.ppmfind(ppm_scale, limits[0])[0]
     lim2 = misc.ppmfind(ppm_scale, limits[1])[0]
     # Calculate the absolute intensity (or something that resembles it)
-    A = np.trapz(S[lim1:lim2], dx=misc.calcres(ppm_scale*SFO1))*2*misc.calcres(acqus['t1'])
+    A = np.trapz(np.abs(S)[lim1:lim2], dx=misc.calcres(ppm_scale*SFO1))*2*misc.calcres(acqus['t1'])
     _A = 1 * A
     # Baseline constant
     B = 10**np.floor(np.log10(A))
@@ -3931,6 +3931,161 @@ class Voigt_Fit:
         residual_arr = exp_trim - total_trim
 
         fit.histogram(residual_arr, nbins=nbins, density=density, f_lims=f_lims, xlabel=xlabel, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize, name=filename, ext=ext, dpi=dpi)
+
+
+    def to_tragico(self, which='iguess', filename=None):
+        """
+        Writes input 1 and input 2 for a TrAGICo run, on the basis of either the initial guess or the results of a fit.
+        The files will be named '<filename>_inp1' and '<filename>_inp2', respectively.
+        -----------
+        Parameters:
+        - which: str
+            'iguess' or 'result'
+        - filename: str
+            Name of the file that will be saved. If None, the file will be saved in the spectrum directory
+        """
+        def write_inp1(reg, filename):
+            """
+            Write the input 1 file for a tragico run, on the basis of 'regions'.
+            The file name will be <filename>_inp1.
+            -----------
+            Parameters:
+            - reg: list of dict
+                self.i_guess or self.result
+            - filename: str
+                Name of the file that will be saved
+            """
+
+            # Shallow copy to prevent overwriting of the original "regions"
+            regions = deepcopy(reg)
+
+            # Add "inp1" to the filename
+            fname = f'{filename}_inp1'
+            # Open the file and write the header
+            f = open(fname, 'w', buffering=1)
+            header = 'name\tppm1\tppm2\tv\tmult\n'
+            f.write(header)
+
+            # Loop on the regions
+            for region in regions:
+                # Get the region limits
+                ppm1, ppm2 = region.pop('limits')
+                # Remove intensity and baseline coefficients, in inp1 they are not needed
+                region.pop('I')
+                region.pop('bas_c')
+                
+                # Sort the indices of the peaks
+                idxs = sorted(list(region.keys()))
+
+                # Loop on the peaks
+                for idx in idxs:
+                    # Get the chemical shift and the group identifier
+                    v = region[idx]['u']
+                    mult = region[idx]['group']
+                    # Write the line in the input file
+                    line = f'{"true"}\t{ppm1:.5f}\t{ppm2:.5f}\t{v:.5f}\t{mult}\n'
+                    f.write(line)
+            f.close()
+
+            print(f'Input 1 for TrAGICo written in {fname}.')
+
+        def write_inp2(reg, ppm, spectrum, filename):
+            """
+            Write the input 1 file for a tragico run, on the basis of 'regions'.
+            The file name will be <filename>_inp1.
+            -----------
+            Parameters:
+            - reg: list of dict
+                self.i_guess or self.result
+            - filename: str
+                Name of the file that will be saved
+            """
+            def xbaslfact(ppm, lims, bas_c):
+                """ 
+                Conversion of the klassez baseline to the tragico baseline
+                """
+                # Make a shallow copy of the ppm scale
+                x = deepcopy(ppm)
+                # Cut it in the interested region
+                ppm_trimmed, _ = misc.trim_data(x, x, lims)
+                # Tragico scale goes from w to 0
+                w = max(ppm_trimmed) - min(ppm_trimmed)
+                # In tragico, the baseline is computed on a scale that goes from 0 to w, and it is inverted
+                # with respect to the one used by klassez. To make the conversion, one must consider that 
+                #   x_k = 1 - (x_t / w)
+                # and the two polynomia should be equal. Solving this gives the given solution for new_coeff
+                new_coeff = np.array(
+                        [
+                            np.sum(bas_c),
+                            - np.sum([(j+1)*bas_c[j+1] for j in range(4)]) / w,
+                            (bas_c[2] + 3 * bas_c[3] + 6 * bas_c[4] ) / w**2,
+                            - ( bas_c[3] + 4 * bas_c[4] ) / w**3,
+                            bas_c[4] / w**4,
+                        ])
+                return new_coeff
+
+            # Conversion factor used by tragico
+            maxr = np.max(spectrum)
+
+            # Make a shallow copy to prevent overwriting of the original "regions"
+            regions = deepcopy(reg)
+
+            # Add "inp2" to the filename
+            fname = f'{filename}_inp2'
+            # Open the file and write the header
+            f = open(fname, 'w', buffering=1)
+            header = 'i\tppm1\tppm2\tk\tfwhm\tphi\txg\tA\tB\tC\tD\tE\t\n'
+            f.write(header)
+
+            # Loop inside the regions
+            for region in regions:
+                # Get the region limits
+                ppm1, ppm2 = region.pop('limits')
+                # Get the intensity factor
+                I = region.pop('I')
+                # Get the baseline coefficients and return them to their absolute value
+                bas_c = region.pop('bas_c') * I 
+                # Convert the baseline coefficients to tragico
+                bas_c = xbaslfact(ppm, (ppm1, ppm2), bas_c) / maxr
+                
+                # At this point, only the peaks indices are left in region
+                # Sort the indices of the peaks
+                idxs = sorted(list(region.keys()))
+
+                # Loop on the peaks
+                for idx in idxs:
+                    # Convert the intensity
+                    k = region[idx]['k'] * I / maxr
+                    # The fwhm in tragico is in ppm
+                    fwhm = misc.freq2ppm(region[idx]['fwhm'], self.SFO1)
+                    # The phase in tragico is in radians
+                    phi = region[idx]['phi'] * np.pi / 180
+                    # Get the fraction of gaussianity
+                    xg = region[idx]['b']
+                    
+                    # Compute the line to write and write it
+                    line = f'{idx}\t{ppm1:.1f}\t{ppm2:.1f}\t' + \
+                            '\t'.join([f'{w:.5e}' for w in [k, fwhm, phi, xg, *bas_c]]) + '\n'
+                    f.write(line)
+            f.close()
+
+            print(f'Input 2 for TrAGICo written in {fname}.')
+
+
+        # Discriminate who do you want to save
+        if which == 'result':
+            regions = deepcopy(self.result)
+        elif which == 'iguess':
+            regions = deepcopy(self.i_guess)
+        else:
+            raise NameError('which must be "iguess" or "result"')
+
+        if filename is None:
+            filename = deepcopy(self.filename)
+        
+        write_inp1(regions, filename)
+        write_inp2(regions, self.ppm_scale, self.S, filename)
+        print()
 
 
 def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
