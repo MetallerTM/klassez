@@ -1,3 +1,7 @@
+# Version 0.4a.10
+
+
+
 # Version 0.4a.9
 
 Changed way to compute the contours in the 2D interactive plots, in order to avoid the freezes when going close to the noise level.
