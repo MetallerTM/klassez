@@ -5542,12 +5542,13 @@ class CostFunc:
         return x
 
 
-def lsp(y, x, n=5):
+def lsp(y, x, n=5, w=None):
     """
     Linear-System Polynomion
     Make a polynomial fit on the experimental data y by solving the linear system
         y = T c
     where T is the Vandermonde matrix of the x-scale and c is the set of coefficients that minimize the problem in the least-squares sense.
+    It is also possible to make it weighted by using an array of weights w.
     ----------
     Parameters:
     - y: 1darray
@@ -5556,6 +5557,8 @@ def lsp(y, x, n=5):
         Independent variable (better if normalized)
     - n: int
         Order of the polynomion + 1, i.e. number of coefficients
+    - w: 1darray
+        Array of weights for the data. If None, the nonweighted approach is used
     ----------
     Returns:
     - c: 1darray
@@ -5565,11 +5568,19 @@ def lsp(y, x, n=5):
     T = np.array(
             [x**k for k in range(n)]
             ).T
-    # Pseudo-invert it
-    Tpinv = np.linalg.pinv(T)
+    if w is None:
+        # Pseudo-invert it
+        Tpinv = np.linalg.pinv(T)
+    else:
+        #Equivalent implementation to Tw = np.diag(w) @ T, but faster
+        Tw = T * w[:, None]
+        Tpinv = np.linalg.pinv(Tw)
+
     # Solve the system
     c = Tpinv @ y
     return c
+
+
 
 
 

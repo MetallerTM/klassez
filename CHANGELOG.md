@@ -1,5 +1,12 @@
 # Version 0.4a.10
 
+## New functions:
+15/07/2025
+- *processing.abc*
+- *processing.abs*
+
+## Modified functions:
+- *fit.lsp*: introduced option for weighted fit
 
 
 # Version 0.4a.9

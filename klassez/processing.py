@@ -7,6 +7,7 @@ from numpy import linalg
 from scipy import linalg as slinalg
 from scipy import stats
 from scipy.spatial import ConvexHull
+import scipy
 import random
 import matplotlib
 import matplotlib.pyplot as plt
@@ -18,6 +19,7 @@ import nmrglue as ng
 import lmfit as l
 from datetime import datetime
 import warnings
+from copy import deepcopy
 
 from . import fit, misc, sim, figures, processing
 from .config import CM, COLORS, cron
@@ -5025,4 +5027,126 @@ def splitcomb(data, taq, J=53.8):
     datap = data_sum + data_dif
 
     return datap
+
+
+def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':10}):
+    """
+    Automatic computation of a baseline for a spectrum using a thresholding-based method 
+    for the detection of the baseline-only region, followed by a weighted linear least squares
+    optimization with a polynomion of degree n-1.
+    The weights are computed on the absolute value of the first derivative of the spectrum.
+    Set qfil to True if there is a very intense solvent peak that would hamper
+    the computation of the threshold.
+    ------------------
+    Parameters:
+    - ppm: 1darray
+        PPM scale of the spectrum
+    - data: 1darray
+        The spectrum to baseline-correct
+    - n: int
+        Number of coefficients of the polynomial baseline
+    - lims: tuple or None
+        Limits for the region on which to compute the baseline, in ppm
+    - alpha: float
+        The threshold will be set as thr = alpha * np.std(np.gradient(data))
+    - qfil: bool
+        Choose whether to apply a filter on the solvent region (True) or not (False)
+    - qfilp: dict
+        Parameters to be used to compute the filter if qfil is True. Keys:
+        'u' = center of the filter in ppm
+        's' = width of the filter in Hz
+    ------------------
+    Returns:
+    - baseline: 1darray
+        Computed baseline
+    """
+
+    def compute_weights(ppm, data, qfil=False, alpha=2.75):
+        """ Computes the weights to be used for the weighted least squares optimization """
+        if qfil:    # Apply according to qfilp
+            d = processing.qfil(ppm, data, qfilp['u'], qfilp['s'])
+        else:       # Do nothing
+            d = deepcopy(data)
+        # Second derivative of the data
+        y = np.abs(np.gradient(data))
+        # Second derivative of the qfilled data, if the case
+        d2 = np.abs(np.gradient(d))
+        # Use d2 to compute the threshold
+        thr = alpha * misc.noise_std(d2)
+
+        # Find peaks and widths on the second derivative
+        peaks, *_ = scipy.signal.find_peaks(y, height=thr, threshold=None, distance=None, prominence=None, width=None, wlen=None, rel_height=0.5, plateau_size=None)
+        widths, *_ = scipy.signal.peak_widths(y, peaks, rel_height=1, prominence_data=None, wlen=None)
+
+        # Initialize w all equal to 1
+        w = np.ones_like(x, dtype=int)
+
+        # Convert peaks positions and widths in x coordinated
+        x_peaks = x[peaks]
+        widths *= misc.calcres(x)
+        # Regions will be (lefts, rights)
+        lefts = x_peaks - widths / 2
+        rights = x_peaks + widths / 2
+
+        # Inside the intervals, weights are zero
+        for l, r in zip(lefts, rights):
+            # Condition: l < x < r
+            mask = (l <= x) & (x <= r)
+            w[mask] = 0
+        return w
+
+    # Scale goes from 0 to 1
+    x = np.arange(data.shape[-1]) / data.shape[-1]
+    # Compute the weights
+    w = compute_weights(ppm, data, qfil, alpha)
+
+    # Correct the weights if limits are given
+    if lims is not None:
+        # Left part: 0 when more left than the lower limit
+        wleft = (ppm > min(lims)).astype(int)
+        # Right part: 0 when more right than the upper limit
+        wright = (ppm < max(lims)).astype(int)
+        # Correct the weights
+        w *= wleft * wright
+
+    # Compute the coefficients of the polynomion
+    c = fit.lsp(data, x, n=n, w=w)
+    # Compute the baseline
+    baseline = misc.polyn(x, c)
+    return baseline
+
+def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':10}):
+    """
+    Computes the baseline correction on data using processing.abc, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using processing.hilbert.
+    ------------------
+    Parameters:
+    - ppm: 1darray
+        PPM scale of the spectrum
+    - data: 1darray
+        The spectrum to baseline-correct
+    - n: int
+        Number of coefficients of the polynomial baseline
+    - lims: tuple or None
+        Limits for the region on which to compute the baseline, in ppm
+    - alpha: float
+        The threshold will be set as thr = alpha * np.std(np.gradient(data))
+    - qfil: bool
+        Choose whether to apply a filter on the solvent region (True) or not (False)
+    - qfilp: dict
+        Parameters to be used to compute the filter if qfil is True. Keys:
+        'u' = center of the filter in ppm
+        's' = width of the filter in Hz
+    ------------------
+    Returns:
+    - S: 1darray
+        Baseline-subtracted spectrum
+    """
+    # Compute the baseline
+    b = processing.abc(ppm, data, n=n, lims=lims, qfil=qfil, qfilp=qfilp)
+    # Subtract it
+    datab = data - b
+    # Compute the missing imaginary part
+    S = processing.hilbert(datab)
+    return S
 
