@@ -1430,7 +1430,7 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     nsp = len(S)        # Number of SPectra
 
     cmaps = []
-    while len(cmaps) < nsp:
+    while len(cmaps) < 2*nsp:
         cmaps.extend(CM_2D.keys())
 
     # Checks on scales dimensions
@@ -1517,12 +1517,12 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
         # Redraw the contours
         cnt = [figures.ax2D(ax, ppm_f2[k], ppm_f1[k], S[k], 
             xlims=(max(ppm_f2[k]), min(ppm_f2[k])), ylims=(max(ppm_f1[k]), min(ppm_f1[k])), 
-            cmap=cmaps[k], c_fac=1.4, lvl=lvl[k], lw=0.5, X_label=X_label, Y_label=Y_label)
+            cmap=cmaps[2*k], c_fac=1.4, lvl=lvl[k], lw=0.5, X_label=X_label, Y_label=Y_label)
                 for k in range(nsp)]
         if Neg:
             Ncnt = [figures.ax2D(ax, ppm_f2[k], ppm_f1[k], -S[k], 
                 xlims=(max(ppm_f2[k]), min(ppm_f2[k])), ylims=(max(ppm_f1[k]), min(ppm_f1[k])), 
-                cmap=cmaps[k], c_fac=1.4, lvl=lvl[k], lw=0.5, X_label=X_label, Y_label=Y_label)
+                cmap=cmaps[2*k+1], c_fac=1.4, lvl=lvl[k], lw=0.5, X_label=X_label, Y_label=Y_label)
                 for k in range(nsp)]
         else: 
             Ncnt = None
@@ -1556,10 +1556,10 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     # ----------------------------------------------------------------------------------
 
     # Draw the contours
-    cnt = [figures.ax2D(ax, ppm_f2[k], ppm_f1[k], S[k], xlims=(max(ppm_f2[k]), min(ppm_f2[k])), ylims=(max(ppm_f1[k]), min(ppm_f1[k])), cmap=cmaps[k], c_fac=1.4, lvl=lvl[k], lw=0.5, X_label=X_label, Y_label=Y_label)
+    cnt = [figures.ax2D(ax, ppm_f2[k], ppm_f1[k], S[k], xlims=(max(ppm_f2[k]), min(ppm_f2[k])), ylims=(max(ppm_f1[k]), min(ppm_f1[k])), cmap=cmaps[2*k], c_fac=1.4, lvl=lvl[k], lw=0.5, X_label=X_label, Y_label=Y_label)
             for k in range(nsp)]
     if Neg:
-        Ncnt = [figures.ax2D(ax, ppm_f2[k], ppm_f1[k], -S[k], xlims=(max(ppm_f2[k]), min(ppm_f2[k])), ylims=(max(ppm_f1[k]), min(ppm_f1[k])), cmap=cmaps[k], c_fac=1.4, lvl=lvl[k], lw=0.5, X_label=X_label, Y_label=Y_label)
+        Ncnt = [figures.ax2D(ax, ppm_f2[k], ppm_f1[k], -S[k], xlims=(max(ppm_f2[k]), min(ppm_f2[k])), ylims=(max(ppm_f1[k]), min(ppm_f1[k])), cmap=cmaps[2*k+1], c_fac=1.4, lvl=lvl[k], lw=0.5, X_label=X_label, Y_label=Y_label)
             for k in range(nsp)]
     else: 
         Ncnt = None
@@ -1581,7 +1581,7 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
         for i in range(len(labels)):
             X = Ncnt[i].get_cmap()
             colorX = misc.cmap2list(X)[0] 
-            patchX = mpatches.Patch(color=colorX, label=f'$-${labels[i]}')
+            patchX = mlines.Line2D([], [], color=colorX, label=f'$-${labels[i]}')
             # We do not add these colors to hColors because it is useless
             handles.append(patchX)
 

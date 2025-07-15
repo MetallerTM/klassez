@@ -4,8 +4,10 @@
 15/07/2025
 - *processing.abc*
 - *processing.abs*
+- *processing.hilbert2*
 
 ## Modified functions:
+15/07/2025
 - *fit.lsp*: introduced option for weighted fit
 
 

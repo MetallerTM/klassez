@@ -4932,6 +4932,41 @@ def hilbert(f):
     warnings.simplefilter("default")
     return f_cplx
 
+
+def hilbert2(data):
+    """
+    Retrieve the imaginary parts of a hypercomplex dataset, when you only have the rr part.
+    RR = Re(Ht{rr})
+    IR = Im(Ht{rr})
+    RI = - Im(Ht{rr.T}.T)
+    II = Im(Ht{ri})
+    --------------
+    Parameters:
+    - data: 2darray
+        rr part
+    --------------
+    Returns:
+    - rr: 2darray
+        Real part in f2, real part in f1
+    - ir: 2darray
+        Imaginary part in f2, real part in f1
+    - ri: 2darray
+        Real part in f2, imaginary part in f1
+    - ii: 2darray
+        Imaginary part in f2, imaginary part in f1
+    """
+    # ir: Ht on F2
+    S_rr_ir = processing.hilbert(data)
+    rr = S_rr_ir.real
+    ir = S_rr_ir.imag
+    # ri: Ht on F1. The - is because of NMR conventions
+    ri = - processing.hilbert(data.T).imag.T 
+    # ii: Ht on both F2 and F1
+    ii = processing.hilbert(ri).imag
+
+    return rr, ir, ri, ii
+
+
 def convolve(in1, in2):
     """
     Perform the convolution of the two array by multiplying their inverse Fourier transform.
