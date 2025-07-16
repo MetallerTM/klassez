@@ -677,23 +677,19 @@ def get_trace(data, ppm_f2, ppm_f1, a, b=None, column=True):
     - y :1darray
         Computed projection
     """
-    if not b:
+    if b is None:
         b = a
 
     if column:
-        A = int(misc.ppmfind(ppm_f2, a)[0])
-        B = int(misc.ppmfind(ppm_f2, b)[0])
-        if A==B:
-            y = data[:,A]
-        else:
-            y = np.sum(data[:, min(A,B):max(A,B)],axis=1)
+        A = misc.ppmfind(ppm_f2, a)[0]
+        B = misc.ppmfind(ppm_f2, b)[0]+1
+        w = slice(min(A,B), max(A,B))
+        y = np.sum(data[...,w],axis=1)
     else:
-        A = int(misc.ppmfind(ppm_f1, a)[0])
-        B = int(misc.ppmfind(ppm_f1, b)[0])
-        if A==B:
-            y = data[A,:]
-        else:
-            y = np.sum(data[min(A,B):max(A,B), :],axis=0)
+        A = misc.ppmfind(ppm_f1, a)[0]
+        B = misc.ppmfind(ppm_f1, b)[0]
+        w = slice(min(A,B), max(A,B))
+        y = np.sum(data[w,...],axis=0)
     return y
 
 

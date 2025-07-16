@@ -2713,7 +2713,7 @@ def convdta(data, grpdly=0, scaling=1):
     return data_in
 
 
-def calibration(ppmscale, S):
+def calibration(ppmscale, S, ref=None):
     """
     Scroll the ppm scale of spectrum to make calibration.
     The interface offers two guidelines: the red one, labelled 'reference signal' remains fixed, whereas the green one ('calibration value') moves with the ppm scale.
@@ -2724,6 +2724,8 @@ def calibration(ppmscale, S):
         The ppm scale to be calibrated
     - S: 1darray
         The spectrum to calibrate
+    - ref: list of 1darray
+        Reference spectrum to be used for calibration: [ppm scale, spectrum]
     -------
     Returns:
     - offset: float
@@ -2739,8 +2741,6 @@ def calibration(ppmscale, S):
     offset = 0                          # initialize returned value
     calstep = 0.25                      # calibration step 
     
-    radio_flag = 1                          # radiobutton status
-    
     # Initialize guidelines positions
     #   Fixed one
     g_idx = len(ppmscale)//2
@@ -2749,61 +2749,38 @@ def calibration(ppmscale, S):
     d_idx = len(ppmscale)//2
     d_pos = ppmscale[g_idx]
 
+    # Make the figure 
+    fig = plt.figure('Calibration')
+    fig.set_size_inches(15,8)
+    plt.subplots_adjust(left = 0.1, bottom=0.125, right=0.875, top=0.85)
+    ax = fig.add_subplot(1,1,1)
+
     # Boxes and widgets
-    #   Sliders
-    box_left = plt.axes([0.1, 0.15, 0.80, 0.02])
-    left_slider = Slider(box_left, 'Left', 0, len(ppmscale)-1, 0, valstep=1)
-    box_right = plt.axes([0.1, 0.10, 0.80, 0.02])
-    right_slider = Slider(box_right, 'Right', 0, len(ppmscale)-1, len(ppmscale)-1, valstep=1)
-
     #   Buttons
-    box_save = plt.axes([0.905, 0.475, 0.07, 0.08])
+    box_save = plt.axes([0.905, 0.125, 0.09, 0.08])
     button = Button(box_save, 'SAVE\nAND\nEXIT', hovercolor='0.975')
-    box_reset = plt.axes([0.825, 0.475, 0.07, 0.08])
+    box_reset = plt.axes([0.905, 0.825-0.05, 0.09, 0.07])
     reset_button = Button(box_reset, 'RESET', hovercolor='0.975')
-    box_up = plt.axes([0.905, 0.675, 0.07, 0.08])
+    box_up = plt.axes([0.955, 0.545-0.05, 0.04, 0.06])
     up_button = Button(box_up, r'$\uparrow$', hovercolor='0.975')
-    box_down = plt.axes([0.825, 0.675, 0.07, 0.08])
+    box_down = plt.axes([0.905, 0.545-0.05, 0.04, 0.06])
     down_button = Button(box_down, r'$\downarrow$', hovercolor='0.975')
-
-    # RadioButtons
-    box_radio = plt.axes([0.825, 0.25, 0.15, 0.2])
-    radio_labels = ['Reference signal', 'Calibration value']
-    radio = RadioButtons(box_radio, radio_labels, active=0)
-    
-    
-    # Functions connected to the widgets
-    def radio_val(label):
-        # Switch the status of the radiobutton
-        nonlocal radio_flag
-        if label==radio_labels[0]:
-            radio_flag = 1
-        elif label==radio_labels[1]:
-            radio_flag = 0
+    box_overlay = plt.axes([0.905, 0.345-0.05, 0.09, 0.07])
+    overlay_button = Button(box_overlay, 'OVERLAY', hovercolor='0.975')
 
     def increase_step(event):
         # up
         nonlocal calstep
         calstep *= 2
+        stext.set_text(f'{"Step":^9s}\n{calstep:^9.3f}')
+        fig.canvas.draw()
 
     def decrease_step(event):
         # down
         nonlocal calstep
         calstep /= 2
-
-    def update(val):
-        left = left_slider.val
-        right = right_slider.val
-        ppm_in = ppmscale[left], ppmscale[right]
-        if np.abs(ppm_in[0]-ppm_in[1]) > 1:
-            misc.pretty_scale(ax, ppm_in)
-        else:
-            ax.set_xlim(ppm_in)
-
-        S_in = S[min(left,right):max(left,right)]
-        T = np.max(np.array(S_in).real)
-        B = np.min(np.array(S_in).real)
-        ax.set_ylim(B - 0.01*T, T + 0.01*T)
+        stext.set_text(f'{"Step":^9s}\n{calstep:^9.3f}')
+        fig.canvas.draw()
 
     def save(event):
         # Calculate the calibration offset and close figure
@@ -2822,9 +2799,9 @@ def calibration(ppmscale, S):
     def mouse_click(event):
         if event.inaxes != ax:
             return
-        if radio_flag:
+        if event.button == 1:
             move_fixed(event)
-        else:
+        elif event.button == 3:
             move_mobile(event)
             
     def move_fixed(event):
@@ -2835,19 +2812,19 @@ def calibration(ppmscale, S):
             g_pos = x 
             g_idx = misc.ppmfind(ppmscale, g_pos)[0]
             guide.set_xdata((x,))
-        gtext.set_text('Ref: {: 9.3f}'.format(g_pos))
+        gtext.set_text(f'{"Mobile":^9s}\n{g_pos:^9.3f}')
         fig.canvas.draw()
         
     def move_mobile(event):
         # set position of the green bar
         x = event.xdata
         if x is not None:
-            if (event.dblclick and event.button == 1) or event.button == 2:
+            if (event.dblclick and event.button == 3):
                 nonlocal d_pos, d_idx
                 d_pos = x 
                 d_idx = misc.ppmfind(ppmscale, d_pos)[0]
                 dguide.set_xdata((x,))
-            dtext.set_text('Cal: {: 9.3f}'.format(d_pos))
+            dtext.set_text(f'{"Fixed":^9s}\n{d_pos:^9.3f}')
         fig.canvas.draw()
         
     def on_scroll(event):
@@ -2860,42 +2837,57 @@ def calibration(ppmscale, S):
         spect.set_xdata(ppmscale)
         guide.set_xdata((ppmscale[g_idx],))
         dguide.set_xdata((d_pos,))
-        gtext.set_text('Ref: {: 9.3f}'.format(ppmscale[g_idx]))
-        dtext.set_text('Cal: {: 9.3f}'.format(d_pos))
-        update(0)
+        gtext.set_text(f'{"Mobile":^9s}\n{ppmscale[g_idx]:^9.3f}')
+        dtext.set_text(f'{"Fixed":^9s}\n{d_pos:^9.3f}')
+        fig.canvas.draw()
+
+    def overlay(event):
+        # Bring red over green in one go
+        nonlocal ppmscale
+        step2move = d_pos - ppmscale[g_idx]
+        ppmscale += step2move
+        spect.set_xdata(ppmscale)
+        guide.set_xdata((ppmscale[g_idx],))
+        dguide.set_xdata((d_pos,))
+        gtext.set_text(f'{"Mobile":^9s}\n{ppmscale[g_idx]:^9.3f}')
+        dtext.set_text(f'{"Fixed":^9s}\n{d_pos:^9.3f}')
         fig.canvas.draw()
         
-    # Make the figure 
-    fig = plt.figure('Calibration')
-    fig.set_size_inches(15,8)
-    plt.subplots_adjust(left = 0.1, bottom=0.25, right=0.80, top=0.90)
-    ax = fig.add_subplot(1,1,1)
 
-    spect, = ax.plot(ppmscale, S.real, c='tab:blue', lw=0.8)    # plot spectrum
+    if ref is not None:
+        ax.plot(ref[0], ref[1].real/max(ref[1].real)*max(S.real), c='k', lw=0.8, label='Reference')
+    spect, = ax.plot(ppmscale, S.real, c='tab:blue', lw=0.8, label='Spectrum')    # plot spectrum
 
     # Plot the guidelines
     guide = ax.axvline(x=g_pos, lw=0.7, c='tab:red')        # static
     dguide = ax.axvline(x=d_pos, lw=0.7, c='tab:green')     # dynamic
     #   green and red lines position
-    gtext = plt.text(0.925, 0.89, 'Ref: {: 9.3f}'.format(g_pos), ha='right', va='top', fontsize=20, transform=fig.transFigure, c='tab:red')
-    dtext = plt.text(0.925, 0.85, 'Cal: {: 9.3f}'.format(d_pos), ha='right', va='top', fontsize=20, transform=fig.transFigure, c='tab:green')
+    gtext = plt.text(0.950, 0.750, f'{"Mobile":^9s}\n{g_pos:^9.3f}', ha='center', va='top', fontsize=16, transform=fig.transFigure, c='tab:red')
+    dtext = plt.text(0.950, 0.690, f'{"Fixed":^9s}\n{d_pos:^9.3f}', ha='center', va='top', fontsize=16, transform=fig.transFigure, c='tab:green')
+    stext = plt.text(0.950, 0.630, f'{"Step":^9s}\n{calstep:^9.3f}', ha='center', va='top', fontsize=16, transform=fig.transFigure, c='k')
 
     # Make cool figure
     T = np.max(np.array(S).real)
     B = np.min(np.array(S).real)
     ax.set_ylim(B - 0.01*T, T + 0.01*T)
 
-    ax.ticklabel_format(axis='y', style='scientific', scilimits=(-2,2), useMathText=True)
-    misc.pretty_scale(ax, (max(ppmscale), min(ppmscale)))
+    ax.set_xlabel(r'$\delta\,$ /ppm')
+
+    instruction_text = 'Set the red bar with left double click on the reference signal of your spectrum.\nSet the green bar with right double click on where you want the red bar to be after the calibration.\nScroll with the mouse to move the spectrum. Press "overlay" to align the red bar with the green bar in a single go.'
+
+    ax.legend()
+    misc.mathformat(ax)
+    misc.pretty_scale(ax, (max(ppmscale), min(ppmscale)), 'x')
+    misc.pretty_scale(ax, ax.get_ylim(), 'y')
+    misc.set_fontsizes(ax, 20)
+    ax.set_title(instruction_text, fontsize=16)
 
     # Connect widgets to functions
-    left_slider.on_changed(update)
-    right_slider.on_changed(update)
     button.on_clicked(save)  
+    overlay_button.on_clicked(overlay)  
     reset_button.on_clicked(reset)
     up_button.on_clicked(increase_step)
     down_button.on_clicked(decrease_step)
-    radio.on_clicked(radio_val)
     cursor = Cursor(ax, useblit=True, horizOn=False, color='k', linewidth=0.4)
     mouse = fig.canvas.mpl_connect('button_press_event', mouse_click)
     scroll = fig.canvas.mpl_connect('scroll_event', on_scroll)

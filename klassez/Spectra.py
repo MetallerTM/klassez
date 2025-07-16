@@ -428,7 +428,7 @@ class Spectrum_1D:
         # Update the .procs file
         self.write_procs()
 
-    def cal(self, offset=None, isHz=False, update=True, from_procs=True):
+    def cal(self, offset=None, isHz=False, update=True, from_procs=True, *, ref=None):
         """
         Calibrates the ppm and frequency scale according to a given value, or interactively.
         Calls processing.calibration
@@ -440,6 +440,10 @@ class Spectrum_1D:
             True if offset is in frequency units, False if offset is in ppm
         - update: bool
             Choose if to update the procs dictionary or not
+        - from_procs: bool
+            Read the parameters from the procs dictionary
+        - ref: list of 1darray
+            Reference ppm scale and spectrum to be used as reference for calibration [ppm, spectrum]
         """
         if offset is not None:
             from_procs = False
@@ -454,12 +458,13 @@ class Spectrum_1D:
             #   to the offset, so that it stays in the center of the SW
             self.acqus['o1p'] += offppm
             self.acqus['o1'] += offhz
+            print(f'Applied calibration of {offppm:-.3f} ppm ({offhz:-.2f} Hz) as read from the procs dictionary.')
         else:
             # Make shallow copies
             in_ppm = np.copy(self.ppm)
             in_S = np.copy(self.r)
             if offset is None:  # Get the values interactively
-                offppm = processing.calibration(in_ppm, in_S)
+                offppm = processing.calibration(in_ppm, in_S, ref=ref)
                 offhz = misc.ppm2freq(offppm, self.acqus['SFO1'])
             else:               # Calculate the missing one
                 if isHz:    # offppm is missing
@@ -477,6 +482,8 @@ class Spectrum_1D:
             self.acqus['o1p'] += offppm
             self.acqus['o1'] += offhz
             if update:  # update the procs dictionary
+                if 'cal' not in self.procs.keys():
+                    self.procs['cal'] = 0
                 self.procs['cal'] += offppm
             # Update the .procs file
             self.write_procs()
@@ -1589,7 +1596,7 @@ class Spectrum_2D:
         else:
             self.rr, self.ir, self.ri, self.ii = processing.unpack_2D(self.S)
 
-    def cal(self, offset=[None,None], isHz=False, update=True, from_procs=True):
+    def cal(self, offset=[None,None], isHz=False, update=True, from_procs=True, *, ref1=None, ref2=None):
         """
         Calibration of the ppm and frequency scales according to a given value, or interactively. In this latter case, a reference peak must be chosen.
         Calls processing.calibration
@@ -1601,31 +1608,40 @@ class Spectrum_2D:
             True if offset is in frequency units, False if offset is in ppm
         - update: bool
             Choose if to update the procs dictionary or not
+        - from_procs: bool
+            Read the parameters from the procs dictionary
+        - ref1: list of 1darray
+            Reference ppm scale and spectrum to be used as reference for calibration of F1[ppm, spectrum]
+        - ref2: list of 1darray
+            Reference ppm scale and spectrum to be used as reference for calibration of F2[ppm, spectrum]
         """
-        def _calibrate(ppm, trace, SFO1):
+        def _calibrate(ppm, trace, SFO1, ref=None):
             """ Main function that calls the real calibration """
-            offppm = processing.calibration(ppm, trace)
+            offppm = processing.calibration(ppm, trace, ref=ref)
             offhz = misc.ppm2freq(offppm, SFO1)
             return offppm, offhz
 
-        if not(offset[0] is None and offset[1] is None): 
-            from_procs = False
-
-        if from_procs and 'cal_1' in self.procs.keys() and 'cal_2' in self.procs.keys():
-            offp2 = self.procs['cal_2']
-            offh2 = misc.ppm2freq(offp2, self.acqus['SFO2'])
-            offp1 = self.procs['cal_1']
-            offh1 = misc.ppm2freq(offp1, self.acqus['SFO1'])
-            # Apply the calibration
-            self.freq_f2 += offh2
-            self.ppm_f2 += offp2
-            self.freq_f1 += offh1
-            self.ppm_f1 += offp1
-            # Move the offsets to the center of the SW
-            self.acqus['o1p'] += offp1
-            self.acqus['o1'] += offh1
-            self.acqus['o2p'] += offp2
-            self.acqus['o2'] += offh2
+        if from_procs:
+            if 'cal_2' in self.procs.keys():
+                offp2 = self.procs['cal_2']
+                offh2 = misc.ppm2freq(offp2, self.acqus['SFO2'])
+                # Apply the calibration
+                self.freq_f2 += offh2
+                self.ppm_f2 += offp2
+                # Move the offsets to the center of the SW
+                self.acqus['o2p'] += offp2
+                self.acqus['o2'] += offh2
+                print(f'Applied calibration of {offp2:-.3f} ppm ({offh2:-.2f} Hz) on F2 as read from the procs dictionary.')
+            if 'cal_1' in self.procs.keys():
+                offp1 = self.procs['cal_1']
+                offh1 = misc.ppm2freq(offp1, self.acqus['SFO1'])
+                # Apply the calibration
+                self.freq_f1 += offh1
+                self.ppm_f1 += offp1
+                # Move the offsets to the center of the SW
+                self.acqus['o1p'] += offp1
+                self.acqus['o1'] += offh1
+                print(f'Applied calibration of {offp1:-.3f} ppm ({offh1:-.2f} Hz) on F1 as read from the procs dictionary.')
         else:
             # Get the missing entries
             if offset[0] is None or offset[1] is None:  # Select the reference traces
@@ -1638,7 +1654,7 @@ class Spectrum_2D:
 
             if offset[1] is None:   # Get it
                 ppm_f2 = np.copy(self.ppm_f2)
-                offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO2'])
+                offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO2'], ref=ref2)
             else:   # Calculate offh2 from offp2 or viceversa
                 if isHz:    # offp2 is missing
                     offh2 = offset[1]
@@ -1649,7 +1665,7 @@ class Spectrum_2D:
                 
             if offset[0] is None:   # Get it
                 ppm_f1 = np.copy(self.ppm_f1)
-                offp1, offh1 = _calibrate(ppm_f1, Y, self.acqus['SFO1'])
+                offp1, offh1 = _calibrate(ppm_f1, Y, self.acqus['SFO1'], ref=ref1)
             else:   # Calculate offh1 from offp1 or viceversa
                 if isHz:    # offp1 is missing
                     offh1 = offset[0]
@@ -1676,7 +1692,7 @@ class Spectrum_2D:
             self.write_procs()
 
 
-    def calf2(self, value=None, isHz=False):
+    def calf2(self, value=None, isHz=False, update=True, from_procs=True, *, ref=None):
         """
         Calibrates the ppm and frequency scale of the direct dimension according to a given value, or interactively.
         Calls self.cal on F2 only
@@ -1686,11 +1702,17 @@ class Spectrum_2D:
             scale shift value
         - isHz: bool
             True if offset is in frequency units, False if offset is in ppm
+        - update: bool
+            Choose if to update the procs dictionary or not
+        - from_procs: bool
+            Read the parameters from the procs dictionary
+        - ref: list of 1darray
+            Reference ppm scale and spectrum to be used as reference for calibration [ppm, spectrum]
         """
         offset = [0, value]
-        self.cal(offset, isHz)
+        self.cal(offset, isHz, update=update, from_procs=from_procs, ref2=ref)
 
-    def calf1(self, value=None, isHz=False):
+    def calf1(self, value=None, isHz=False, update=True, from_procs=True, *, ref=None):
         """
         Calibrates the ppm and frequency scale of the indirect dimension according to a given value, or interactively.
         Calls self.cal on F1 only.
@@ -1700,9 +1722,15 @@ class Spectrum_2D:
             scale shift value
         - isHz: bool
             True if offset is in frequency units, False if offset is in ppm
+        - update: bool
+            Choose if to update the procs dictionary or not
+        - from_procs: bool
+            Read the parameters from the procs dictionary
+        - ref: list of 1darray
+            Reference ppm scale and spectrum to be used as reference for calibration [ppm, spectrum]
         """
         offset = [value, 0]
-        self.cal(offset, isHz)
+        self.cal(offset, isHz, update=update, from_procs=from_procs, ref1=ref)
 
     def write_acqus(self, other_dir=None):
         """
@@ -2521,7 +2549,7 @@ class Pseudo_2D(Spectrum_2D):
         # Update the TD1 key
         self.acqus['TD1'] = self.fid.shape[0]
 
-    def cal(self, offset=None, isHz=False, update=True, from_procs=True):
+    def cal(self, offset=None, isHz=False, update=True, from_procs=True, *, ref=None):
         """
         Calibration of the ppm and frequency scales according to a given value, or interactively. In this latter case, a reference peak must be chosen.
         Calls processing.calibration
@@ -2533,10 +2561,14 @@ class Pseudo_2D(Spectrum_2D):
             True if offset is in frequency units, False if offset is in ppm
         - update: bool
             Choose if to update the procs dictionary or not
+        - from_procs: bool
+            Read the parameters from the procs dictionary
+        - ref: list of 1darray
+            Reference ppm scale and spectrum to be used as reference for calibration [ppm, spectrum]
         """
-        def _calibrate(ppm, trace, SFO1):
+        def _calibrate(ppm, trace, SFO1, ref=None):
             """ Main function that calls the real calibration """
-            offppm = processing.calibration(ppm, trace)
+            offppm = processing.calibration(ppm, trace, ref=ref)
             offhz = misc.ppm2freq(offppm, SFO1)
             return offppm, offhz
 
@@ -2553,6 +2585,7 @@ class Pseudo_2D(Spectrum_2D):
             # Move the offsets to the center of the SW
             self.acqus['o1p'] += offp2
             self.acqus['o1'] += offh2
+            print(f'Applied calibration of {offp2:-.3f} ppm ({offh2:-.2f} Hz) as read from the procs dictionary.')
 
         else:
             # Get the missing entries
@@ -2565,7 +2598,7 @@ class Pseudo_2D(Spectrum_2D):
                 Y = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, ix, column=True)
 
                 ppm_f2 = np.copy(self.ppm_f2)
-                offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO1'])
+                offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO1'], ref=ref)
             else:   # Calculate offh2 from offp2 or viceversa
                 if isHz:    # offp2 is missing
                     offh2 = offset
