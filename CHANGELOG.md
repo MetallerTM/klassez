@@ -1,5 +1,8 @@
 # Version 0.4a.10
 
+16/07/2025
+Bug fixes.
+
 ## New functions:
 15/07/2025
 - *processing.abc*
@@ -9,6 +12,8 @@
 ## Modified functions:
 15/07/2025
 - *fit.lsp*: introduced option for weighted fit
+16/07/2025
+- *processing.calibration*: now accepts a reference spectrum to be used as guideline
 
 
 # Version 0.4a.9
