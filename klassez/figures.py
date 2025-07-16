@@ -1247,7 +1247,7 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
 
     # flags for the activation of scroll zoom
     flags = np.zeros(nsp)
-    lvlstep = 0.1
+    lvlstep = 1.4
 
     # Labels of the spectra that appear in the legend
     if not labels:
@@ -1264,53 +1264,62 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     ax = fig.add_subplot(1,1,1)
 
     # define boxes for sliders
-    u_box = plt.axes([0.025, 0.85, 0.080, 0.05])
-    d_box = plt.axes([0.025, 0.25, 0.080, 0.05])
-    adj_box = plt.axes([0.025, 0.55, 0.080, 0.05])
     iz_box = plt.axes([0.025, 0.10, 0.05, 0.05])
-    dz_box = plt.axes([0.025, 0.05, 0.05, 0.05]) 
+    dz_box = plt.axes([0.025, 0.05, 0.05, 0.05])
     HBOX = 0.04 * nsp
     check_box = plt.axes([0.87, 0.20, 0.12, HBOX])
 
+    normheight_box = plt.axes([0.87, 0.10, 0.12, 0.06])
+    reset_box = plt.axes([0.87, 0.025, 0.12, 0.06])
+
+    # Create buttons
+    iz_button = Button(iz_box, label=r'$\uparrow$') #!!!
+    dz_button = Button(dz_box, label=r'$\downarrow$') #!!!
+    normheight_button = Button(normheight_box, label=r'NORM. HEIGHTS') #!!!
+    reset_button = Button(reset_box, label=r'RESET') #!!!
+
     # Functions connected to the sliders
+
+    def norm_height(event):
+        nonlocal scale_factor
+        norm_factor = np.max(np.concatenate([s.real * sf for s, sf in zip(S, scale_factor)]))
+        for k in range(nsp):
+            scale_factor[k] = norm_factor / np.max(S[k].real)
+            spectrum[k].set_ydata(S[k].real * scale_factor[k])
+            scale_text[k].set_text(f'{scale_factor[k]:.2f}')
+        fig.canvas.draw()
+
+    def reset(event):
+        nonlocal scale_factor
+        scale_factor = np.ones(nsp)
+        for k in range(nsp):
+            spectrum[k].set_ydata(S[k].real * scale_factor[k])
+            scale_text[k].set_text(f'{scale_factor[k]:.2f}')
+        fig.canvas.draw()
 
     def increase_zoom(event): 
         nonlocal lvlstep
-        lvlstep *= 2
+        lvlstep += 0.05
 
     def decrease_zoom(event):
         nonlocal lvlstep
-        lvlstep /= 2
-
-    def y_autoscale(val):
-        misc.set_ylim(ax, np.concatenate([s * scale_factor[k] for k, s in enumerate(S)]))
-        D, U = ax.get_ylim()
-        u_tb.set_val('{:.3e}'.format(U))
-        d_tb.set_val('{:.3e}'.format(D))
-        misc.pretty_scale(ax, ax.get_xlim(), axis='x', n_major_ticks=10)
-        fig.canvas.draw()
-
-    def update_ylim(val):
-        U = eval(u_tb.text)
-        D = eval(d_tb.text)
-        misc.pretty_scale(ax, (D,U), axis='y', n_major_ticks=n_xticks)
-        misc.pretty_scale(ax, ax.get_xlim(), axis='x', n_major_ticks=10)
-        fig.canvas.draw()
+        lvlstep -= 0.05 
+        if lvlstep < 1.05:
+            lvlstep = 1.05
 
     def on_scroll(event):
         nonlocal scale_factor
         for k in range(nsp):
             if flags[k]:
                 if event.button == 'up':
-                    scale_factor[k] += lvlstep 
+                    scale_factor[k] *= lvlstep 
                 if event.button == 'down':
-                    scale_factor[k] += -lvlstep
+                    scale_factor[k] /= lvlstep
                 if scale_factor[k] < 0:
                     scale_factor[k] = 0
         for k in range(nsp):
             spectrum[k].set_ydata(S[k].real * scale_factor[k])
             scale_text[k].set_text(f'{scale_factor[k]:.2f}')
-        misc.pretty_scale(ax, ax.get_xlim(), axis='x', n_major_ticks=10)
         fig.canvas.draw()
 
     def radioflag(label):
@@ -1340,11 +1349,6 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
         spectr.set_label(labels[k])
     ax.legend(loc='upper right')
 
-    # TextBoxes to set the ylims
-    y_l = ax.get_ylim()
-    u_tb = TextBox(ax=u_box, label='', initial='{:.3e}'.format(y_l[1]), textalignment='center')
-    d_tb = TextBox(ax=d_box, label='', initial='{:.3e}'.format(y_l[0]), textalignment='center')
-
     # Create labels for the checkbox
     checklabels = []
     for k in range(nsp):
@@ -1359,18 +1363,12 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
         scale_text.append(check_box.text(0.995, Y, f'{value:.3f}',
             ha='right', va='center', transform=check_box.transAxes, fontsize=10))
 
-    # Create buttons
-    iz_button = Button(iz_box, label=r'$\uparrow$') #!!!
-    dz_button = Button(dz_box, label=r'$\downarrow$') #!!!
-    adj_button = Button(adj_box, label='Adjust') #!!!
-
     # Connect the widgets to functions
     radio.on_clicked(radioflag)
     scroll = fig.canvas.mpl_connect('scroll_event', on_scroll)
         
-    u_tb.on_submit(update_ylim)
-    d_tb.on_submit(update_ylim)
-    adj_button.on_clicked(y_autoscale)
+    normheight_button.on_clicked(norm_height)
+    reset_button.on_clicked(reset)
     iz_button.on_clicked(increase_zoom)
     dz_button.on_clicked(decrease_zoom)
     cursor = Cursor(ax, useblit=True, color='red', horizOn=False, linewidth=0.4)
@@ -1460,11 +1458,10 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
 
     # flags for the activation of scroll zoom
     flags = np.ones(nsp)
-    scale_factor = np.ones(nsp)
     # Start level contour 
-    lvl = [0.1 for k in range(nsp)]
+    lvl = [0.2 for k in range(nsp)]
     # Initialize lvlstep
-    lvlstep = 0.02
+    lvlstep = 1.4
 
     # Labels of the spectra that appear in the legend
     if not labels:
@@ -1486,12 +1483,14 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     def increase_zoom(event):
         """ double it """
         nonlocal lvlstep
-        lvlstep *= 2 
+        lvlstep += 0.05 
 
     def decrease_zoom(event):
         """ halve it """
         nonlocal lvlstep
-        lvlstep /= 2 
+        lvlstep -= 0.5
+        if lvlstep < 1.05:
+            lvlstep = 1.05
 
     def on_scroll(event):
         """ What happens when you scroll """
@@ -1505,11 +1504,9 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
         for k in range(nsp):
             if flags[k]:
                 if event.button == 'up':
-                    lvl[k] += lvlstep 
+                    lvl[k] *= lvlstep 
                 if event.button == 'down':
-                    lvl[k] += -lvlstep
-                if lvl[k] < 1e-5:
-                    lvl[k] = 1e-5
+                    lvl[k] /= lvlstep
                 if lvl[k] > 1:
                     lvl[k] = 1
         # Clear ax because cnt cannot be overwritten as list
@@ -1570,20 +1567,18 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     hColors = []        # Store the colors
     for i in range(len(labels)):
         # Transform the colormap in a list and take the most characteristic color
-        colorX = misc.cmap2list(cnt[i].get_cmap())[0]
+        colorX = misc.cmap2list(cnt[i].get_cmap())[4]
         # Draw a line with the associated label
         patchX = mlines.Line2D([], [], color=colorX, label=f'{labels[i]}')
         # Append these to the previous lists
         handles.append(patchX)
         hColors.append(colorX)
-    if Neg:
+        if Neg:
         # same thing
-        for i in range(len(labels)):
-            X = Ncnt[i].get_cmap()
-            colorX = misc.cmap2list(X)[0] 
-            patchX = mlines.Line2D([], [], color=colorX, label=f'$-${labels[i]}')
+            colorNX = misc.cmap2list(Ncnt[i].get_cmap())[4] 
+            patchNX = mlines.Line2D([], [], color=colorNX, label=f'$-${labels[i]}')
             # We do not add these colors to hColors because it is useless
-            handles.append(patchX)
+            handles.append(patchNX)
 
     # Make pretty x-scale
     xsx, xdx = max(np.concatenate(ppm_f2)), min(np.concatenate(ppm_f2))
@@ -1601,7 +1596,7 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     # Print the scale factors
     lbl_y = [ Q.get_position()[1] for Q in radio.labels]
     scale_text = []
-    for Y, value in zip(lbl_y, scale_factor):
+    for Y, value in zip(lbl_y, lvl):
         scale_text.append(check_box.text(0.995, Y, f'{value:.3f}',
             ha='right', va='center', transform=check_box.transAxes, fontsize=10))
 
