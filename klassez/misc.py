@@ -54,13 +54,15 @@ def noise_std(y):
     return noisestd
 
 
-def snr(data, signal=None, n_reg=None):
+def snr(data, x=None, signal=None, n_reg=None):
     """
     Computes the signal to noise ratio of a 1D spectrum.
     -------
     Parameters:
     - data : 1darray
         The spectrum of which you want to compute the SNR
+    - x: 1darray
+        Scale of the spectrum to use. If given, the values in n_reg are searched according to this scale
     - signal : float, optional
         If provided, uses this value as maximum signal. Otherwise, it is selected as the maximum value in "data"
     - n_reg : list or tuple, optional
@@ -75,10 +77,16 @@ def snr(data, signal=None, n_reg=None):
     if signal is None:
         signal = np.max(data)
 
+    if x is None:
+        x = np.arange(data.shape[-1])
+
     if n_reg is None:
         y = data
     else:
-        y = data[min(n_reg[0], n_reg[1]):max(n_reg[0], n_reg[1])]
+        A = misc.ppmfind(x, n_reg[0])[0]
+        B = misc.ppmfind(x, n_reg[1])[0]
+        w = slice(min(A,B), max(A,B))
+        y = data[w]
     snr = signal / (2 * misc.noise_std(y))
     return snr
 
@@ -687,7 +695,7 @@ def get_trace(data, ppm_f2, ppm_f1, a, b=None, column=True):
         y = np.sum(data[...,w],axis=1)
     else:
         A = misc.ppmfind(ppm_f1, a)[0]
-        B = misc.ppmfind(ppm_f1, b)[0]
+        B = misc.ppmfind(ppm_f1, b)[0]+1
         w = slice(min(A,B), max(A,B))
         y = np.sum(data[w,...],axis=0)
     return y
@@ -1035,7 +1043,7 @@ def polyn(x, c):
 
 
 
-def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True):
+def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True, filename=None, cplx=True):
     """
     Writes the FID file in directory 'path', in a TopSpin-readable way (i.e. little endian, int32).
     The binary file is named 'fid' if 1D, 'ser' if multiD.
@@ -1050,6 +1058,14 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True):
         FID array to be written
     - path : str
         Directory where to save the file
+    - BYTORDA: int
+        little/big endian
+    - DTYPA: int
+        int/float
+    - overwrite: bool
+        Overwrite existing directory
+    - filename: str
+        Name for the file
     """
 
     if BYTORDA == 0:
@@ -1061,17 +1077,19 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True):
 
     if DTYPA == 0:
         dtype = 'i4'
+        ddtype = 'int32'
     elif DTYPA == 2:
         dtype = 'f8'
+        ddtype = 'float64'
     else:
         raise ValueError('Data type not defined')
 
 
-    def uncomplexify_data(data_in):
+    def uncomplexify_data(data_in, ddtype):
         # Uncomplexify data (pack real,imag) into a int32 array
         size = list(data_in.shape)
         size[-1] = size[-1] * 2
-        data_out = np.empty(size, dtype="int32")
+        data_out = np.empty(size, dtype=ddtype)
         data_out[..., ::2] = data_in.real
         data_out[..., 1::2] = data_in.imag
         return data_out
@@ -1085,10 +1103,11 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True):
         return open(filename, 'wb')
 
     fid = np.squeeze(fid)
-    if len(fid.shape) == 1:
-        filename = 'fid'
-    else:
-        filename = 'ser'
+    if filename is None:
+        if len(fid.shape) == 1:
+            filename = 'fid'
+        else:
+            filename = 'ser'
 
     if os.path.exists(os.path.join(path,filename)):
         if overwrite is True:
@@ -1101,7 +1120,7 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True):
                 os.remove(os.path.join(path, filename))
     f = open_towrite(os.path.join(path, filename))
     if np.iscomplexobj(fid):
-        fid = uncomplexify_data(fid)
+        fid = uncomplexify_data(fid, ddtype)
     print('Writing \'{}\' file in {}...'.format(filename, path))
     f.write(fid.astype(endian+dtype).tobytes())
     f.close()

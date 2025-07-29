@@ -547,7 +547,7 @@ class Spectrum_1D:
             raise ValueError(f'{self.filename}.procs cannot be interpreted as a dictionary')
 
     @staticmethod
-    def write_ser(ser, acqus, path=None):
+    def write_ser(ser, acqus, path=None, filename=None):
         """
         Writes a real/complex array in binary format.
         Calls misc.write_ser. Be sure that acqus contains the BYTORDA and DTYPA keys.
@@ -563,7 +563,7 @@ class Spectrum_1D:
         """
         if path is None:
             raise NameError('You must specify a filename!')
-        misc.write_ser(ser, path, acqus['BYTORDA'], acqus['DTYPA'])
+        misc.write_ser(ser, path, acqus['BYTORDA'], acqus['DTYPA'], filename=filename)
 
     def plot(self, fqscale=False, name=None, ext='png', dpi=600):
         """
@@ -681,10 +681,11 @@ class Spectrum_1D:
             self.procs['qfil'] = {'u': u, 's': s}
         for key, value in self.procs['qfil'].items():
             if value is None:   # At the first non-set value, do the interactive correction
-                self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm, self.r)
+                self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm, self.r, self.acqus['SFO1'])
                 break
         # Apply it
-        self.S = processing.qfil(self.ppm, self.S, self.procs['qfil']['u'], self.procs['qfil']['s'])
+        self.r = processing.qfil(self.ppm, self.S, self.procs['qfil']['u'], self.procs['qfil']['s'], self.acqus['SFO1'])
+        self.S = processing.hilbert(self.r)
         self.r = self.S.real
         self.i = self.S.imag
 
@@ -1584,17 +1585,21 @@ class Spectrum_2D:
                     which_list = misc.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
                     which, _ = misc.ppmfind(self.ppm_f1, which_list[0][1])
                 # Now get the values
-                self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm_f2, self.rr[which])
+                self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm_f2, self.rr[which], self.acqus['SFO2'])
                 break
 
         # Apply the filter
-        self.S = processing.qfil(self.ppm_f2, self.S, self.procs['qfil']['u'], self.procs['qfil']['s'])
+        self.rr = processing.qfil(self.ppm_f2, self.rr, self.procs['qfil']['u'], self.procs['qfil']['s'], self.acqus['SFO2'])
         # Unpack according to procs
         if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:
+            self.S = processing.hilbert(self.rr)
             self.rr = self.S.real
             self.ii = self.S.imag
         else:
-            self.rr, self.ir, self.ri, self.ii = processing.unpack_2D(self.S)
+            self.rr, self.ir, self.ri, self.ii = processing.hilbert2(self.rr)
+            self.S = processing.repack_2D(self.rr, self.ir, self.ri, self.ii)
+
+        self.write_procs()
 
     def cal(self, offset=[None,None], isHz=False, update=True, from_procs=True, *, ref1=None, ref2=None):
         """
@@ -1787,7 +1792,7 @@ class Spectrum_2D:
             raise ValueError(f'{self.filename}.procs cannot be interpreted as a dictionary')
 
     @staticmethod
-    def write_ser(ser, acqus, path=None):
+    def write_ser(ser, acqus, path=None, filename=None):
         """
         Writes a real/complex array in binary format.
         Calls misc.write_ser. Be sure that acqus contains the BYTORDA and DTYPA keys.
@@ -1803,7 +1808,30 @@ class Spectrum_2D:
         """
         if path is None:
             raise NameError('You must specify a filename!')
-        misc.write_ser(ser, path, acqus['BYTORDA'], acqus['DTYPA'])
+        misc.write_ser(ser, path, acqus['BYTORDA'], acqus['DTYPA'], filename=filename)
+
+    def write_pdata(self, path=None, procno=666):
+        """
+        Writes a real/complex array in binary format.
+        Calls misc.write_ser. Be sure that acqus contains the BYTORDA and DTYPA keys.
+        See misc.write_ser to understand the meaning of these values.
+        --------
+        Parameters:
+        - ser: ndarray
+            Array that you want to convert in binary format.
+        - acqus: dict
+            Dictionary of acquisition parameters. It must contain BYTORDA and DTYPA.
+        - path: str 
+            Path where to save the binary file.
+        """
+        if path is None:
+            path = self.datadir
+
+        proc_dir = os.path.join(path, 'pdata', f'{procno}')
+        misc.write_ser(self.rr, proc_dir, self.acqus['BYTORDA'], self.acqus['DTYPA'], filename='2rr')
+        misc.write_ser(self.ir, proc_dir, self.acqus['BYTORDA'], self.acqus['DTYPA'], filename='2ir')
+        misc.write_ser(self.ri, proc_dir, self.acqus['BYTORDA'], self.acqus['DTYPA'], filename='2ri')
+        misc.write_ser(self.ii, proc_dir, self.acqus['BYTORDA'], self.acqus['DTYPA'], filename='2ii')
 
     def projf1(self, a, b=None):
         """

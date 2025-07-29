@@ -3261,11 +3261,15 @@ def mcr_als(D, C, S, itermax=10000, tol=1e-5):
     print('             MCR optimization running...             \n')
 
     convergence_flag = 0
-    print( '#   \tC convergence\tS convergence')
+    print(f'{"#":>5s}\t{"C convergence":>12s}\t{"S convergence":>12s}')
+
+    # First round is basically null, hence it happens outside the loop
+    C = D @ linalg.pinv(S)
+    S = linalg.pinv(C) @ D
+    E = D - C @ S
     for kk in range(itermax):
         # Copy from previous cycle
         C0 = np.copy(C)
-        E0 = np.copy(E)
         S0 = np.copy(S)
 
         # Compute new C, S and E
@@ -3275,14 +3279,17 @@ def mcr_als(D, C, S, itermax=10000, tol=1e-5):
 
         # Compute the Frobenius norm of the difference matrices
         # between two subsequent cycles
-        rC = linalg.norm(C - C0)
-        rS = linalg.norm(S - S0)
+        if kk == 0:
+            rC0 = linalg.norm(C - C0)
+            rS0 = linalg.norm(S - S0)
+        rC = linalg.norm(C - C0) / rC0
+        rS = linalg.norm(S - S0) / rS0
 
         # Ongoing print of the residues
-        print(str(kk+1)+' \t{:.5e}'.format(rC)+ '\t'+'{:.5e}'.format(rS), end='\r')
+        print(f'{kk+1:5.0f}\t{rC:12.6e}\t{rS:12.6e}', end='\r')
 
         # Arrest criterion
-        if (rC < tol) and (rS < tol) and kk:
+        if (rC < tol) and (rS < tol):
             end_time = datetime.now()
             print( '\n\n\tMCR converges in '+str(kk+1)+' steps.')
             convergence_flag = 1    # Set to 1 if the arrest criterion is reached
@@ -3356,7 +3363,7 @@ def new_MCR_ALS(D, C, S, itermax=10000, tol=1e-5, reg_f=None, reg_fargs=[]):
     return C, S
 
 
-def mcr(input_data, nc, f=10, tol=1e-5, itermax=1e4, P='H', oncols=True):
+def mcr(input_data, nc, f=10, tol=1e-3, itermax=1e4, P='H', oncols=True):
     """
     This is an implementation of Multivariate Curve Resolution for the denoising of 2D NMR data.
     Let us consider a matrix D, of dimensions m x n, where the starting data are stored. The final purpose of MCR is to decompose the D matrix as follows:
@@ -4209,7 +4216,7 @@ def load_baseline(filename, ppm, data):
 
     return baseline
 
-def qfil(ppm, data, u, s):
+def qfil(ppm, data, u, s, SFO1):
     """
     Suppress signals in the spectrum using a gaussian filter.
     ---------
@@ -4219,20 +4226,23 @@ def qfil(ppm, data, u, s):
     - data: ndarray
         Data to be processed. The filter is applied on the last dimension
     - u: float
-        Position of the filter
+        Position of the filter /ppm
     - s: float
-        Width of the filter (standard deviation)
+        Width of the filter (standard deviation) /Hz
+    - SFO1: float
+        Spectrometer larmor frequency
     --------
     Returns:
     - pdata: ndarray
         Filtered data
     """
-    G = sim.gaussian_filter(ppm, u, s)
+    sppm = misc.freq2ppm(s, SFO1)
+    G = sim.gaussian_filter(ppm, u, sppm)
     datap = np.zeros_like(data)
     datap[...,:] = data[...,:] * G
     return datap
 
-def interactive_qfil(ppm, data_in):
+def interactive_qfil(ppm, data_in, SFO1):
     """ 
     Interactive function to design a gaussian filter with the aim of suppressing signals in the spectrum.
     You can adjust position and width of the filter scrolling with the mouse.
@@ -4242,12 +4252,14 @@ def interactive_qfil(ppm, data_in):
         Scale on which the filter will be built
     - data_in: 1darray
         Spectrum on which to apply the filter.
+    - SFO1: float
+        Frequency offset
     ---------
     Returns:
     - u: float
-        Position of the gaussian filter
+        Position of the gaussian filter /ppm
     - s: float
-        Width of the gaussian filter (Standard deviation)
+        Width of the gaussian filter (Standard deviation) /Hz
     """
 
     # Safe copy
@@ -4255,10 +4267,10 @@ def interactive_qfil(ppm, data_in):
 
     # Initialize the values: u at the center of the spectrum, s as 100 points
     u = np.mean(ppm)
-    s = 100 * misc.calcres(ppm)
+    s = misc.freq2ppm(150, SFO1) / (2 * ( 2 * np.log(2))**0.5)
 
-    sens = 0.2  # one mouse 'tick'
-    stat = 0    # move u
+    sens = misc.freq2ppm(10, SFO1)  # one mouse 'tick'
+    stat = 1    # move s
 
     # Make the filter with start values
     G = sim.f_gaussian(ppm, u, s)
@@ -4285,13 +4297,20 @@ def interactive_qfil(ppm, data_in):
     #   Radio-buttons to select which value to modify
     radio_box = plt.axes([0.875, 0.40, 0.10, 0.20]) 
     radio_labels = ['u', 's']
-    radio = RadioButtons(radio_box, radio_labels)
+    radio = RadioButtons(radio_box, radio_labels, active=1)
 
     # Modify sensitivity buttons
     up_box = plt.axes([0.875, 0.70, 0.05, 0.05])
     up_button = Button(up_box, r'$\uparrow$')
     dn_box = plt.axes([0.925, 0.70, 0.05, 0.05])
     dn_button = Button(dn_box, r'$\downarrow$')
+
+    # Text
+    values_text = '\n'.join([
+        f'u: {u:12.5f} ppm',
+        f's: {misc.ppm2freq(s, SFO1):12.5f}  Hz',
+        ])
+    v_text = ax.text(0.855, 0.35, values_text, ha='left', va='top', transform=fig.transFigure, fontsize=14)
 
     # FUNCTIONS CONNECTED TO WIDGETS
     def up_sens(event):
@@ -4338,7 +4357,13 @@ def interactive_qfil(ppm, data_in):
         # Compute processed data
         pdata = data * (1 - G_in)
         p_spect.set_ydata(pdata)
+        values_text = '\n'.join([
+            f'u: {u:12.5f} ppm',
+            f's: {misc.ppm2freq(s, SFO1):12.5f}  Hz',
+            ])
+        v_text.set_text(values_text)
         plt.draw()
+
 
     # --------------------------------------------------
 
@@ -4357,7 +4382,9 @@ def interactive_qfil(ppm, data_in):
     plt.show()
     plt.close()
 
-    return u, s
+    shz = misc.ppm2freq(s, SFO1)
+
+    return u, shz
 
 def acme(data, m=1, a=5e-5):
     """
@@ -4478,7 +4505,7 @@ def acme(data, m=1, a=5e-5):
 
     # Define the parameters of the fit
     param = l.Parameters()
-    param.add('p0', value=0, min=-360, max=360)
+    param.add('p0', value=0, min=-180, max=180)
     param.add('p1', value=0, min=-720, max=720)
 
     # Minimize using simplex method because the residue is a scalar
@@ -5176,4 +5203,79 @@ def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
     # Compute the missing imaginary part
     S = processing.hilbert(datab)
     return S
+
+def abs2(ppm_f2, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':10}, FnMODE='States-TPPI'):
+    """
+    Computes the baseline correction on data using processing.abc, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using processing.hilbert.
+    ------------------
+    Parameters:
+    - ppm: 1darray
+        PPM scale of the spectrum
+    - data: 1darray
+        The spectrum to baseline-correct
+    - n: int
+        Number of coefficients of the polynomial baseline
+    - lims: tuple or None
+        Limits for the region on which to compute the baseline, in ppm
+    - alpha: float
+        The threshold will be set as thr = alpha * np.std(np.gradient(data))
+    - qfil: bool
+        Choose whether to apply a filter on the solvent region (True) or not (False)
+    - qfilp: dict
+        Parameters to be used to compute the filter if qfil is True. Keys:
+        'u' = center of the filter in ppm
+        's' = width of the filter in Hz
+    ------------------
+    Returns:
+    - S: 1darray
+        Baseline-subtracted spectrum
+    """
+    # Compute the baseline
+    D = deepcopy(data)
+    for k, trace in enumerate(D):
+        b = processing.abc(ppm_f2, trace, n=n, lims=lims, qfil=qfil, qfilp=qfilp)
+        # Subtract it
+        D[k] = trace - b
+    # Compute the missing imaginary part
+    if FnMODE in ['States-TPPI', 'Echo-Antiecho']:
+        rr, ir, ri, ii = processing.hilbert2(D)
+        S = processing.repack_2D(rr, ir, ri, ii)
+    else:
+        S = processing.hilbert(D)
+    return S
+
+def rndc(data):
+    """
+    Robust Noise Derivative Calculation, http://www.holoborodko.com/pavel/numerical-methods/numerical-derivative/smooth-low-noise-differentiators/
+    Used coefficients: (42, 48, 27, 8, 1)/512
+    Used to compute the first derivative of a function.
+    --------------
+    Parameters:
+    - data: 1darray
+        Input data
+    --------------
+    Returns:
+    - dy: 1darray
+        First derivative of data. First and last 5 points are set to zero.
+    """
+
+    # Shallow copy
+    d = deepcopy(data)
+
+    # Convolution coefficients
+    coeff = np.array([42, 48, 27, 8, 1]) / 512
+
+    # We need to compute (d[k+j] - d[k-j]) for j = 1,...,5 and for all k eligible
+    # This is the most efficient way I could think of
+    couples = [[np.roll(d, -j), np.roll(d, j)] for j in range(1, 6)]
+    diffs = np.array([couple[0] - couple[1] for couple in couples])
+
+    # 5e-2 is a correction factor to make it the same as np.gradient. IDK where it comes from
+    dy = 5e-2 * np.sum(diffs, axis=0)
+    # Set first and last 5 points to 0 because they are meaningless
+    dy[...,:5] = 0
+    dy[...,-5:] = 0
+    return dy
+
 
