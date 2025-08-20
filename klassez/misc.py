@@ -138,13 +138,13 @@ def makeacqus_1D(dic):
     """
     acqus = {}
     acqus['nuc'] = dic['acqus']['NUC1']
-    acqus['SFO1'] = dic['acqus']['SFO1']
+    acqus['SFO1'] = np.abs(dic['acqus']['SFO1']) * np.sign(sim.gamma[acqus['nuc']])
     acqus['SWp'] = dic['acqus']['SW']
     acqus['TD'] = int(dic['acqus']['TD'])//2    # Fuckin' Bruker
     acqus['o1'] = dic['acqus']['O1']
 
     acqus['B0'] = acqus['SFO1'] / sim.gamma[acqus['nuc']]
-    acqus['o1p'] = acqus['o1'] / acqus['SFO1']
+    acqus['o1p'] = acqus['o1'] / np.abs(acqus['SFO1'])
     acqus['SW'] = acqus['SWp'] * np.abs(acqus['SFO1'])
     acqus['dw'] = 1 / acqus['SW']
     acqus['t1'] = np.linspace(0, acqus['TD']*acqus['dw'], acqus['TD'])
@@ -596,7 +596,7 @@ def ppm2freq(x, B0=701.125, o1p=0):
     """
     # Converts 'x' from ppm to Hz.
     # B0 is the frequency of the field in MHz.
-    y = (x-o1p)*B0
+    y = (x-o1p)*np.abs(B0)
     return y
 
 def freq2ppm(x, B0=701.125, o1p=0):
@@ -615,7 +615,7 @@ def freq2ppm(x, B0=701.125, o1p=0):
     - y :float
         The converted value
     """
-    y = x/B0 + o1p
+    y = x/np.abs(B0) + o1p
     return y
 
 def readlistfile(datafile):
@@ -1182,7 +1182,7 @@ def load_ser(path, TD1=1, BYTORDA=0, DTYPA=0, cplx=True):
     if TD1 < 2: # i.e. it is 0 or 1
         shape = -1,     # tuple, so that it is 1darray at the end
     else:       # all other dimensions
-        shape = int(n_sp), -1   # tuple also here
+        shape = TD1, -1   # tuple also here
     # Reshape data according to TD1
     data = np.reshape(data, shape)
 
@@ -1924,6 +1924,8 @@ def lenslice(a):
         Length of the slice
     """
     if a.step is None:
-        a.step = 1
-    length = int(a.stop - a.start) // a.step
+        step = 1
+    else:
+        step = a.step
+    length = int(a.stop - a.start) // step
     return length

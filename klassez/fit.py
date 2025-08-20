@@ -206,7 +206,7 @@ def bin_data(data0, nbins=100, density=True, x_symm=False):
     return hist, bin_scale
 
 
-def lr(y, x=None, force_intercept=False):
+def lr(y, x=None, force_intercept=False, w=None):
     """ 
     Performs a linear regression of y with a model y_c = mx + q.
     ---------
@@ -227,25 +227,18 @@ def lr(y, x=None, force_intercept=False):
     # Make the scale of points, if not given
     if x is None:
         x = np.arange(y.shape[-1])
+    if w is None:
+        w = np.ones(y.shape[-1])
 
-    # Create the Vandermonde matrix of x:
     if force_intercept:     # It is x
-        T = np.copy(x).reshape(-1,1)
-    else:                   # it is [1, x]
-        T = np.array(
-            [x**k for k in range(2)]
-            ).T
-
-    # Pseudo-invert it
-    Tpinv = np.linalg.pinv(T)
-    # Solve the system
-    c = Tpinv @ y
-
-    if force_intercept:
-        m = float(c)        # It is just a number
+        m = np.sum(w * x * y) / np.sum(w * x**2)
         q = 0
-    else:                   # unpack the array
-        q, m = c
+    else:                   # it is [1, x]
+        xw = np.sum(w * x) / np.sum(w) 
+        yw = np.sum(w * y) / np.sum(w) 
+        m = np.sum(w * (x - xw) * (y - yw)) / np.sum(w * (x - xw)**2)
+        q = yw - m * xw
+
     # Compute the model
     y_c = m * x + q 
     return y_c, (m, q)
@@ -2072,8 +2065,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     limits = [max(ppm_scale), min(ppm_scale)]
     
     # Get point indices for the limits
-    lim1 = misc.ppmfind(ppm_scale, limits[0])[0]
-    lim2 = misc.ppmfind(ppm_scale, limits[1])[0]
+    lim1, lim2 = sorted([misc.ppmfind(ppm_scale, limit)[0] for limit in limits])
     # Calculate the absolute intensity (or something that resembles it)
     A = np.trapz(np.abs(S)[lim1:lim2], dx=misc.calcres(ppm_scale*SFO1))*2*misc.calcres(acqus['t1'])
     _A = 1 * A
