@@ -1,19 +1,16 @@
 # Version 0.4a.10
 
-16/07/2025
+A couple of new processing functions.
 Bug fixes.
 
 ## New functions:
-15/07/2025
 - *processing.abc*
 - *processing.abs*
 - *processing.hilbert2*
 
 ## Modified functions:
-15/07/2025
-- *fit.lsp*: introduced option for weighted fit
-16/07/2025
 - *processing.calibration*: now accepts a reference spectrum to be used as guideline
+- *fit.lsp*: introduced option for weighted fit
 
 
 # Version 0.4a.9
