@@ -2057,8 +2057,11 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     x_bsl = np.linspace(0,1,N)
     # Baseline - from where to where?
     x_bsl_lims = [max(ppm_scale), min(ppm_scale)]
+    x_bsl_lims_pts = [misc.ppmfind(ppm_scale, w)[0] for w in x_bsl_lims]
+    if x_bsl_lims_pts[0] > x_bsl_lims_pts[1]:
+        x_bsl_lims = x_bsl_lims[::-1]
     # for the plot
-    x_bsl_2plot = np.linspace(*x_bsl_lims, len(x_bsl))
+    x_bsl_2plot = np.linspace(*sorted(x_bsl_lims), len(x_bsl))
     whole_basl = np.zeros_like(ppm_scale)
 
     # Set limits
@@ -2243,7 +2246,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
             # Recompute the baseline
             basl = B * misc.polyn(x_bsl, bas_c)
-            whole_basl = misc.sum_overlay(np.zeros_like(ppm_scale), basl, max(x_bsl_lims), ppm_scale)
+            whole_basl = misc.sum_overlay(np.zeros_like(ppm_scale), basl, x_bsl_lims[0], ppm_scale)
             basl_plot.set_ydata(basl)
 
         if Np != 0:

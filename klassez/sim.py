@@ -177,6 +177,7 @@ def load_sim_1D(File):
     if 'Jconst' not in keys:    # Coupling constants
         dic['Jconst'] = tuple([0 for w in dic['shifts']])
 
+    dic['B0'] = np.abs(dic['B0']) * np.sign(sim.gamma[dic['nuc']])
     dic['TD'] = int(dic['TD'])
     dic['SFO1'] = dic['B0'] * sim.gamma[dic['nuc']]
     dic['SW'] = dic['SWp'] * np.abs(dic['SFO1'])

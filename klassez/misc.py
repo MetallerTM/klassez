@@ -138,13 +138,13 @@ def makeacqus_1D(dic):
     """
     acqus = {}
     acqus['nuc'] = dic['acqus']['NUC1']
-    acqus['SFO1'] = np.abs(dic['acqus']['SFO1']) * np.sign(sim.gamma[acqus['nuc']])
+    acqus['SFO1'] = np.abs(dic['acqus']['SFO1']) #* np.sign(sim.gamma[acqus['nuc']])
     acqus['SWp'] = dic['acqus']['SW']
     acqus['TD'] = int(dic['acqus']['TD'])//2    # Fuckin' Bruker
     acqus['o1'] = dic['acqus']['O1']
 
     acqus['B0'] = acqus['SFO1'] / sim.gamma[acqus['nuc']]
-    acqus['o1p'] = acqus['o1'] / np.abs(acqus['SFO1'])
+    acqus['o1p'] = acqus['o1'] / acqus['SFO1']
     acqus['SW'] = acqus['SWp'] * np.abs(acqus['SFO1'])
     acqus['dw'] = 1 / acqus['SW']
     acqus['t1'] = np.linspace(0, acqus['TD']*acqus['dw'], acqus['TD'])
