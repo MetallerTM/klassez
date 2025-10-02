@@ -1454,6 +1454,38 @@ class Spectrum_2D:
             self.ir = ir
             self.ii = ii
 
+
+    def strip(self, xlim=None, ylim=None):
+        """
+        Perform the strip transform in F2 with xlim and on F1 with ylim.
+        The frequency scales are updated as well.
+        --------
+        Parameters:
+        - xlim: tuple or None
+            Limits in F2 in ppm
+        - ylim: tuple or None
+            Limits in F1 in ppm
+        """
+        # Cut the spectrum on the rr part
+        self.ppm_f2, self.ppm_f1, self.rr = misc.trim_data_2D(self.ppm_f2, self.ppm_f1, self.rr, xlim, ylim)
+
+        # Reconstruct the imaginary components
+        if self.acqus['FnMODE'] in ['QF', 'QF-nofreq']:
+            self.rr, self.ii = processing.hilbert(self.rr)
+            self.S = self.rr + 1j * self.ii
+        else:
+            self.rr, self.ir, self.ri, self.ii = processing.hilbert2(self.rr)
+            self.S = processing.repack_2D(self.rr, self.ir, self.ri, self.ii)
+
+        # Cut the frequency scales as well
+        self.freq_f2 = misc.ppm2freq(self.ppm_f2, self.acqus['SFO2'], self.acqus['o2p'])
+        self.freq_f1 = misc.ppm2freq(self.ppm_f1, self.acqus['SFO1'], self.acqus['o1p'])
+
+        # Update the pivot points to fix them in the center of the stripped part
+        self.procs['pv2'] = round(np.mean(self.ppm_f2), 5)
+        self.procs['pv1'] = round(np.mean(self.ppm_f1), 5)
+
+
     def adjph(self, p01=None, p11=None, pv1=None, p02=None, p12=None, pv2=None, update=True):
         """
         Adjusts the phases of the spectrum according to the given parameters, or interactively if they are left as default.

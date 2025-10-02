@@ -7,11 +7,14 @@ Corrected mismatch in the conversion of Jeol nuclei to human
 02/10/2025
 - *misc.listsqueeze*
 - *processing.apodf*
+- *Spectrum_2D.strip*
 
 ## Modified functions:
 02/10/2025
 - *processing.fp*: bug fix with **tdeff**, employs new *processing.apodf*
 - *processing.xfb*: employs new *processing.apodf*
+- *misc.trim_data*: avoid truncation of one point due to slicing
+- *misc.trim_data_2D*: avoid truncation of one point due to slicing
 
 
 # Version 0.4a.10

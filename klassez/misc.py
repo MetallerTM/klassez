@@ -466,7 +466,7 @@ def find_nearest(array, value):
     idx = (np.abs(array - value)).argmin()
     return array[idx]
 
-def trim_data(ppm_scale, y, lims):
+def trim_data(ppm_scale, y, lims=None):
     """
     Trims the frequency scale and correspondant 1D dataset y from sx (ppm) to dx (ppm).
     -------
@@ -484,15 +484,15 @@ def trim_data(ppm_scale, y, lims):
     - ytrim : 1darray
         Trimmed spectrum
     """
+    if lims is None:
+        lims = min(ppm_scale), max(ppm_scale)
+
     lims_p = sorted([misc.ppmfind(ppm_scale, x)[0] for x in lims])
+    # Avoid truncation on the last point
+    lims_p[1] += 1
     slice_x = slice(*lims_p)
     xtrim = ppm_scale[slice_x]
-    if np.iscomplexobj(y):
-        ytrim_re = y.real[..., slice_x]
-        ytrim_im = y.imag[..., slice_x]
-        ytrim = ytrim_re + 1j*ytrim_im
-    else:
-        ytrim = y[..., slice_x]
+    ytrim = y[..., slice_x]
     return xtrim, ytrim
 
 def trim_data_2D(x_scale, y_scale, data, xlim=None, ylim=None):
@@ -533,6 +533,9 @@ def trim_data_2D(x_scale, y_scale, data, xlim=None, ylim=None):
     # Get the indexes of the limits on both scale and sort them
     xlim_p = sorted([misc.ppmfind(x_scale, lim)[0] for lim in xlim])
     ylim_p = sorted([misc.ppmfind(y_scale, lim)[0] for lim in ylim])
+    # Avoid truncation of last point
+    xlim_p[1] += 1  
+    ylim_p[1] += 1
     # Trim
     slice_x = slice(*xlim_p)            # slice on X
     slice_y = slice(*ylim_p)            # slice on Y
