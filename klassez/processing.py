@@ -738,27 +738,82 @@ def fp(data, wf=None, zf=None, fcor=0.5, tdeff=0):
     - datap: 1darray
         Processed data
     """
+    # Correct the shape of tdeff for pseudo_2D spectra, xf2, and stuff
+    if len(data.shape) > 1 and not isinstance(tdeff, (list, tuple, np.ndarray)):
+        tdeff = [0 for w in len(data.shape)-1] + [tdeff]
     # Window function
+    # Rectangle
     datap = processing.td_eff(data, tdeff)
-    if wf is not None:
-        if wf['mode'] == 'qsin':
-            datap = processing.qsin(datap, ssb=wf['ssb'])
-        if wf['mode'] == 'sin':
-            datap = processing.sin(datap, ssb=wf['ssb'])
-        if wf['mode'] == 'em':
-            datap = processing.em(datap, lb=wf['lb'], sw=wf['sw'])
-        if wf['mode'] == 'gm':
-            datap = processing.gm(datap, lb=wf['lb_gm'], gb=wf['gb_gm'], sw=wf['sw'], gc=wf['gc'])
-        if wf['mode'] == 'gmb':
-            datap = processing.gmb(datap, lb=wf['lb'], gb=wf['gb'], sw=wf['sw'])
+    # The real one
+    datap *= processing.apodf(datap.shape, wf)
+
     # Zero-filling
     if zf is not None:
         datap = processing.zf(datap, zf)
     # FT
     datap = processing.ft(datap, fcor=fcor)
     return datap
-    
-    
+
+def apodf(size, wf):
+    """ 
+    Generates a function to be used as apodization function on the basis of the 'wf' dictionary.
+    The behavior is controlled by the 'mode' key. Each 'mode' reads the attributes of the corresponding positions, e.g.:
+    mode:   em, qsin, qsin
+    lb:      5,    0,    0
+    ssb:     0,    2,    3
+    will compute the function:
+        processing.em(lb=5) * processing.qsin(ssb=2) * processing.qsin(ssb=3)
+    ------------
+    Parameters:
+    - size: tuple
+        Dimension of data to be windowed
+    - wf: dict
+        Dictionary of window functions modes and parameters
+    ------------
+    Returns:
+    - apod_func: np.ndarray
+        Custom apodization function of dimension size
+    """
+
+    # First input of the window functions, so that I get the function and not the processed data
+    ones = np.ones(size)
+
+    # Remove the bool to avoid it to raise errors
+    if wf['mode'] is None:
+        wf['mode'] = 'no'
+
+    # For compatibility if one wants to use only one function:
+    if isinstance(wf['mode'], str):
+        for key, item in wf.items():    # loop in the dictionary
+            if 'sw' not in key:     # SW is always the only one
+                # Put the element in a list
+                wf[key] = [item]    
+                # Remove extra lists that might appear
+                wf[key] = misc.listsqueeze(wf[key])
+
+    # Placeholder: we start from all ones
+    apod_func = deepcopy(ones)
+    # Loop on the modes
+    for k, mode in enumerate(wf['mode']):
+        # Case switch on the mode, creates tmp as apod. func. on the fly
+        if mode == 'qsin':
+            tmp = processing.qsin(ones, ssb=wf['ssb'][k])
+        elif mode == 'sin':
+            tmp = processing.sin(ones, ssb=wf['ssb'][k])
+        elif mode == 'em':
+            tmp = processing.em(ones, lb=wf['lb'][k], sw=wf['sw'])
+        elif mode == 'gm':
+            tmp = processing.gm(ones, lb=wf['lb_gm'][k], gb=wf['gb_gm'][k], sw=wf['sw'], gc=wf['gc'][k])
+        elif mode == 'gmb':
+            tmp = processing.gmb(ones, lb=wf['lb_gm'][k], gb=wf['gb'][k], sw=wf['sw'])
+        else:   # It means "no"
+            continue
+        # Since it is after continue, only works if mode != no
+        apod_func *= tmp
+
+    return apod_func
+
+
 def interactive_fp(fid0, acqus, procs):
     """
     Perform the processing of a 1D NMR spectrum interactively. The GUI offers the opportunity to test different window functions, as well as different tdeff values and final sizes.
@@ -1045,7 +1100,7 @@ def inv_fp(data, wf=None, size=None, fcor=0.5):
         FID
     """
     # IFT
-    data = processing.ift(pdata, fcor=fcor)
+    pdata = processing.ift(data, fcor=fcor)
     # Reverse zero-filling
     if size is not None:
         pdata = processing.td_eff(pdata, size)
@@ -1092,19 +1147,12 @@ def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5,0.5], tdeff=[0,0], u=T
         Processed data or tuple of 2darray
     """
     
+    # First of all, cut the data
     data = processing.td_eff(data, tdeff)
     
     # Processing the direct dimension
     # Window function
-    if wf[1] is not None:
-        if wf[1]['mode'] == 'qsin':
-            data = processing.qsin(data, ssb=wf[1]['ssb'])
-        if wf[1]['mode'] == 'sin':
-            data = processing.sin(data, ssb=wf[1]['ssb'])
-        if wf[1]['mode'] == 'em':
-            data = processing.em(data, lb=wf[1]['lb'], sw=wf[1]['sw'])
-        if wf[1]['mode'] == 'gm':
-            data = processing.gm(data, lb=wf[1]['lb'], gb=wf[1]['gb'], sw=wf[1]['sw'])
+    data *= processing.apodf(data.shape, wf[1])
     # Zero-filling
     if zf[1] is not None:
         data = processing.zf(data, zf[1])
@@ -1113,9 +1161,7 @@ def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5,0.5], tdeff=[0,0], u=T
 
     if FnMODE == 'QF-nofreq' or FnMODE == 'No':
         pass
-    else:
-        
-        # Processing the indirect dimension
+    else:    # Processing the indirect dimension
         # If FnMODE is 'QF', do normal transpose instead of hyper
         if FnMODE == 'QF':
             data = data.T
@@ -1123,18 +1169,12 @@ def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5,0.5], tdeff=[0,0], u=T
             data = processing.tp_hyper(data)
         
         # Window function
-        if wf[0] is not None:
-            if wf[0]['mode'] == 'qsin':
-                data = processing.qsin(data, ssb=wf[0]['ssb'])
-            if wf[0]['mode'] == 'sin':
-                data = processing.sin(data, ssb=wf[0]['ssb'])
-            if wf[0]['mode'] == 'em':
-                data = processing.em(data, lb=wf[0]['lb'], sw=wf[0]['sw'])
-            if wf[0]['mode'] == 'gm':
-                data = processing.gm(data, lb=wf[0]['lb'], gb=wf[0]['gb'], sw=wf[0]['sw'])
+        data *= processing.apodf(data.shape, wf[0])
+
         # Zero-filling
         if zf[0] is not None:
             data = processing.zf(data, zf[0])
+
         # FT
         # Discriminate between F1 acquisition modes
         if FnMODE == 'States-TPPI':

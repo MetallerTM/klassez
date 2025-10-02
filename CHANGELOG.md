@@ -1,5 +1,18 @@
 # Version 0.4a.11
 
+Corrected mismatch in the conversion of Jeol nuclei to human 
+
+
+## New functions:
+02/10/2025
+- *misc.listsqueeze*
+- *processing.apodf*
+
+## Modified functions:
+02/10/2025
+- *processing.fp*: bug fix with **tdeff**, employs new *processing.apodf*
+- *processing.xfb*: employs new *processing.apodf*
+
 
 # Version 0.4a.10
 

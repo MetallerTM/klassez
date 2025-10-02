@@ -20,6 +20,7 @@ from datetime import datetime
 import warnings
 import scipy.io.wavfile as WF
 import math
+from copy import deepcopy
 
 from . import fit, misc, sim, figures, processing
 from .config import CM, COLORS, cron
@@ -1929,3 +1930,25 @@ def lenslice(a):
         step = a.step
     length = int(a.stop - a.start) // step
     return length
+
+
+def listsqueeze(lst):
+    """
+    Removes empty annidated lists.
+    -------
+    Parameters:
+    - lst: list
+        List to process
+    -------
+    Returns:
+    - a: list
+        Squeezed list
+    """
+    a = deepcopy(lst)
+    while isinstance(a, list) and len(a) == 1:
+        if isinstance(a[0], list):
+            a = a[0]
+        else:
+            break
+    return a
+
