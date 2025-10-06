@@ -358,6 +358,23 @@ class Spectrum_1D:
 
         self.F.S = self.r
 
+    def apk(self, alpha=3, winsize=50, ap1=True, seethrough=False, update=True):
+        """
+        Automatic phase correction with processing.apk.
+        """
+
+        self.S, (p0, p1) = processing.apk(self.ppm, self.S, self.acqus['SFO1'], alpha, winsize, ap1)
+        self.r = self.S.real
+        self.i = self.S.imag
+
+        if update:
+            self.procs['p0'] += p0
+            self.procs['p1'] += p1
+            self.procs['pv'] = round(np.mean(self.ppm), 5)
+            self.write_procs()
+        
+
+
     def adjph(self, p0=None, p1=None, pv=None, update=True, reference=None):
         """
         Adjusts the phases of the spectrum according to the given parameters, or interactively if they are left as default.
@@ -663,7 +680,7 @@ class Spectrum_1D:
             plt.show()
         plt.close()
 
-    def qfil(self, u=None, s=None):
+    def qfil(self, u=None, s=None, from_procs=True):
         """
         Gaussian filter to suppress signals.
         Tries to read self.procs['qfil'], which is
@@ -680,7 +697,7 @@ class Spectrum_1D:
         if 'qfil' not in self.procs.keys():     # Then add it
             self.procs['qfil'] = {'u': u, 's': s}
         for key, value in self.procs['qfil'].items():
-            if value is None:   # At the first non-set value, do the interactive correction
+            if value is None or not from_procs:   # At the first non-set value, do the interactive correction
                 self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm, self.r, self.acqus['SFO1'])
                 break
         # Apply it

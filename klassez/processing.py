@@ -5122,6 +5122,171 @@ def splitcomb(data, taq, J=53.8):
 
     return datap
 
+def apk(ppm, data, SFO1, alpha=3, winsize=50, ap1=True, seethrough=False):
+    """
+    Performs automatic phase correction.
+
+    The algorithm starts with the computation of a mask to separate signal from baseline-only regions. This is done via an iterative thresholding, i.e. a point is "signal" if the first derivative of the spectrum in that point is higher than its standard deviation by alpha times:
+        if d'[k] > alpha std(d') => k in signal region
+    The selection is further refined by repeating the same procedure on the original data.  
+    Then, the regions separated by less than winsize are joined together, and the presence of actual peaks in the region is checked with a pick-picker.
+
+    At this point, each region is phased independently with only phase 0. The phase angle is tested in a brute-force manner. The cost function minimizes the area below the straight line that connects the borders of the window. 
+    The first-order phase correction is calculated with a weighted linear regression, where the weights are the integrals of the magnitude of each region.
+
+    The choice of alpha and winsize can be important for the outcome. Higher alpha values make the detection of peaks more stringent -> for spectra with high SNR and sharp peaks a suitable value is 4-6. Decreasing winsize makes the algorithm to estimate more regions.
+    ------------------
+    Parameters:
+    - ppm: 1darray
+        ppm scale of the spectrum
+    - data: 1darray
+        Spectrum
+    - SFO1: float
+        Nucleus' Larmor frequency /MHz
+    - alpha: float
+        Factor that multiplies the std of the spectrum to set the threshold
+    - winsize: float
+        Minimum size of the window that can contain peaks /Hz
+    - ap1: bool
+        True to adjust both zero and first order, False for only phase zero
+    - seethrough: bool
+        If True, draws a series of diagnostic figures to see what the algorithm is doing
+    ------------------
+    Returns: 
+    - datap: 1darray
+        Phased data
+    - values: tuple
+        Found values (p0, p1)
+    """
+    def phase0(data, slices):
+        """
+        Phase the regions independently with only phase 0
+        """
+        def f2min(p0, y, x):
+            """
+            Cost function for the fit
+            """
+            N = max(x)
+            # Try to phase
+            y_ph = processing.ps(y, p0=p0)[0].real
+            # Straight line that passes for the borders of the window
+            basl = (y_ph[-1] - y_ph[0]) / N * x + y_ph[0]
+            # Where the spectrum is below the baseline
+            neg_cut = np.where(y_ph < basl)
+            # Minus the area below the baseline so that it becomes positive
+            neg_area = - np.trapezoid(y_ph[neg_cut]-basl[neg_cut])
+            return neg_area
+
+        def phase_loop(y, x, p0list):
+            """
+            Get p0 for each region
+            """
+            # Initialize
+            p0_opt = 0
+            neg_area = np.inf
+            # try all the phases in p0list
+            for p0 in p0_list:
+                # Find the minimum value through brute force
+                neg_area_ph = f2min(p0, y, x)
+                if neg_area_ph < neg_area:
+                    neg_area = neg_area_ph
+                    p0_opt = p0
+
+            return p0_opt
+
+        # Placeholder
+        p0s = []
+        # Loop on the windows
+        for sl in slices:
+            # Trim data and make a scale
+            y = data[sl]
+            x = np.arange(y.shape[-1])
+
+            # Initial list: from -180 to 180 in 20 steps
+            p0_start, p0_stop, p0_step = -180, 180, 19
+            for n in range(3):
+                # Extend the list
+                p0_list = np.linspace(p0_start, p0_stop, p0_step)
+                # Find the best compromise
+                p0_opt = phase_loop(y, x, p0_list)
+                # Shrink around the best value
+                p0_start = p0_opt - p0_step / 2
+                p0_stop = p0_opt + p0_step / 2
+                # Repeat three times so that you have about 1 degree inaccuracy
+            # Update the optimal value
+            p0s.append(p0_opt)
+        return np.array(p0s)
+
+    #-----------------------------------------------------------------------------------
+
+    # Get the peak-only regions
+    slices, _ = processing.mask_sgn_basl(ppm, data, SFO1, alpha, winsize)
+
+    # Debug figure to see the detected regions
+    if seethrough:
+        x = np.arange(data.shape[-1])
+        fig = plt.figure('Detected regions to be phased')
+        fig.set_size_inches(15,8)
+        ax = fig.add_subplot()
+        for sl in slices:
+            ax.plot(x[sl], data[sl].real)
+        misc.pretty_scale(ax, ax.get_xlim(), 'x')
+        misc.pretty_scale(ax, ax.get_ylim(), 'y')
+        misc.mathformat(ax)
+        misc.set_fontsizes(ax, 20)
+        plt.show()
+
+    # Smooth the data with a 5 Hz gaussian filter
+    gbdata = processing.smooth_g(data, 1/misc.hz2pt(misc.ppm2freq(ppm, SFO1), 5))
+    # Phase each region independently with only p0
+    p0s = phase0(gbdata, slices)
+
+    if len(p0s) > 1:    # there is more than one region detected
+        # Compute the relative positions of the regions on the phase scale (that goes from -0.5 to 0.5)
+        rel_pos = np.array([np.mean([sl.start, sl.stop])/data.shape[-1] for sl in slices]) - 0.5
+        # The weights are the integrals of the magnitude of the detected regions
+        weights = np.array([np.trapezoid(np.abs(data[sl])) for sl in slices])
+        # ...normalized
+        weights /= np.sum(weights)
+
+        if ap1: # Compute p1
+            # Make a weighted linear regression
+            phase_reg, (p1, p0) = fit.lr(p0s, rel_pos, w=weights)
+
+            if seethrough:
+                fig = plt.figure('Linear regression for phase 1')
+                fig.set_size_inches(15,8)
+                ax = fig.add_subplot()
+                ax.errorbar(rel_pos, p0s, yerr=1/weights, c='k', fmt='x')
+                ax.plot(rel_pos, phase_reg, ':', c='tab:red')
+                ax.set_xlabel('Relative position')
+                ax.set_ylabel(r'$\phi_0$ /°')
+                misc.pretty_scale(ax, ax.get_xlim(), 'x')
+                misc.pretty_scale(ax, ax.get_ylim(), 'y')
+                misc.set_fontsizes(ax, 20)
+                plt.show()
+        else:   # do not compute p1
+            p1 = 0
+
+        if np.abs(p1) < 5:  # then it is either not computed or negligible
+            # p0 is the weighted average of the p0s
+            p0 = np.average(p0s, weights=weights)
+            # p1 is 0 by default
+            p1 = 0
+    else:   # Only one region was detected
+        # p0 must be unpacked as the single found value
+        p0 = p0s[-1]
+        # p1 cannot be estimated
+        p1 = 0
+
+    # Apply the correction
+    datap, *_ = processing.ps(data, p0=p0, p1=p1)
+
+    print('APK: p0: {:.3f}, p1: {:.3f}\n'.format(p0, p1))
+
+    
+    return datap, (p0, p1)
+
 
 def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':10}):
     """
@@ -5318,4 +5483,253 @@ def rndc(data):
     dy[...,-5:] = 0
     return dy
 
+
+def smooth_g(d, m):
+    """
+    Apply a smoothing with a gaussian filter by convolution. The width of the filter is 1/m.
+    -------------
+    Parameters:
+    - d: 1darray
+        Data to be smoothed
+    - m: float
+        Inverse width of the filter /pt
+    -------------
+    Returns:
+    - yc: 1darray
+        Smoothed data
+    """
+    # Shallow copy
+    data = deepcopy(d)
+    # Scale to compute the gaussian
+    x = np.arange(data.shape[-1])
+    # Make the filter
+    Gf = sim.f_gaussian(x, np.mean(x), 1/m)
+    # Smooth the data
+    yc = processing.convolve(data, Gf)
+    return yc
+
+
+def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
+    """
+    Given an NMR spectrum, this function estimates the signal and baseline regions, and return a list of slices to cut the spectrum accordingly.
+    ----------
+    Parameters:
+    - ppm: 1darray
+        ppm scale of the spectrum
+    - data: 1darray
+        Spectrum
+    - SFO1: float
+        Nucleus' Larmor frequency /MHz
+    - alpha: float
+        Factor that multiplies the std of the spectrum to set the threshold
+    - winsize: float
+        Minimum size of the window that can contain peaks /Hz
+    ----------
+    Returns:
+    - peak_slices: list of slices
+        Slices that trim the data in the signal-only regions
+    - basl_slices: list of slices
+        Slices that trim the data in the baseline-only regions
+    """
+    def calc_mask(data, alpha=3):
+        """
+        Compute the mask that divides "signals" from "baseline" regions.
+        There is "signal" if the spectrum is higher than alpha * std of the spectrum.
+        ----------
+        Parameters:
+        - data: 1darray
+            Spectrum
+        - alpha: float
+            Factor that multiplies the std of the spectrum to set the threshold
+        ----------
+        Returns:
+        - full_mask: 1darray
+            1 if there is signal, 0 is there is not
+        """
+        # First derivative of data
+        d = processing.rndc(data)
+        # Make a shallow copy
+        d_in = deepcopy(d)
+
+        # Initialize the mask
+        full_mask = np.zeros(d.shape[-1])
+        for j in range(1000):   # instead of while
+            # Compute standard deviation of the data
+            std = np.std(np.abs(d_in))
+            # where the spectrum is bigger than alpha times the std
+            mask = (np.abs(d_in) > alpha*std).astype(int)
+            # Add these regions to the mask
+            full_mask += mask
+            # killmask kills the signal
+            killmask = 1 - mask
+         
+            if np.all(killmask == 1):   # No more peaks detected
+                break
+            else:                       # Kill all the signals and start again
+                d_in *= killmask
+
+        # Now copy the original dataset
+        d_in = deepcopy(data)
+        # Apply rhe mask
+        d_in *= (1 - full_mask)
+        # Do the same thing but on the original dataset to see if we missed anything
+        # in the "baseline" regions
+        for j in range(1000):   # instead of while
+            std = np.std(d_in)  
+            mask = (np.abs(d_in) > alpha*std).astype(int)
+            full_mask += mask
+            killmask = 1 - mask
+            if np.all(killmask  == 1):
+                break
+            else:
+                d_in *= killmask
+
+        return full_mask
+
+    def noise_correlation(data, mask):
+        """
+        Compute the window at which the noise is correlated to estimate the smoothing factor.
+        
+        """
+
+        # Get the borders of the regions
+        starts, ends = misc.detect_jumps(mask)
+
+        # Make slices for the signals regions
+        slices = [slice(start,end) for start, end in zip(starts, ends)]
+        
+        m=1     # placeholder
+        for k, sl in enumerate(slices): # For each region
+            # Trim the data
+            y = data[sl]
+            # Make a scale
+            x = np.arange(y.shape[-1])
+            # Useless to consider regions less than 5 points
+            if len(x) < 5:
+                continue
+            # This is basically a correlation function
+            corr_func = np.array([
+                np.sum(y * np.roll(y, -j))
+                for j in range(y.shape[-1])
+                                 ])
+            # The noise is not correlated anymore if it is less than 60% the maximum correlation
+            tol = corr_func[0] * 0.6
+            okay = np.where(corr_func < corr_func[0] * 0.6)[0]
+            if okay.size > 0:   # If this is true, take only that part of the correlation function
+                corr_func = corr_func[:okay[0]]
+                x = x[:okay[0]]
+            
+            # Useless to consider regions less than 5 points
+            if len(x) < 5:
+                continue
+
+            # Fit with an exponential -> linear regression on the logarithm
+            logcf = np.log(corr_func)
+            lr, (mk, q) = fit.lr(logcf, x)
+            # mk is the slope of the linear regression -> the time constant
+            if mk < m:
+                # update
+                m = mk
+        return m
+
+    def mask_to_regions(ppm, d, mask, winsize=50):
+
+        # The minimum allowed window is winsize Hz converted to points
+        window = misc.hz2pt(misc.ppm2freq(ppm, SFO1), winsize)
+
+        # Same here, see where there are signals
+        starts, ends = misc.detect_jumps(mask)
+
+        # Merge the regions that are not further away than window points
+        merged = []     # placeholders
+        current_start = starts[0]
+        current_end = ends[0]
+
+        for s, e in zip(starts[1:], ends[1:]): # for each window
+            # length of the block
+            gap = s - current_end
+            if gap < window:
+                # Extend the current block
+                current_end = e
+            else:
+                # Add the block to the merged list
+                merged.append((current_start, current_end))
+                # Update the borders
+                current_start = s
+                current_end = e
+            # Add to the merged list
+            merged.append((current_start, current_end))
+        # This is the true thing
+        true_merged = []
+        for w in merged:    # exclude regions less than 5 points
+            if max(w) - min(w) > 5:
+                true_merged.append(w)
+
+        # Make a new mask
+        new_mask = np.zeros_like(mask)
+        # This is 1 in the merged regions
+        for s, e in true_merged:
+            new_mask[s:e] = 1
+
+        return new_mask
+
+    def anypeak(data, mask):
+        """
+        Correct the slices to get only the ones that contain peaks
+        """
+        # Make the slices
+        slices = [slice(start, end) for start, end in zip(*misc.detect_jumps(mask))]
+
+        true_slices = []    # placeholder
+        for sl in slices:   # loop on the slices
+            # Trim data
+            y = data[sl]
+            # Compute magnitude
+            magy = np.abs(y)
+            # Standard deviation of the magnitude
+            std = np.std(magy)
+
+            # Use scipy peak-picker to see if there are peaks taller than 3 times std
+            peaks, *_ = scipy.signal.find_peaks(magy-min(magy), height=3*std)
+
+            if len(peaks):  # there are!
+                # Extend the window slightly
+                start = sl.start - 5 if sl.start - 5 > 0 else 0
+                end = sl.stop + 5 if sl.stop + 5 < data.shape[-1] else data.shape[-1]
+                # Add the new window to the list
+                true_slices.append(slice(start, end))
+        return true_slices
+
+    # Compute the mask to separate signal- from baseline-regions
+    mask = calc_mask(data, alpha)
+
+    # Apply correction to the mask:
+    #   compute correlation on the noise
+    corr = noise_correlation(data.real, 1 - mask)
+    #   smooth the data with a gaussian filter
+    fdata = processing.smooth_g(data, corr)
+    #   correct the mask with the filter data
+    mask = mask_to_regions(ppm, fdata, mask, winsize)
+    
+    # Detect peaks
+    peak_slices = anypeak(fdata, mask)
+
+    # Compute complementary slices
+    basl_slices = []    # placeholder
+
+    last_end = 0    # we start from zero
+    for sl in peak_slices:
+        # start at the start and end at the end
+        start = sl.start or 0
+        end = sl.stop 
+        if start > last_end:    # avoid loop break
+            # New slice is from end to start in peak_slices
+            basl_slices.append(slice(last_end, start))
+        # Update the end and go again
+        last_end = max(last_end, end)
+    # Append last part
+    if last_end < data.shape[-1]:
+        basl_slices.append(slice(last_end, data.shape[-1]))
+
+    return peak_slices, basl_slices
 

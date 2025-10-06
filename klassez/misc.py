@@ -1955,3 +1955,28 @@ def listsqueeze(lst):
             break
     return a
 
+def detect_jumps(a):
+    """
+    Detects where array a changes value.
+    ----------
+    Parameters: 
+    - a: 1darray
+        Mask
+    ----------
+    Returns:
+    - starts: list
+        Left border of the windows /pt
+    - ends: list
+        Right border of the windows /pt
+    """
+    # First derivative
+    diff = np.diff(np.concatenate(([0], a, [0])))
+    # Raises
+    starts = np.where(diff == 1)[0]
+    # Lowers
+    ends = np.where(diff == -1)[0]
+    # If it is all constant, raises at the beginning and ends at the end
+    if not(len(starts)) and not(len(ends)):
+        starts, ends = [0], [len(a)]
+    return starts, ends
+

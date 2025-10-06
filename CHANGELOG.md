@@ -8,6 +8,12 @@ Corrected mismatch in the conversion of Jeol nuclei to human
 - *misc.listsqueeze*
 - *processing.apodf*
 - *Spectrum_2D.strip*
+06/10/2025
+- *Spectrum_1D.apk*
+- *misc.detect_jumps*
+- *processing.mask_sgn_basl*
+- *processing.apk*
+- *processing.smooth_g*
 
 ## Modified functions:
 02/10/2025
@@ -15,6 +21,8 @@ Corrected mismatch in the conversion of Jeol nuclei to human
 - *processing.xfb*: employs new *processing.apodf*
 - *misc.trim_data*: avoid truncation of one point due to slicing
 - *misc.trim_data_2D*: avoid truncation of one point due to slicing
+06/10/2025
+- *Spectrum_1D.qfil*: new argument **from_procs**
 
 
 # Version 0.4a.10
