@@ -922,14 +922,53 @@ class Spectrum_1D:
             Parameters to be used to compute the filter if qfil is True. Keys:
             'u' = center of the filter in ppm
             's' = width of the filter in Hz
+        ---------
+        Returns:
+        - baseline: 1darray
+            Employed baseline for correction
         """
+        original = deepcopy(self.S)
         # Correct the baseline
-        self.r = processing.abs(self.ppm, self.r, n=n, lims=lims, alpha=alpha, qfil=qfil, qfilp=qfilp)
+        datap = processing.abs(self.ppm, self.r, n=n, lims=lims, alpha=alpha, qfil=qfil, qfilp=qfilp)
         # Retrieve imaginary part
-        self.S = processing.hilbert(self.r)
+        self.S = processing.hilbert(datap)
         # Overwrite it
+        self.r = self.S.real
         self.i = self.S.imag
+        return original - datap
 
+    def absa(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u':4.7, 's':10}):
+        """
+        Correct the baseline automatically on the real part of the spectrum, then retrieve
+        the imaginary part through Hilbert transform.
+        ----------
+        Parameters:
+        - n: int
+            Number of coefficients of the polynomial baseline
+        - lims: tuple or None
+            Limits for the region on which to compute the baseline, in ppm
+        - alpha: float
+            The threshold will be set as thr = alpha * np.std(np.gradient(data))
+        - qfil: bool
+            Choose whether to apply a filter on the solvent region (True) or not (False)
+        - qfilp: dict
+            Parameters to be used to compute the filter if qfil is True. Keys:
+            'u' = center of the filter in ppm
+            's' = width of the filter in Hz
+        ----------
+        Returns:
+        - baseline: 1darray
+            Employed baseline for correction
+        """
+        original = deepcopy(self.S)
+        # Correct the baseline
+        datap = processing.absa(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
+        # Retrieve imaginary part
+        self.S = processing.hilbert(datap)
+        # Overwrite it
+        self.r = self.S.real
+        self.i = self.S.imag
+        return original - datap
 
 
 class pSpectrum_1D(Spectrum_1D):

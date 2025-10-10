@@ -5335,7 +5335,7 @@ def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
 
         # Find peaks and widths on the second derivative
         peaks, *_ = scipy.signal.find_peaks(y, height=thr, threshold=None, distance=None, prominence=None, width=None, wlen=None, rel_height=0.5, plateau_size=None)
-        widths, *_ = scipy.signal.peak_widths(y, peaks, rel_height=1, prominence_data=None, wlen=None)
+        widths, *_ = scipy.signal.peak_widths(y, peaks, rel_height=0.7, prominence_data=None, wlen=None)
 
         # Initialize w all equal to 1
         w = np.ones_like(x, dtype=int)
@@ -5358,6 +5358,80 @@ def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
     x = np.arange(data.shape[-1]) / data.shape[-1]
     # Compute the weights
     w = compute_weights(ppm, data, qfil, alpha)
+
+    # Correct the weights if limits are given
+    if lims is not None:
+        # Left part: 0 when more left than the lower limit
+        wleft = (ppm > min(lims)).astype(int)
+        # Right part: 0 when more right than the upper limit
+        wright = (ppm < max(lims)).astype(int)
+        # Correct the weights
+        w *= wleft * wright
+
+    # Compute the coefficients of the polynomion
+    c = fit.lsp(data, x, n=n, w=w)
+    # Compute the baseline
+    baseline = misc.polyn(x, c)
+    return baseline
+
+
+def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u':4.7, 's':10}):
+    """
+    Automatic computation of a baseline for a spectrum using a thresholding-based method for the detection of the baseline-only region, followed by a weighted linear least squares optimization with a polynomion of degree n-1.
+    Employs the same method for the detection of signal-free regions of processing.apk.
+    Set qfil to True if there is a very intense solvent peak that would hamper the computation of the threshold.
+    ------------------
+    Parameters:
+    - ppm: 1darray
+        PPM scale of the spectrum
+    - data: 1darray
+        The spectrum to baseline-correct
+    - SFO1: float
+        Nucleus Larmor frequency /MHz
+    - n: int
+        Number of coefficients of the polynomial baseline
+    - lims: tuple or None
+        Limits for the region on which to compute the baseline, in ppm
+    - alpha: float
+        The threshold will be set as thr = alpha * np.std(np.gradient(data))
+    - winsize: float
+        Minimum allowed window containing signals /Hz
+    - qfil: bool
+        Choose whether to apply a filter on the solvent region (True) or not (False)
+    - qfilp: dict
+        Parameters to be used to compute the filter if qfil is True. Keys:
+        'u' = center of the filter in ppm
+        's' = width of the filter in Hz
+    ------------------
+    Returns:
+    - baseline: 1darray
+        Computed baseline
+    """
+
+    def compute_weights(ppm, data, SFO1, qfil=False, alpha=5, winsize=2):
+        """ Computes the weights to be used for the weighted least squares optimization """
+        if qfil:    # Apply according to qfilp
+            d = processing.qfil(ppm, data, qfilp['u'], qfilp['s'], SFO1)
+        else:       # Do nothing
+            d = deepcopy(data)
+
+        # Initialize w all equal to 1
+        w = np.zeros_like(x, dtype=int)
+
+        _, basl_slices = mask_sgn_basl(ppm, data, SFO1, alpha=alpha, winsize=winsize)
+
+        for sl in basl_slices:
+            w[sl] = 1
+
+        if np.all(w == 0):
+            w += 0.05
+
+        return w
+
+    # Scale goes from 0 to 1
+    x = np.arange(data.shape[-1]) / data.shape[-1]
+    # Compute the weights
+    w = compute_weights(ppm, data, SFO1, qfil, alpha, winsize)
 
     # Correct the weights if limits are given
     if lims is not None:
@@ -5402,12 +5476,50 @@ def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
         Baseline-subtracted spectrum
     """
     # Compute the baseline
-    b = processing.abc(ppm, data, n=n, lims=lims, qfil=qfil, qfilp=qfilp)
+    b = processing.abc(ppm, data.real, n=n, alpha=alpha, lims=lims, qfil=qfil, qfilp=qfilp)
     # Subtract it
-    datab = data - b
+    datab = data.real - b
     # Compute the missing imaginary part
     S = processing.hilbert(datab)
     return S
+
+def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u':4.7, 's':10}):
+    """
+    Computes the baseline correction on data using processing.abca, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using processing.hilbert.
+    ------------------
+    Parameters:
+    - ppm: 1darray
+        PPM scale of the spectrum
+    - data: 1darray
+        The spectrum to baseline-correct
+    - n: int
+        Number of coefficients of the polynomial baseline
+    - lims: tuple or None
+        Limits for the region on which to compute the baseline, in ppm
+    - alpha: float
+        The threshold will be set as thr = alpha * np.std(np.gradient(data))
+    - winsize: float
+        Minimum allowed window containing signals /Hz
+    - qfil: bool
+        Choose whether to apply a filter on the solvent region (True) or not (False)
+    - qfilp: dict
+        Parameters to be used to compute the filter if qfil is True. Keys:
+        'u' = center of the filter in ppm
+        's' = width of the filter in Hz
+    ------------------
+    Returns:
+    - S: 1darray
+        Baseline-subtracted spectrum
+    """
+    # Compute the baseline
+    b = processing.abca(ppm, data.real, SFO1, n=n, alpha=alpha, winsize=winsize, lims=lims, qfil=qfil, qfilp=qfilp)
+    # Subtract it
+    datab = data.real - b
+    # Compute the missing imaginary part
+    S = processing.hilbert(datab)
+    return S
+
 
 def abs2(ppm_f2, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':10}, FnMODE='States-TPPI'):
     """
