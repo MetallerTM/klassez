@@ -1,34 +1,30 @@
 # Version 0.4a.11
 
-Corrected mismatch in the conversion of Jeol nuclei to human 
+Added new functions for automatic phase and baseline correction. Implemented strip transform for 2D spectra.
+Several bug corrections.
+Corrected mismatch in the conversion of Jeol nuclei to human.
 
 
 ## New functions:
-02/10/2025
-- *misc.listsqueeze*
-- *processing.apodf*
-- *Spectrum_2D.strip*
-06/10/2025
-- *Spectrum_1D.apk*
 - *misc.detect_jumps*
-- *processing.mask_sgn_basl*
-- *processing.apk*
-- *processing.smooth_g*
-10/10/2025
+- *misc.listsqueeze*
 - *processing.abca*
 - *processing.absa*
+- *processing.apk*
+- *processing.apodf*
+- *processing.mask_sgn_basl*
+- *processing.smooth_g*
+- *Spectrum_1D.apk*
 - *Spectrum_1D.absa*
+- *Spectrum_2D.strip*
 
 ## Modified functions:
-02/10/2025
-- *processing.fp*: bug fix with **tdeff**, employs new *processing.apodf*
-- *processing.xfb*: employs new *processing.apodf*
 - *misc.trim_data*: avoid truncation of one point due to slicing
 - *misc.trim_data_2D*: avoid truncation of one point due to slicing
-06/10/2025
-- *Spectrum_1D.qfil*: new argument **from_procs**
-10/10/2025
+- *processing.fp*: bug fix with **tdeff**, employs new *processing.apodf*
+- *processing.xfb*: employs new *processing.apodf*
 - *Spectrum_1D.abs*: now returns the employed baseline
+- *Spectrum_1D.qfil*: new argument **from_procs**
 
 
 # Version 0.4a.10
