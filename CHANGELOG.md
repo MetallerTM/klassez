@@ -1,3 +1,6 @@
+# Version 0.4a.12
+
+
 # Version 0.4a.11
 
 Added new functions for automatic phase and baseline correction. Implemented strip transform for 2D spectra.
