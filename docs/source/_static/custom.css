@@ -1,0 +1,42 @@
+/* Stile per separare visivamente le funzioni */
+.wy-nav-content {
+    max-width: 900px;
+}
+.subsection {
+    page-break-before: always;
+    margin-top: 20px;
+}
+
+.wy-side-nav-search img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    max-height: 150px; /* Limita l'altezza del logo */
+}
+
+dt.py-function {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.wy-side-nav-search {
+    margin-bottom: 20px;
+
+.full-width-centered {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 75%;
+    max-width: 75%; /* Impedisce che l'immagine superi il contenitore */
+    height: auto; /* Mantiene le proporzioni */
+    position: relative;
+}
+
+.center {
+    text-align: center;
+}
+
+.math {
+    text-align: left !important;
+}

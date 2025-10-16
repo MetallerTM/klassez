@@ -17,3 +17,6 @@ dist/
 *.png
 # test files
 test/
+
+# documentation
+!docs/build/*
