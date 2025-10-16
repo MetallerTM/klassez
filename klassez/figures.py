@@ -32,32 +32,37 @@ warnings.filterwarnings("ignore", message="No contour levels were found within t
 def heatmap(data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, rev=(False, False), n_xticks=10, n_yticks=10, n_zticks=10, fontsize=10, name=None):
     """
     Computes a heatmap of data.
-    --------
+
     Parameters:
-    - data: 2darray
+    -----------
+    data: 2darray
         Input data
-    - zlim: tuple or 'auto' or 'abs'
-        Vertical limits of the heatmap, that determines the extent of the colorbar. 'auto' means (min(data), max(data)), 'abs' means(min(|data|), max(|data|)). 
-    - z_sym: bool
+    zlim: tuple or 'auto' or 'abs'
+        Vertical limits of the heatmap, that determines the extent of the colorbar. ``'auto'`` means ``(min(data), max(data))``, ``'abs'`` means ``(min(|data|), max(|data|))``. 
+    z_sym: bool
         True to symmetrize the vertical scale around 0. 
-    - cmap: matplotlib.cm object
+    cmap: matplotlib.cm object
         Colormap of the heatmap. 
-    - xscale: 1darray or None
-        x-scale. None means np.arange(data.shape[1])
-    - yscale: 1darray or None
-        y-scale. None means np.arange(data.shape[0])
-    - rev: tuple of bool
+    xscale: 1darray or None
+        x-scale. None means ``np.arange(data.shape[1])``
+    yscale: 1darray or None
+        y-scale. None means ``np.arange(data.shape[0])``
+    rev: tuple of bool
         Reverse scale (x, y).
-    - n_xticks: int
+    n_xticks: int
         Number of ticks of the x axis
-    - n_yticks: int
+    n_yticks: int
         Number of ticks of the y axis
-    - n_zticks: int
+    n_zticks: int
         Number of ticks of the color bar 
-    - fontsize: float
-        Biggest font size to apply to the figure.
-    - name: str or None
+    fontsize: float
+        Biggest font size to apply to the figure according to :func:`klassez.misc.set_fontsizes`
+    name: str or None
         Filename for the figure. Set to None to show the figure.
+
+    .. seealso::
+
+        :func:`klassez.figures.ax_heatmap`
     """
     print('Computing heatmap...', end='\r')
 
@@ -143,38 +148,41 @@ def heatmap(data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, 
 
 def ax_heatmap(ax, data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, rev=(False, False), n_xticks=10, n_yticks=10, n_zticks=10, fontsize=10):
     """
-    Computes a heatmap of data on the given 'ax'
-    --------
+    Computes a heatmap of data on the given ``ax``.
+
     Parameters:
-    - ax: matplotlib.Subplot object
+    -----------
+    ax : matplotlib.Subplot object
         Panel where to draw the heatmap
-    - data: 2darray
+    data : 2darray
         Input data
-    - zlim: tuple or 'auto' or 'abs'
-        Vertical limits of the heatmap, that determines the extent of the colorbar. 'auto' means (min(data), max(data)), 'abs' means(min(|data|), max(|data|)). 
-    - z_sym: bool
+    zlim : tuple or 'auto' or 'abs'
+        Vertical limits of the heatmap, that determines the extent of the colorbar. ``'auto'`` means ``(min(data), max(data))``, ``'abs'`` means ``(min(|data|), max(|data|))``. 
+    z_sym : bool
         True to symmetrize the vertical scale around 0. 
-    - cmap: matplotlib.cm object
+    cmap : matplotlib.cm object
         Colormap of the heatmap. 
-    - xscale: 1darray or None
-        x-scale. None means np.arange(data.shape[1])
-    - yscale: 1darray or None
-        y-scale. None means np.arange(data.shape[0])
-    - rev: tuple of bool
+    xscale : 1darray or None
+        x-scale. None means ``np.arange(data.shape[1])``
+    yscale : 1darray or None
+        y-scale. None means ``np.arange(data.shape[0])``
+    rev : tuple of bool
         Reverse scale (x, y).
-    - n_xticks: int
+    n_xticks : int
         Number of ticks of the x axis
-    - n_yticks: int
+    n_yticks : int
         Number of ticks of the y axis
-    - n_zticks: int
+    n_zticks : int
         Number of ticks of the color bar 
-    - fontsize: float
-        Biggest font size to apply to the figure.
-    -------
+    fontsize : float
+        Biggest font size to apply to the figure according to :func:`klassez.misc.set_fontsizes`
+    
     Returns:
-    - im: matplotlib.AxesImage
+    -----------
+    im : matplotlib.AxesImage
         The heatmap
-    - cax: figure panel where the colorbar is drawn
+    cax : matplotlib.Subplot object
+        figure panel where the colorbar is drawn
     """
 
     # Check if data is real
@@ -242,18 +250,19 @@ def ax_heatmap(ax, data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale
 
 def sns_heatmap(data, name=None, ext='png', dpi=600):
     """
-    Computes a heatmap of data, which is a matrix. 
-    This function employs the seaborn package.
-    Specify name if you want to save the figure.
-    ---------
+    Computes a heatmap of ``data``. 
+    This function employs the `seaborn` package.
+    Specify ``name`` if you want to save the figure.
+
     Parameters:
-    - data: 2darray
+    -----------
+    data : 2darray
         Data of which to compute the heatmap. Make sure the entries are real numbers.
-    - name: str or None
+    name : str or None
         Filename of the figure to be saved. If None, the figure is shown instead.
-    - ext: str
+    ext : str
         Format of the image
-    - dpi: int
+    dpi : int
         Resolution of the image in dots per inches
     """
     data = data.real
@@ -283,21 +292,22 @@ def plot_fid_re(fid, scale=None, c='b', lims=None, name=None, ext='png', dpi=600
     """
     Makes a single-panel figure that shows either the real or the imaginary part of the FID.
     The x-scale and y-scale are automatically adjusted.
-    ----------
+
     Parameters:
-    - fid: ndarray
+    -----------
+    fid : ndarray
         FID to be plotted
-    - scale: 1darray or None
+    scale : 1darray or None
         x-scale of the figure
-    - c: str
+    c : str
         Color
-    - lims: tuple or None
+    lims : tuple or None
         Limits
-    - name: str
+    name : str
         Name of the figure
-    - ext: str
+    ext : str
         Format of the image
-    - dpi: int
+    dpi : int
         Resolution of the image in dots per inches
     """
 
@@ -348,6 +358,17 @@ def plot_fid(fid, name=None, ext='png', dpi=600):
     """
     Makes a two-panel figure that shows on the left the real part of the FID, on the right the imaginary part.
     The x-scale and y-scale are automatically adjusted.
+
+    Parameters:
+    -----------
+    fid : ndarray
+        FID to be plotted
+    name : str
+        Name of the figure
+    ext : str
+        Format of the image
+    dpi : int
+        Resolution of the image in dots per inches
     """
 
     size = fid.shape[-1]
@@ -398,49 +419,57 @@ def plot_fid(fid, name=None, ext='png', dpi=600):
 def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fac=1.4, lvl=0.09, X_label=r'$\delta\ $ F2 /ppm', Y_label=r'$\delta\ $ F1 /ppm', lw=0.5, cmapneg=None, n_xticks=10, n_yticks=10, fontsize=10, name=None, ext='png', dpi=600):
     """
     Makes a 2D contour plot. 
-    Allows for the buildup of modular figures. 
     The contours are drawn according to the formula:
+
+    .. code-block:: python
+
         cl = contour_start * contour_factor ** np.arange(contour_num)
-    where contour_start = np.max(data) * lvl, contour_num = 16 and contour_factor = c_fac.
-    Increasing the value of c_fac will decrease the number of contour lines, whereas decreasing the value of c_fac will increase the number of contour lines.
-    -----------
+
+    where ``contour_start = np.max(data) * lvl``, ``contour_num = 16`` and ``contour_factor = c_fac``.
+    Increasing the value of ``c_fac`` will decrease the number of contour lines, whereas decreasing the value of ``c_fac`` will increase the number of contour lines.
+
     Parameters:
-    - ppm_f2: 1darray
+    -----------
+    ppm_f2 : 1darray
         ppm scale of the direct dimension
-    - ppm_f1: 1darray
+    ppm_f1 : 1darray
         ppm scale of the indirect dimension
-    - datax: 2darray
+    datax : 2darray
         the 2D NMR spectrum to be plotted
-    - xlims: tuple
+    xlims : tuple
         limits for the x-axis (left, right). If None, the whole scale is used.
-    - ylims: tuple
+    ylims : tuple
         limits for the y-axis (left, right). If None, the whole scale is used.
-    - cmap: str
-        Colormap identifier for the contour
-    - c_fac: float
+    cmap : str
+        Colormap identifier for the contour (must be in ``klassez.CM``, or better in ``klassez.CM_2D``)
+    c_fac: float
         Contour factor parameter
-    - lvl: float
-        height with respect to maximum at which the contour are computed
-    - X_label: str
+    lvl : float
+        relative height with respect to maximum at which the contour are computed
+    X_label : str
         text of the x-axis label;
-    - Y_label: str
+    Y_label : str
         text of the y-axis label;
-    - lw: float
+    lw : float
         linewidth of the contours
-    - cmapneg: str or None
+    cmapneg : str or None
         Colormap identifier for the negative contour. If None, they are not computed at all
-    - n_xticks: int
+    n_xticks : int
         Number of numbered ticks on the x-axis of the figure
-    - n_yticks: int
+    n_yticks : int
         Number of numbered ticks on the x-axis of the figure
-    - fontsize: float
+    fontsize : float
         Biggest font size in the figure.
-    - name: str
+    name : str
         Filename for the figure
-    - ext: str
+    ext : str
         Format of the image
-    - dpi: int
+    dpi : int
         Resolution of the image in dots per inches
+
+    .. seealso::
+
+        :func:`klassez.figures.ax2D`
     """
 
     # Check if the scales matches the dimensions of datax
@@ -510,50 +539,62 @@ def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
 
 def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fac=1.4, lvl=0.1, lw=0.5, X_label=r'$\delta\,$F2 /ppm', Y_label=r'$\delta\,$F1 /ppm', title=None, n_xticks=10, n_yticks=10, fontsize=10):
     """
-    Makes a 2D contour plot like the one in figures.figure2D, but in a specified panel. 
+    Makes a 2D contour plot like the one in :func:`klassez.figures.figure2D`, but in a specified panel. 
     Allows for the buildup of modular figures. 
     The contours are drawn according to the formula:
+
+    .. code-block:: python
+
         cl = contour_start * contour_factor ** np.arange(contour_num)
-    where contour_start = np.max(data) * lvl, contour_num = 16 and contour_factor = c_fac.
-    Increasing the value of c_fac will decrease the number of contour lines, whereas decreasing the value of c_fac will increase the number of contour lines.
-    -----------
+
+    where ``contour_start = np.max(data) * lvl``, ``contour_num = 16`` and ``contour_factor = c_fac``.
+    Increasing the value of ``c_fac`` will decrease the number of contour lines, whereas decreasing the value of ``c_fac`` will increase the number of contour lines.
+
     Parameters:
-    - ax: matplotlib.subplot Object
+    -----------
+    ax : matplotlib.Subplot Object
         panel where to put the figure
-    - ppm_f2: 1darray
+    ppm_f2 : 1darray
         ppm scale of the direct dimension
-    - ppm_f1: 1darray
+    ppm_f1 : 1darray
         ppm scale of the indirect dimension
-    - datax: 2darray
+    datax : 2darray
         the 2D NMR spectrum to be plotted
-    - xlims: tuple
+    xlims : tuple
         limits for the x-axis (left, right). If None, the whole scale is used.
-    - ylims: tuple
+    ylims : tuple
         limits for the y-axis (left, right). If None, the whole scale is used.
-    - cmap: str
-        Colormap identifier for the contour
-    - c_fac: float
+    cmap : str
+        Colormap identifier for the contour (must be in ``klassez.CM``, or better in ``klassez.CM_2D``)
+    c_fac : float
         Contour factor parameter
-    - lvl: float
-        height with respect to maximum at which the contour are computed
-    - X_label: str
+    lvl : float
+        relative height with respect to maximum at which the contour are computed
+    X_label : str
         text of the x-axis label;
-    - Y_label: str
+    Y_label : str
         text of the y-axis label;
-    - lw: float
+    lw : float
         linewidth of the contours
-    - title: str
-        Figure title.
-    - n_xticks: int
+    cmapneg : str or None
+        Colormap identifier for the negative contour. If None, they are not computed at all
+    n_xticks : int
         Number of numbered ticks on the x-axis of the figure
-    - n_yticks: int
+    n_yticks : int
         Number of numbered ticks on the x-axis of the figure
-    - fontsize: float
+    fontsize : float
         Biggest font size in the figure.
-    ---------
+
     Returns:
-    - cnt: matplotlib.QuadContour object
+    -----------
+    cnt : matplotlib.QuadContour object
         Drawn contour lines
+
+
+    .. seealso::
+
+        :func:`klassez.figures.figure2D`
+
     """
 
     swapped_scales = not(len(ppm_f2) == datax.shape[1] and len(ppm_f1) == datax.shape[0])
@@ -598,43 +639,49 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
 
 def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default', c_fac=1.4, Negatives=False, X_label=r'$\delta\ $ F2 /ppm', Y_label=r'$\delta\ $ F1 /ppm', lw=0.5, n_xticks=10, n_yticks=10, labels=None, name=None, ext='png', dpi=600):
     """
-    Generates the figure of multiple, superimposed spectra, using figures.ax2D.
-    --------
+    Generates the figure of multiple, superimposed spectra, using :func:`klassez.figures.figures.ax2D`.
+
     Parameters:
-    - ppm_f2: 1darray
+    -----------
+    ppm_f2 : 1darray
         ppm scale of the direct dimension
-    - ppm_f1: 1darray
+    ppm_f1 : 1darray
         ppm scale of the indirect dimension
-    - datax: sequence of 2darray
+    datax : sequence of 2darray
         the 2D NMR spectra to be plotted
-    - xlims: tuple
+    xlims : tuple
         limits for the x-axis (left, right). If None, the whole scale is used.
-    - ylims: tuple
+    ylims : tuple
         limits for the y-axis (left, right). If None, the whole scale is used.
-    - lvl: "default" or list
+    lvl : "default" or list
         height with respect to maximum at which the contour are computed. If "default", each spectrum is at 10% of maximum height. Otherwise, each entry of the list corresponds to the contour height of the respective spectrum.
-    - c_fac: float
+    c_fac : float
         Contour factor
-    - Negatives: bool
+    Negatives : bool
         set it to True if you want to see the negative part of the spectrum
-    - X_label: str
+    X_label : str
         text of the x-axis label;
-    - Y_label: str
+    Y_label : str
         text of the y-axis label;
-    - lw: float
+    lw : float
         linewidth of the contours
-    - n_xticks: int
+    n_xticks : int
         Number of numbered ticks on the x-axis of the figure
-    - n_yticks: int
+    n_yticks : int
         Number of numbered ticks on the x-axis of the figure
-    - labels: list
+    labels : list
         entries of the legend. If None, the spectra are numbered.
-    - name: str
+    name : str
         Filename for the figure. If None, it is shown instead of saved
-    - ext: str
+    ext : str
         Format of the image
-    - dpi: int
+    dpi : int
         Resolution of the image in dots per inches
+
+
+    .. seealso:: 
+        
+        :func:`klassez.figures.ax2D`
     """
     nsp = len(datax)
     cmaps = 'Greys_r', 'Reds_r', 'Blues_r', 'Greens_r', 'Purples_r', 'Oranges_r'
@@ -716,37 +763,38 @@ def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.
     Makes the figure of a 1D NMR spectrum.
 
     The plot can be customized in a very flexible manner by setting the function keywords properly.
-    --------
+
     Parameters:
-	- ppm: 1darray
-		ppm scale of the spectrum
-	- datax: 1darray
-		spectrum to be plotted
-	- norm: bool
-		if True, normalizes the intensity to 1.
-	- xlims: list or tuple
-		Limits for the x-axis. If None, the whole scale is used.
-	- ylims: list or tuple
-		Limits for the y-axis. If None, the whole scale is used.
-	- c: str
-		Colour of the line.
-	- lw: float
-		 linewidth
-	- X_label: str
-		 text of the x-axis label;
-	- Y_label: str
-		 text of the y-axis label;
-	- n_xticks: int
-		 Number of numbered ticks on the x-axis of the figure
-	- n_yticks: int
-		 Number of numbered ticks on the x-axis of the figure
-	- fontsize: float
-		 Biggest font size in the figure.
-    - name: str or None
+    -----------
+    ppm : 1darray
+        ppm scale of the spectrum
+    datax : 1darray
+        spectrum to be plotted
+    norm : bool
+        if True, normalizes the intensity to 1.
+    xlims : list or tuple
+        Limits for the x-axis. If None, the whole scale is used.
+    ylims : list or tuple
+        Limits for the y-axis. If None, the whole scale is used.
+    c : str
+        Colour of the line.
+    lw : float
+         linewidth
+    X_label : str
+         text of the x-axis label;
+    Y_label : str
+         text of the y-axis label;
+    n_xticks : int
+         Number of numbered ticks on the x-axis of the figure
+    n_yticks : int
+         Number of numbered ticks on the x-axis of the figure
+    fontsize : float
+         Biggest font size in the figure.
+    name : str or None
         Filename for the figure to be saved. If None, the figure is shown instead.
-    - ext: str
+    ext : str
         Format of the image
-    - dpi: int
+    dpi : int
         Resolution of the image in dots per inches
     """
     data = np.copy(datax.real)
@@ -799,40 +847,42 @@ def ax1D(ax, ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.
     This allows the making of modular figures.
 
     The plot can be customized in a very flexible manner by setting the function keywords properly.
-    --------
+    
     Parameters:
-    - ax: matplotlib.subplot Object
+    -----------
+    ax : matplotlib.subplot Object
         panel where to put the figure
-	- ppm: 1darray
-		ppm scale of the spectrum
-	- data: 1darray
-		spectrum to be plotted
-	- norm: bool
-		if True, normalizes the intensity to 1.
-	- xlims: list or tuple
-		Limits for the x-axis. If None, the whole scale is used.
-	- ylims: list or tuple
-		Limits for the y-axis. If None, the whole scale is used.
-	- c: str
-		Colour of the line.
-	- lw: float
-		 linewidth
-	- X_label: str
-		 text of the x-axis label;
-	- Y_label: str
-		 text of the y-axis label;
-	- n_xticks: int
-		 Number of numbered ticks on the x-axis of the figure
-	- n_yticks: int
-		 Number of numbered ticks on the x-axis of the figure
-	- label: str
-		 label to be put in the legend.
-	- fontsize: float
-		 Biggest font size in the figure.
-    --------
+    ppm : 1darray
+        ppm scale of the spectrum
+    data : 1darray
+        spectrum to be plotted
+    norm : bool
+        if True, normalizes the intensity to 1.
+    xlims : list or tuple
+        Limits for the x-axis. If None, the whole scale is used.
+    ylims : list or tuple
+        Limits for the y-axis. If None, the whole scale is used.
+    c : str
+        Colour of the line.
+    lw : float
+         linewidth
+    X_label : str
+         text of the x-axis label;
+    Y_label : str
+         text of the y-axis label;
+    n_xticks : int
+         Number of numbered ticks on the x-axis of the figure
+    n_yticks : int
+         Number of numbered ticks on the x-axis of the figure
+    label : str
+         label to be put in the legend.
+    fontsize : float
+         Biggest font size in the figure.
+
     Returns:
-	- line: Line2D Object
-		Line object returned by plt.plot.
+    -----------
+    line : Line2D Object
+        Line object returned by ``plt.plot``.
     """
     data = np.copy(datax.real)
 
@@ -869,37 +919,38 @@ def ax1D(ax, ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.
 def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, X_label=r'$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, fontsize=10, labels=None, name=None, ext='png', dpi=600):
     """
     Creates the superimposed plot of a series of 1D NMR spectra.
-    -------
+
     Parameters:
-    - ppm0: sequence of 1darray or 1darray
+    -----------
+    ppm0 : sequence of 1darray or 1darray
         ppm scale of the spectra. If only one scale is supplied, it is assumed to be the same for all the spectra
-    - data0: sequence of 1darray
+    data0 : sequence of 1darray
         List containing the spectra to be plotted
-    - xlims: tuple or None
+    xlims : tuple or None
         Limits for the x-axis. If None, the whole scale is used.
-    - ylims: tuple or None
+    ylims : tuple or None
         Limits for the y-axis. If None, they are automatically set.
-    - norm: False or float or str
+    norm : False or float or str
         If it is False, it does nothing. If it is float, divides all spectra for that number. If it is str('#'), normalizes all the spectra to the '#' spectrum (python numbering). If it is whatever else string, normalizes all spectra to themselves.
-    - c: tuple or None
+    c : tuple or None
         List of the colors to use for the traces. None uses the default ones.
-    - X_label: str
+    X_label : str
         text of the x-axis label
-    - Y_label: str
+    Y_label : str
         text of the y-axis label
-    - n_xticks: int
+    n_xticks : int
         Number of numbered ticks on the x-axis of the figure
-    - n_yticks: int
+    n_yticks : int
         Number of numbered ticks on the x-axis of the figure
-    - fontsize: float
+    fontsize : float
         Biggest fontsize in the picture
-    - labels: list or None or False
+    labels : list or None or False
         List of the labels to be shown in the legend. If it is None, the default entries are used (i.e., '1, 2, 3,...'). If it is False, the legend is not shown.
-    - name: str or None
+    name : str or None
         Filename of the figure, if it has to be saved. If it is None, the figure is shown instead.
-    - ext: str
+    ext : str
         Format of the image
-    - dpi: int
+    dpi : int
         Resolution of the image in dots per inches
     """
 
@@ -1039,25 +1090,37 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, X_la
 def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, s_labels=None, X_label=r'$\delta\,$ F1 /ppm', n_xticks=10, name=None):
     """
     Makes the figure to show the result of a quantitative fit.
-    --------
+
+    .. error::
+        
+        Legacy function for old fitting method.
+
+    
     Parameters:
-    - S : 1darray
+    -----------
+    S : 1darray
         Spectrum to be fitted
-    - ppm_scale : 1darray
+    ppm_scale : 1darray
         Self-explanatory
-    - V : 2darray
+    t_AQ : 1darray
+        acquisition timescale
+    V : 2darray
         matrix (# signals, parameters)
-    - C : 1darray or False
+    C : 1darray or False
         Coefficients of the polynomion to be used as baseline correction. If the 'baseline' checkbox in the interactive figure panel is not checked, C_f is False.
-    - limits : tuple or None
+    SFO1 : float
+        Nucleus' Larmor frequency /MHz
+    o1p : float
+        Carrier position /ppm
+    limits : tuple or None
         Trim limits for the spectrum (left, right). If None, the whole spectrum is used.
-    - s_labels : list or None or False
+    s_labels : list or None or False
         Legend entries for the single components. If None, they are computed automatically as 1, 2, 3, etc. If False, they are not shown in the legend.
-    - X_label : str
+    X_label : str
         label for the x-axis.
-    - n_xticks : int
+    n_xticks : int
         number of numbered ticks that will appear in the ppm scale. An oculated choice can be very satisfying.
-    - name : str or None
+    name : str or None
         Name with which to save the figure. If None, the picture is shown instead of being saved.
     """
     N = S.shape[-1]
@@ -1132,27 +1195,36 @@ def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, 
 
 def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm', Y_label='Normalized intensity /a.u.', n_xticks=10, labels=None, name=None, ext='png', dpi=600):
     """
-    Creates a stacked plot of all the spectra contained in the list S. Note that S MUST BE a list. All the spectra must share the same scale.
-    --------
+    Creates a stacked plot of all the spectra contained in the list ``S``. Note that ``S`` MUST BE a list. All the spectra must share the same scale.
+
     Parameters:
-    - ppmscale: 1darray
+    -----------
+    ppmscale : 1darray
         ppm scale of the spectrum
-    - S: list
+    S : list of 1darray
         spectra to be plotted
-    - xlims: list or tuple
+    xlims : list or tuple
         Limits for the x-axis. If None, the whole scale is used.
-    - lw: float
+    lw : float
         linewidth
-    - name: str
-        filename of the figure, if it has to be saved;
-    - X_label: str
+    X_label : str
         text of the x-axis label;
-    - Y_label: str
+    Y_label : str
         text of the y-axis label;
-    - n_xticks: int
+    n_xticks : int
         Number of numbered ticks on the x-axis of the figure
-    - labels: list
+    labels : list
         labels to be put in the legend.
+    name : str
+        filename of the figure, if it has to be saved;
+    ext : str
+        Format of the image
+    dpi : int
+        Resolution of the image in dots per inches
+
+    .. seealso::
+
+        :func:`klassez.figures.ax1D`
     """
     nsp = len(S)                                # number of spectra in the lsit
     if not labels:                              # auto-builds the labels for the spectra if not specified
@@ -1207,19 +1279,23 @@ def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm',
 def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     """
     Interactive display of multiple 1D spectra.
-    --------
+
     Parameters:
-    - ppmscale: 1darray or list
+    -----------
+    ppmscale : 1darray or list of 1darray
         ppm scale of the spectra. If only one scale is supplied, all the spectra are plotted using the same scale. Otherwise, each spectrum is plotted using its scale. 
-    - S: list
+    S : list of 1darray
         spectra to be plotted
-    - labels: list
+    labels : list
         labels to be put in the legend.
-    - n_xticks: int
+    lw : float
+        Linewidth of the spectra plots
+    n_xticks : int
         Number of numbered ticks on the x-axis of the figure
-    --------
+
     Returns:
-    - scale_factor: list
+    -----------
+    scale_factor: list
         Intensity of the spectra with respect to the original when the figure is closed
     """
     if isinstance(S, list):
@@ -1382,33 +1458,35 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
  
 def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta\ $ F2 /ppm', Y_label=r'$\delta\ $ F1 /ppm', n_xticks=10, n_yticks=10, Neg=False):
     """
-    Interactive display of multiple 2D spectra. They have to share the same scales.
-    -------
+    Interactive display of multiple 2D spectra.
+
     Parameters:
-    - ppm_f1: 1darray
-        ppm scale of the indirect dimension. If only one scale is supplied, all the spectra are plotted using the same scale. Otherwise, each spectrum is plotted using its scale. There is a 1:1 correspondance between ppm_f1 and S.
-    - ppm_f2: 1darray
-        ppm scale of the direct dimension. If only one scale is supplied, all the spectra are plotted using the same scale. Otherwise, each spectrum is plotted using its scale. There is a 1:1 correspondance between ppm_f2 and S.
-    - S: list
-        spectra to be plotted
-    - labels: list
-        labels to be put in the legend.
-    - name: str
-        If you choose to save the figure, this is its filename.
-    - X_label: str
-        text of the x-axis label;
-    - Y_label: str
-        text of the y-axis label;
-    - n_xticks: int
-        Number of numbered ticks on the x-axis of the figure
-    - n_yticks: int
-        Number of numbered ticks on the x-axis of the figure
-    - Neg: bool
-        If True, show the negative contours.
     -----------
-    Returns: 
-    - lvl: list
-        Intensity factors when the figure is closed
+    ppm_f1 : 1darray
+        ppm scale of the indirect dimension. If only one scale is supplied, all the spectra are plotted using the same scale. Otherwise, each spectrum is plotted using its scale. There is a 1:1 correspondance between ``ppm_f1`` and ``S``.
+    ppm_f2 : 1darray
+        ppm scale of the direct dimension. If only one scale is supplied, all the spectra are plotted using the same scale. Otherwise, each spectrum is plotted using its scale. There is a 1:1 correspondance between ``ppm_f2`` and ``S``.
+    S : list
+        spectra to be plotted
+    labels : list
+        labels to be put in the legend.
+    name : str
+        If you choose to save the figure, this is its filename.
+    X_label : str
+        text of the x-axis label;
+    Y_label : str
+        text of the y-axis label;
+    n_xticks : int
+        Number of numbered ticks on the x-axis of the figure
+    n_yticks : int
+        Number of numbered ticks on the x-axis of the figure
+    Neg : bool
+        If True, show the negative contours.
+
+    Returns:
+    ----------- 
+    lvl : list
+        Start of level curves of all the spectra when the figure is closed
     """
 
 
@@ -1628,33 +1706,35 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
 def redraw_contours(ax, ppm_f2, ppm_f1, S, lvl, cnt, Neg=False, Ncnt=None, lw=0.5, cmap=[None, None]):
     """
     Redraws the contours in interactive 2D visualizations.
-    --------
+    
     Parameters:
-    - ax: matplotlib.Subplot Object
+    -----------
+    ax : matplotlib.Subplot Object
         Panel of the figure where to draw the contours
-    - ppm_f2: 1darray
+    ppm_f2 : 1darray
         ppm scale of the direct dimension
-    - ppm_f1: 1darray
+    ppm_f1 : 1darray
         ppm scale of the indirect dimension
-    - S: 2darray
+    S : 2darray
         Spectrum
-    - lvl: float
+    lvl : float
         Level at which to draw the contours
-    - cnt: matplotlib.contour.QuadContourSet object
+    cnt : matplotlib.contour.QuadContourSet object
         Pre-existing contours
-    - Neg: bool
+    Neg : bool
         Choose if to draw the negative contours (True) or not (False)
-    - Ncnt: matplotlib.contour.QuadContourSet object
+    Ncnt : matplotlib.contour.QuadContourSet object
         Pre-existing negative contours
-    - lw: float
+    lw : float
         Linewidth
-    - cmap: list
+    cmap : list
         Colour of the contours. [cmap +, cmap -]
-    -------
+    
     Returns:
-    - cnt: matplotlib.contour.QuadContourSet object
+    -----------
+    cnt : matplotlib.contour.QuadContourSet object
         Updated contours
-    - Ncnt: matplotlib.contour.QuadContourSet object or None
+    Ncnt : matplotlib.contour.QuadContourSet object or None
         Updated negative contours if Neg is True, None otherwise
     """
 
@@ -1680,19 +1760,26 @@ def ongoing_fit(exp, calc, residual, ylims=None, filename=None, dpi=100):
     Makes a figure of an ongoing fit. 
     It displays the experimental data and the model, and the residuals in a separate window.
     The figure can be either saved or shown.
-    ----------
+
+    .. tip::
+
+        This function has been designed to be fast at rendering! 
+        If you want to save it, use low dpi otherwise the writing time to disk becomes too slow.
+
+    
     Parameters:
-    - exp: 1darray
+    -----------
+    exp : 1darray
         Experimental data
-    - calc: 1darray
+    calc : 1darray
         Current model
-    - residual: 1darray
+    residual : 1darray
         Residuals of the fit
-    - ylims: tuple
+    ylims : tuple
         Optional limits for y-axis
-    - filename: str or None
+    filename : str or None
         Filename of the figure to be saved. If None, the figure is shown instead
-    - dpi: int
+    dpi : int
         Resolution of the figure in dots per inches
     """
     # Make the figure panel

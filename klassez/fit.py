@@ -35,40 +35,46 @@ s_colors=[ 'tab:cyan', 'tab:red', 'tab:green', 'tab:purple', 'tab:pink', 'tab:gr
 
 def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=False, fitG=True, barcolor='tab:blue', fontsize=10, name=None, ext='png', dpi=600):
     """
-    Computes an histogram of 'data' and tries to fit it with a gaussian lineshape.
-    The parameters of the gaussian function are calculated analytically directly from 'data' using 'scipy.stats.norm'
-    --------
+    Computes an histogram of ``data`` and tries to fit it with a gaussian lineshape.
+    The parameters of the gaussian function are calculated analytically directly from ``data`` using ``scipy.stats.norm``
+
     Parameters:
-    - data : ndarray
+    -----------
+    data : ndarray
         the data to be binned
-    - nbins : int
+    nbins : int
         number of bins to be calculated
-    - density : bool
+    density : bool
         True for normalize data
-    - f_lims : tuple or None
+    f_lims : tuple or None
         limits for the x axis of the figure
-    - xlabel : str or None
+    xlabel : str or None
         Text to be displayed under the x axis
-    - x_symm : bool
+    x_symm : bool
         set it to True to make symmetric x-axis with respect to 0
-    - fitG: bool
+    fitG : bool
         Shows the gaussian approximation
-    - barcolor: str
+    barcolor : str
         Color of the bins
-    - fontsize: float
+    fontsize : float
         Biggest fontsize in the figure
-    - name : str
+    name : str
         name for the figure to be saved
-    - ext: str
+    ext : str
         Format of the image
-    - dpi: int
+    dpi : int
         Resolution of the image in dots per inches
-    -------
+
     Returns:
-    - m : float
+    -----------
+    m : float
         Mean of data
-    - s : float
+    s : float
         Standard deviation of data.
+
+    .. seealso::
+        
+        :func:`klassez.fit.ax_histogram`
     """
 
     fig = plt.figure('Histogram')
@@ -90,35 +96,37 @@ def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=F
 
 def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x_symm=False, fitG=True, barcolor='tab:blue', fontsize=10):
     """
-    Computes an histogram of 'data' and tries to fit it with a gaussian lineshape.
-    The parameters of the gaussian function are calculated analytically directly from 'data' using 'scipy.stats.norm'
-    --------
+    Computes an histogram of ``data`` and tries to fit it with a gaussian lineshape.
+    The parameters of the gaussian function are calculated analytically directly from ``data`` using ``scipy.stats.norm``
+
     Parameters:
-    - ax : matplotlib.subplot Object
+    -----------
+    ax : matplotlib.subplot Object
         panel of the figure where to put the histogram
-    - data0 : ndarray
+    data0 : ndarray
         the data to be binned
-    - nbins : int
+    nbins : int
         number of bins to be calculated
-    - density : bool
+    density : bool
         True for normalize data
-    - f_lims : tuple or None
+    f_lims : tuple or None
         limits for the x axis of the figure
-    - xlabel : str or None
+    xlabel : str or None
         Text to be displayed under the x axis
-    - x_symm : bool
+    x_symm : bool
         set it to True to make symmetric x-axis with respect to 0
-    - fitG: bool
+    fitG : bool
         Shows the gaussian approximation
-    - barcolor: str
+    barcolor : str
         Color of the bins
-    - fontsize: float
+    fontsize : float
         Biggest fontsize in the figure
-    -------
+
     Returns:
-    - m : float
+    -----------
+    m : float
         Mean of data
-    - s : float
+    s : float
         Standard deviation of data.
     """
 
@@ -174,21 +182,23 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x
 def bin_data(data0, nbins=100, density=True, x_symm=False):
     """
     Computes the histogram of data, sampling it into nbins bins.
-    --------
+
     Parameters:
-    - data : ndarray
+    -----------
+    data : ndarray
         the data to be binned
-    - nbins : int
+    nbins : int
         number of bins to be calculated
-    - density : bool
+    density : bool
         True for normalize data
-    - x_symm : bool
+    x_symm : bool
         set it to True to make symmetric x-axis with respect to 0
-    -------
+
     Returns:
-    - hist: 1darray
+    -----------
+    hist : 1darray
         The bin intensity
-    - bin_scale: 1darray
+    bin_scale : 1darray
         Scale built with the mean value of the bin widths.
     """
     if len(data0.shape) > 1:
@@ -207,22 +217,47 @@ def bin_data(data0, nbins=100, density=True, x_symm=False):
 
 
 def lr(y, x=None, force_intercept=False, w=None):
-    """ 
-    Performs a linear regression of y with a model y_c = mx + q.
-    ---------
+    r""" 
+    Performs a linear regression of ``y`` with a model :math:`y_c = mx + q`.
+
+    If ``w=None`` then ``w = np.ones_like(x)``.
+
+    If ``force_intercept=False``:
+
+    .. math::
+
+        m = \frac{\sum w x y}{\sum w x^2}, \quad q = 0
+
+    else, two more parameters are defined:
+
+    .. math::
+        
+        x_w = \frac{ \sum w x }{ \sum w }, \quad y_w = \frac{ \sum w y }{ \sum w }
+
+    .. math::
+
+        m = \frac{ \sum w (x-x_w) (y-y_w)}{\sum w (x - x_w)^2}, \quad
+        q = y_w - m\,x_w
+
+
+   
     Parameters:
-    - y: 1darray
+    -----------
+    y : 1darray
         Data to be fitted
-    - x: 1darray
+    x : 1darray
         Independent variable. If None, the point indexes are used.
-    - force_intercept: bool
+    force_intercept : bool
         If True, forces the intercept to be zero.
-    ---------
+    w : 1darray or None
+        Weights to be used for the linear regression.
+
     Returns:
-    - y_c: 1darray
+    -----------
+    y_c : 1darray
         Fitted trend
-    - values: tuple
-        (m, q)
+    values : tuple
+        ``(m, q)``
     """
     # Make the scale of points, if not given
     if x is None:
@@ -244,18 +279,24 @@ def lr(y, x=None, force_intercept=False, w=None):
     return y_c, (m, q)
 
 def calc_R2(y, y_c):
-    """
+    r"""
     Computes the R-squared coefficient of a linear regression as:
-        R^2 = 1 - [ \sum (y - y_mean)^2 ] / [ \sum (y - y_c)^2 ]
-    -------
+
+    .. math::
+
+        R^2 = 1 - \frac{ \sum (y - <y>)^2  }{ \sum (y - y_c)^2 }
+
+
     Parameters:
-    - y: 1darray
+    -----------
+    y : 1darray
         Experimental data
-    - y_c: 1darray
+    y_c : 1darray
         Calculated data
-    -------
+
     Returns:
-    - R2: float
+    -----------
+    R2 : float
         R-squared coefficient
     """
     sst = np.sum( (y - np.mean(y))**2 )
@@ -266,25 +307,38 @@ def calc_R2(y, y_c):
 
 
 def fit_int(y, y_c, q=True):
-    """
+    r"""
     Computes the optimal intensity and intercept of a linear model in the least squares sense.
-    Let y be the experimental data and y_c the model, and let <w> the mean of variable w.
-    Then:
-        A = ( <y_c y> - <y_c><y> ) / ( <y_c^2> - <y_c>^2 )
-        q = ( <y_c>^2<y> - <y_c><y_c y> ) / ( <y_c^2> - <y_c>^2 )
-    ----------
+    Let :math:`y` be the experimental data and :math:`y_c` the model, and let :math:`<w>` the mean of variable :math:`w`.
+    Then, if ``q=False``:
+
+    .. math::
+
+        A = \frac{ <y_c y> }{ <y_c^2> }, \qquad
+        q = 0
+
+    else:
+
+    .. math::
+
+        A = \frac{ <y_c y> - <y_c><y> }{ <y_c^2> - <y_c>^2 }, \qquad
+        q = \frac{ <y_c>^2<y> - <y_c><y_c y> }{ <y_c^2> - <y_c>^2 }
+
+
     Parameters:
-    - y: 1darray
+    -----------
+    y : 1darray
         Experimental data
-    - y_c: 1darray
+    y_c : 1darray
         Model data
-    - q: bool
+    q : bool
         If True, includes the offset in the calculation. If False, only the intensity factor is computed.
-    ----------
+
     Returns:
-    - A: float
+    -----------
+    A : float
         Optimized intensity
-    - q: float
+    q : float
         Optimized intercept
     """
 
@@ -309,19 +363,21 @@ def get_region(ppmscale, S, rev=True):
     """
     Interactively select the spectral region to be fitted. 
     Returns the border ppm values.
-    -------
+
     Parameters:
-    - ppmscale: 1darray
+    -----------
+    ppmscale : 1darray
         The ppm scale of the spectrum
-    - S: 1darray
+    S : 1darray
          The spectrum to be trimmed
-    - rev: bool
+    rev : bool
         Choose if to reverse the ppm scale and data (True) or not (False).
-    -------
+
     Returns:
-    - left: float
+    -----------
+    left : float
         Left border of the selected spectral window
-    - right: float
+    right : float
         Right border of the selected spectral window
     """
 
@@ -436,31 +492,33 @@ def get_region(ppmscale, S, rev=True):
 def make_signal(t, u, s, k, b, phi, A, SFO1=701.125, o1p=0, N=None):
     """
     Generates a voigt signal on the basis of the passed parameters in the time domain. Then, makes the Fourier transform and returns it.
-    -------
+    
     Parameters:
-    - t : ndarray
+    -----------
+    t : ndarray
         acquisition timescale
-    - u : float
+    u : float
         chemical shift /ppm
-    - s : float
+    s : float
         full-width at half-maximum /Hz
-    - k : float
+    k : float
         relative intensity
-    - b : float
-        fraction of gaussianity
-    - phi : float
+    b : float
+        fraction of gaussianity (0 = Lorentzian, 1 = Gaussian)
+    phi : float
         phase of the signal, in degrees
-    - A : float
+    A : float
         total intensity
-    - SFO1 : float
+    SFO1 : float
         Larmor frequency /MHz
-    - o1p : float
+    o1p : float
         pulse carrier frequency /ppm
-    - N : int or None
-        length of the final signal. If None, signal is not zero-filled before to be transformed.
-    -------
+    N : int or None
+        length of the final signal. If None, the signal is not zero-filled before to be transformed.
+
     Returns:
-    - sgn : 1darray
+    -----------
+    sgn : 1darray
         generated signal in the frequency domain
     """
     U = misc.ppm2freq(u, SFO1, o1p)         # conversion to frequency units
@@ -476,57 +534,60 @@ def make_signal(t, u, s, k, b, phi, A, SFO1=701.125, o1p=0, N=None):
 def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, show_basl=False, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='png', dpi=600, dim=None):
     """
     Plots either the initial guess or the result of the fit, and saves all the figures.
-    The figure <filename>_full will show the whole model and the whole spectrum. 
-    The figures labelled with _R<k> will depict a detail of the fit in the k-th fitting region.
-    Optional labels for the components can be given: in this case, the structure of 'labels' should match the structure of 'regions'. This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
-    ------------
+    The figure `<filename>_full` will show the whole model and the whole spectrum. 
+    The figures labelled with `_R<k>` will depict a detail of the fit in the k-th fitting region.
+    Optional labels for the components can be given: in this case, the structure of ``labels`` should match the structure of ``regions``. This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
+
     Parameters:
-    - S: 1darray
+    -----------
+    S : 1darray
         Spectrum to be fitted
-    - ppm_scale: 1darray
+    ppm_scale : 1darray
         ppm scale of the spectrum
-    - regions: dict
-        Generated by fit.read_vf
-    - t_AQ: 1darray
+    regions : dict
+        Generated by :func:`klassez.fit.read_vf`
+    t_AQ : 1darray
         Acquisition timescale
-    - SFO1: float
+    SFO1 : float
         Larmor frequency of the observed nucleus, in MHz
-    - o1p: float
+    o1p : float
         Carrier position, in ppm
-    - show_total: bool
+    show_total : bool
         Show the total trace (i.e. sum of all the components) or not
-    - show_res: bool
+    show_res : bool
         Show the plot of the residuals
-    - res_offset: float
-        Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental spectrum. res_offset > 0 will move the residuals BELOW the zero-line!
-    - show_basl: bool
+    res_offset : float
+        Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental spectrum. ``res_offset`` > 0 will move the residuals BELOW the zero-line!
+    show_basl : bool
         If True, displays the baseline on the spectrum and uses it to compute the total trace.
-    - X_label: str
+    X_label : str
         Text to show as label for the chemical shift axis
-    - labels: list of list
+    labels : list of list
         Optional labels for the components. The structure of this parameter must match the structure of self.result
-    - filename: str
-        Root of the name of the figures that will be saved. If None, <self.filename> is used
-    - ext: str
+    filename : str
+        Root of the name of the figures that will be saved.
+    ext : str
         Format of the saved figures
-    - dpi: int
+    dpi : int
         Resolution of the figures, in dots per inches
-    - dim: tuple
+    dim : tuple
         Size of the figure in inches (length, height)
     """
     def calc_total(peaks, A=1):
         """
         Calculates the sum trace from a collection of peaks stored in a dictionary.
         If the dictionary is empty, returns an array of zeros.
-        ---------
+
         Parameters:
-        - peaks: dict
+        -----------
+        peaks: dict
             Components
-        - A: float
+        A: float
             Absolute intensity
-        --------
+
         Returns:
-        - total: 1darray
+        -----------
+        total: 1darray
             Sum spectrum
         """
         # Get the arrays from the dictionary
@@ -682,50 +743,63 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
 def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k_lim=(0, 3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename='fit', method='leastsq', basl_fit='no'):
     """
     Performs a lineshape deconvolution fit using a Voigt model.
-    The initial guess must be read from a .ivf file. All components are treated as independent, regardless from the value of the "group" attribute.
+    The initial guess must be read from a `.ivf file`. All components are treated as independent, regardless from the value of the ``group`` attribute.
     The fitting procedure operates iteratively one window at the time.
-    ------------
+
     Parameters:
-    - S: 1darray
-        Experimental spectrum
-    - ppm_scale: 1darray
-        PPM scale of the spectrum
-    - regions: dict
-        Generated by fit.read_vf
-    - t_AQ: 1darray
-        Acquisition timescale
-    - SFO1: float
-        Nucleus Larmor frequency /MHz
-    - o1p: float
-        Carrier frequency /ppm
-    - u_lim: float
-        Maximum allowed displacement of the chemical shift from the initial value /ppm
-    - f_lim: float
-        Maximum allowed displacement of the linewidth from the initial value /ppm
-    - k_lim: float or tuple
-        If tuple, minimum and maximum allowed values for k during the fit. If float, maximum displacement from the initial guess
-    - vary_phase: bool
-        Allow the peaks to change phase
-    - vary_b: bool
-        Allow the peaks to change Lorentzian/Gaussian ratio
-    - itermax: int
-        Maximum number of allowed iterations
-    - fit_tol: float
-        Target value to be set for x_tol and f_tol
-    - filename: str
-        Name of the file where the fitted values will be saved. The .fvf extension is added automatically
-    - method: str or list of str
-        Method to be used for the optimization. See lmfit for details. There is the option to run multiple optimizations in series.
-    - basl_fit: str
-        How to address the baseline fit. The options are:
-        > "no": Do not use baseline (default)
-        > "fixed": The baseline is computed once and kept fixed during the optimization
-        > "fit": The baseline coefficients enter as fit parameters during the nonlinear optimization
-        > "calc": The baseline coefficients are calculated during the optimization via linear least-squares optimization
     -----------
+    S : 1darray
+        Experimental spectrum
+    ppm_scale : 1darray
+        PPM scale of the spectrum
+    regions : dict
+        Generated by :func:`klassez.fit.read_vf`
+    t_AQ : 1darray
+        Acquisition timescale
+    SFO1 : float
+        Nucleus Larmor frequency /MHz
+    o1p : float
+        Carrier frequency /ppm
+    u_lim : float
+        Maximum allowed displacement of the chemical shift from the initial value /ppm
+    f_lim : float
+        Maximum allowed displacement of the linewidth from the initial value /ppm
+    k_lim : float or tuple
+        If tuple, minimum and maximum allowed values for ``k`` during the fit. If float, maximum displacement from the initial guess
+    vary_phase : bool
+        Allow the peaks to change phase
+    vary_b : bool
+        Allow the peaks to change Lorentzian/Gaussian ratio
+    itermax : int
+        Maximum number of allowed iterations
+    fit_tol : float
+        Target value to be set for ``x_tol`` and ``f_tol``
+    filename : str
+        Name of the file where the fitted values will be saved. The `.fvf` extension is added automatically
+    method : str or list of str
+        Method to be used for the optimization. See ``lmfit`` for details. There is the option to run multiple optimizations in series.
+    basl_fit : str
+        How to address the baseline fit. The options are:
+
+        * ``"no"``: Do not use baseline (default)
+        * ``"fixed"``: The baseline is computed once and kept fixed during the optimization
+        * ``"fit"``: The baseline coefficients enter as fit parameters during the nonlinear optimization
+        * ``"calc"``: The baseline coefficients are calculated during the optimization via linear least-squares optimization
+    
     Returns:
-    - lmfit_results: list of lmfit.minimizer.MinimizerResult
+    -----------
+    lmfit_results: list of lmfit.Minimizer.MinimizerResult
         Sequence of the fit results, ordered as the regions dictionary
+
+
+    .. seealso::
+
+        :class:`lmfit.Minimizer`
+
+        :func:`lmfit.Minimizer.minimize`
+
+        :class:`lmfit.Minimizer.MinimizerResult`
+
     """
 
     ## USED FUNCTIONS
@@ -734,15 +808,17 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         """
         Calculates the sum trace from a collection of peaks stored in a dictionary.
         If the dictionary is empty, returns an array of zeros.
-        ---------
+
         Parameters:
-        - peaks: dict
+        -----------
+        peaks : dict
             Components
-        - A: float
+        A : float
             Absolute intensity
-        --------
+
         Returns:
-        - total: 1darray
+        -----------
+        total : 1darray
             Sum spectrum
         """
         # Get the arrays from the dictionary
@@ -755,17 +831,19 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
 
     def peaks_frompar(peaks, par):
         """
-        Replaces the values of a "peaks" dictionary, which contains a fit.Peak object for each key "idx", with the values contained in the "par" dictionary.
-        The par dictionary keys must have keys of the form <parameter>_<idx>, where <parameter> is in [u, fwhm, k, 'b', 'phi'], and <idx> are the keys of the peaks dictionary.
-        -----------
+        Replaces the values of a "peaks" dictionary, which contains a ``fit.Peak`` object for each key ``idx``, with the values contained in the ``par`` dictionary.
+        The par dictionary keys must have keys of the form ``<parameter>_<idx>``, where ``<parameter>`` is in ``[u, fwhm, k, 'b', 'phi']``, and ``<idx>`` are the keys of the peaks dictionary.
+
         Parameters:
-        - peaks: dict
+        -----------
+        peaks : dict
             Collection of fit.Peak objects
-        - par: dict
+        par : dict
             New values for the peaks
-        ----------
+        
         Returns:
-        - peaks: dict
+        -----------
+        peaks : dict
             Updated peaks dictionary with the new values
         """
         for idx, peak in peaks.items():
@@ -779,25 +857,31 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
     def f2min(param, S, fit_peaks, I, lims, x, first_residual=1, basl_fit='no'):
         """
         Function that calculates the residual to be minimized in the least squares sense.
-        This function requires a set of pre-built fit.Peak objects, stored in a dictionary. The parameters of the peaks are replaced on this dictionary according to the values in the lmfit.Parameter object. At this point, the total trace is computed and the residual is returned as the difference between the experimental spectrum and the total trace, only in the region delimited by the "lims" tuple.
-        ------------
+        This function requires a set of pre-built ``fit.Peak`` objects, stored in a dictionary. The parameters of the peaks are replaced on this dictionary according to the values in the ``lmfit.Parameter object``. At this point, the total trace is computed and the residual is returned as the difference between the experimental spectrum and the total trace, only in the region delimited by the "lims" tuple.
+
         Parameters:
-        - param: lmfit.Parameters object
-            Usual lmfit stuff
-        - S: 1darray
-            Experimental spectrum
-        - fit_peaks: dict
-            Collection of fit.Peak objects
-        - I: float
-            Absolute intensity.
-        - lims: slice
-            Trimming region corresponding to the fitting window, in points
-        - first_residual: float
-            Target value at the first call of this function. Used to compute the relative target function.
         -----------
+        param : lmfit.Parameters object
+            Usual lmfit stuff
+        S : 1darray
+            Experimental spectrum
+        fit_peaks : dict
+            Collection of ``fit.Peak`` objects
+        I : float
+            Absolute intensity.
+        lims : slice
+            Trimming region corresponding to the fitting window, in points
+        x : 1darray
+            Baseline scale
+        basl_fit : str
+            Method for computation of the baseline
+        first_residual : float
+            Target value at the first call of this function. Used to compute the relative target function.
+
         Returns:
-        - residual: 1darray
-            Experimental - calculated, in the fitting window
+        -----------
+        residual : 1darray
+            ``experimental - calculated``, in the fitting window
         """
         param['count'].value += 1
         # Unpack the lmfit.Parameters object
@@ -994,67 +1078,78 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
     """
     Function that performs the fit of a 2D peak using multiple components. 
     The program reads a parameter matrix, that contains:
+    .. code-block:: bash
+
         u1 /ppm, u2 /ppm, fwhm1 /Hz, fwhm2 /Hz, I /a.u., b
+
     in each row. The number of rows corresponds to the number of components used for the computation of the final signal.
     The function returns the analogue version of the parameters matrix, but with the optimized values.
-    --------
+
+    .. warning::
+        
+        Work in progress! Does not work right now.
+
     Parameters:
-    - x_scale: 1darray
+    -----------
+    x_scale : 1darray
         ppm_f2 of the spectrum, full
-    - y_scale: 1darray
+    y_scale : 1darray
         ppm_f1 of the spectrum, full
-    - data: 2darray
+    data : 2darray
         spectrum, full
-    - parameters: 1darray or 2darray
+    parameters : 1darray or 2darray
         Matrix (# signals, 6). Read main caption.
-    - lim_f2: tuple
+    lim_f2 : tuple
         Trimming limits for x_scale
-    - lim_f1: tuple
+    lim_f1 : tuple
         Trimming limits for y_scale
-    - acqus: dict
+    acqus : dict
         Dictionary of acquisition parameters.
-    - N: tuple of ints
+    N : tuple of ints
         len(y_scale), len(x_scale). Used only if procs is None
-    - procs: dict
+    procs : dict
         Dictionary of processing parameters.
-    - utol: tuple of floats
+    utol : tuple of floats
         Tolerance for the chemical shifts (utol_f1, utol_f2). Values will be set to u1 +/- utol_f1, u2 +/- utol_f2
-    - s1tol: tuple of floats
+    s1tol : tuple of floats
         Range of variations for the fwhm in f1, in Hz
-    - s2tol: tuple of floats
+    s2tol : tuple of floats
         Range of variations for the fwhm in f2, in Hz
-    - vary_b: bool
+    vary_b : bool
         Choose if to fix the b value or not
-    - logfile: str or None
+    logfile : str or None
         Path to a file where to write the fit information. If it is None, they will be printed into standard output.
-    -------
+
     Returns:
-    - out_parameters: 2darray
+    -----------
+    out_parameters : 2darray
         parameters, but with the optimized values.
     """
 
     def f2min(param, n_sgn, x_scale, y_scale, data_exp, lim_f2, lim_f1):
         """ 
         Cost function.
-        --------
+
         Parameters:
-        - param: lmfit.Parameters object
+        -----------
+        param : lmfit.Parameters object
             Fit parameters. See fit_2D caption.
-        - n_sgn: int
+        n_sgn : int
             Number of signals
-        - x_scale: 1darray
+        x_scale : 1darray
             ppm_f2 of the spectrum, full
-        - y_scale: 1darray
+        y_scale : 1darray
             ppm_f1 of the spectrum, full
-        - data_exp: 2darray
+        data_exp : 2darray
             spectrum trimmed around the peak of interest
-        - lim_f2: tuple
+        lim_f2 : tuple
             Trimming limits for x_scale
-        - lim_f1: tuple
+        lim_f1 : tuple
             Trimming limits for y_scale
-        --------
+
         Returns:
-        - res: 2darray
+        -----------
+        res : 2darray
             Experimental -  calculated
         """
         # Extract dictionary of values from param
@@ -1185,21 +1280,24 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
 def smooth_spl(x, y, s_f=1, size=0, weights=None):
     """
     Fit the input data with a 3rd-order spline, given the smoothing factor to be applied.
-    -------
+    Uses the package ``csaps``.
+
     Parameters:
-    - x: 1darray
+    -----------
+    x : 1darray
         Location of the experimental points
-    - y: 1darray
+    y : 1darray
         Input data to be fitted
-    - s_f: float
+    s_f : float
         Smoothing factor of the spline. 0=best straight line, 1=native spline.
-    - size: int
-        Size of the spline. If size=0, the same dimension as y is chosen.
-    -------
+    size : int
+        Size of the spline. If ``size=0``, the same dimension as ``y`` is chosen.
+    
     Returns:
-    - x_s: 1darray
+    -----------
+    x_s : 1darray
         Location of the spline data points.
-    - y_s: 1darray
+    y_s : 1darray
         Spline that fits the data.
     """
     # Reverse x and y if x is descending
@@ -1236,23 +1334,30 @@ def interactive_smoothing(x, y, cmap='RdBu'):
     """
     Interpolate the given data with a 3rd-degree spline. Type the desired smoothing factor in the box and see the outcome directly on the figure.
     When the panel is closed, the smoothed function is returned.
-    -------
+
+    .. warning:: 
+
+        Extremely slow rendering!!! There is a problem that must be fixed somewhen.
+
+
     Parameters:
-    - x: 1darray
+    -----------
+    x : 1darray
         Scale of the data
-    - y: 1darray
+    y : 1darray
         Data to be smoothed
-    - cmap: str
-        Name of the colormap to be used to represent the weights
-    --------
+    cmap : str
+        Name of the colormap to be used to represent the weights. Must be present in ``CM``
+    
     Returns:
-    - sx: 1darray
+    -----------
+    sx : 1darray
         Location of the spline points        
-    - sy: 1darray
-        Smoothed y
-    - s_f: float
+    sy : 1darray
+        Smoothed ``y``
+    s_f : float
         Employed smoothing factor for the spline
-    - weights: 1darray
+    weights : 1darray
         Weights vector
     """
     # Make the figure
@@ -1418,17 +1523,24 @@ def interactive_smoothing(x, y, cmap='RdBu'):
 def build_baseline(ppm_scale, C, L=None):
     """
     Builds the baseline calculating the polynomion with the given coefficients, and summing up to the right position.
-    -------
+
+    .. error::
+
+        Old function!! Legacy
+
+
     Parameters:
-    - ppm_scale: 1darray
+    -----------
+    ppm_scale : 1darray
         ppm scale of the spectrum
-    - C: list
+    C : list
         Parameters coefficients. No baseline corresponds to False.
-    - L: list
-        List of window regions. If it is None, the baseline is built on the whole ppm_scale
-    -------
+    L : list
+        List of window regions. If it is None, the baseline is built on the whole ``ppm_scale``
+
     Returns:
-    - baseline: 1darray
+    -----------
+    baseline : 1darray
         Self-explanatory.
     """
 
@@ -1460,24 +1572,31 @@ def join_par(filenames, ppm_scale, joined_name=None):
     """
     Load a series of parameters fit files. Join them together, returning a unique array of signal parameters, a list of coefficients for the baseline, and a list of tuples for the regions.
     Also, uses the coefficients and the regions to directly build the baseline according to the ppm windows.
-    -------
+    
+    .. error::
+
+        Old function!! Legacy
+
+
     Parameters:
-    - filenames: list
+    -----------
+    filenames : list
         List of directories of the input files.
-    - ppm_scale: 1darray
+    ppm_scale : 1darray
         ppm scale of the spectrum. Used to build the baseline
-    - joined_name: str or None
-        If it is not None, concatenates the files in the list 'filenames' and saves them in a single file named 'joined_name'.
-    -------
+    joined_name : str or None
+        If it is not None, concatenates the files in the list ``filenames`` and saves them in a single file named ``joined_name``.
+    
     Returns:
-    - V: 2darray
+    -----------
+    V : 2darray
         Array of joined signal parameters        
-    - C: list
+    C : list
         Parameters coefficients. No baseline corresponds to False.
-    - L: list
+    L : list
         List of window regions.
-    - baseline: 1darray
-        Baseline built from C and L.
+    baseline : 1darray
+        Baseline built from ``C`` and ``L``.
     """
     if isinstance(joined_name, str):
         f = open(joined_name, 'w')
@@ -1526,32 +1645,39 @@ def join_par(filenames, ppm_scale, joined_name=None):
 def calc_fit_lines(ppm_scale, limits, t_AQ, SFO1, o1p, N, V, C=False):
     """
     Given the values extracted from a fit input/output file, calculates the signals, the total fit function, and the baseline.
-    -------
+
+    .. error::
+
+        Old function!! Legacy
+
+
     Parameters:
-    - ppm_scale: 1darray
+    -----------
+    ppm_scale : 1darray
         PPM scale of the spectrum
-    - limits: tuple
+    limits : tuple
         (left, right) in ppm
-    - t_AQ: 1darray
+    t_AQ : 1darray
         Acquisition timescale
-    - SFO1: float
+    SFO1 : float
         Larmor frequency of the nucleus /ppm
-    - o1p: float
+    o1p : float
         Pulse carrier frequency /ppm
-    - N: int
+    N : int
         Size of the final spectrum.
-    - V: 2darray
+    V : 2darray
         Matrix containing the values to build the signals.
-    - C: 1darray
+    C : 1darray
         Baseline polynomion coefficients. False to not use the baseline
-    -------
+
     Returns:
-    - sgn: list
-        Voigt signals built using V
-    - Total: 1darray
-        sum of all the sgn
-    - baseline: 1darray
-        Polynomion built using C. False if C is False.
+    -----------
+    sgn : list
+        Voigt signals built using ``V``
+    Total : 1darray
+        sum of all the ``sgn``
+    baseline : 1darray
+        Polynomion built using ``C``. False if ``C`` is False.
     """
     lim1 = misc.ppmfind(ppm_scale, limits[0])[0]
     lim2 = misc.ppmfind(ppm_scale, limits[1])[0]
@@ -1574,26 +1700,34 @@ def calc_fit_lines(ppm_scale, limits, t_AQ, SFO1, o1p, N, V, C=False):
     return sgn, Total, baseline
 
 def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
-    """
+    r"""
     Allows interactive integration of a NMR spectrum through a dedicated GUI. Returns the values as a dictionary, where the keys are the selected regions truncated to the 2nd decimal figure.
     The returned dictionary contains pre-defined keys, as follows:
-        > total:    total integrated area
-        > ref_pos:  location of the reference peak /ppm1:ppm2
-        > ref_int:  absolute integral of the reference peak
-        > ref_val:  for how many nuclei the reference peak integrates
-    The absolute integral of the x-th peak, I_x, must be calculated according to the formula:
-        I_x = I_x(relative) * ref_int / ref_val
-    --------
+
+    * total:    total integrated area
+    * ref_pos:  location of the reference peak /ppm1:ppm2
+    * ref_int:  absolute integral of the reference peak
+    * ref_val:  for how many nuclei the reference peak integrates
+
+    The absolute integral of the x-th peak, :math:`I_x`, must be calculated according to the formula:
+
+    .. math::
+
+        I_x = I_x^{\text(relative)} \frac{\text{ ref_int }}{ \text{ ref_val }}
+
+
     Parameters:
-    - ppm: 1darray
+    -----------
+    ppm : 1darray
         PPM scale of the spectrum
-    - data: 1darray
+    data : 1darray
         Spectrum to be integrated.
-    - X_label: str
+    X_label : str
         Label of the x-axis
-    -------
+
     Returns:
-    - f_vals: dict
+    -----------
+    f_vals : dict
         Dictionary containing the values of the integrated peaks.
     """
 
@@ -1765,32 +1899,39 @@ def integrate_2D(ppm_f1, ppm_f2, data, SFO1, SFO2, fwhm_1=200, fwhm_2=200, utol_
     """ 
     Function to select and integrate 2D peaks of a spectrum, using dedicated GUIs.
     Calls integral_2D to do the dirty job.
-    ---------
+    
+    .. error::
+
+        Old function!! Legacy
+
+
     Parameters:
-    - ppm_f1: 1darray
+    -----------
+    ppm_f1 : 1darray
         PPM scale of the indirect dimension
-    - ppm_f2: 1darray 
+    ppm_f2 : 1darray 
         PPM scale of the direct dimension
-    - data: 2darray 
+    data : 2darray 
         real part of the spectrum
-    - SFO1: float
+    SFO1 : float
         Larmor frequency of the nucleus in the indirect dimension
-    - SFO2: float
+    SFO2 : float
         Larmor frequency of the nucleus in the direct dimension
-    - fwhm_1: float
+    fwhm_1 : float
         Starting FWHM /Hz in the indirect dimension
-    - fwhm_2: float
+    fwhm_2 : float
         Starting FWHM /Hz in the direct dimension
-    - utol_1: float
+    utol_1 : float
         Allowed tolerance for u_1 during the fit. (u_1-utol_1, u_1+utol_1)
-    - utol_2: float
+    utol_2 : float
         Allowed tolerance for u_2 during the fit. (u_2-utol_2, u_2+utol_2)
-    - plot_result: bool
+    plot_result : bool
         True to show how the program fitted the traces.
-    --------
+
     Returns:
-    - I: dict
-        Computed integrals. The keys are '<ppm f1>:<ppm f2>' with 2 decimal figures.
+    -----------
+    I : dict
+        Computed integrals. The keys are ``'<ppm f1>:<ppm f2>'`` with 2 decimal figures.
     """
 
     # Get all the information that integral_2D needs
@@ -1820,49 +1961,51 @@ def integrate_2D(ppm_f1, ppm_f2, data, SFO1, SFO2, fwhm_1=200, fwhm_2=200, utol_
 class Peak:
     """
     Class to represent the characteristic parameters of an NMR peak, and to compute it.
-    ----------
+
     Attributes:
-    - t: 1darray
+    -----------
+    t: 1darray
         Timescale for the FID
-    - SFO1: float
+    SFO1: float
         Nucleus Larmor frequency
-    - o1p: float
+    o1p: float
         Carrier position
-    - N: int
+    N: int
         Number of points of the spectrum, i.e. after eventual zero-filling
-    - u: float
+    u: float
         Chemical shift /ppm
-    - fwhm: float
+    fwhm: float
         Linewidth /Hz
-    - k: float
+    k: float
         Intensity, relative
-    - b: float
-        Fraction of gaussianity (b=0 equals pure lorentzian)
-    - phi: float
+    b: float
+        Fraction of gaussianity (``b=0`` equals pure lorentzian)
+    phi: float
         Phase /degrees
-    - group: int
+    group: int
         Identifier for the component of a multiplet
     """
     def __init__(self, acqus, u=None, fwhm=5, k=1, b=0, phi=0, N=None, group=0):
         """
         Initialize the class with the configuration parameters, and with defauls values, if not given.
-        ----------
+
         Parameters:
-        - acqus: dict
+        -----------
+        acqus: dict
             It should contain "t", "SFO1", "o1p", and "N"
-        - u: float
+        u: float
             Chemical shift /ppm
-        - fwhm: float
+        fwhm: float
             Linewidth /Hz
-        - k: float
+        k: float
             Intensity, relative
-        - b: float
-            Fraction of gaussianity (b=0 equals pure lorentzian)
-        - phi: float
+        b: float
+            Fraction of gaussianity (``b=0`` equals pure lorentzian)
+        phi: float
             Phase /degrees
-        - N: int
+        N: int
             Number of points of the spectrum, i.e. after eventual zero-filling. None means to not zero-fill
-        - group: int
+        group: int
             Identifier for the component of a multiplet
         """
         # Unpack the acqus dictionary
@@ -1870,7 +2013,6 @@ class Peak:
         self.SFO1 = acqus['SFO1']
         self.o1p = acqus['o1p']
         self.N = N
-        #self.I = I
 
         # Set the values as attributes
         if u is None:
@@ -1885,18 +2027,20 @@ class Peak:
     def __call__(self, A=1, cplx=False, get_fid=False):
         """
         Generates a voigt signal on the basis of the stored attributes, in the time domain. Then, makes the Fourier transform and returns it after the eventual zero-filling.
-        ----------
+
         Parameters:
-        - A: float
+        -----------
+        A : float
             Absolute intensity value
-        - cplx: bool
+        cplx : bool
             Returns the complex (True) or only the real part (False) of the signal
-        - get_fid: bool
+        get_fid : bool
             If True, returns the FID instead of the transformed signal
-        ----------
+
         Returns:
-        - sgn : 1darray
-            generated signal in the frequency domain
+        -----------
+        sgn : 1darray
+            generated signal according to ``get_fid`` and ``cplx``
         """
         sgn = self.get_fid(A=A)
         if not get_fid:
@@ -1909,13 +2053,15 @@ class Peak:
     def get_fid(self, A=1):
         """ 
         Compute and returns the FID encoding for that signal.
-        ----------
+
         Parameters:
-        - A: float
+        -----------
+        A : float
             Absolute intensity value
-        ----------
+
         Returns:
-        - sgn : 1darray
+        -----------
+        sgn : 1darray
             generated signal in the time domain
         """
         v = misc.ppm2freq(self.u, self.SFO1, self.o1p)         # conversion to frequency units
@@ -1927,9 +2073,10 @@ class Peak:
     def par(self):
         """
         Creates a dictionary with the currently stored attributes and returns it.
-        -----------
+
         Returns:
-        - dic: dict
+        -----------
+        dic: dict
             Dictionary of parameters
         """
         dic = {
@@ -1961,29 +2108,36 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     When you are satisfied with your fit, press "SAVE" to write the information in the output file. Then, the GUI is brought back to the initial situation, and the region you were working on will be marked with a green rectangle. You can repeat the procedure as many times as you wish, to prepare the guess on multiple spectral windows.
 
     Keyboard shortcuts:
-    > "increase sensitivity" : '>'
-    > "decrease sensitivity" : '<'
-    > mouse scroll up: 'up arrow key'
-    > mouse scroll down: 'down arrow key'
-    > "add a component": '+'
-    > "remove the active component": '-'
-    > "change component, forward": 'page up'
-    > "change component, backward": 'page down'
 
-    ------------
+    * "increase sensitivity" : '>'
+    * "decrease sensitivity" : '<'
+    * mouse scroll up: 'up arrow key'
+    * mouse scroll down: 'down arrow key'
+    * "add a component": '+'
+    * "remove the active component": '-'
+    * "change component, forward": 'page up'
+    * "change component, backward": 'page down'
+
+
     Parameters:
-    - S_in: 1darray
+    -----------
+    S_in : 1darray
         Experimental spectrum
-    - ppm_scale: 1darray
+    ppm_scale : 1darray
         PPM scale of the spectrum
-    - t_AQ: 1darray
+    t_AQ : 1darray
         Acquisition timescale
-    - SFO1: float
+    SFO1 : float
         Nucleus Larmor frequency /MHz
-    - o1p: float
+    o1p : float
         Carrier frequency /ppm
-    - filename: str
+    filename : str
         Path to the filename where to save the information. The '.ivf' extension is added automatically.
+
+
+    .. seealso::
+
+        :func:`klassez.fit.make_iguess_auto`
     """
 
     #-----------------------------------------------------------------------
@@ -1991,15 +2145,17 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     def rename_dic(dic, Np):
         """
         Change the keys of a dictionary with a sequence of increasing numbers, starting from 1.
-        ----------
+    
         Parameters:
-        - dic: dict
+        -----------
+        dic : dict
             Dictionary to edit
-        - Np: int
+        Np : int
             Number of peaks, i.e. the sequence goes from 1 to Np
-        ----------
+
         Returns:
-        - new_dic: dict
+        -----------
+        new_dic : dict
             Dictionary with the changed keys
         """
         old_keys = list(dic.keys())         # Get the old keys
@@ -2015,13 +2171,15 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         """
         Calculate the sum trace from a collection of peaks stored in a dictionary.
         If the dictionary is empty, returns an array of zeros.
-        ---------
+
         Parameters:
-        - peaks: dict
+        -----------
+        peaks : dict
             Components
-        --------
+
         Returns:
-        - total: 1darray
+        -----------
+        total : 1darray
             Sum spectrum
         """
         # Get the arrays from the dictionary
@@ -2070,7 +2228,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     # Get point indices for the limits
     lim1, lim2 = sorted([misc.ppmfind(ppm_scale, limit)[0] for limit in limits])
     # Calculate the absolute intensity (or something that resembles it)
-    A = np.trapz(np.abs(S)[lim1:lim2], dx=misc.calcres(ppm_scale*SFO1))*2*misc.calcres(acqus['t1'])
+    A = np.trapezoid(np.abs(S)[lim1:lim2], dx=misc.calcres(ppm_scale*SFO1))*2*misc.calcres(acqus['t1'])
     _A = 1 * A
     # Baseline constant
     B = 10**np.floor(np.log10(A))
@@ -2246,7 +2404,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
             # Recompute the baseline
             basl = B * misc.polyn(x_bsl, bas_c)
-            whole_basl = misc.sum_overlay(np.zeros_like(ppm_scale), basl, x_bsl_lims[0], ppm_scale)
+            whole_basl = misc.sum_overlay(np.zeros_like(ppm_scale), basl, x_bsl_lims[1], ppm_scale)
             basl_plot.set_ydata(basl)
 
         if Np != 0:
@@ -2521,26 +2679,35 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
 def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     """
-    GUI to create a .ivf file, used as initial guess for Voigt_Fit.
-    The computation of the peak positions and linewidths employs scipy.signal.find_peaks and scipy.signal.peak_widths, respectively.
+    GUI to create a `.ivf` file, used as initial guess for Voigt_Fit.
+    The computation of the peak positions and linewidths employs ``scipy.signal.find_peaks`` and ``scipy.signal.peak_widths``, respectively.
     In addition, peak features may be added manually by clicking with the left button twice. Unwanted features can be removed with right clicks.
     If the FWHM of a peak cannot be computed automatically, a dummy FWHM of 1 Hz is assigned automatically.
-    The file <filename>.ivf is written upon pressing the SAVE button.
+    The file `<filename>.ivf` is written upon pressing the SAVE button.
     Press Z to activate/deactivate the cursor snap.
-    ---------------------
+
     Parameters:
-    - ppm: 1darray
+    -----------
+    ppm : 1darray
         PPM scale of the spectrum
-    - data: 1darray
+    data : 1darray
         real part of the spectrum to fit
-    - SW: float
+    SW : float
         Spectral width /Hz
-    - SFO1: float
+    SFO1 : float
         Nucleus Larmor Frequency /MHz
-    - o1p: float
+    o1p : float
         Carrier position /ppm
-    - filename: str
+    filename : str
         Path to the file where to save the initial guess. The .ivf extension is added automatically.
+
+    .. seealso::
+
+        :func:`klassez.fit.make_iguess`
+
+        :func:`scipy.signal.find_peaks`
+
+        :func:`scipy.signal.peak_widths`
     """
 
     ## MISCELLANEOUS FUNCTIONS
@@ -2558,20 +2725,22 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
 
     def get_pos(x, y, H, P):
         """ 
-        Find the position of the peaks given height and prominence with scipy.signal.find_peaks 
-        ------------
+        Find the position of the peaks given height and prominence with ``scipy.signal.find_peaks``
+
         Parameters:
-        - x: 1darray
+        -----------
+        x : 1darray
             array of x values
-        - y: 1darray
+        y : 1darray
             array of y values
-        - H: float
+        H : float
             Threshold values (height)
-        - P: float
+        P : float
             Threshold values (prominence)
-        ------------
+
         Returns:
-        - ks: list
+        -----------
+        ks : list
             List of indices where the program found peaks
         """
         ks, *_ = find_peaks(y, height=H, prominence=P)
@@ -2580,13 +2749,15 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     def maketotal(xj):
         """ 
         Compute the model trace, given the peak positions
-        ------------------
+
         Parameters:
-        - xj: list
+        -----------
+        xj: list
             Indices of peak positions
-        -----------------
+
         Returns:
-        - peak_in: list of fit.Peak objects
+        -----------
+        peak_in: list of fit.Peak objects
             Model peaks
         """
         warnings.simplefilter('ignore')
@@ -3033,22 +3204,30 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
 def write_vf(filename, peaks, lims, I, prev=0, header=False, bas_c=None):
     """
     Write a section in a fit report file, which shows the fitting region and the parameters of the peaks to feed into a Voigt lineshape model.
-    -----------
+
     Parameters:
-    - filename: str
+    -----------
+    filename : str
         Path to the file to be written
-    - peaks: dict
-        Dictionary of fit.Peak objects
-    - lims: tuple
+    peaks : dict
+        Dictionary of ``fit.Peak`` objects
+    lims : tuple
         (left limit /ppm, right limit /ppm)
-    - I: float
+    I : float
         Absolute intensity value
-    - prev: int
+    prev : int
         Number of previous peaks already saved. Increases the peak index
-    - header: bool
+    header : bool
         If True, adds a "!" starting line to separate fit trials
-    - bas_c: None or 1darray
+    bas_c : None or 1darray
         Baseline coefficients 
+
+    .. seealso::
+
+        :func:`klassez.fit.read_vf`
+
+        :func:`klassez.fit.make_iguess`
+
     """
     # Adjust the intensities
     r_i, I_corr = misc.molfrac([peak.k for _, peak in peaks.items()])
@@ -3088,18 +3267,26 @@ def write_vf(filename, peaks, lims, I, prev=0, header=False, bas_c=None):
 
 def read_vf(filename, n=-1):
     """
-    Reads a .ivf (initial guess) or .fvf (final fit) file, containing the parameters for a lineshape deconvolution fitting procedure.
+    Reads a `.ivf` (initial guess) or `.fvf` (final fit) file, containing the parameters for a lineshape deconvolution fitting procedure.
     The file is separated and unpacked into a list of dictionaries, each of which contains the limits of the fitting window, the total intensity value, and a dictionary for each peak with the characteristic values to compute it with a Voigt line.
-    --------------
+
     Parameters:
-    - filename: str
+    -----------
+    filename : str
         Path to the filename to be read
-    - n: int
-        Number of performed fit to be read. Default: last one. The breakpoints are lines that start with "!". For this reason, n=0 returns an empty dictionary, hence the first fit is n=1. 
-    -------------
+    n : int
+        Number of performed fit to be read. Default: last one. The breakpoints are lines that start with "!". For this reason, ``n=0`` returns an empty dictionary, hence the first fit is ``n=1``. 
+
     Returns:
-    - regions: list
+    -----------
+    regions: list
         List of dictionaries for running the fit.
+
+
+    .. seealso::
+
+        :func:`klassez.fit.write_vf`
+
     """
     def read_region(R):
         """ Creates a dictionary of parameters from a section of the input file.  """
@@ -3170,17 +3357,24 @@ def read_vf(filename, n=-1):
 def read_par(filename):
     """
     Reads the input file of the fit and returns the values.
-    --------
+
+    .. error::
+
+        Old function!! Legacy
+
+    
     Parameters:
-    - filename: str
+    -----------
+    filename : str
         directory and name of the input file to be read
-    --------
+
     Returns:
-    - V : 2darray
+    -----------
+    V : 2darray
         matrix (# signals, parameters)
-    - C : 1darray or False
+    C : 1darray or False
         Coefficients of the polynomion to be used as baseline correction. If the 'baseline' checkbox in the interactive figure panel is not checked, C_f is False.
-    - limits : tuple or None
+    limits : tuple or None
         Trim limits for the spectrum (left, right). If None, the whole spectrum is used.
     """
     # Declare empty variables
@@ -3235,15 +3429,21 @@ def read_par(filename):
 def write_par(V, C, limits, filename='i_guess.inp'):
     """
     Write the parameters of the fit, whether they are input or output.
-    --------
+
+    .. error::
+
+        Old function!! Legacy
+
+
     Parameters:
-    - V : 2darray
+    -----------
+    V : 2darray
         matrix (# signals, parameters)
-    - C : 1darray or False
+    C : 1darray or False
         Coefficients of the polynomion to be used as baseline correction. If the 'baseline' checkbox in the interactive figure panel is not checked, C_f is False.
-    - limits : tuple 
+    limits : tuple 
         Trim limits for the spectrum (left, right).
-    - filename: str
+    filename : str
         directory and name of the file to be written
     """
     if isinstance(filename, str):
@@ -3273,13 +3473,19 @@ def write_par(V, C, limits, filename='i_guess.inp'):
 def print_par(V, C, limits=[None,None]):
     """
     Prints on screen the same thing that write_par writes in a file.
-    --------
+
+    .. error::
+
+        Old function!! Legacy
+
+
     Parameters:
-    - V : 2darray
+    -----------
+    V : 2darray
         matrix (# signals, parameters)
-    - C : 1darray or False
+    C : 1darray or False
         Coefficients of the polynomion to be used as baseline correction. If the 'baseline' checkbox in the interactive figure panel is not checked, C_f is False.
-    - limits : tuple or None
+    limits : tuple or None
         Trim limits for the spectrum (left, right). If None, the whole spectrum is used.
     """
     print('***{:^60}***'.format('SIGNAL PARAMETERS'))
@@ -3298,19 +3504,26 @@ def dic2mat(dic, peak_names, ns, A=None):
     """
     This is used to make the matrix of the parameters starting from a dictionary like the one produced by l.
     The column of the total intensity is not added, unless the parameter 'A' is passed. In this case, the third column (which is the one with the relative intesities) is corrected using the function molfrac.
-    --------
+
+    .. error::
+
+        Old function!! Legacy
+
+
     Parameters:
-    - dic : dict
+    -----------
+    dic : dict
         input dictionary
-    - peak_names : list
+    peak_names : list
         list of the parameter entries to be looked for
-    - ns : int
+    ns : int
         number of signals to unpack
-    - A : float or None
+    A : float or None
         Total intensity.
-    -------
+
     Returns:
-    - V : 2darray
+    -----------
+    V : 2darray
         Matrix containing the parameters.
     """
     V = []
@@ -3337,15 +3550,17 @@ def test_randomsign(data, thresh=1.96):
     """
     Test an array of residuals for the randomness of the sign changes.
     The result it True if the sequence is recognized as random.
-    -----------
+
     Parameters:
-    - data: 1darray
-        Residuals to test
-    - thresh: float
-        Significance level. The default is 1.96, which corresponds to 5% significance level.
     -----------
+    data : 1darray
+        Residuals to test
+    thresh : float
+        Significance level. The default is 1.96, which corresponds to 5% significance level.
+
     Returns:
-    - test: bool
+    -----------
+    test : bool
         True if the signs are random, False otherwise
     """
     # Size of the data
@@ -3374,18 +3589,24 @@ def test_randomsign(data, thresh=1.96):
 def test_correl(data, subtract_mean=True):
     """
     Tests an array of residuals for their correlation.
-    It compares the unit-lag autocorrelation P of the data (see below) with the theoretical value for non-correlated data T_P:
-    P = sum_i^(N-1) r_i r_(i+1) ; T_P = (N-1)^(0.5) \sum_i r_i^2
-    If P < T_P, the residuals are not correlated, and the result is True.
-    ----------
+    It compares the unit-lag autocorrelation `P` of the ``data`` (see below) with the theoretical value for non-correlated data `T_P`:
+
+    .. math::
+
+        P = \sum_k^{N-1} r[k] \, r[k+1] ;\quad T_P = \sqrt{N-1} \sum_k r[k]^2
+
+    If :math:`P < T_P`, the residuals are not correlated, and the result is True.
+
     Parameters:
-    - data: 1darray
+    -----------
+    data: 1darray
         Residuals to be test
-    - subtract_mean: bool
+    subtract_mean: bool
         If True, subtracts from the residuals their mean.
-    ----------
+
     Returns:
-    - test: bool
+    -----------
+    test: bool
         True if the residuals are non correlated, False otherwise
     """
     # Shallow copy of the residuals
@@ -3407,17 +3628,19 @@ def test_correl(data, subtract_mean=True):
 def test_ks(data, thresh=0.05):
     """
     Performs the Kolmogorov-Smirnov test on the residuals to check if they are drawn from a normal distribution.
-    The implementation is scipy.stats.kstest.
+    The implementation is :func:`scipy.stats.kstest`.
     The result is True if the residuals are Gaussian.
-    ----------
+
     Parameters:
-    - data: 1darray
+    -----------
+    data : 1darray
         Residuals to test
-    - thresh: float
+    thresh : float
         Significance level for the test. Default is 5%
-    ---------
+
     Returns:
-    - test: bool
+    -----------
+    test : bool
         True if the residuals are Gaussian, False otherwise
     """
     # Shallow copy
@@ -3430,22 +3653,33 @@ def test_ks(data, thresh=0.05):
 def test_residuals(res, alpha=0.05):
     """
     Tests an array of residuals for their randomness, correlation, and underlying distribution.
-    To do this, it uses the functions "fit.test_randomsign", "fit.test_correl", "fit.test_ks".
+    To do this, it uses the functions :func:`klassez.fit.test_randomsign`, :func:`klassez.fit.test_correl`, :func:`klassez.fit.test_ks`.
     The results of the tests will be print in standard output and returned.
-    ------------------
+
     Parameters:
-    - res: ndarray
+    -----------
+    res : ndarray
         Residuals to be tested
-    - alpha: float
+    alpha : float
         Significance level
-    ------------------
+
     Returns:
-    - test_random: bool
+    -----------
+    test_random : bool
         Randomness of the residuals (True = random)
-    - test_correlation: bool
+    test_correlation : bool
         Correlation of the residuals (True = non-correlated)
-    - test_gaussian: bool
+    test_gaussian : bool
         Normal-distribution of the residuals (True = normally-distributed)
+
+    .. seealso::
+
+        :func:`klassez.fit.test_randomsign`
+
+        :func:`klassez.fit.test_correl`
+
+        :func:`klassez.fit.test_ks`
+
     """
     from scipy.stats import norm
     
@@ -3474,29 +3708,36 @@ def test_residuals(res, alpha=0.05):
 def write_log(input_file, output_file, limits, V_i, C_i, V_f, C_f, result, runtime, test_res=True, log_file='fit.log'):
     """
     Write a log file with all the information of the fit.
-    -------
+
+
+    .. error::
+
+        Old function!! Legacy
+
+
     Parameters:
-    - input_file: str
+    -----------
+    input_file : str
         Location and filename of the input file
-    - output_file: str
+    output_file : str
         Location and filename of the output file
-    - limits: tuple
+    limits : tuple
         Delimiters of the spectral region that was fitted. (left, right)
-    - V_i: 2darray
+    V_i : 2darray
         Initial parameters of the fit
-    - C_i: 1darray or False
+    C_i : 1darray or False
         Coefficients of the starting polynomion used for baseline correction. If False, it was not used.
-    - V_f: 2darray
+    V_f : 2darray
         Final parameters of the fit
-    - C_f: 1darray or False
+    C_f : 1darray or False
         Coefficients of the final polynomion used for baseline correction. If False, it was not used.
-    - result: lmfit.FitResult Object
+    result : lmfit.FitResult Object
         Object returned by lmfit after the fit.
-    - runtime: datetime.datetime Object
+    runtime : datetime.datetime Object
         Time taken for the fit
-    - test_res: bool
+    test_res : bool
         Choose if to test the residual with the fit.test_residual function (True) or not (False)
-    - log_file: str
+    log_file : str
         Filename of the log file to be saved.
     """
     now = datetime.now()
@@ -3537,21 +3778,30 @@ def write_log(input_file, output_file, limits, V_i, C_i, V_f, C_f, result, runti
 
 def gaussian_fit(x, y, s_in=None):
     """
-    Fit 'y' with a gaussian function, built using 'x' as independent variable
-    -------
+    Fit ``y`` with a gaussian function, built using ``x`` as independent variable
+
     Parameters:
-    - x : 1darray
+    -----------
+    x : 1darray
         x-scale
-    - y : 1darray
+    y : 1darray
         data to be fitted
-    -------
+    s_in : float or None
+        initial guess for the standard deviation of the gaussian. If None, ``np.std(y)`` is used
+
     Returns:
-    - u : float
+    -----------
+    u : float
         mean 
-    - s : float
+    s : float
         standard deviation
-    - A : float
+    A : float
         Integral
+        
+    .. seealso::
+        
+        :func:`klassez.sim.f_gaussian`
+
     """
 
     # Make parameter dictionary
@@ -3582,48 +3832,50 @@ def gaussian_fit(x, y, s_in=None):
 class Voigt_Fit:
     """
     This class offers an "interface" to fit a 1D NMR spectrum.
-    -------
+
     Attributes:
-    - ppm_scale: 1darray
+    -----------
+    ppm_scale : 1darray
         Self-explanatory
-    - S : 1darray
+    S : 1darray
         Spectrum to fit. Only real part
-    - t_AQ: 1darray
+    t_AQ : 1darray
         acquisition timescale of the spectrum
-    - SW: float
+    SW : float
         Spectral width /Hz
-    - SFO1: float
+    SFO1 : float
         Larmor frequency of the nucleus
-    - o1p : float
+    o1p : float
         Pulse carrier frequency
-    - filename: str
+    filename : str
         Root of the names of the files that will be saved 
-    - X_label: str
+    X_label : str
         Label for the chemical shift axis in the figures
-    - i_guess: list
-        Initial guess for the fit, read by a .ivf file with fit.read_vf
-    - result: list
-        Result the fit, read by a .fvf file with fit.read_vf
+    i_guess : list of dict
+        Initial guess for the fit, read by a `.ivf` file with :func:`klassez.fit.read_vf`
+    result : list of dict
+        Result the fit, read by a `.fvf` file with :func:`klassez.fit.read_vf`
     """
 
     def __init__(self, ppm_scale, S, t_AQ, SFO1, o1p, nuc=None, filename='fit'):
         """
         Initialize the class with common values.
-        --------
+
         Parameters:
-        - ppm_scale: 1darray
+        -----------
+        ppm_scale : 1darray
             ppm scale of the spectrum
-        - S: 1darray
+        S : 1darray
             Spectrum to be fitted
-        - t_AQ: 1darray
+        t_AQ : 1darray
             Acquisition timescale
-        - SFO1: float
+        SFO1 : float
             Larmor frequency of the observed nucleus, in MHz
-        - o1p: float
+        o1p : float
             Carrier position, in ppm
-        - nuc: str
+        nuc : str
             Observed nucleus. Used to customize the x-scale of the figures.
-        - filename: str or None
+        filename : str
             Root of the name of the files that will be saved
         """
         self.ppm_scale = ppm_scale
@@ -3642,17 +3894,26 @@ class Voigt_Fit:
     def iguess(self, filename=None, n=-1, ext='ivf', auto=False):
         """
         Reads, or computes, the initial guess for the fit.
-        If the file is there already, it just reads it with fit.read_vf. Otherwise, it calls fit.make_iguess to make it.
-        --------
+        If the file is there already, it just reads it with ``fit.read_vf``. Otherwise, it calls ``fit.make_iguess`` to make it.
+
         Parameters:
-        - filename: str or None
-            Path to the input file. If None, "<self.filename>.ivf" is used
-        - n: int
+        -----------
+        filename: str or None
+            Path to the input file. If None, `"<self.filename>.ivf"` is used
+        n: int
             Index of the initial guess to be read (default: last one)
-        - ext: str
+        ext: str
             Extension of the file to be used
-        - auto: bool
+        auto: bool
             If True, uses the GUI for automatic peak picking, if False, the manual one
+
+        .. seealso::
+
+            :func:`klassez.fit.make_iguess`
+
+            :func:`klassez.fit.make_iguess_auto`
+
+            :func:`klassez.fit.read_vf`
         """
         # Set the default filename, if not given
         if filename is None:
@@ -3674,15 +3935,24 @@ class Voigt_Fit:
 
     def load_fit(self, filename=None, n=-1, ext='fvf'):
         """
-        Reads a file with fit.read_vf and stores the result in self.result.
-        ---------
+        Reads a file with ``fit.read_vf`` and stores the result in ``self.result``.
+
         Parameters:
-        - filename: str
+        -----------
+        filename: str
             Path to the .fvf file to be read. If None, "<self.filename>.fvf" is used.
-        - n: int
+        n: int
             Index of the fit to be read (default: last one)
-        - ext: str
+        ext: str
             Extension of the file to be used
+
+        .. seealso::
+
+            :func:`klassez.fit.make_iguess`
+
+            :func:`klassez.fit.make_iguess_auto`
+
+            :func:`klassez.fit.read_vf`
         """
         # Set the default filename, if not given
         if filename is None:
@@ -3700,41 +3970,47 @@ class Voigt_Fit:
     def dofit(self, indep=True, u_lim=1, f_lim=10, k_lim=(0,3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None, method='leastsq', basl_fit='no'):
         """
         Perform a lineshape deconvolution fitting.
-        The initial guess is read from the attribute self.i_guess.
-        The components can be considered to be all independent from one to another by setting "indep" to True: this means that the fit will be done using fit.voigt_fit_indep.
-        The indep=False option has not been implemented yet.
-        ------------
+        The initial guess is read from the attribute ``self.i_guess``.
+        The components can be considered to be all independent from one to another by setting ``indep=True``: this means that the fit will be done using ``fit.voigt_fit_indep``.
+        The ``indep=False`` option has not been implemented yet.
+
         Parameters:
-        - indep: bool
-            True to consider all the components to be independent
-        - u_lim: float
-            Determines the displacement of the chemical shift (in ppm) from the starting value.
-        - f_lim: float
-            Determines the displacement of the linewidth (in Hz) from the starting value.
-        - k_lim: float or tuple
-            If tuple, minimum and maximum allowed values for k during the fit. If float, maximum displacement from the initial guess
-        - vary_phase: bool
-            Allow the peaks to change phase (True) or not (False)
-        - vary_b: bool
-            Allow the peaks to change Lorentzian/Gaussian ratio
-        - itermax: int
-            Maximum number of allowed iterations
-        - fit_tol: float
-            Value of the target function to be set as x_tol and f_tol
-        - filename: str
-            Path to the output file. If None, "<self.filename>.fvf" is used
-        - method: str or list of str
-            Method to be used for the optimization. See lmfit for details. There is the option to run multiple optimizations in series.
-        - basl_fit: str
-            How to address the baseline fit. The options are:
-            > "no": Do not use baseline (default)
-            > "fixed": The baseline is computed once and kept fixed during the optimization
-            > "fit": The baseline coefficients enter as fit parameters during the nonlinear optimization
-            > "calc": The baseline coefficients are calculated during the optimization via linear least-squares optimization
         -----------
+        indep : bool
+            True to consider all the components to be independent
+        u_lim : float
+            Determines the displacement of the chemical shift (in ppm) from the starting value.
+        f_lim : float
+            Determines the displacement of the linewidth (in Hz) from the starting value.
+        k_lim : float or tuple
+            If tuple, minimum and maximum allowed values for k during the fit. If float, maximum displacement from the initial guess
+        vary_phase : bool
+            Allow the peaks to change phase (True) or not (False)
+        vary_b : bool
+            Allow the peaks to change Lorentzian/Gaussian ratio
+        itermax : int
+            Maximum number of allowed iterations
+        fit_tol : float
+            Value of the target function to be set as x_tol and f_tol
+        filename : str
+            Path to the output file. If None, "<self.filename>.fvf" is used
+        method : str or list of str
+            Method to be used for the optimization. See lmfit for details. There is the option to run multiple optimizations in series.
+        basl_fit : str
+            How to address the baseline fit. The options are:
+            * "no" : Do not use baseline (default)
+            * "fixed" : The baseline is computed once and kept fixed during the optimization
+            * "fit"  : The baseline coefficients enter as fit parameters during the nonlinear optimization
+            * "calc" : The baseline coefficients are calculated during the optimization via linear least-squares optimization
+
         Returns:
-        - lmfit_results: list of lmfit.minimizer.MinimizerResult
+        -----------
+        lmfit_results : list of lmfit.minimizer.MinimizerResult
             Sequence of the fit results, ordered as the regions dictionary
+
+        .. seealso::
+            
+            :func:`klassez.fit.voigt_fit_indep`
         """
 
         # Make a shallow copy of the real part of the experimental spectrum
@@ -3758,30 +4034,37 @@ class Voigt_Fit:
 
     def plot(self, what='result', show_total=True, show_res=False, res_offset=0, show_basl=False, labels=None, filename=None, ext='png', dpi=600, dim=None):
         """
-        Plots either the initial guess or the result of the fit, and saves all the figures. Calls fit.plot_fit.
-        The figure <filename>_full will show the whole model and the whole spectrum. 
-        The figures labelled with _R<k> will depict a detail of the fit in the k-th fitting region.
-        Optional labels for the components can be given: in this case, the structure of 'labels' should match the structure of self.result (or self.i_guess). This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
-        ------------
+        Plots either the initial guess or the result of the fit, and saves all the figures. Calls :func:`fit.plot_fit`.
+        The figure `<filename>_full` will show the whole model and the whole spectrum. 
+        The figures labelled with `_R<k>` will depict a detail of the fit in the k-th fitting region.
+        Optional labels for the components can be given: in this case, the structure of `labels` should match the structure of ``self.result`` (or ``self.i_guess``). This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
+
         Parameters:
-        - what: str
+        -----------
+        what : str
             'iguess' to plot the initial guess, 'result' to plot the fitted data
-        - show_total: bool
+        show_total : bool
             Show the total trace (i.e. sum of all the components) or not
-        - show_res: bool
+        show_res : bool
             Show the plot of the residuals
-        - res_offset: float
-            Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental spectrum. res_offset > 0 will move the residuals BELOW the zero-line!
-        - show_basl: bool
+        res_offset : float
+            Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental spectrum. ``res_offset`` > 0 will move the residuals BELOW the zero-line!
+        show_basl : bool
             If True, displays the baseline on the spectrum and uses it to compute the total trace.
-        - labels: list of list
-            Optional labels for the components. The structure of this parameter must match the structure of self.result
-        - filename: str
-            Root of the name of the figures that will be saved. If None, <self.filename> is used
-        - ext: str
+        labels : list of list
+            Optional labels for the components. The structure of this parameter must match the structure of ``self.result``
+        filename : str
+            Root of the name of the figures that will be saved. If None, `<self.filename>` is used
+        ext : str
             Format of the saved figures
-        - dpi: int
+        dpi : int
             Resolution of the figures, in dots per inches
+        dim : tuple
+            Dimension of the figure in inches
+
+        .. seealso::
+
+            :func:`klassez.fit.plot_fit`
         """
         # select the correct object to plot
         if what == 'iguess':
@@ -3801,21 +4084,23 @@ class Voigt_Fit:
 
     def get_fit_lines(self, what='result'):
         """
-        Calculates the components, and the total fit curve used as initial guess, or as fit results..
+        Calculates the components, and the total fit curve used as initial guess, or as fit results.
         The components will be returned as a list, not split by region.
-        --------
+
         Parameters:
-        - what: str
+        -----------
+        what : str
             'iguess' or 'result' 
-        --------
+
         Returns:
-        - signals: list of 1darray
+        -----------
+        signals : list of 1darray
             Components used for the fit
-        - total: 1darray
+        total : 1darray
             Sum of all the signals
-        - limits_list: list
+        limits_list : list
             List of region delimiters, in ppm
-        - whole_basl: 1darray
+        whole_basl : 1darray
             Computed baseline
         """
         # Select the correct object
@@ -3863,31 +4148,37 @@ class Voigt_Fit:
     def res_histogram(self, what='result', nbins=500, density=True, f_lims=None, xlabel='Residuals', x_symm=True, barcolor='tab:green', fontsize=20, filename=None, ext='png', dpi=300):
         """
         Computes the histogram of the residuals and saves it.
-        Employs fit.histogram to make the figure.
-        --------
+        Employs :func:`klassez.fit.histogram` to make the figure.
+        
         Parameters:
-        - what: str
+        -----------
+        what : str
             'iguess' or 'result' 
-        - nbins : int
+        nbins  : int
             number of bins to be calculated
-        - density : bool
+        density  : bool
             True for normalize data
-        - f_lims : tuple or None
+        f_lims  : tuple or None
             limits for the x axis of the figure
-        - xlabel : str or None
+        xlabel  : str or None
             Text to be displayed under the x axis
-        - x_symm : bool
+        x_symm  : bool
             set it to True to make symmetric x-axis with respect to 0
-        - barcolor: str
+        barcolor : str
             Color of the bins
-        - fontsize: float
+        fontsize : float
             Biggest fontsize in the figure
-        - name : str
+        filename  : str
             name for the figure to be saved
-        - ext: str
+        ext : str
             Format of the image
-        - dpi: int
+        dpi : int
             Resolution of the image in dots per inches
+
+        .. seealso::
+
+            :func:`klassez.fit.histogram`
+
         """
         # Filename check
         if filename is None:
@@ -3931,23 +4222,25 @@ class Voigt_Fit:
     def to_tragico(self, which='iguess', filename=None):
         """
         Writes input 1 and input 2 for a TrAGICo run, on the basis of either the initial guess or the results of a fit.
-        The files will be named '<filename>_inp1' and '<filename>_inp2', respectively.
-        -----------
+        The files will be named `'<filename>_inp1'` and `'<filename>_inp2'`, respectively.
+
         Parameters:
-        - which: str
+        -----------
+        which : str
             'iguess' or 'result'
-        - filename: str
+        filename : str
             Name of the file that will be saved. If None, the file will be saved in the spectrum directory
         """
         def write_inp1(reg, filename):
             """
-            Write the input 1 file for a tragico run, on the basis of 'regions'.
-            The file name will be <filename>_inp1.
-            -----------
+            Write the input 1 file for a tragico run, on the basis of ``regions``.
+            The file name will be `<filename>_inp1`.
+
             Parameters:
-            - reg: list of dict
+            -----------
+            reg : list of dict
                 self.i_guess or self.result
-            - filename: str
+            filename : str
                 Name of the file that will be saved
             """
 
@@ -3986,13 +4279,14 @@ class Voigt_Fit:
 
         def write_inp2(reg, ppm, spectrum, filename):
             """
-            Write the input 1 file for a tragico run, on the basis of 'regions'.
-            The file name will be <filename>_inp1.
-            -----------
+            Write the input 2 file for a tragico run, on the basis of ``regions``.
+            The file name will be `<filename>_inp1`.
+
             Parameters:
-            - reg: list of dict
-                self.i_guess or self.result
-            - filename: str
+            -----------
+            reg : list of dict
+                ``self.i_guess`` or ``self.result``
+            filename : str
                 Name of the file that will be saved
             """
             def xbaslfact(ppm, lims, bas_c):
@@ -4012,9 +4306,9 @@ class Voigt_Fit:
                 new_coeff = np.array(
                         [
                             np.sum(bas_c),
-                            - np.sum([(j+1)*bas_c[j+1] for j in range(4)]) / w,
+                            np.sum([(j+1)*bas_c[j+1] for j in range(4)]) / w,
                             (bas_c[2] + 3 * bas_c[3] + 6 * bas_c[4] ) / w**2,
-                            - ( bas_c[3] + 4 * bas_c[4] ) / w**3,
+                            ( bas_c[3] + 4 * bas_c[4] ) / w**3,
                             bas_c[4] / w**4,
                         ])
                 return new_coeff
@@ -4090,31 +4384,33 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
     Upon closure of the figure, the Parameters object with the updated entries is returned.
     
     Keybinding:
-    > '>': increase sensitivity
-    > '<': decrease sensitivity
-    > 'up': increase value
-    > 'down': decrease value
-    > 'left': change parameter
-    > 'right': change parameter
-    > 'v': change "vary" status
-    > '<': toggle automatic zoom adjustment
-    ---------
+    * '>': increase sensitivity
+    * '<': decrease sensitivity
+    * 'up': increase value
+    * 'down': decrease value
+    * 'left': change parameter
+    * 'right': change parameter
+    * 'v': change "vary" status
+    * '<': toggle automatic zoom adjustment
+
     Parameters:
-    - x: 1darray
+    -----------
+    x : 1darray
         Independent variable
-    - experimental: 1darray
+    experimental : 1darray
         The objective values you are trying to fit
-    - param: lmfit.Parameters Object
+    param : lmfit.Parameters Object
         Initialized parameters object
-    - model: function
+    model : function
         Function to be used for the generation of the fit model. Param must be the first argument.
-    - model_args: list
+    model_args : list
         List of args to be passed to model, after param
-    - sens0: float
+    sens0 : float
         Default sensitivity for the change of the parameters with the mouse
-    ---------
+
     Returns:
-    - param: lmfit.Parameters Object
+    -----------
+    param : lmfit.Parameters Object
         Updated Parameters Object
     """
 
@@ -4372,22 +4668,24 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
 def peak_pick(ppm_f1, ppm_f2, data, coord_filename='coord.tmp'):
     """
     Make interactive peak_picking.
-    The position of the selected signals are saved in coord_filename.
-    If coord_filename already exists, the new signals are appended at its bottom: nothing is overwritten.
-    Calls misc.select_traces for the selection.
-    -------
+    The position of the selected signals are saved in ``coord_filename``.
+    If ``coord_filename`` already exists, the new signals are appended at its bottom: nothing is overwritten.
+    Calls :func:`klassez.misc.select_traces` for the selection.
+
     Parameters:
-    - ppm_f1: 1darray
+    -----------
+    ppm_f1: 1darray
         ppm scale for the indirect dimension
-    - ppm_f2: 1darray
+    ppm_f2: 1darray
         ppm scale for the direct dimension
-    - data: 2darray
+    data: 2darray
         Spectrum to peak-pick. The dimension should match the scale sizes.
-    - coord_filename: str
+    coord_filename: str
         Path to the file where to save the peak coordinates
-    -------
+
     Returns:
-    - coord: list
+    -----------
+    coord: list
         List of (u2, u1) for each peak
     """
     # Check for the existence of coord_filename
@@ -4414,41 +4712,45 @@ def peak_pick(ppm_f1, ppm_f2, data, coord_filename='coord.tmp'):
 def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None):
     """
     Generate the initial guess for the fit of a 2D signal.
-    The employes model is the one of a 2D Voigt signal, acquired with the States-TPPI scheme in the indirect dimension (i.e. sim.t_2DVoigt).
+    The employes model is the one of a 2D Voigt signal, acquired with the States-TPPI scheme in the indirect dimension (i.e. :func:`klassez.sim.t_2DVoigt`).
     The program allows for the inclusion of up to 10 components for the signal, in order to improve the fit.
     The acqus dictionary must contain the following keys: 
-        > t1: acquisition timescale in the indirect dimension (States)
-        > t2: acquisition timescale in the direct dimension
-        > SFO1: Larmor frequency of the nucleus in the indirect dimension
-        > SFO2: Larmor frequency of the nucleus in the direct dimension
-        > o1p: carrier position in the indirect dimension /ppm
-        > o2p: carrier position in the direct dimension /ppm
-    The signals will be processed according to the values in the procs dictionary, if given; otherwise, they will be just zero-filled up to the data size (i.e. (len(ppm_f1), len(ppm_f2)) ). 
-    -------
+
+        * t1: acquisition timescale in the indirect dimension (States)
+        * t2: acquisition timescale in the direct dimension
+        * SFO1: Larmor frequency of the nucleus in the indirect dimension
+        * SFO2: Larmor frequency of the nucleus in the direct dimension
+        * o1p: carrier position in the indirect dimension /ppm
+        * o2p: carrier position in the direct dimension /ppm
+
+    The signals will be processed according to the values in the ``procs`` dictionary, if given; otherwise, they will be just zero-filled up to the data size (i.e. ``(len(ppm_f1), len(ppm_f2))`` ). 
+
     Parameters:
-    - ppm_f1: 1darray
+    -----------
+    ppm_f1 : 1darray
         ppm scale for the indirect dimension
-    - ppm_f2: 1darray
+    ppm_f2 : 1darray
         ppm scale for the direct dimension
-    - tr1: 1darray
+    tr1 : 1darray
         Trace of the original 2D peak in the indirect dimension
-    - tr2: 1darray
+    tr2 : 1darray
         Trace of the original 2D peak in the direct dimension
-    - u1: float
+    u1 : float
         Chemical shift of the original 2D peak in the indirect dimension /ppm
-    - u2: float
+    u2 : float
         Chemical shift of the original 2D peak in the direct dimension /ppm
-    - acqus: dict
+    acqus : dict
         Dictionary of acquisition parameters
-    - fwhm0: float
+    fwhm0 : float
         Initial value for FWHM in both dimensions
-    - procs: dict
+    procs : dict
         Dictionary of processing parameters
-    -------
+    
     Returns:
-    - final_parameters: 2darray
+    -----------
+    final_parameters : 2darray
         Matrix of dimension (# signals, 6) that contains, for each row: v1(Hz), v2(Hz), fwhm1(Hz), fwhm2(Hz), A, b
-    - fit_interval: tuple of tuple
+    fit_interval : tuple of tuple
         Fitting window. ( (left_f1, right_f1), (left_f2, right_f2) )
     """
 
@@ -4613,19 +4915,21 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     def make_sgn_2D(values, acqus, N=None, procs=None):
         """
         Create a 2D signal according to the final parameters returned by make_iguess_2D.
-        -------
+
         Parameters:
-        - final_parameters: list or 2darray
+        -----------
+        final_parameters: list or 2darray
             sequence of the parameters: u1, u2, fwhm1, fwhm2, I, b
-        - acqus: dict
+        acqus: dict
             2D-like acqus dictionary containing the acquisition timescales (keys t1 and t2)
-        - N: tuple of int
+        N: tuple of int
             Zero-filling values (F1, F2). Not read if procs is not None
-        - procs: dict
+        procs: dict
             2D-like procs dictionary.
-        -------
+
         Returns:
-        - peaks: list of 2darray
+        -----------
+        peaks: list of 2darray
             rr part of the generated signals
         """
         # Shallow copy of acquisition timescales
@@ -4850,21 +5154,23 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
 
 def build_2D_sgn(parameters, acqus, N=None, procs=None):
     """
-    Create a 2D signal according to the final parameters returned by make_iguess_2D.
-    Process it according to procs.
-    -------
+    Create a 2D signal according to the final parameters returned by :func:`klassez.fit.make_iguess_2D`.
+    Process it according to ``procs``.
+
     Parameters:
-    - parameters: list or 2darray
+    -----------
+    parameters : list or 2darray
         sequence of the parameters: u1, u2, fwhm1, fwhm2, I, b. Multiple components are allowed
-    - acqus: dict
+    acqus : dict
         2D-like acqus dictionary containing the acquisition timescales (keys t1 and t2)
-    - N: tuple of int
+    N : tuple of int
         Zero-filling values (F1, F2). Read only if procs is None
-    - procs: dict
+    procs : dict
         2D-like procs dictionary.
-    -------
+
     Returns:
-    - peak: 2darray
+    -----------
+    peak : 2darray
         rr part of the generated signal
     """
     parameters = np.array(parameters)
@@ -4894,24 +5200,28 @@ def build_2D_sgn(parameters, acqus, N=None, procs=None):
 class Voigt_Fit_2D:
     """
     Class that wraps methods for the fit of 2D spectra with a set of 2D Voigtian lines.
-    This is work in progress.
+
+    .. warning::
+
+        This is work in progress.
     """
     def __init__(self, ppm_f1, ppm_f2, data, acqus, procs=None, label_list=None):
         """
         Initialize the class with ppm scales, experimental spectrum, acqus and procs dictionaries.
-        -------
+
         Parameters:
-        - ppm_f1: 1darray
+        -----------
+        ppm_f1 : 1darray
             ppm scale for the indirect dimension
-        - ppm_f2: 1darray
+        ppm_f2 : 1darray
             ppm scale for the direct dimension
-        - data: 2darray
+        data : 2darray
             Spectrum to fit. The dimension should match the scale sizes.
-        - acqus: dict
+        acqus : dict
             Dictionary of acquisition parameters
-        - procs: dict
+        procs : dict
             Dictionary of processing parameters
-        - label_list: list
+        label_list : list
             Labels for the peaks
         """
         self.ppm_f1 = np.copy(ppm_f1)
@@ -4927,15 +5237,16 @@ class Voigt_Fit_2D:
     def plot(self, name=None, show_exp=True, dpi=600, **kwargs):
         """ 
         Draw a plot of the guessed/fitted peaks.
-        -------
+
         Parameters:
-        - name: str or None
+        -----------
+        name : str or None
             Filename for the figure. If it is None, the figure is shown.
-        - show_exp: bool
+        show_exp : bool
             Choose if to plot the experimental spectrum or not
-        - dpi: int
+        dpi : int
             Resolution of the saved image
-        - kwargs: keyworded arguments
+        kwargs : keyworded arguments
             Additional parameters to be passed to figures.ax2D.
         """
 
@@ -4991,19 +5302,20 @@ class Voigt_Fit_2D:
     def draw_crossmarks(coord, ax, label_list=None, markersize=5, labelsize=8, markercolor='tab:blue', labelcolor='b'):
         """
         Draw crossmarks and peak labels on a figure.
-        -------
+
         Parameters:
-        - ax: matplotlib.Subplot object
+        -----------
+        ax : matplotlib.Subplot object
             Subplot where to plot the crossmarks and the labels.
-        - label_list: list
+        label_list : list
             Labels for the peaks. If None, they are computed as 1, 2, 3, ...
-        - markersize: int
+        markersize : int
             Dimension of the crossmark
-        - labelsize: int
+        labelsize : int
             Fontsize for the labels
-        - markercolor: str
+        markercolor : str
             Color of the crossmark
-        - labelcolor: str
+        labelcolor : str
             Color of the labels
         """
 
@@ -5020,9 +5332,10 @@ class Voigt_Fit_2D:
         """
         Performs peak_picking by calling fit.peak_pick.
         Saves the list of peak positions in the attribute coord
-        -------
+
         Parameters:
-        - coord_filename: str
+        -----------
+        coord_filename : str
             Path to the file where to save the peak coordinates
         """
         fit.peak_pick(self.ppm_f1, self.ppm_f2, self.data, coord_filename)
@@ -5030,9 +5343,10 @@ class Voigt_Fit_2D:
     def load_coord(self, coord_filename='coord.tmp'):
         """
         Read the values from the coord filename and save them into the attribute "coord".
-        --------
+
         Parameters:
-        - coord_filename: str
+        -----------
+        coord_filename : str
             Path to the file to be read
         """
         f = open(coord_filename, 'r')
@@ -5064,17 +5378,18 @@ class Voigt_Fit_2D:
     def draw_coord(self, filename=None, labelsize=8, ext='png', dpi=600, **kwargs):
         """
         Makes a figure with the experimental dataset and the peak-picked signals as crosshairs.
-        --------
+
         Parameters:
-        - filename: str or None
+        -----------
+        filename : str or None
             Filename for the figure to be saved. If None, it is shown instead.
-        - labelsize: float
+        labelsize : float
             Font size for the peak index
-        - ext: str
+        ext : str
             Format of the image
-        - dpi: int
+        dpi : int
             Resolution of the saved image in dots per inches
-        - kwargs: keyworded arguments
+        kwargs : keyworded arguments
             Additional options for figures.ax2D
         """
 
@@ -5101,11 +5416,12 @@ class Voigt_Fit_2D:
         Calculate the set of 2D peaks, given the matrix of their parameters and their index.
         The array of indexes is required in order to recognize the different components that contribute to a single peak.
         The attribute peaks of the class will be cleared and updated.
-        --------
+
         Parameters:
-        - idx: 1darray
+        -----------
+        idx: 1darray
             Array of indexes of the peaks.
-        - V: list or 2darray
+        V: list or 2darray
             List of parameters that describe the peaks.
         """
 
@@ -5134,12 +5450,14 @@ class Voigt_Fit_2D:
         """
         Reads the initial guess file with the parameters of the peaks, separates the values and stores them into attributes.
         In particular: 
-            > idx will contain the peak index (first column of the file), 
-            > Vi will contain [u1, u2, fwhm1, fwhm2, Im, b] for each peak,
-            > Wi will contain the fitting interval as ( (L_f1, R_f1), (L_f2, R_f2) )
-        --------
+
+            * idx will contain the peak index (first column of the file), 
+            * Vi will contain [u1, u2, fwhm1, fwhm2, Im, b] for each peak,
+            * Wi will contain the fitting interval as ( (L_f1, R_f1), (L_f2, R_f2) )
+
         Parameters:
-        - filename: str
+        -----------
+        filename : str
             Path to the input file to be read
         """
 
@@ -5170,12 +5488,14 @@ class Voigt_Fit_2D:
         Reads the file with the parameters of the fitted peaks, separates the values and stores them into attributes.
         Then, uses these values to compute the peaks and save them into self.peaks.
         In particular: 
-            > idx will contain the peak index (first column of the file), 
-            > Vf will contain [u1, u2, fwhm1, fwhm2, Im, b] for each peak,
-            > Wf will contain the fitting interval as ( (L_f1, R_f1), (L_f2, R_f2) )
-        --------
+
+            * idx will contain the peak index (first column of the file), 
+            * Vf will contain [u1, u2, fwhm1, fwhm2, Im, b] for each peak,
+            * Wf will contain the fitting interval as ( (L_f1, R_f1), (L_f2, R_f2) )
+
         Parameters:
-        - filename: str
+        -----------
+        filename: str
             Path to the input file to be read
         """
 
@@ -5204,21 +5524,22 @@ class Voigt_Fit_2D:
     def iguess(self, filename='peaks.inp', start_index=1, only_edit=None, fwhm0=100, overwrite=False, auto=False):
         """
         Make the initial guess for all the peaks.
-        ---------
+
         Parameters:
-        - filename: str
+        -----------
+        filename : str
             Path to the file where the peak parameters will be written
-        - start_index: int
+        start_index : int
             Index of the first peak to be guessed. 
-        - only_edit: sequence of ints or None
+        only_edit : sequence of ints or None
             Index of the peak that have to be guessed interactively. The ones that do not appear here are guessed automatically.
-        - fwhm0: float
+        fwhm0 : float
             Default value for fwhm in both dimension for automatic guess
-        - overwrite: bool
+        overwrite : bool
             Choose if to overwrite the file or append the new peaks at the bottom
-        - auto: bool
+        auto : bool
             Allow automatic guess for the peaks. To be used in conjunction with only_edit: if auto is False, all the peaks are guessed interactively!
-        ----------
+
         """
         def auto_val(ppm_f1, ppm_f2, tr1, tr2, u1, u2, fwhm0, acqus):
             """ Compute initial guess automatically """
@@ -5286,7 +5607,6 @@ class Voigt_Fit_2D:
     def fit(self, filename='fit.out', overwrite=False, start_index=1, **fit_kws):
         """
         Perform the fit of all the 2D peaks, one by one, by reading the starting values from Vi.
-        
         """
 
         # Flag: did you set a logfile?
@@ -5340,9 +5660,10 @@ class Voigt_Fit_2D:
     def _write_head_line(self, f):
         """ 
         Writes the header of the output file.
-        -------
+
         Parameters:
-        - f: TextIOWrapper
+        -----------
+        f : TextIOWrapper
             writable file generated by open(filename, 'w'/'a')
         """
         f.write(f'{"#":<4s}\t{"clu":>4s}\t{"u1":>8s}\t{"u2":>8s}\t{"fwhm1":>8s}\t{"fwhm2":>8s}\t{"I":>8s}\t{"b":>8s}\t{"Fit. interv.":>20s}\n')
@@ -5350,23 +5671,24 @@ class Voigt_Fit_2D:
     def _write_par_line(self, f, acqus, index, clu, values, interval_f1=None, interval_f2=None, conv_u=True):
         """ 
         Writes a line of parameters to the output file.
-        -------
+
         Parameters:
-        - f: TextIOWrapper
+        -----------
+        f : TextIOWrapper
             writable file generated by open(filename, 'w'/'a')
-        - acqus: dict
+        acqus : dict
             2D-like acquisition parameters
-        - index: int
+        index : int
             Index of the peak
-        - clu: int
+        clu : int
             Cluster index
-        - values: 1darray
+        values : 1darray
             u1, u2, fwhm1, fwhm2, I, b
-        - interval_f1: tuple
+        interval_f1 : tuple
             left limit F1, right limit F1
-        - interval_f2: tuple
+        interval_f2 : tuple
             left limit F2, right limit F2
-        - conv_u: bool
+        conv_u : bool
             Conversion of u1 and u2 from Hz to ppm
         """
         if interval_f1 is None:
@@ -5403,46 +5725,81 @@ class Voigt_Fit_2D:
 
 
 class CostFunc:
-    """
+    r"""
     Class that groups several ways to compute the target of the minimization in a fitting procedure. It includes the classic squared sum of the residuals, as well as some other non-quadratic cost functions.
-    Let x be the residuals and s the chosen threshold value. Then the objective value R is computed as:
-        R = \sum_i f(x_i)
-    where f(x) can be chosen between the following options:
-    > Quadratic:
-        f(x) = x^2
-    > Truncated Quadratic:
-        f(x) =  x^2         if |x| < s
-                s^2         otherwise
-    > Huber function:
-        f(x) =  x^2         if |x| < s
-                2s|x| - s^2 otherwise
-    > Asymmetric Truncated Quadratic:
-        f(x) =  x^2         if x < s
-                s^2         otherwise
-    > Asymmetric Huber function:
-        f(x) =  x^2         if x < s
-                2sx - s^2   otherwise
-    ---------
+    Let `x` be the residuals and `s` the chosen threshold value. Then the objective value `R` is computed as:
+
+    .. math::
+
+        R = \sum_k f(x[k])
+
+    where :math:`f(x)` can be chosen between the following options:
+
+    * Quadratic:
+
+        .. math::
+            
+            f(x) = x^2
+
+    * Truncated Quadratic:
+
+        .. math::
+
+            f(x) = \begin{cases}
+            x^2 & \text{if } |x| < s\\
+            s^2 & \text{otherwise}\\
+            \end{cases}
+
+    * Huber function:
+
+        .. math::
+
+            f(x) = \begin{cases}
+            x^2 & \text{if } |x| < s\\
+            2s|x| - s^2 & \text{otherwise}\\
+            \end{cases}
+
+    * Asymmetric Truncated Quadratic:
+
+        .. math::
+
+            f(x) = \begin{cases}
+            x^2 & \text{if } x < s\\
+            s^2 & \text{otherwise}\\
+            \end{cases}
+
+    * Asymmetric Huber function:
+
+        .. math::
+
+            f(x) = \begin{cases}
+            x^2 & \text{if } x < s\\
+            2sx - s^2 & \text{otherwise}\\
+            \end{cases}
+
     Attributes:
-    - method: function
+    -----------
+    method : function
         Function to be used for the computation of the objective value. It must take as input the array of the residuals and the threshold, no matter if the latter is actually used or not.
-    - s: float
+    s : float
         Threshold value
     """
     def __init__(self, method='q', s=None):
         """
-        Initialize the method according to your choice, then stores the threshold value in the attribute "s".
+        Initialize the method according to your choice, then stores the threshold value in the attribute ``s``.
         Allowed choices are:
-        > "q": Quadratic
-        > "tq": Truncated Quadratic
-        > "huber": Huber function
-        > "atq": Asymmetric Truncated Quadratic
-        > "ahuber": Asymmetric Huber function
-        ---------
+
+        * "q": Quadratic
+        * "tq": Truncated Quadratic
+        * "huber": Huber function
+        * "atq": Asymmetric Truncated Quadratic
+        * "ahuber": Asymmetric Huber function
+
         Parameters:
-        - method: str
+        -----------
+        method : str
             Label for the method selection
-        - s: float
+        s : float
             Threshold value
         """
         self.method = self.method_selector(method)
@@ -5451,13 +5808,15 @@ class CostFunc:
     def method_selector(self, method):
         """
         Performs the selection of the method according to the identifier string.
-        -------
+
         Parameters:
-        - method: str
+        -----------
+        method : str
             Method label
-        --------
+
         Returns:
-        - f: function
+        -----------
+        f : function
             Selected model
         """
         if method == 'q':
@@ -5475,15 +5834,17 @@ class CostFunc:
 
     def __call__(self, x):
         """
-        Computes the objective value according to the chosen method and the residuals array x.
-        ---------
+        Computes the objective value according to the chosen method and the residuals array ``x``.
+
         Parameters:
-        - x: 1darray
+        -----------
+        x: 1darray
             Array of the residuals
-        ---------
+
         Returns:
-        - R: float
-            Computed objective value
+        -----------
+        R: 1darray
+            Computed objective function to be given to a least-squares solver
         """
         return self.method(x, self.s)
 
@@ -5540,23 +5901,29 @@ class CostFunc:
 def lsp(y, x, n=5, w=None):
     """
     Linear-System Polynomion
-    Make a polynomial fit on the experimental data y by solving the linear system
+    Make a polynomial fit on the experimental data `y` by solving the linear system
+
+    .. math:: 
+
         y = T c
-    where T is the Vandermonde matrix of the x-scale and c is the set of coefficients that minimize the problem in the least-squares sense.
-    It is also possible to make it weighted by using an array of weights w.
-    ----------
+
+    where `T` is the Vandermonde matrix of the x-scale and `c` is the set of coefficients that minimize the problem in the least-squares sense.
+    It is also possible to make it weighted by using an array of weights ``w``.
+
     Parameters:
-    - y: 1darray
+    -----------
+    y : 1darray
         Experimental data
-    - x: 1darray
+    x : 1darray
         Independent variable (better if normalized)
-    - n: int
+    n : int
         Order of the polynomion + 1, i.e. number of coefficients
-    - w: 1darray
+    w : 1darray
         Array of weights for the data. If None, the nonweighted approach is used
-    ----------
+
     Returns:
-    - c: 1darray
+    -----------
+    c : 1darray
         Set of minimized coefficients
     """
     # Make the Vandermonde matrix of the x-scale
@@ -5582,43 +5949,48 @@ def lsp(y, x, n=5, w=None):
 def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
     """
     Fit the baseline of a spectrum with a low-order polynomion using a non-quadratic objective function.
-    Let y be an array of N points. The polynomion is generated on a normalized scale that goes from -1 to 1 in N steps, and the coefficients are initialized either from outside through the parameter c_i or with the ordinary least squares fit.
+
+    Let ``y`` be an array of ``N`` points. The polynomion is generated on a normalized scale that goes from -1 to 1 in ``N`` steps, and the coefficients are initialized either from outside through the parameter ``c_i`` or with the ordinary least squares fit.
     Then, the guess is refined using the objective function of choice employing the trust-region reflective least-squares algorithm.
-    -----------
+
+
     Parameters:
-    - y: 1darray
-        Experimental data
-    - n: int
-        Order of the polynomion + 1, i.e. number of coefficients
-    - method: str
-        Objective function of choice. 'q': quadratic, 'tq': truncated quadratic, 'huber': Huber, 'atq': asymmetric truncated quadratic, 'ahuber': asymmetric huber
-    - s: float
-        Relative threshold value for the non-quadratic behaviour of the objective function
-    - c_i: sequence or None
-        Initial guess for the polynomion coefficient. If None, the least-squares fit is used
-    - itermax: int
-        Number of maximum iterations
     -----------
+    y : 1darray
+        Experimental data
+    n : int
+        Order of the polynomion + 1, i.e. number of coefficients
+    method : str
+        Objective function of choice. 'q': quadratic, 'tq': truncated quadratic, 'huber': Huber, 'atq': asymmetric truncated quadratic, 'ahuber': asymmetric huber
+    s : float
+        Relative threshold value for the non-quadratic behaviour of the objective function
+    c_i : sequence or None
+        Initial guess for the polynomion coefficient. If None, the least-squares fit is used
+    itermax : int
+        Number of maximum iterations
+
     Returns:
-    - px: 1darray
+    -----------
+    px : 1darray
         Fitted polynomion
-    - c: list
+    c : list
         Set of coefficients of the polynomion
     """
     def f2min_real(param, y, x, n, res_f):
         """
         Minimizer function.
-        ----------
+
         Parameters:
-        - param: lmfit.Parameters object
+        -----------
+        param : lmfit.Parameters object
             Parameters to be optimized
-        - y: 1darray
+        y : 1darray
             Experimental data
-        - x: 1darray
+        x : 1darray
             Scale on which to build the model
-        - n: int
+        n : int
             Number of coefficients
-        - res_f: function
+        res_f : function
             Returns the objective value to be minimized
         """
         # Unpack the parameters
@@ -5634,17 +6006,18 @@ def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
     def f2min_cplx(param, y, x, n, res_f):
         """
         Minimizer function.
-        ----------
+
         Parameters:
-        - param: lmfit.Parameters object
+        -----------
+        param : lmfit.Parameters object
             Parameters to be optimized
-        - y: 1darray
+        y : 1darray
             Experimental data
-        - x: 1darray
+        x : 1darray
             Scale on which to build the model
-        - n: int
+        n : int
             Number of coefficients
-        - res_f: function
+        res_f : function
             Returns the objective value to be minimized
         """
         # Unpack the parameters
@@ -5716,35 +6089,41 @@ class SINC_ObjFunc:
     """
     Computes the objective function as explained in M. Sawall et al., Journal of Magnetic Resonance 289 (2018), 132-141.
     The cost function is computed as:
-        f(d) = \sum_{i=1}^3  gamma_i g_i(d|e_i)
-    where d is the real part of the NMR spectrum.
-    ---------
+
+    .. math::
+
+        f(d) = \sum_{i=1}^3  \gamma_i g_i(d|e_i)
+
+    where `d` is the real part of the NMR spectrum.
+
     Attributes:
-    - gamma1: float
+    -----------
+    gamma1 : float
         Weighting factor for function g1
-    - gamma2: float
+    gamma2 : float
         Weighting factor for function g2
-    - gamma3: float
+    gamma3 : float
         Weighting factor for function g3
-    - e1: float
+    e1 : float
         Tolerance value for function g1
-    - e2: float
+    e2 : float
         Tolerance value for function g2
     """
     def __init__(self, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0):
         """
         Initialize the coefficients used to weigh the objective function.
-        -------
+
         Parameters:
-        - gamma1: float
+        -----------
+        gamma1 : float
             Weighting factor for function g1
-        - gamma2: float
+        gamma2 : float
             Weighting factor for function g2
-        - gamma3: float
+        gamma3 : float
             Weighting factor for function g3
-        - e1: float
+        e1 : float
             Tolerance value for function g1
-        - e2: float
+        e2 : float
             Tolerance value for function g2
         """
         self.gamma1 = gamma1
@@ -5771,11 +6150,12 @@ class SINC_ObjFunc:
     def g1(d, e1=0):
         """ 
         Penalty function for negative entries of the spectrum
-        --------
+
         Parameters:
-        - d: 1darray
+        -----------
+        d : 1darray
             Spectrum
-        - e1: float
+        e1 : float
             Tolerance for negative entries
         """
 
@@ -5788,11 +6168,12 @@ class SINC_ObjFunc:
     def g2(d, e2=0):
         """
         Regularization function that favours the smallest integral.
-        --------
+
         Parameters:
-        - d: 1darray
+        -----------
+        d : 1darray
             Spectrum
-        - e2: float
+        e2 : float
             Tolerance for ideal baseline
         """
 
@@ -5805,9 +6186,10 @@ class SINC_ObjFunc:
     def g3(d):
         """
         Regularization function for the smoothing.
-        --------
+
         Parameters:
-        - d: 1darray
+        -----------
+        d : 1darray
             Spectrum
         """
         diffd = np.diff(d, 2)
@@ -5819,27 +6201,29 @@ def sinc_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
     """
     Perform automatic phase correction according to the SINC algorithm, as described in M. Sawall et. al., Journal of Magnetic Resonance 289 (2018), 132–141.
     The fitting method defaults to "least_squares".
-    --------
+
     Parameters:
-    - data: 1darray
+    -----------
+    data : 1darray
         Spectrum to phase-correct
-    - gamma1: float
+    gamma1 : float
         Weighting factor for function g1: non-negativity constraint
-    - gamma2: float
+    gamma2 : float
         Weighting factor for function g2: smallest-integral constraint
-    - gamma3: float
+    gamma3 : float
         Weighting factor for function g3: smoothing constraint
-    - e1: float
+    e1 : float
         Tolerance factor for function g1: adjustment for noise
-    - e2: float
+    e2 : float
         Tolerance factor for function g2: adjustment for non-ideal baseline
-    - fit_kws: keyworded arguments
-        additional parameters for the fit function. See lmfit.Minimizer.minimize for details. Do not use "leastsq" because the cost function returns a scalar value!
-    --------
+    fit_kws : keyworded arguments
+        additional parameters for the fit function. See :func:`lmfit.Minimizer.minimize` for details. Do not use "leastsq" because the cost function returns a scalar value!
+
     Returns:
-    - p0: float
+    -----------
+    p0 : float
         Fitted zero-order phase correction angle, in degrees
-    - p1: float
+    p1 : float
         Fitted first-order phase correction angle, in degrees
     """
 
@@ -5888,15 +6272,16 @@ def sinc_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
 def write_vf_P2D(filename, peaks, lims, prev=0):
     """
     Write a section in a fit report file, which shows the fitting region and the parameters of the peaks to feed into a Voigt lineshape model.
-    -----------
+
     Parameters:
-    - filename: str
+    -----------
+    filename : str
         Path to the file to be written
-    - peaks: list of dict
+    peaks : list of dict
         list of dictionares of fit.Peak objects, one per experiment
-    - lims: tuple
+    lims : tuple
         (left limit /ppm, right limit /ppm)
-    - prev: int
+    prev : int
         Number of previous peaks already saved. Increases the peak index
     """
 
@@ -5943,15 +6328,17 @@ def read_vf_P2D(filename, n=-1):
     """
     Reads a .ivf (initial guess) or .fvf (final fit) file, containing the parameters for a lineshape deconvolution fitting procedure.
     The file is separated and unpacked into a list of list of dictionaries, each of which contains the limits of the fitting window, and a dictionary for each peak with the characteristic values to compute it with a Voigt line.
-    --------------
+
     Parameters:
-    - filename: str
+    -----------
+    filename : str
         Path to the filename to be read
-    - n: int
+    n : int
         Number of performed fit to be read. Default: last one. The breakpoints are lines that start with "!". For this reason, n=0 returns an empty dictionary, hence the first fit is n=1.
-    -------------
+
     Returns:
-    - regions: list of list of dict
+    -----------
+    regions : list of list of dict
         List of dictionaries for running the fit.
     """
     def read_region(R):
@@ -6047,30 +6434,32 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     When you are satisfied with your fit, press "SAVE" to write the information in the output file. Then, the GUI is brought back to the initial situation, and the region you were working on will be marked with a green rectangle. You can repeat the procedure as many times as you wish, to prepare the guess on multiple spectral windows.
 
     Keyboard shortcuts:
-    > "increase sensitivity" : '>'
-    > "decrease sensitivity" : '<'
-    > mouse scroll up: 'up arrow key'
-    > mouse scroll down: 'down arrow key'
-    > "add a component": '+'
-    > "remove the active component": '-'
-    > "change component, forward": 'page up'
-    > "change component, backward": 'page down'
 
-    ------------
+    * "increase sensitivity" : '>'
+    * "decrease sensitivity" : '<'
+    * mouse scroll up: 'up arrow key'
+    * mouse scroll down: 'down arrow key'
+    * "add a component": '+'
+    * "remove the active component": '-'
+    * "change component, forward": 'page up'
+    * "change component, backward": 'page down'
+
+
     Parameters:
-    - S_in: 1darray
+    -----------
+    S_in : 1darray
         Experimental spectrum
-    - ppm_scale: 1darray
+    ppm_scale : 1darray
         PPM scale of the spectrum
-    - expno: int
+    expno : int
         Index of experiment of the pseudo 2D on which to compute the initial guess, in python numbering
-    - t_AQ: 1darray
+    t_AQ : 1darray
         Acquisition timescale
-    - SFO1: float
+    SFO1 : float
         Nucleus Larmor frequency /MHz
-    - o1p: float
+    o1p : float
         Carrier frequency /ppm
-    - filename: str
+    filename : str
         Path to the filename where to save the information. The '.ivf' extension is added automatically.
     """
 
@@ -6079,15 +6468,17 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     def rename_dic(dic, Np):
         """
         Change the keys of a dictionary with a sequence of increasing numbers, starting from 1.
-        ----------
+
         Parameters:
-        - dic: dict
+        -----------
+        dic : dict
             Dictionary to edit
-        - Np: int
+        Np : int
             Number of peaks, i.e. the sequence goes from 1 to Np
-        ----------
+
         Returns:
-        - new_dic: dict
+        -----------
+        new_dic : dict
             Dictionary with the changed keys
         """
         old_keys = list(dic.keys())         # Get the old keys
@@ -6103,13 +6494,15 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
         """
         Calculate the sum trace from a collection of peaks stored in a dictionary.
         If the dictionary is empty, returns an array of zeros.
-        ---------
+
         Parameters:
-        - peaks: dict
+        -----------
+        peaks : dict
             Components
-        --------
+
         Returns:
-        - total: 1darray
+        -----------
+        total : 1darray
             Sum spectrum
         """
         # Get the arrays from the dictionary
@@ -6512,40 +6905,41 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
     """
     Plots either the initial guess or the result of the fit, and saves all the figures. 
     A new folder named <filename>_fit will be created.
-    The figure <filename>_full will show the whole model and the whole spectrum. 
-    The figures labelled with _R<k> will depict a detail of the fit in the k-th fitting region.
-    Optional labels for the components can be given: in this case, the structure of 'labels' should match the structure of 'regions'. This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
-    ------------
+    The figure `<filename>_full` will show the whole model and the whole spectrum. 
+    The figures labelled with `_R<k>` will depict a detail of the fit in the k-th fitting region.
+    Optional labels for the components can be given: in this case, the structure of ``labels`` should match the structure of ``regions``. This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
+
     Parameters:
-    - S: 2darray
+    -----------
+    S : 2darray
         Spectrum to be fitted
-    - ppm_scale: 1darray
+    ppm_scale : 1darray
         ppm scale of the spectrum
-    - regions: list of dict
+    regions : list of dict
         Generated by fit.read_vf_P2D
-    - t_AQ: 1darray
+    t_AQ : 1darray
         Acquisition timescale
-    - SFO1: float
+    SFO1 : float
         Larmor frequency of the observed nucleus, in MHz
-    - o1p: float
+    o1p : float
         Carrier position, in ppm
-    - nuc: str
+    nuc : str
         Observed nucleus. Used to customize the x-scale of the figures.
-    - show_total: bool
+    show_total : bool
         Show the total trace (i.e. sum of all the components) or not
-    - show_res: bool
+    show_res : bool
         Show the plot of the residuals
-    - res_offset: float
-        Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental spectrum. res_offset > 0 will move the residuals BELOW the zero-line!
-    - X_label: str
+    res_offset : float
+        Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental spectrum. ``res_offset`` > 0 will move the residuals BELOW the zero-line!
+    X_label : str
         Text to show as label for the chemical shift axis
-    - labels: list of list
+    labels : list of list
         Optional labels for the components. The structure of this parameter must match the structure of self.result
-    - filename: str
+    filename : str
         Root of the name of the figures that will be saved.
-    - ext: str
+    ext : str
         Format of the saved figures
-    - dpi: int
+    dpi : int
         Resolution of the figures, in dots per inches
     """
 
@@ -6553,15 +6947,17 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
         """
         Calculates the sum trace from a collection of peaks stored in a dictionary.
         If the dictionary is empty, returns an array of zeros.
-        ---------
+
         Parameters:
-        - peaks: dict
+        -----------
+        peaks: dict
             Components
-        - A: float
+        A: float
             Absolute intensity
-        --------
+
         Returns:
-        - total: 1darray
+        -----------
+        total: 1darray
             Sum spectrum
         """
 
@@ -6702,31 +7098,32 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
     The initial guess must be read from a .ivf file. All components are treated as independent, regardless from the value of the "group" attribute.
     The fitting procedure operates iteratively one window at the time.
     During the fit routine, the peak positions and lineshapes will be varied consistently on all the experiments; only the intensities are allowed to change in a different way.
-    ------------
+
     Parameters:
-    - S: 2darray
+    -----------
+    S: 2darray
         Experimental spectrum
-    - ppm_scale: 1darray
+    ppm_scale: 1darray
         PPM scale of the spectrum
-    - regions: dict
-        Generated by fit.read_vf_P2D
-    - t_AQ: 1darray
+    regions: dict
+        Generated by ``fit.read_vf_P2D``
+    t_AQ: 1darray
         Acquisition timescale
-    - SFO1: float
+    SFO1: float
         Nucleus Larmor frequency /MHz
-    - o1p: float
+    o1p: float
         Carrier frequency /ppm
-    - u_tol: float
+    u_tol: float
         Maximum allowed displacement of the chemical shift from the initial value /ppm
-    - f_tol: float
+    f_tol: float
         Maximum allowed displacement of the linewidth from the initial value /ppm
-    - vary_phase: bool
+    vary_phase: bool
         Allow the peaks to change phase
-    - vary_b: bool
+    vary_b: bool
         Allow the peaks to change Lorentzian/Gaussian ratio
-    - itermax: int
+    itermax: int
         Maximum number of allowed iterations
-    - filename: str
+    filename: str
         Name of the file where the fitted values will be saved. The .fvf extension is added automatically
     """
 
@@ -6736,15 +7133,17 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
         """
         Calculates the sum trace from a collection of peaks stored in a dictionary.
         If the dictionary is empty, returns an array of zeros.
-        ---------
+
         Parameters:
-        - peaks: dict
+        -----------
+        peaks : dict
             Components
-        - A: float
+        A : float
             Absolute intensity
-        --------
+
         Returns:
-        - total: 1darray
+        -----------
+        total : 1darray
             Sum spectrum
         """
         # Get the arrays from the dictionary
@@ -6763,17 +7162,19 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
         Replaces the values of a "peaks" dictionary, which contains a fit.Peak object for each key "idx", with the values contained in the "par" dictionary.
         The par dictionary keys must have keys of the form <parameter>_<idx>, where <parameter> is in [u, fwhm, k, 'b', 'phi'], and <idx> are the keys of the peaks dictionary.
         The intensity values of the peaks are stored as k_<idx>_<experiment>, where <experiment> is the associated trace of the pseudo-2D, starting from 1.
-        -----------
+
         Parameters:
-        - peaks: dict
+        -----------
+        peaks : dict
             Collection of fit.Peak objects
-        - par: dict
+        par : dict
             New values for the peaks
-        - e_idx: int
+        e_idx : int
             Number of experiment of which to change the intensity of the peak
-        ----------
+
         Returns:
-        - peaks: dict
+        -----------
+        peaks : dict
             Updated peaks dictionary with the new values
         """
         for idx, peak in peaks.items():
@@ -6788,21 +7189,23 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
         """
         Function that calculates the residual to be minimized in the least squares sense.
         This function requires a set of pre-built fit.Peak objects, stored in a dictionary. The parameters of the peaks are replaced on this dictionary according to the values in the lmfit.Parameter object. At this point, the total trace is computed and the residual is returned as the difference between the experimental spectrum and the total trace, only in the region delimited by the "lims" tuple.
-        ------------
+
         Parameters:
-        - param: lmfit.Parameters object
-            Usual lmfit stuff
-        - S: 2darray
-            Experimental spectrum
-        - fit_peaks: list of dict
-            Collection of fit.Peak objects
-        - I: list or 1darray
-            Absolute intensity values for all experiments
-        - lims: slice
-            Trimming region corresponding to the fitting window, in points
         -----------
+        param : lmfit.Parameters object
+            Usual lmfit stuff
+        S : 2darray
+            Experimental spectrum
+        fit_peaks : list of dict
+            Collection of fit.Peak objects
+        I : list or 1darray
+            Absolute intensity values for all experiments
+        lims : slice
+            Trimming region corresponding to the fitting window, in points
+
         Returns:
-        - residual: 1darray
+        -----------
+        residual : 1darray
             Experimental - calculated, in the fitting window, concatenated through all the experiments
         """
         param['count'].value += 1
@@ -6952,46 +7355,48 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
 class Voigt_Fit_P2D:
     """
     This class offers an "interface" to fit a pseudo 2D NMR spectrum.
-    -------
+
     Attributes:
-    - ppm_scale: 1darray
+    -----------
+    ppm_scale : 1darray
         Self-explanatory
-    - S : 2darray
+    S  : 2darray
         Spectrum to fit. Only real part
-    - t_AQ: 1darray
+    t_AQ : 1darray
         acquisition timescale of the spectrum
-    - SFO1: float
+    SFO1 : float
         Larmor frequency of the nucleus
-    - o1p : float
+    o1p  : float
         Pulse carrier frequency
-    - filename: str
+    filename : str
         Root of the names of the files that will be saved 
-    - X_label: str
+    X_label : str
         Label for the chemical shift axis in the figures
-    - i_guess: list
+    i_guess : list
         Initial guess for the fit, read by a .ivf file with fit.read_vf_P2D
-    - result: list
+    result : list
         Result the fit, read by a .fvf file with fit.read_vf_P2D
     """
 
     def __init__(self, ppm_scale, S, t_AQ, SFO1, o1p, nuc=None, filename='fit'):
         """
         Initialize the class with common values.
-        --------
+
         Parameters:
-        - ppm_scale: 1darray
+        -----------
+        ppm_scale : 1darray
             ppm scale of the spectrum
-        - S: 2darray
+        S : 2darray
             Spectrum to be fitted
-        - t_AQ: 1darray
+        t_AQ : 1darray
             Acquisition timescale
-        - SFO1: float
+        SFO1 : float
             Larmor frequency of the observed nucleus, in MHz
-        - o1p: float
+        o1p : float
             Carrier position, in ppm
-        - nuc: str
+        nuc : str
             Observed nucleus. Used to customize the x-scale of the figures.
-        - filename: str or None
+        filename : str or None
             Root of the name of the files that will be saved
         """
         self.ppm_scale = ppm_scale
@@ -7010,13 +7415,14 @@ class Voigt_Fit_P2D:
         """
         Reads, or computes, the initial guess for the fit.
         If the file is there already, it just reads it with fit.read_vf. Otherwise, it calls fit.make_iguess to make it.
-        --------
+
         Parameters:
-        - input_file: str or None
+        -----------
+        input_file : str or None
             Path to the input file. If None, "<self.filename>.ivf" is used
-        - expno: int
+        expno : int
             Number of the experiment on which to compute the initial guess, in python numbering
-        - n: int
+        n : int
             Index of the initial guess to be read (default: last one)
         """
         # Set the default filename, if not given
@@ -7037,11 +7443,12 @@ class Voigt_Fit_P2D:
     def load_fit(self, output_file=None, n=-1):
         """
         Reads a file with fit.read_vf_P2D and stores the result in self.result.
-        ---------
+
         Parameters:
-        - output_file: str
+        -----------
+        output_file : str
             Path to the .fvf file to be read. If None, "<self.filename>.fvf" is used.
-        - n: int
+        n : int
             Index of the fit to be read (default: last one)
         """
         # Set the default filename, if not given
@@ -7059,21 +7466,22 @@ class Voigt_Fit_P2D:
 
     def dofit(self, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, filename=None):
         """
-        Perform a lineshape deconvolution fitting by calling fit.voigt_fit_P2D.
-        The initial guess is read from the attribute self.i\_guess.
-        ------------
+        Perform a lineshape deconvolution fitting by calling ``fit.voigt_fit_P2D``.
+        The initial guess is read from the attribute ``self.i_guess``.
+
         Parameters:
-        - u_tol: float
+        -----------
+        u_tol : float
             Determines the displacement of the chemical shift (in ppm) from the starting value.
-        - f_tol: float
+        f_tol : float
             Determines the displacement of the linewidth (in Hz) from the starting value.
-        - vary_phase: bool
+        vary_phase : bool
             Allow the peaks to change phase (True) or not (False)
-        - vary_b: bool
+        vary_b : bool
             Allow the peaks to change Lorentzian/Gaussian ratio
-        - itermax: int
+        itermax : int
             Maximum number of allowed iterations
-        - filename: str
+        filename : str
             Path to the output file. If None, "<self.filename>.fvf" is used
         """
 
@@ -7098,23 +7506,24 @@ class Voigt_Fit_P2D:
         The figures <filename>_full will show the whole model and the whole spectrum. 
         The figures labelled with _R<k> will depict a detail of the fit in the k-th fitting region.
         Optional labels for the components can be given: in this case, the structure of 'labels' should match the structure of self.result (or self.i_guess). This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
-        ------------
+
         Parameters:
-        - what: str
+        -----------
+        what : str
             'iguess' to plot the initial guess, 'result' to plot the fitted data
-        - show_total: bool
+        show_total : bool
             Show the total trace (i.e. sum of all the components) or not
-        - show_res: bool
+        show_res : bool
             Show the plot of the residuals
-        - res_offset: float
+        res_offset : float
             Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental spectrum. res_offset > 0 will move the residuals BELOW the zero-line!
-        - labels: list of list
+        labels : list of list
             Optional labels for the components. The structure of this parameter must match the structure of self.result
-        - filename: str
+        filename : str
             Root of the name of the figures that will be saved. If None, <self.filename> is used
-        - ext: str
+        ext : str
             Format of the saved figures
-        - dpi: int
+        dpi : int
             Resolution of the figures, in dots per inches
         """
         # select the correct object to plot
@@ -7137,17 +7546,19 @@ class Voigt_Fit_P2D:
         """
         Calculates the components, and the total fit curve used as initial guess, or as fit results..
         The components will be returned as a list, not split by region.
-        --------
+
         Parameters:
-        - what: str
+        -----------
+        what : str
             'iguess' or 'result' 
-        --------
+
         Returns:
-        - signals: list of list of 1darray
+        -----------
+        signals : list of list of 1darray
             Components used for the fit
-        - total: 2darray
+        total : 2darray
             Sum of all the signals
-        - limits_list: list
+        limits_list : list
             List of the region delimiters, in ppm
         """
         # Select the correct object
@@ -7193,29 +7604,30 @@ class Voigt_Fit_P2D:
         """
         Computes the histogram of the residuals and saves it in the same folder of the fit figures.
         Employs fit.histogram to make the figure.
-        --------
+
         Parameters:
-        - what: str
+        -----------
+        what : str
             'iguess' or 'result' 
-        - nbins : int
+        nbins  : int
             number of bins to be calculated
-        - density : bool
+        density  : bool
             True for normalize data
-        - f_lims : tuple or None
+        f_lims  : tuple or None
             limits for the x axis of the figure
-        - xlabel : str or None
+        xlabel  : str or None
             Text to be displayed under the x axis
-        - x_symm : bool
+        x_symm  : bool
             set it to True to make symmetric x-axis with respect to 0
-        - barcolor: str
+        barcolor : str
             Color of the bins
-        - fontsize: float
+        fontsize : float
             Biggest fontsize in the figure
-        - name : str
+        name  : str
             name for the figure to be saved
-        - ext: str
+        ext : str
             Format of the image
-        - dpi: int
+        dpi : int
             Resolution of the image in dots per inches
         """
         # Filename check

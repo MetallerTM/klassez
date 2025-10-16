@@ -37,21 +37,34 @@ def interactive_echo_param(data0):
     """
     Interactive plot that allows to select the parameters needed to process a CPMG-like FID.
     Use the TextBox or the arrow keys to adjust the values.
-    You can call processing.sum_echo_train or processing.split_echo_train by starring the return statement of this function, i.e.:
+    You can call ``processing.sum_echo_train`` or ``processing.split_echo_train`` by starring the return statement of this function, i.e.:
+
+    .. code-block:: python
+
         processing.sum_echo_train(data0, *interactive_echo_train(data0))
+
     as they are in the correct order to be used in this way.
-    -------
+
     Parameters:
-    - data0: ndarray
+    -----------
+    data0 : ndarray
         CPMG FID
-    -------
+
     Returns:
-    - n: int
+    -----------
+    n : int
         Distance between one echo and the next one
-    - n_echoes: int
+    n_echoes : int
         Number of echoes to sum/split
-    - i_p: int
+    i_p : int
         Offset points from the start of the FID
+
+
+    .. seealso::
+
+        :func:`klassez.processing.sum_echo_train`
+
+        :func:`klassez.processing.split_echo_train`
     """
 
     # Check for data dimension and safety copy
@@ -198,21 +211,28 @@ def interactive_echo_param(data0):
 def sum_echo_train(datao, n, n_echoes, i_p=0):
     """
     Sum up a CPMG echo-train FID into echoes so to be enchance the SNR.
-    This function calls processing.split_echo_train with the same parameters.
-    -------
+    This function calls ``processing.split_echo_train`` with the same parameters.
+    
     Parameters:
-    - datao: ndarray
+    -----------
+    datao : ndarray
         FID with an echo train on its last dimension
-    - n: int
+    n : int
         number of points that separate one echo from the next
-    - n_echoes: int
+    n_echoes : int
         number of echoes to sum
-    - i_p: int
+    i_p : int
         Number of offset points
-    ------
+    
     Returns:
-    - data_p: ndarray
+    -----------
+    data_p : ndarray
         Summed echoes
+
+
+    .. seealso::
+        
+        :func:`klassez.processing.interactive_echo_param`
     """
     # Separate the echoes
     data = processing.split_echo_train(datao, n, n_echoes, i_p)
@@ -228,20 +248,27 @@ def split_echo_train(datao, n, n_echoes, i_p=0):
     Separate a CPMG echo-train FID into echoes so to be processed separately.
     The first decay, i.e. the native FID, is extracted, and corresponds to echo number 0. 
     Then, for each echo, the left side (reversed) is summed up to its right part.
-    -------
+
     Parameters:
-    - datao: ndarray
+    -----------
+    datao : ndarray
         FID with an echo train on its last dimension
-    - n: int
+    n : int
         number of points that separate one echo from the next
-    - n_echoes: int
+    n_echoes : int
         number of echoes to extract. If it is 0, extracts only the first decay
-    - i_p: int
+    i_p : int
         Number of offset points
-    ------
+
     Returns:
-    - data_p: (n+1)darray
+    -----------
+    data_p : (n+1)darray
         Separated echoes
+
+
+    .. seealso::
+        
+        :func:`klassez.processing.interactive_echo_param`
     """
     # Take account of the offset points 
     data = datao[..., i_p:]
@@ -278,13 +305,15 @@ def split_echo_train(datao, n, n_echoes, i_p=0):
 def quad(fid):
     """
     Subtracts from the FID the arithmetic mean of its last quarter. The real and imaginary channels are treated separately.
-    -------
+
     Parameters:
-    - fid : ndarray
+    -----------
+    fid : ndarray
         Self-explanatory.
-    -------
+
     Returns:
-    - fid : ndarray
+    -----------
+    fid : ndarray
         Processed FID.
     """
     size = fid.shape[-1]
@@ -298,13 +327,15 @@ def quad(fid):
 def qpol(fid):
     """
     Fits the FID with a 4-th degree polynomion, then subtracts it from the original FID. The real and imaginary channels are treated separately.
-    -------
+    
     Parameters:
-    - fid : ndarray
+    -----------
+    fid : ndarray
         Self-explanatory.
-    -------
+   
     Returns:
-    - fid_corr : ndarray
+    -----------
+    fid_corr : ndarray
         Processed FID
     """
     # Fits the FID with a 4th degree polinomion
@@ -321,12 +352,29 @@ def qpol(fid):
 # -------------------------------------------------------------------------------------------------------------------------------------------------------
 # window functions
 def qsin(data, ssb):
-    """
+    r"""
     Sine-squared apodization.
-    --------
+
+    .. math::
+        
+        a(x) = \sin^2 \biggl[\frac{\pi}{SSB} + \pi \biggl(1 - \frac{1}{SSB}\biggr) x \biggr]
+        
+  
     Parameters:
-    - ssb: int
+    -----------
+    data: ndarray
+        FID to be processed
+    ssb: int
         Sine bell shift. 
+
+    Returns:
+    -----------
+    datap: ndarray
+        Apodized data
+
+    .. seealso::
+
+        :func:`klassez.processing.apodf`
     """
 
     if ssb == 0 or ssb == 1:
@@ -339,12 +387,29 @@ def qsin(data, ssb):
     return apod * data
 
 def sin(data, ssb):
-    """
+    r"""
     Sine apodization.
-    --------
+
+    .. math::
+        
+        a(x) = \sin \biggl[\frac{\pi}{SSB} + \pi \biggl(1 - \frac{1}{SSB}\biggr) x \biggr]
+
     Parameters:
-    - ssb: int
+    -----------
+    data: ndarray
+        FID to be processed
+    ssb: int
         Sine bell shift. 
+
+    Returns:
+    -----------
+    datap: ndarray
+        Apodized data
+
+    .. seealso::
+
+        :func:`klassez.processing.apodf`
+
     """
     if ssb == 0 or ssb == 1:
         off = 0
@@ -356,43 +421,69 @@ def sin(data, ssb):
     return apod * data
 
 def em(data, lb, sw):
-    """
+    r"""
     Exponential apodization
-    ---------
+
+    .. math::
+        
+        a(x) = \exp\biggl[-\pi \frac{LB}{2\,SW} x \biggr]
+    
     Parameters:
-    - data: ndarray
+    -----------
+    data: ndarray
         Input data
-    - lb: float
+    lb: float
         Lorentzian broadening. It should be positive.
-    - sw: float
+    sw: float
         Spectral width /Hz
+
+    Returns:
+    -----------
+    datap: ndarray
+        Apodized data
+
+    .. seealso::
+
+        :func:`klassez.processing.apodf`
     """
     lb = lb / (2*sw)
     apod = np.exp(- np.pi * np.arange(data.shape[-1]) * lb).astype(data.dtype)
     return apod * data
 
 def gm(data, lb, gb, gc, sw):
-    """
+    r"""
     Gaussian apodization.
-    The parameter 'lb' controls the sharpening factor of a rising exponential, and behaves exactly as in processing.em.
-    In contrast, 'gb' controls the gaussian decay factor.
+    The parameter ``lb`` controls the sharpening factor of a rising exponential, and behaves exactly as in ``processing.em``.
+    In contrast, ``gb`` controls the gaussian decay factor.
+    ``gc`` moves the central point of the gaussian filter.
+
+    .. math::
+        
+        a(x) = \exp\biggl\{ -\pi \frac{LB}{SW} x - \biggl[ \pi \frac{GB}{SW} \biggl(GC (N-1) -x \biggr) \biggr]^2 \biggr\}
+
     Apply this function VERY CAREFULLY. Choose the right values through the interactive processing.
-    -------
+
     Parameters:
-    - data: ndarray
+    -----------
+    data : ndarray
         Input data
-    - lb: float
+    lb : float
         Lorentzian sharpening /Hz. It should be negative.
-    - gb: float
+    gb : float
         Gaussian broadening. It should be positive.
-    - gc: float
-        Gaussian center, relatively to the FID length: 0 <= gc <= 1
-    - sw: float
+    gc : float
+        Gaussian center, relatively to the FID length: :math:`0 \leq g_c \leq 1`
+    sw : float
         Spectral width /Hz
-    -------
+
     Returns:
-    - pdata: ndarray
+    -----------
+    pdata : ndarray
         Processed data
+
+    .. seealso::
+
+        :func:`klassez.processing.apodf`
     """
     size = data.shape[-1]
     x = np.arange(size)
@@ -402,23 +493,34 @@ def gm(data, lb, gb, gc, sw):
     return apod * data
 
 def gmb(data, lb, gb, sw):
-    """
+    r"""
     Bruker-style Gaussian apodization.
+
+    .. math::
+        
+        a(x) = \exp\biggl[ -N \frac{\pi}{SW} \biggl( LB\,x - \frac{LB}{2\,GB}x^2 \biggr) \biggr]
+
     Apply this function VERY CAREFULLY. Choose the right values through the interactive processing.
-    --------
+
     Parameters:
-    - data: ndarray
+    -----------
+    data : ndarray
         Input data
-    - lb: float
+    lb : float
         Lorentzian sharpening /Hz. It should be negative.
-    - gb: float
+    gb : float
         Gaussian broadening. It should be positive.
-    - sw: float
+    sw : float
         Spectral width /Hz
-    -------
+
     Returns:
-    - pdata: ndarray
+    -----------
+    pdata : ndarray
         Processed data
+
+    .. seealso::
+
+        :func:`klassez.processing.apodf`
     """
     size = data.shape[-1]
     x = np.arange(size)/size
@@ -428,17 +530,23 @@ def gmb(data, lb, gb, sw):
 # zero-filling
 def zf(data, size):
     """
-    Zero-filling of data up to size in its last dimension.
-    -------
+    Zero-filling of ``data`` up to ``size`` in its last dimension.
+
     Parameters:
-    - data: ndarray
+    -----------
+    data : ndarray
         Array to be zero-filled
-    - size: int
+    size : int
         Number of points of the last dimension after zero-filling
-    -------
+
     Returns:
-    - datazf: ndarray
+    -----------
+    datazf : ndarray
         Zero-filled data
+
+    .. seealso::
+
+        :func:`klassez.processing.apodf`
     """
     def zf_pad(data, pad):
         size = list(data.shape)
@@ -456,17 +564,19 @@ def ft(data0, alt=False, fcor=0.5):
     """ 
     Fourier transform in NMR sense.
     This means it returns the reversed spectrum.
-    ------------
+
     Parameters:
-    - data0: ndarray
+    -----------
+    data0 : ndarray
         Array to Fourier-transform
-    - alt: bool
+    alt : bool
         negates the sign of the odd points, then take their complex conjugate. Required for States-TPPI processing.
-    - fcor: float
+    fcor : float
         weighting factor for FID 1st point. Default value (0.5) prevents baseline offset
-    ---------
+    
     Returns:
-    - dataft: ndarray
+    -----------
+    dataft : ndarray
         Transformed data
     """
     data = np.copy(data0)
@@ -487,17 +597,19 @@ def ift(data0, alt=False, fcor=0.5):
     """ 
     Inverse Fourier transform in NMR sense.
     This means that the input dataset is reversed before to do iFT.
-    ------------
+    
     Parameters:
-    - data0: ndarray
-        Array to Fourier-transform
-    - alt: bool
-        negates the sign of the odd points, then take their complex conjugate. Required for States-TPPI processing.
-    - fcor: float
-        weighting factor for FID 1st point. Default value (0.5) prevents baseline offset
     -----------
+    data0 : ndarray
+        Array to Fourier-transform
+    alt : bool
+        negates the sign of the odd points, then take their complex conjugate. Required for States-TPPI processing.
+    fcor : float
+        weighting factor for FID 1st point. Default value (0.5) prevents baseline offset
+    
     Returns:
-    - dataft: ndarray
+    -----------
+    dataft : ndarray
         Transformed data
     """
     data = np.copy(data0)[...,::-1]
@@ -527,28 +639,34 @@ def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False, ref
     Applies phase correction on the last dimension of data.
     The pivot is set at the center of the spectrum by default.
     Missing parameters will be inserted interactively.
-    -------
+    
     Parameters:
-    - data: ndarray
+    -----------
+    data : ndarray
         Input data
-    - ppmscale: 1darray or None
+    ppmscale : 1darray or None
         PPM scale of the spectrum. Required for pivot and interactive phase correction
-    - p0: float
+    p0 : float
         Zero-order phase correction angle /degrees
-    - p1: float
+    p1 : float
         First-order phase correction angle /degrees
-    - pivot: float or None.
+    pivot : float or None.
         First-order phase correction pivot /ppm. If None, it is the center of the spectrum.
-    - interactive: bool
+    interactive : bool
         If True, all the parameters will be ignored and the interactive phase correction panel will be opened.
-    - reference: bool
-        Reference spectrum to be used for phasing
-    --------
+    reference : list of 1darray or Spectrum_1D object
+        Reference spectrum to be used for phasing. Can be also given as ``[ppm, spectrum]``
+
     Returns:
-    - datap: ndarray
+    -----------
+    datap : ndarray
         Phased data
-    - final_values: tuple
-        Employed values of the phase correction. (p0, p1, pivot)
+    final_values : tuple
+        Employed values of the phase correction. ``(p0, p1, pivot)``
+
+    .. seealso::
+
+        :func:`klassez.processing.interactive_phase_1D`
     """
     if p0 is None and p1 is None:
         interactive = True
@@ -585,17 +703,21 @@ def eae(data):
     Shuffles data if the spectrum is acquired with FnMODE = Echo-Antiecho.
     NOTE: introduces -90° phase shift in F1, to be corrected after the processing
 
-    pdata = np.zeros_like(data)
-    pdata[::2] = (data[::2].real - data[1::2].real) + 1j*(data[::2].imag - data[1::2].imag)
-    pdata[1::2] = -(data[::2].imag + data[1::2].imag) + 1j*(data[::2].real + data[1::2].real)
+    .. code-block:: python
 
-    ---------
+        pdata = np.zeros_like(data)
+        pdata[::2] = (data[::2].real - data[1::2].real) + 1j*(data[::2].imag - data[1::2].imag)
+        pdata[1::2] = -(data[::2].imag + data[1::2].imag) + 1j*(data[::2].real + data[1::2].real)
+
+
     Parameters:
-    - data: 2darray
+    -----------
+    data : 2darray
         FID in echo-antiecho format
-    ---------
+
     Returns:
-    - pdata: 2darray
+    -----------
+    pdata : 2darray
         FID in States-TPPI format
     """
     pdata = np.zeros_like(data)
@@ -607,8 +729,17 @@ def eae(data):
 def tp_hyper(data):
     """
     Computes the hypercomplex transpose of data.
-    Needed for the processing of data acquired in a phase_sensitive manner
-    in the indirect dimension.
+    Needed for the processing of data acquired in a phase-sensitive manner in the indirect dimension.
+
+    Parameters:
+    -----------
+    data : 2darray
+        Hypercomplex data to be transposed
+
+    Returns:
+    -----------
+    datap : 2darray
+        Transposed data
     """
     def ri2c(data):
         s = list(data.shape)
@@ -631,20 +762,22 @@ def tp_hyper(data):
         
 def unpack_2D(data):
     """
-    Separates hypercomplex data into 4 distinct ser files
-    --------
+    Separates hypercomplex data into 4 distinct components
+
     Parameters:
-    - data: 2darray
+    -----------
+    data : 2darray
         Hypercomplex matrix
-    --------
+
     Returns:
-    - rr: 2darray
+    -----------
+    rr : 2darray
         Real F2, Real F1
-    - ir: 2darray
+    ir : 2darray
         Imaginary F2, Real F1
-    - ri: 2darray
+    ri : 2darray
         Real F2, Imaginary F1
-    - ii: 2darray
+    ii : 2darray
         Imaginary F2, Imaginary F1
     """
     rr = data.real[::2]
@@ -655,20 +788,22 @@ def unpack_2D(data):
     
 def repack_2D(rr, ir, ri, ii):
     """
-    Renconstruct hypercomplex 2D NMR data given the 4 ser files
-    -------
+    Renconstruct hypercomplex 2D NMR data given the 4 components
+
     Parameters:
-    - rr: 2darray
+    -----------
+    rr : 2darray
         Real F2, Real F1
-    - ir: 2darray
+    ir : 2darray
         Imaginary F2, Real F1
-    - ri: 2darray
+    ri : 2darray
         Real F2, Imaginary F1
-    - ii: 2darray
+    ii : 2darray
         Imaginary F2, Imaginary F1
-    -------
+
     Returns:
-    - data: 2darray
+    -----------
+    data : 2darray
         Hypecomplex matrix
     """
     data = np.empty((2*rr.shape[0],rr.shape[1]), dtype='complex64')
@@ -680,14 +815,24 @@ def repack_2D(rr, ir, ri, ii):
     
 def td_eff(data, tdeff):
     """
-    Uses only the first tdeff points of data. tdeff must be a list as long as the dimensions:
-    tdeff = [F1, F2, ..., Fn]
-    --------
+    Uses only the first ``tdeff`` points of data. Equivalent to box-like apodization.
+    ``tdeff`` must be a list as long as the dimensions:
+
+    .. code-block:: python
+
+        tdeff = [F1, F2, ..., Fn]
+
     Parameters:
-    - data: ndarray
+    -----------
+    data : ndarray
         Data to be trimmed
-    - tdeff: list of int
+    tdeff : list of int
         Number of points to be used in each dimension
+
+    Returns:
+    -----------
+    datain : ndarray
+        Trimmed data
     """
     datain = np.copy(data)
 
@@ -720,23 +865,37 @@ def td_eff(data, tdeff):
     
 def fp(data, wf=None, zf=None, fcor=0.5, tdeff=0):
     """
-    Performs the full processing of a 1D NMR FID (data).
-    --------
+    Performs the full processing of a 1D NMR FID (``data``).
+    Also works for pseudo-2D: only applies the processing on the last dimension.
+
     Parameters:
-    - data: 1darray
+    -----------
+    data : ndarray
         Input data
-    - wf: dict
-        {'mode': function to be used, 'parameters': different from each function}
-    - zf: int
+    wf : dict
+        ``{'mode': function to be used, 'parameters': different from each function}``
+    zf : int
         final size of spectrum
-    - fcor: float
+    fcor : float
         weighting factor for the FID first point
-    - tdeff: int
+    tdeff : int
         number of points of the FID to be used for the processing.
-    ------
+
     Returns:
-    - datap: 1darray
+    -----------
+    datap : ndarray
         Processed data
+
+
+    .. seealso::
+
+        :func:`klassez.processing.td_eff`
+
+        :func:`klassez.processing.apodf`
+
+        :func:`klassez.processing.zf`
+
+        :func:`klassez.processing.ft`
     """
     # Correct the shape of tdeff for pseudo_2D spectra, xf2, and stuff
     if len(data.shape) > 1 and not isinstance(tdeff, (list, tuple, np.ndarray)):
@@ -756,23 +915,46 @@ def fp(data, wf=None, zf=None, fcor=0.5, tdeff=0):
 
 def apodf(size, wf):
     """ 
-    Generates a function to be used as apodization function on the basis of the 'wf' dictionary.
-    The behavior is controlled by the 'mode' key. Each 'mode' reads the attributes of the corresponding positions, e.g.:
-    mode:   em, qsin, qsin
-    lb:      5,    0,    0
-    ssb:     0,    2,    3
+    Generates a function to be used as apodization function on the basis of the ``wf`` dictionary.
+    The behavior is controlled by the ``mode`` key. Each ``mode`` reads the attributes of the corresponding positions, e.g.:
+
+    .. code-block:: python
+
+        mode:   em, qsin, qsin
+        lb:      5,    0,    0
+        ssb:     0,    2,    3
+
     will compute the function:
+
+    .. code-block:: python
+
         processing.em(lb=5) * processing.qsin(ssb=2) * processing.qsin(ssb=3)
-    ------------
+
+
     Parameters:
-    - size: tuple
+    -----------
+    size : tuple
         Dimension of data to be windowed
-    - wf: dict
+    wf : dict
         Dictionary of window functions modes and parameters
-    ------------
+
     Returns:
-    - apod_func: np.ndarray
-        Custom apodization function of dimension size
+    -----------
+    apod_func : np.ndarray
+        Custom apodization function of dimension ``size``
+
+
+    .. seealso::
+
+        :func:`klassez.processing.em`
+
+        :func:`klassez.processing.sin`
+
+        :func:`klassez.processing.qsin`
+
+        :func:`klassez.processing.gm`
+
+        :func:`klassez.processing.gmb`
     """
 
     # First input of the window functions, so that I get the function and not the processed data
@@ -816,22 +998,34 @@ def apodf(size, wf):
 
 def interactive_fp(fid0, acqus, procs):
     """
-    Perform the processing of a 1D NMR spectrum interactively. The GUI offers the opportunity to test different window functions, as well as different tdeff values and final sizes.
+    Perform the processing of a 1D NMR spectrum interactively. The GUI offers the opportunity to test different window functions, as well as different ``tdeff`` values and final sizes.
     The active parameters appear as blue text.
-    -------
+
+    .. warning::
+
+        The rendering can be *very slow*. Use with great care.
+
+
+    .. error::
+
+        To be checked, might not work as expected
+
+
     Parameters:
-    - fid0: 1darray
+    -----------
+    fid0 : 1darray
         FID to process
-    - acqus: dict
+    acqus : dict
         Dictionary of acquisition parameters
-    - procs: dict
+    procs : dict
         Dictionary of processing parameters
-    -------
+    
     Returns:
-    - pdata: 1darray
+    -----------
+    pdata : 1darray
         Processed spectrum
-    - procs: dict
-        Updated dictionary of processing parameters:
+    procs : dict
+        Updated dictionary of processing parameters.
     """
     
     def get_apod(size, procs):
@@ -1083,20 +1277,22 @@ def interactive_fp(fid0, acqus, procs):
     
 def inv_fp(data, wf=None, size=None, fcor=0.5):
     """
-    Performs the full inverse processing of a 1D NMR spectrum (data).
-    -------
+    Performs the full inverse processing of a 1D NMR spectrum (``data``).
+
     Parameters:
-    - data: 1darray
+    -----------
+    data : 1darray
         Spectrum
-    - wf: dict
-        {'mode': function to be used, 'parameters': different from each function}
-    - size: int
+    wf : dict
+        ``{'mode': function to be used, 'parameters': different from each function}``
+    size : int
         initial size of the FID
-    - fcor: float
+    fcor : float
         weighting factor for the FID first point
-    -------
+
     Returns:
-    - pdata: 1darray
+    -----------
+    pdata : 1darray
         FID
     """
     # IFT
@@ -1123,28 +1319,40 @@ def inv_fp(data, wf=None, size=None, fcor=0.5):
     
 def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5,0.5], tdeff=[0,0], u=True, FnMODE='States-TPPI'):
     """
-    Performs the full processing of a 2D NMR FID (data). 
-    The returned values depend on u: it is True, returns a sequence of 2darrays depending on FnMODE, otherwise just the complex/hypercomplex data after FT in both dimensions
-    --------
+    Performs the full processing of a 2D NMR FID (``data``). 
+    The returned values depend on ``u``: if it is True, returns a sequence of 2darrays depending on FnMODE, otherwise just the complex/hypercomplex data after FT in both dimensions.
+
     Parameters:
-    - data: 2darray
+    -----------
+    data : 2darray
         Input data
-    - wf: sequence of dict
-        (F1, F2); {'mode': function to be used, 'parameters': different from each function}
-    - zf: sequence of int
+    wf : sequence of dict
+        (F1, F2); ``{'mode': function to be used, 'parameters': different from each function}``
+    zf : sequence of int
         final size of spectrum, (F1, F2)
-    - fcor: sequence of float 
+    fcor : sequence of float 
         weighting factor for the FID first point, (F1, F2)
-    - tdeff: sequence of int
+    tdeff : sequence of int
         number of points of the FID to be used for the processing, (F1, F2)
-    - u: bool
+    u : bool
         choose if to unpack the hypercomplex spectrum into separate arrays or not
-    - FnMODE: str
+    FnMODE : str
         Acquisition mode in F1
-    ------
+
     Returns:
-    - datap: 2darray or tuple of 2darray
+    -----------
+    datap : 2darray or tuple of 2darray
         Processed data or tuple of 2darray
+
+    .. seealso::
+
+        :func:`klassez.processing.apodf`
+
+        :func:`klassez.processing.zf`
+
+        :func:`klassez.processing.ft`
+
+        :func:`klassez.processing.unpack_2D`
     """
     
     # First of all, cut the data
@@ -1206,24 +1414,31 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     """
     Perform the processing of a 2D NMR spectrum interactively. The GUI offers the opportunity to test different window functions, as well as different tdeff values and final sizes.
     The active parameters appear as blue text.
-    When changing the parameters, give it some time to compute. The figure panel is quite heavy.
-    -------
+    When changing the parameters, give it some time to compute. 
+
+    .. warning::
+
+        *Extremely slow rendering!* Use with care
+
+
     Parameters:
-    - fid0: 2darray
+    -----------
+    fid0 : 2darray
         FID to process
-    - acqus: dict
+    acqus : dict
         Dictionary of acquisition parameters
-    - procs: dict
+    procs : dict
         Dictionary of processing parameters
-    - lvl0: float
+    lvl0 : float
         Starting level of the contours
-    - show_cnt: bool
+    show_cnt : bool
         Choose if to display data using contours (True) or heatmap (False)
-    -------
+
     Returns:
-    - pdata: 2darray
+    -----------
+    pdata : 2darray
         Processed spectrum
-    - procs: dict
+    procs : dict
         Updated dictionary of processing parameters
     """
     
@@ -1675,22 +1890,34 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
 def inv_xfb(data, wf=[None, None], size=(None, None), fcor=[0.5,0.5], FnMODE='States-TPPI'):
     """
     Reverts the full processing of a 2D NMR FID (data).
-    -------
+
     Parameters:
-    - data: 2darray
-        Input data, hypercomplex
-    - wf: list of dict
+    -----------
+    data : 2darray
+        Input data, complex or hypercomplex
+    wf : list of dict
         list of two entries [F1, F2]. Each entry is a dictionary of window functions
-    - size: list of int
+    size : list of int
         Initial size of FID
-    - fcor: list of float
+    fcor : list of float
         first fid point weighting factor [F1, F2]
-    - FnMODE: str
+    FnMODE : str
         Acquisition mode in F1
-    --------
+
     Returns:
-    - data: 2darray
+    -----------
+    data : 2darray
         Processed data
+
+
+    .. seealso::
+
+        :func:`klassez.processing.repack_2D`
+
+        :func:`klassez.processing.apodf`
+
+        :func:`klassez.processing.td_eff`
+
     """
 
     # Processing the indirect dimension
@@ -1762,19 +1989,21 @@ def inv_xfb(data, wf=[None, None], size=(None, None), fcor=[0.5,0.5], FnMODE='St
 
 def make_scale(size, dw, rev=True):
     """
-    Computes the frequency scale of the NMR spectrum, given the # of points and the employed dwell time (the REAL one, not the TopSpin one!). 
-    "rev"=True is required for the correct frequency arrangement in the NMR sense.
-    --------
+    Computes the frequency scale of the NMR spectrum, given the number of points and the employed dwell time (the REAL one, not the TopSpin one!). 
+    ``rev=True`` is required for the correct frequency arrangement in the NMR sense.
+    
     Parameters:
-    - size: int
+    -----------
+    size: int
         Number of points of the frequency scale
-    - dw : float
+    dw : float
         Time spacing in the time dimension
-    - rev: bool
+    rev: bool
         Reverses the scale
-    -------
+
     Returns:
-    - fqscale: 1darray
+    -----------
+    fqscale: 1darray
         The computed frequency scale.
     """
     fqscale = np.fft.fftshift(np.fft.fftfreq(size, d=dw))
@@ -1903,18 +2132,23 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
 def interactive_phase_1D(ppmscale, S, reference=None):
     """
     This function allow to adjust the phase of 1D spectra interactively. Use the mouse scroll to regulate the values.
-    -------
+    Press the "Z" key to toggle between automatic and manual adjustment of the window.
+
     Parameters:
-    - ppmscale: 1darray
+    -----------
+    ppmscale : 1darray
         ppm scale of the spectrum. Used to regulate the pivot position
-    - S:  1darray
+    S :  1darray
         Spectrum to be phased. Must be complex!
-    - reference: bool
-        Reference spectrum to be used for phasing
-    -------
+    reference : list of 1darray or Spectrum_1D object
+        Reference spectrum to be used for phasing. Can be also given as ``[ppm, spectrum]``
+
     Returns:
-    - phased_data: 1darray
+    -----------
+    phased_data : 1darray
         Phased spectrum
+    final_values: tuple
+        ``(p0, p1, pivot)``
     """
 
     def phase(data, p0=0, p1=0, pivot=None):
@@ -1941,7 +2175,10 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     ax = fig.add_subplot(1,1,1)
 
     if reference is not None:
-        ax.plot(ppmscale, reference.real, c='k', lw=1, label='Reference')
+        if isinstance(reference, Spectrum_1D):
+            ax.plot(reference.ppm, reference.S.real, c='k', lw=1, label='Reference')
+        else:
+            ax.plot(reference[0], reference[1].real, c='k', lw=1, label='Reference')
 
     # sensitivity
     sens = [5, 5, 0.1]
@@ -2135,28 +2372,38 @@ def interactive_phase_1D(ppmscale, S, reference=None):
 
 def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     """
-    Interactively adjust the phases of a 2D spectrum
-    S must be complex or hypercomplex, so BEFORE TO UNPACK
-    -------
-    Parameters:
-    - ppm_f1: 1darray
-        ppm scale of the indirect dimension
-    - ppm_f2: 1darray
-        ppm scale of the direct dimension
-    - S: 2darray
-        Data to be phase-adjusted
-    - hyper: bool
-        True if S is hypercomplex, False if S is just complex
-    -------
-    Returns:
-    - S: 2darray
-        Phased data
-    - final_values_f1: tuple
-        (p0_f1, p1_f1, pivot_f1)
-    - final_values_f2: tuple
-        (p0_f2, p1_f2, pivot_f2)
-    """
+    Interactively adjust the phases of a 2D spectrum.
+    First select the traces you want to use as reference, then use the mouse scroll to adjust the phase angles.
+    ``S`` must be complex or hypercomplex, so BEFORE TO UNPACK with ::func::`klassez.processing.unpack_2D`
 
+    Parameters:
+    -----------
+    ppm_f1 : 1darray
+        ppm scale of the indirect dimension
+    ppm_f2 : 1darray
+        ppm scale of the direct dimension
+    S : 2darray
+        Data to be phase-adjusted
+    hyper : bool
+        True if ``S`` is hypercomplex, False if ``S`` is just complex
+    
+    Returns:
+    -----------
+    S : 2darray
+        Phased data
+    final_values_f1 : tuple
+        ``(p0_f1, p1_f1, pivot_f1)``
+    final_values_f2 : tuple
+        ``(p0_f2, p1_f2, pivot_f2)``
+        
+    .. seealso::
+
+        :func:`klassez.misc.select_traces`
+
+        :func:`klassez.processing.ps`
+
+        :func:`klassez.processing.interactive_phase_1D`
+    """
 
     # Unpack the hyperser
     if hyper:
@@ -2518,18 +2765,20 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
 
 def integral(fx, x=None, lims=None):
     """
-    Calculates the primitive of fx. If fx is a multidimensional array, the integrals are computed along the last dimension.
-    -------
+    Calculates the primitive of ``fx``. If ``fx`` is a multidimensional array, the integrals are computed along the last dimension.
+
     Parameters:
-    - fx: ndarray
+    -----------
+    fx : ndarray
         Function (array) to integrate
-    - x: 1darray or None
+    x : 1darray or None
         Independent variable. Determines the integration step. If None, it is the point scale
-    - lims: tuple or None
+    lims : tuple or None
         Integration range. If None, the whole function is integrated.
-    -------
+
     Returns:
-    - Fx: ndarray
+    -----------
+    Fx : ndarray
         Integrated function.
     """
 
@@ -2554,20 +2803,27 @@ def integral(fx, x=None, lims=None):
 
 def integrate(fx, x=None, lims=None):
     """
-    Calculates the definite integral of fx as I = F[-1] - F[0]. If fx is a multidimensional array, the integrals are computed along the last dimension.
+    Calculates the definite integral of ``fx`` as ``I = F[-1] - F[0]`` (basically it applies the fundamental theorem of calculus).
+    If ``fx`` is a multidimensional array, the integrals are computed along the last dimension.
     
-    -------
     Parameters:
-    - fx: ndarray
+    -----------
+    fx : ndarray
         Function (array) to integrate
-    - x: 1darray or None
+    x : 1darray or None
         Independent variable. Determines the integration step. If None, it is the point scale
-    - lims: tuple or None
+    lims : tuple or None
         Integration range. If None, the whole function is integrated.
-    -------
+
     Returns:
-    - I: float
+    -----------
+    I : float
         Integrated function.
+
+
+    .. seealso::
+        
+        :func:`klassez.processing.integral`
     """
     Fx = processing.integral(fx, x, lims)
     # Calculus fundamental theorem
@@ -2578,37 +2834,44 @@ def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, ut
     """
     Calculate the integral of a 2D peak. The idea is to extract the traces correspondent to the peak center and fit them with a gaussian function in each dimension. Then, once got the intensity of each of the two gaussians, multiply them together in order to obtain the 2D integral. 
     This procedure should be equivalent to what CARA does.
-    ---------
+
+    .. note :: 
+
+        In development!!!
+
+    
     Parameters:
-    - ppm_f1: 1darray
+    -----------
+    ppm_f1 : 1darray
         PPM scale of the indirect dimension
-    - t_f1: 1darray 
+    t_f1 : 1darray 
         Trace of the indirect dimension, real part
-    - SFO1: float
+    SFO1 : float
         Larmor frequency of the nucleus in the indirect dimension
-    - ppm_f2: 1darray 
+    ppm_f2 : 1darray 
         PPM scale of the direct dimension
-    - t_f2: 1darray 
+    t_f2 : 1darray 
         Trace of the direct dimension, real part
-    - SFO2: float
+    SFO2 : float
         Larmor frequency of the nucleus in the direct dimension
-    - u_1: float
+    u_1 : float
         Chemical shift in F1 /ppm. Defaults to the center of the scale
-    - fwhm_1: float
+    fwhm_1 : float
         Starting FWHM /Hz in the indirect dimension
-    - utol_1: float
+    utol_1 : float
         Allowed tolerance for u_1 during the fit. (u_1-utol_1, u_1+utol_1)
-    - u_2: float
+    u_2 : float
         Chemical shift in F2 /ppm. Defaults to the center of the scale
-    - fwhm_2: float
+    fwhm_2 : float
         Starting FWHM /Hz in the direct dimension
-    - utol_2: float
+    utol_2 : float
         Allowed tolerance for u_2 during the fit. (u_2-utol_2, u_2+utol_2)
-    - plot_result: bool
+    plot_result : bool
         True to show how the program fitted the traces.
-    --------
+
     Returns:
-    - I_tot: float
+    -----------
+    I_tot : float
         Computed integral.
     """
 
@@ -2690,20 +2953,22 @@ def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, ut
 
 def pknl(data, grpdly=0, onfid=False):
     """
-    Compensate for the Bruker group delay at the beginning of FID through a first-order phase correction of 
-        p1 = 360 * GRPDLY
-    This should be applied after apodization and zero-filling.
-    -------
+    Compensate for the Bruker group delay at the beginning of FID through a first-order phase correction of ``p1 = - 360 * GRPDLY`` degrees.
+    If applied on the FID (``onfid=True``), it is equivalent to a left circular shift of ``GRPDLY`` points. 
+    However, in order to accomodate for also non-integer ``GRPDLY``, it is computed by doing the Fourier transform on the fly.
+
     Parameters:
-    - data: ndarray
+    -----------
+    data : ndarray
         Input data. Be sure it is complex!
-    - grpdly: int
+    grpdly : int
         Number of points that make the group delay.
-    - onfid: bool
+    onfid : bool
         If it is True, performs FT before to apply the phase correction, and IFT after.
-    -------
+
     Returns:
-    - datap: ndarray
+    -----------
+    datap : ndarray
         Corrected data
     """
     # Safety check
@@ -2723,18 +2988,25 @@ def convdta(data, grpdly=0, scaling=1):
     Removes the digital filtering to obtain a spectrum similar to the command CONVDTA performed by TopSpin.
     However, they will differ a little bit because of the digitization.
     These differences are not invisible to human's eye.
-    -------
+
+    .. note::
+        
+        Since TopSpin version 4.0 the algorithm changed somehow, and the result is different.
+
+
     Parameters:
-    - data: ndarray
+    -----------
+    data : ndarray
         FID with digital filter
-    - grpdly: int
+    grpdly : int
         Number of points that the digital filter consists of. Key $GRPDLY in acqus file
-    - scaling: float
+    scaling : float
         Scaling factor of the resulting FID. Needed to match TopSpin's intensities.
-    -------
+
     Returns:
-    - data_in: ndarray
-        FID without the digital filter. It will have grpdly points less than data.
+    -----------
+    data_in : ndarray
+        FID without the digital filter. It will have ``grpdly`` points less than ``data``.
     """
     # Safety copy
     data_in = np.copy(data)
@@ -2758,17 +3030,21 @@ def calibration(ppmscale, S, ref=None):
     Scroll the ppm scale of spectrum to make calibration.
     The interface offers two guidelines: the red one, labelled 'reference signal' remains fixed, whereas the green one ('calibration value') moves with the ppm scale.
     The ideal calibration procedure consists in placing the red line on the signal you want to use as reference, and the green line on the ppm value that the reference signal must assume in the calibrated spectrum. Then, scroll with the mouse until the two lines are superimposed.
-    -------
+    You can use another spectrum as reference.
+
+
     Parameters:
-    - ppmscale: 1darray
+    -----------
+    ppmscale : 1darray
         The ppm scale to be calibrated
-    - S: 1darray
+    S : 1darray
         The spectrum to calibrate
-    - ref: list of 1darray
-        Reference spectrum to be used for calibration: [ppm scale, spectrum]
-    -------
+    ref : list of 1darray or Spectrum_1D object
+        Reference spectrum to be used for calibration. If list, ``[ppm scale, spectrum]``
+
     Returns:
-    - offset: float
+    -----------
+    offset : float
         Difference between original scale and new scale. This must be summed up to the original ppm scale to calibrate the spectrum.
     """
         
@@ -2895,7 +3171,10 @@ def calibration(ppmscale, S, ref=None):
         
 
     if ref is not None:
-        ax.plot(ref[0], ref[1].real/max(ref[1].real)*max(S.real), c='k', lw=0.8, label='Reference')
+        if isinstance(ref, Spectrum_1D):
+            ax.plot(ref.ppm, ref.S.real/max(ref.S.real)*max(S.real), c='k', lw=0.8, label='Reference')
+        else:
+            ax.plot(ref[0], ref[1].real/max(ref[1].real)*max(S.real), c='k', lw=0.8, label='Reference')
     spect, = ax.plot(ppmscale, S.real, c='tab:blue', lw=0.8, label='Spectrum')    # plot spectrum
 
     # Plot the guidelines
@@ -2943,22 +3222,42 @@ def calibration(ppmscale, S, ref=None):
 # MCR and related
 def mcr_stack(input_data, P='H'):
     """
-    Performs matrix augmentation by assembling input_data according to the positioning matrix P.
-    P has two default modes: 'H' = horizontal stacking; 'V' = vertical stacking. Otherwise, a custom P matrix can be given as follows.
-    The entries of the P matrix are the indices of the data in input_data. The shape of the matrix determines the final arrangement.
-    Example: if input_data is [a, b, c, d, e, f], and one wants to obtain [[a, b], [d,c], [f, e]] the correspondant P matrix is:
-    [[0, 1], [3, 2], [5, 4]]
-    If each dataset in input_data has dimensions (m, n) and P has dimensions (u,v), then the returned data matrix will have dimensions (mu, nv).
-    -------
+    Performs matrix augmentation by assembling input_data according to the positioning matrix ``P``.
+    ``P`` has two default modes: ``'H'`` = horizontal stacking; ``'V'`` = vertical stacking. Otherwise, a custom ``P`` matrix can be given as follows.
+    The entries of the ``P`` matrix are the indices of the data in input_data. The shape of the matrix determines the final arrangement. See example.
+    If each dataset in ``input_data`` has dimensions ``(m, n)`` and ``P`` has dimensions ``(u,v)``, then the returned data matrix will have dimensions ``(m*u, n*v)``.
+
+
     Parameters:
-    - input_data: 3darray
+    -----------
+    input_data : 3darray or list of 2darray
         Contains the spectra to be stacked together. The index that runs on the datasets must be the first one.
-    - P: str or 2darray
-        'H' for horizontal stacking, 'V' for vertical stacking, or custom matrix as explained in the description
-    -------
+    P : str or 2darray
+        ``'H'`` for horizontal stacking, ``'V'`` for vertical stacking, or custom matrix as explained in the description
+
     Returns:
-    - data: 2darray
+    -----------
+    data : 2darray
         Augmented data matrix.
+
+
+    Examples:
+    -----------
+
+        If ``input_data = [a, b, c, d, e, f]``, and one wants to obtain ``[[a, b], [d,c], [f, e]]``, the correspondant ``P`` matrix is:
+
+        .. code-block:: python
+
+            P = [ 
+                [0, 1], 
+                [3, 2], 
+                [5, 4]
+                ]
+
+
+    .. seealso::
+        
+        :func:`klassez.processing.mcr_unpack`
     """
     # Get the number of datasets
     if isinstance(input_data, list):
@@ -2996,24 +3295,37 @@ def mcr_stack(input_data, P='H'):
 
 def mcr_unpack(C, S, nds, P='H'):
     """
-    Reverts matrix augmentation of mcr_stack.
-    The denoised spectra can be calculated by matrix multiplication: D[k] = C_f[k] S_f[k], for k = 0,..., nds-1
-    --------
+    Reverts matrix augmentation of :func:`klassez.processing.mcr_stack`.
+    The denoised spectra can be calculated by matrix multiplication: 
+
+    .. code-block:: python
+
+        for k in range(nds):
+            D[k] = C_f[k] @ S_f[k]
+
+    
     Parameters:
-    - C: 2darray
+    -----------
+    C : 2darray
         MCR C matrix
-    - S: 2darray
+    S : 2darray
         MCR S matrix
-    - nds: int
+    nds : int
         number of experiments
-    - P: str or 2darray
-        'H' for horizontal stacking, 'V' for vertical stacking, or custom matrix as explained in the description of mcr_stack
-    ---------
+    P : str or 2darray
+        ``'H'`` for horizontal stacking, ``'V'`` for vertical stacking, or custom matrix as explained in the description of ``mcr_stack``
+
     Returns:
-    - C_f: list of 2darray
+    -----------
+    C_f : list of 2darray
         Disassembled MCR C matrix
-    - S_f: list of 2darray
+    S_f : list of 2darray
         Disassembled MCR C matrix
+
+
+    .. seealso::
+        
+        :func:`klassez.processing.mcr_stack`
     """
     # Compute the P matrix
     if isinstance(P, str):  # default options
@@ -3047,18 +3359,30 @@ def mcr_unpack(C, S, nds, P='H'):
 
 def calc_nc(data, s_n):
     """
-    Calculates the optimal number of components, given the standard deviation of the noise.
-    The threshold value is calculated as stated in Theorem 1 of reference: https://arxiv.org/abs/1710.09787v2
-    -------
+    Calculates the optimal number of components to be used for either MCR or SVD, given the standard deviation of the noise.
+    The threshold value is calculated as stated in Theorem 1 of `this article`_ .
+
+    .. _this article: https://arxiv.org/abs/1710.09787v2
+
+
     Parameters:
-    - data: 2darray
+    -----------
+    data : 2darray
         Input data
-    - s_n: float
+    s_n : float
         Noise standard deviation
-    -------
+
     Returns:
-    - n_c: int
+    -----------
+    n_c : int
         Number of components
+
+
+    .. seealso::
+        
+        :func:`klassez.processing.lrd`
+
+        :func:`klassez.processing.mcr`
     """
     M, N = data.shape
 
@@ -3079,23 +3403,35 @@ def calc_nc(data, s_n):
 
 def simplisma(D, nc, f=10, oncols=True):
     """
-    Finds the first nc purest components of matrix D using the simplisma algorithm, proposed by Windig and Guilment (DOI: 10.1021/ac00014a016 ). If oncols=True, this function estimates S with simplisma, then calculates C = DS+ . If oncols=False, this function estimates C with simplisma, then calculates S = C+ D. f defines the percentage of allowed noise.
-    -------
+    Finds the first ``nc`` purest components of matrix ``D`` using the *simplisma* algorithm, proposed by `Windig and Guilment`_ . If ``oncols=True``, this function estimates ``S`` with simplisma, then calculates :math:`C = D S^+` . If ``oncols=False``, this function estimates ``C`` with *simplisma*, then calculates :math:`S = C^+ D`. ``f`` defines the percentage of allowed noise.
+
+    .. _Windig and Guilment: 10.1021/ac00014a016
+
     Parameters:
-    - D: 2darray
-        Input data, of dimensions m x n
-    - nc: int
-        Number of components to be found. This determines the final size of the C and S matrices.
-    - f: float
+    -----------
+    D : 2darray
+        Input data, of dimensions ``(m, n)``
+    nc : int
+        Number of components to be found. This determines the final size of the ``C`` and ``S`` matrices.
+    f : float
         Percentage of allowed noise.
-    - oncols: bool
-        If True, simplisma estimates the S matrix, otherwise estimates C.
-    -------
+    oncols : bool
+        If True, simplisma estimates the ``S`` matrix, otherwise estimates ``C``.
+    
     Returns:
-    - C: 2darray
-        Estimation of the C matrix, of dimensions m x nc.
-    - S: 2darray
-        Estimation of the S matrix, of dimensions nc x n.
+    -----------
+    C : 2darray
+        Estimation of the ``C`` matrix, of dimensions ``(m, nc)``.
+    S : 2darray
+        Estimation of the ``S`` matrix, of dimensions ``(nc, n)``.
+
+
+    .. seealso::
+
+        :func:`klassez.processing.mcr`
+
+        :func:`klassez.processing.mcr_als`
+
     """
 
     rows = D.shape[0]       # number of rows of D
@@ -3261,36 +3597,59 @@ def simplisma(D, nc, f=10, oncols=True):
 
 
 def mcr_als(D, C, S, itermax=10000, tol=1e-5):
-    """
-    Performs alternating least squares to get the final C and S matrices. Being the fundamental MCR equation:
+    r"""
+    Performs alternating least squares to get the final ``C`` and ``S`` matrices. Being the fundamental MCR equation:
+    
+    .. math::
+
         D = CS + E
+
     At the k-th step of the iterative cycle:
-        1. C(k) = DS+(k-1)
-        2. S(k) = C+(k) D
-        3. E(k) = D - C(k) S(k)
-    Defined rC and rS as the Frobenius norm of the difference of C and S matrices between two subsequent steps:
-        rC = || C(k) - C(k-1) ||
-        rS = || S(k) - S(k-1) ||
-    The convergence is reached when:
-        rC <= tol && rS <= tol
-    -------
+
+    1. :math:`C_{(k)} = D S^+_{(k-1)}`
+    2. :math:`S_{(k)} = C^+_{(k)} D`
+    3. :math:`E_{(k)} = D - C_{(k)} S_{(k)}`
+
+    Defined ``rC`` and ``rS`` as the Frobenius norm of the difference of ``C`` and ``S`` matrices between two subsequent steps:
+    
+    .. math::
+
+        rC = || C_{(k)} - C_{(k-1)} || \qquad
+        rS = || S_{(k)} - S_{(k-1)} ||
+
+    The convergence is reached when both ``C`` and ``S`` change less than ``tol`` times the first iteration:
+
+    .. math::
+
+        \frac{ rC_{(k)} }{rC_{1}} \leq tol \quad \text{and} \quad \frac{ rS_{(k)} }{rS_{1}} \leq tol
+
+
     Parameters:
-    - D: 2darray
-        Input data, of dimensions m x n
-    - C: 2darray
-        Estimation of the C matrix, of dimensions m x nc.
-    - S: 2darray
-        Estimation of the S matrix, of dimensions nc x n.
-    - itermax: int
+    -----------
+    D : 2darray
+        Input data, of dimensions ``(m, n)``
+    C : 2darray
+        Estimation of the ``C`` matrix, of dimensions ``(m, nc)``.
+    S : 2darray
+        Estimation of the ``S`` matrix, of dimensions ``(nc, n)``.
+    itermax : int
         Maximum number of iterations
-    - tol: float
+    tol : float
         Threshold for the arrest criterion.
-    -------
+
     Returns:
-    - C: 2darray
-        Optimized C matrix, of dimensions m x nc.
-    - S: 2darray
-        Optimized S matrix, of dimensions nc x n.
+    -----------
+    C : 2darray
+        Optimized C matrix, of dimensions ``(m, nc)``.
+    S : 2darray
+        Optimized S matrix, of dimensions ``(nc, n)``.
+
+
+    .. seealso::
+
+        :func:`klassez.processing.mcr`
+
+        :func:`klassez.processing.simplisma`
     """
 
     itermax = int(itermax)
@@ -3345,6 +3704,10 @@ def mcr_als(D, C, S, itermax=10000, tol=1e-5):
 def new_MCR_ALS(D, C, S, itermax=10000, tol=1e-5, reg_f=None, reg_fargs=[]):
     """
     Modified function to do ALS
+
+    .. note::
+
+        Work in progress!!! Does not work right now
     """
 
     itermax = int(itermax)
@@ -3406,37 +3769,55 @@ def new_MCR_ALS(D, C, S, itermax=10000, tol=1e-5, reg_f=None, reg_fargs=[]):
 def mcr(input_data, nc, f=10, tol=1e-3, itermax=1e4, P='H', oncols=True):
     """
     This is an implementation of Multivariate Curve Resolution for the denoising of 2D NMR data.
-    Let us consider a matrix D, of dimensions m x n, where the starting data are stored. The final purpose of MCR is to decompose the D matrix as follows:
-        D = CS + E
-    where C and S are matrices of dimension m x nc and nc x n, respectively, and E contains the part of the data that are not reproduced by the factorization.
-    Being D the FID of a NMR spectrum, C will contain time evolutions of the indirect dimension, and S will contain transients in the direct dimension.
+    Let us consider a matrix `D`, of dimensions ``(m, n)``, where the starting data are stored. The final purpose of MCR is to decompose the `D` matrix as follows:
 
-    The total MCR workflow can be separated in two parts: a first algorithm that produces an initial guess for the three matrices C, S and E (simplisma), and an optimization step that aims at the removal of the unwanted features of the data by iteratively filling the E matrix (MCR ALS).
-    This function returns the denoised datasets, CS, and the single C and S matrices.
-    -------
+    .. math::
+
+        D = CS + E
+
+    where `C` and `S` are matrices of dimension ``(m, nc)`` and ``(nc, n)``, respectively, and `E` contains the part of the data that are not reproduced by the factorization.
+    Being `D` the FID of a NMR spectrum, `C` will contain time evolutions of the indirect dimension, and `S` will contain transients in the direct dimension.
+
+    The total MCR workflow can be separated in two parts: a first algorithm that produces an initial guess for the three matrices `C`, `S` and `E` (``simplisma``), and an optimization step that aims at the removal of the unwanted features of the data by iteratively filling the E matrix (``mcr_als``).
+    This function returns the denoised datasets, `CS`, and the single `C` and `S` matrices.
+
     Parameters:
-    - input_data: 2darray or 3darray
+    -----------
+    input_data : 2darray or 3darray
         a 3D array containing the set of 2D NMR datasets to be coprocessed stacked along the first dimension. A single 2D array can be passed, if the denoising of a single dataset is desired.
-    - nc: int
+    nc : int
         number of purest components to be looked for;
-    - f: float
+    f : float
         percentage of allowed noise;
-    - tol: float
+    tol : float
         tolerance for the arrest criterion;
-    - itermax: int
+    itermax : int
         maximum number of allowed iterations
-    - P: str or 2darray
-        'H' for horizontal stacking, 'V' for vertical stacking, or custom matrix as explained in the description of mcr_stack
-    - oncols: bool
-        True to estimate S with processing.simplisma, False to estimate C.
-    -------
+    P : str or 2darray
+        ``'H'`` for horizontal stacking, ``'V'`` for vertical stacking, or custom matrix as explained in the description of ``mcr_stack``
+    oncols : bool
+        True to estimate ``S`` with ``processing.simplisma``, False to estimate ``C``.
+    
     Returns:
-    - CS_f: 2darray or 3darray
+    -----------
+    CS_f : 2darray or 3darray
         Final denoised data matrix
-    - C_f: 2darray or 3darray
+    C_f : 2darray or 3darray
         Final C matrix
-    - S_f: 2darray or 3darray
+    S_f : 2darray or 3darray
         Final S matrix
+
+
+    .. seealso::
+
+        :func:`klassez.processing.mcr_stack``
+
+        :func:`klassez.processing.mcr_unpack``
+
+        :func:`klassez.processing.simplisma``
+
+        :func:`klassez.processing.mcr_als``
+
     """
 
     # Get number of datasets (nds) from the shape of the input tensor
@@ -3489,17 +3870,22 @@ def mcr(input_data, nc, f=10, tol=1e-3, itermax=1e4, P='H', oncols=True):
 
 def new_MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True, our_function=None, fargs=[], our_function2=None, f2args=[]):
     """
-    # This is an implementation of Multivariate Curve Resolution
-    # for the denoising of 2D NMR data. It requires:
-    # - input_data: a tensor containing the set of 2D NMR datasets to be coprocessed
-    #   stacked along the first dimension;
-    # - nc      : number of purest components;
-    # - f       : percentage of allowed noise;
-    # - tol     : tolerance for the arrest criterion;
-    # - itermax : maximum number of allowed iterations, default 10000
-    # - H       : True for horizontal stacking of data (default), False for vertical;
-    # - oncols  : True to estimate S with purest components, False to estimate C
-    # This function returns the denoised datasets, 'CS', and the 'C' and 'S' matrices.
+    This is an implementation of Multivariate Curve Resolution
+    for the denoising of 2D NMR data. It requires:
+
+    * input_data: a tensor containing the set of 2D NMR datasets to be coprocessed
+      stacked along the first dimension;
+    * nc      : number of purest components;
+    * f       : percentage of allowed noise;
+    * tol     : tolerance for the arrest criterion;
+    * itermax : maximum number of allowed iterations, default 10000
+    * H       : True for horizontal stacking of data (default), False for vertical;
+    * oncols  : True to estimate S with purest components, False to estimate C
+
+    This function returns the denoised datasets, 'CS', and the 'C' and 'S' matrices.
+
+    .. note::
+        Work in progress!!! Does not work right now.
     """
 
     # Get number of datasets (nds) from the shape of the input tensor
@@ -3562,17 +3948,19 @@ def new_MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True, ou
 def lrd(data, nc):
     """
     Denoising method based on Low-Rank Decomposition.
-    The algorithm performs a singular value decomposition on data, then keeps only the first nc singular values while setting all the others to 0.
+    The algorithm performs a singular value decomposition on data, then keeps only the first ``nc`` singular values while setting all the others to 0.
     Finally, rebuilds the data matrix using the modified singular values.
-    -------
+
     Parameters:
-    - data: 2darray
+    -----------
+    data : 2darray
         Data to be denoised
-    - nc: int
+    nc : int
         Number of components, i.e. number of singular values to keep
-    -------
+    
     Returns:
-    - data_out: 2darray
+    -----------
+    data_out : 2darray
         Denoised data
     """
     # Safety check on data dimension
@@ -3600,29 +3988,41 @@ def lrd(data, nc):
 
 def cadzow(data, n, nc, print_head=True):
     """
-    Performs Cadzow denoising on data, which is a 1D array of N points.
+    Performs Cadzow denoising on data, which is a 1D array of ``N`` points.
     The algorithm works as follows:
-    1. Transform data in a Hankel matrix H of dimensions (N-n, n)
-    2. Make SVD on H = U S V
-    3. Keep only the first nc singular values, and put all the rest to 0 (S -> S')
-    4. Rebuild H' = U S' V
+
+    1. Transform data in a Hankel matrix ``H`` of dimensions ``(N-n, n)``
+    2. Make SVD on :math:`H = U S V`
+    3. Keep only the first ``nc`` singular values, and put all the rest to 0 `(S -> S')`
+    4. Rebuild :math:`H' = U S' V`
     5. Average the antidiagonals to rebuild the Hankel-type structure, then make 1D array
 
-    Set print_head=True to display the fancy heading.
-    -------------
+    Set ``print_head=True`` to display the fancy heading.
+
     Parameters:
-    - data: 1darray
+    -----------
+    data : 1darray
         Input data
-    - n: int
+    n : int
         Number of columns of the Hankel matrix.
-    - nc: int
+    nc : int
         Number of singular values to keep.
-    - print_head: bool
+    print_head : bool
         Set it to True to display the fancy heading.
-    -------------
+    
     Returns:
-    - datap: 1darray
+    -----------
+    datap : 1darray
         Denoised data
+
+
+    .. seealso::
+
+        :func:`klassez.processing.hankel`
+
+        :func:`klassez.processing.lrd`
+
+        :func:`klassez.processing.iterCadzow`
     """
     if print_head is True:
         print('\n*****************************************************')
@@ -3648,39 +4048,50 @@ def cadzow(data, n, nc, print_head=True):
 
 
 def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=True):
-    """
-    Performs Cadzow denoising on data, which is a 1D array of N points, in an iterative manner.
+    r"""
+    Performs Cadzow denoising on data, which is a 1D array of ``N`` points, in an iterative manner.
     The algorithm works as follows:
-    1. Transform data in a Hankel matrix H of dimensions (N-n, n)
-    2. Make SVD on H = U S V
-    3. Keep only the first nc singular values, and put all the rest to 0 (S -> S')
-    4. Rebuild H' = U S' V
+
+    1. Transform data in a Hankel matrix `H` of dimensions ``(N-n, n)``
+    2. Make SVD on :math:`H = U S V`
+    3. Keep only the first ``nc`` singular values, and put all the rest to 0 `(S -> S')`
+    4. Rebuild :math:`H' = U S' V`
     5. Average the antidiagonals to rebuild the Hankel-type structure, then make 1D array
     6. Check arrest criterion: if it is not reached, go to 1, else exit.
 
-    The arrest criterion is:
-    | S(step k-1)[nc-1] / S(step k-1)[0] - S(step k)[nc-1] / S(step k)[0] | < f * S(step 0)[nc-1] / S(step 0)[0]
+    The arrest criterion is, at the k-th step:
 
-    --------
+    .. math::
+
+        \frac{S_{(k-1)}[nc-1] }{ S_{(k-1)}[0] } - \frac{S_{(k)}[nc-1] }{ S_{(k)}[0] } < f \frac{S_{(0)}[nc-1] }{ S_{(0)}[0] }
+
+
     Parameters:
-    - data: 1darray
+    -----------
+    data : 1darray
         Data to be processed
-    - n: int
+    n : int
         Number of columns of the Hankel matrix
-    - nc: int
+    nc : int
         Number of singular values to preserve
-    - itermax: int
+    itermax : int
         max number of iterations allowed
-    - f: float
+    f : float
         factor that appears in the arrest criterion
-    - print_time: bool
+    print_time : bool
         set it to True to show the time it took
-    - print_head: bool
+    print_head : bool
         set it to True to display the fancy heading.
-    --------
+
     Returns:
-    - datap: 1darray
+    -----------
+    datap : 1darray
         Denoised data
+
+
+    .. seealso::
+
+        :func:`klassez.processing.cadzow`
     """
 
     if print_head is True:
@@ -3757,27 +4168,29 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
 def cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
     """
     Performs the Cadzow denoising method on a 2D spectrum, one transient at the time. 
-    This function calls either Cadzow or iterCadzow, depending on the parameter 'i': 
-    True for iterCadzow, False for normal Cadzow.
-    ----------
+    This function calls either Cadzow or iterCadzow, depending on the parameter ``i``: 
+    True for ``iterCadzow``, False for normal ``cadzow``.
+
     Parameters:
-    - data: 2darray
+    -----------
+    data : 2darray
         Input data
-    - n: int
+    n : int
         Number of columns of the Hankel matrix.
-    - nc: int
+    nc : int
         Number of singular values to keep.
-    - i: bool
-        Calls processing.cadzow if i=False, or processing.iterCadzow if i=True.
-    - itermax: int
+    i : bool
+        Calls ``processing.cadzow`` if ``i=False``, or ``processing.iterCadzow`` if ``i=True``.
+    itermax : int
         Maximum number of iterations allowed.
-    - f: float
+    f : float
         Factor for the arrest criterion.
-    - print_time: bool
+    print_time : bool
         Set it to True to display the time spent.
-    ----------
+
     Returns:
-    - datap: 2darray
+    -----------
+    datap : 2darray
         Denoised data
     """
     start_time = datetime.now()
@@ -3801,15 +4214,6 @@ def cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
 
     return datap
 
-
-
-
-
-
-
-
-
-
 #-------------------------------------------------------------------------------------------------------------------
 
 # BASELINE
@@ -3820,16 +4224,18 @@ def interactive_basl_windows(ppm, data):
     Allows for interactive partitioning of a spectrum in windows. 
     Double left click to add a bar, double right click to remove it.
     Returns the location of the red bars as a list.
-    -------
+
     Parameters:
-    - ppm: 1darray
+    -----------
+    ppm : 1darray
         PPM scale of the spectrum
-    - data: 1darray
+    data : 1darray
         Spectrum to be partitioned
-    -------
+
     Returns:
-    - coord: list
-        List containing the coordinates of the windows, plus ppm[0] and ppm[-1]
+    -----------
+    coord : list
+        List containing the coordinates of the windows, plus ``ppm[0]`` and ``ppm[-1]``
     """
 
     # Make the figure
@@ -3895,20 +4301,22 @@ def interactive_basl_windows(ppm, data):
 def make_polynomion_baseline(ppm, data, limits):
     """
     Interactive baseline correction with 4th degree polynomion.
-    -------
+    
     Parameters:
-    - ppm: 1darray
+    -----------
+    ppm : 1darray
         PPM scale of the spectrum
-    - data: 1darray
+    data : 1darray
         spectrum
-    - limits: tuple
+    limits : tuple
         Window limits (left, right).
-    -------
+
     Returns:
-    - mode: str
-        Baseline correction mode: 'polynomion' as default, 'spline' if you press the button
-    - C_f: 1darray or str
-        Baseline polynomion coefficients, or 'callintsmooth' if you press the spline button
+    -----------
+    mode : str
+        Baseline correction mode: ``'polynomion'`` as default, ``'spline'`` if you press the button
+    C_f : 1darray or str
+        Baseline polynomion coefficients, or ``'callintsmooth'`` if you press the spline button
     """
 
     # Initialize mode
@@ -4077,15 +4485,16 @@ def make_polynomion_baseline(ppm, data, limits):
 def write_basl_info(f, limits, mode, data):
     """
     Writes the baseline parameters of a certain window in a file.
-    --------
+
     Parameters:
-    - f: TextIO object
+    -----------
+    f : TextIO object
         File where to write the parameters
-    - limits: tuple
+    limits : tuple
         Limits of the spectral window. (left, right)
-    - mode: str
-        Baseline correction mode: 'polynomion' or 'spline'
-    - data: float or 1darray
+    mode : str
+        Baseline correction mode: ``'polynomion'`` or ``'spline'``
+    data : float or 1darray
         It can be either the spline smoothing factor or the polynomion coefficients
     """
     f.write('***{:^54}***\n'.format('WINDOW LIMITS /PPM'))
@@ -4122,16 +4531,17 @@ def baseline_correction(ppm, data, basl_file='spectrum.basl', winlim=None):
     Interactively corrects the baseline of a given spectrum and saves the parameters in a file.
     The program starts with an interface to partition the spectrum in windows to correct separately.
     Then, for each window, an interactive panel opens to allow the user to compute the baseline.
-    --------
+
     Parameters:
-    - ppm: 1darray
+    -----------
+    ppm : 1darray
         PPM scale of the spectrum
-    - data: 1darray
+    data : 1darray
         The spectrum of which to adjust the baseline
-    - basl_file: str
+    basl_file : str
         Name for the baseline parameters file
-    - winlim: list or str or None
-        List of the breakpoints for the window. If it is str, indicates the location of a file to be read with np.loadtxt. If it is None, the partitioning is done interactively.
+    winlim : list or str or None
+        List of the breakpoints for the window. If it is ``str``, indicates the location of a file to be read with ``np.loadtxt``. If it is None, the partitioning is done interactively.
     """
 
     # Check if winlim is passed as list
@@ -4174,17 +4584,19 @@ def baseline_correction(ppm, data, basl_file='spectrum.basl', winlim=None):
 def load_baseline(filename, ppm, data):
     """
     Read the baseline parameters from a file and builds the baseline itself.
-    -------
+
     Parameters:
-    - filename: str
+    -----------
+    filename : str
         Location of the baseline file
-    - ppm: 1darray
+    ppm : 1darray
         PPM scale of the spectrum
-    - data: 1darray
+    data : 1darray
         Spectrum of which to correct the baseline
-    -------
+
     Returns:
-    - baseline: 1darray
+    -----------
+    baseline : 1darray
         Computed baseline
     """
     
@@ -4259,21 +4671,23 @@ def load_baseline(filename, ppm, data):
 def qfil(ppm, data, u, s, SFO1):
     """
     Suppress signals in the spectrum using a gaussian filter.
-    ---------
+
     Parameters:
-    - ppm: 1darray
-        Scale on which to build the filter
-    - data: ndarray
+    -----------
+    ppm : 1darray
+        ppm scale of the spectrum
+    data : ndarray
         Data to be processed. The filter is applied on the last dimension
-    - u: float
+    u : float
         Position of the filter /ppm
-    - s: float
+    s : float
         Width of the filter (standard deviation) /Hz
-    - SFO1: float
+    SFO1 : float
         Spectrometer larmor frequency
-    --------
+    
     Returns:
-    - pdata: ndarray
+    -----------
+    pdata : ndarray
         Filtered data
     """
     sppm = misc.freq2ppm(s, SFO1)
@@ -4286,19 +4700,21 @@ def interactive_qfil(ppm, data_in, SFO1):
     """ 
     Interactive function to design a gaussian filter with the aim of suppressing signals in the spectrum.
     You can adjust position and width of the filter scrolling with the mouse.
-    ---------
+
     Parameters:
-    - ppm: 1darray
-        Scale on which the filter will be built
-    - data_in: 1darray
+    -----------
+    ppm : 1darray
+        ppm scale of the spectrum
+    data_in : 1darray
         Spectrum on which to apply the filter.
-    - SFO1: float
-        Frequency offset
-    ---------
+    SFO1 : float
+        Spectrometer Larmor frequency
+
     Returns:
-    - u: float
+    -----------
+    u : float
         Position of the gaussian filter /ppm
-    - s: float
+    s : float
         Width of the gaussian filter (Standard deviation) /Hz
     """
 
@@ -4427,47 +4843,68 @@ def interactive_qfil(ppm, data_in, SFO1):
     return u, shz
 
 def acme(data, m=1, a=5e-5):
-    """
+    r"""
     Automated phase Correction based on Minimization of Entropy.
     This algorithm allows for automatic phase correction by minimizing the entropy of the m-th derivative of the spectrum, as explained in detail by L. Chen et.al. in Journal of Magnetic Resonance 158 (2002) 164-168.
     
-    Defined the entropy of h as:
-        S = - sum_j h_j ln(h_j)
-    and 
-        h = | R_j^(m) | / sum_j | R_j^(m) |
-    where 
-        R = Re{ spectrum * e^(-i phi) }
-    and R^(m) is the m-th derivative of R, the objective function to minimize is:
-        S + P(R)
-    where P(R) is a penalty function for negative values of the spectrum.
+    Defined the entropy of `h` as:
 
-    The phase correction is applied using processing.ps. The values p0 and p1 are fitted using Nelder-Mead algorithm.
-    ----------
+    .. math:: 
+
+        S = - \sum_j h[j] \ln( h[j] )
+
+    and 
+
+    .. math::
+
+        h = \frac { | R[j]^{(m)} | }{ \sum_j | R[j]^{(m)} | }
+
+    where 
+
+    .. math::
+
+        R = \Re\{ d \, e^{-i \phi} \}
+
+    and :math:`R^{(m)}` is the m-th derivative of `R`, the objective function to minimize is:
+
+    .. math::
+
+        S + P(R)
+
+    where `P(R)` is a penalty function for negative values of the spectrum.
+
+    The phase correction is applied using :func:`klassez.processing.ps`. The values ``p0`` and ``p1`` are fitted using Nelder-Mead algorithm.
+
+
     Parameters:
-    - data: 1darray
+    -----------
+    data : 1darray
         Spectrum to be phased, complex
-    - m: int
+    m : int
         Order of the derivative to be computed
-    - a: float
+    a : float
         Weighting factor for the penalty function
-    ----------
+
     Returns:
-    - p0f: float
+    -----------
+    p0f : float
         Fitted zero-order phase correction, in degrees
-    - p1f: float
+    p1f : float
         Fitted first-order phase correction, in degrees
     """
 
     def entropy(data):
         """
         Compute entropy of data.
-        --------
+
         Parameters:
-        - data: ndarray
+        -----------
+        data : ndarray
             Input data
-        --------
+
         Returns:
-        - S: float
+        -----------
+        S : float
             Entropy of data
         """
         data_in = np.copy(data)
@@ -4481,15 +4918,17 @@ def acme(data, m=1, a=5e-5):
     def mth_derivative(data, m):
         """
         Computes the m-th derivative of data by applying np.gradient m times.
-        -------
+
         Parameters:
-        - data: 1darray
+        -----------
+        data : 1darray
             Input data
-        - m: int
+        m : int
             Order of the derivative to be computed
-        -------
+
         Returns:
-        - pdata: 1darray
+        -----------
+        pdata : 1darray
             m-th derivative of data
         """
         pdata = np.copy(data)
@@ -4502,15 +4941,17 @@ def acme(data, m=1, a=5e-5):
         F(y) is a function that is 0 for positive y and 1 otherwise.
         The returned value is 
             a * sum_j F(y_j) y_j^2
-        --------
+
         Parameters:
-        - data: 1darray
+        -----------
+        data : 1darray
             Input data
-        - a: float
+        a : float
             Weighting factor
-        --------
+
         Returns:
-        - p_fun: float
+        -----------
+        p_fun : float
             a * sum_j F(y_j) y_j^2
         """
         signs = - np.sign(data)     # 1 for negative entries, -1 for positive entries
@@ -4560,19 +5001,21 @@ def whittaker_smoother(data, n=2, s_f=1, w=None):
     """
     Adapted from P.H.C. Eilers, Anal. Chem 2003, 75, 3631-3636.
     Implementation of the smoothing algorithm proposed by Whittaker in 1923.
-    --------
+
     Parameters:
-    - data: 1darray
+    -----------
+    data : 1darray
         Data to be smoothed
-    - n: int
+    n : int
         Order of the difference to be computed
-    - s_f: float
+    s_f : float
         Smoothing factor
-    - w: 1darray or None
+    w : 1darray or None
         Array of weights. If None, no weighting is applied.
-    --------
+
     Returns:
-    - z: 1darray
+    -----------
+    z : 1darray
         Smoothed data
     """
     # Import things to handle sparse matrices
@@ -4613,35 +5056,50 @@ def rpbc(data, split_imag=False, n=5, basl_method='huber', basl_thresh=0.2, basl
     Allows for the automatic phase correction and baseline subtraction of NMR spectra.
     It is called "reversed" because the baseline is actually computed and subtracted before to perform the phase correction.
 
-    The baseline is computed using a low-order polynomion, built on a scale that goes from -1 to 1, whose coefficients are obtained minimizing a non-quadratic cost function. It is recommended to use either "tq" (truncated quadratic, much faster) or "huber" (Huber function, slower but sometimes more accurate). The user is requested to choose between separating the real and imaginary channel in this step. The order of the polynomion and the threshold value are the key parameters for obtaining a good baseline. The used function is processing.polyn_basl
+    The baseline is computed using a low-order polynomion, built on a scale that goes from -1 to 1, whose coefficients are obtained minimizing a non-quadratic cost function. It is recommended to use either ``"tq"`` (truncated quadratic, much faster) or ``"huber"`` (Huber function, slower but sometimes more accurate). The user is requested to choose between separating the real and imaginary channel in this step. The order of the polynomion and the threshold value are the key parameters for obtaining a good baseline. The used function is :func:`klassez.processing.polyn_basl`
 
-    The phase correction is computed on the baseline-subtracted complex data as described in the SINC algorithm (ref.). The default parameters are generally fine, but in case of data with poor SNR (approximately SNR < 10) better results can be obtained by increasing the value of the e1 parameter. The employed function is processing.SINC_phase
-    -----------
+    The phase correction is computed on the baseline-subtracted complex data as described in the SINC algorithm. The default parameters are generally fine, but in case of data with poor SNR (approximately SNR < 10) better results can be obtained by increasing the value of the ``e1`` parameter. The employed function is :func:`klassez.fit.SINC_phase`
+
+    .. note:: 
+        Not excellent results. Computation might be slow
+
+
     Parameters:
-    - data: 1darray
-        Data to be processed, complex-valued
-    - split_imag: bool
-        If True, computes the baseline on the real and imaginary part separately; else, the set of polynomion coefficients are forced to be the same for both
-    - n: int
-        Number of coefficients of the polynomion, i.e. it will be of degree n-1
-    - basl_method: str
-        Cost function to be minimized for the baseline computation. Look for fit.CostFunc, "method" attribute
-    - basl_thresh: float
-        Relative threshold value for the non-quadratic behaviour of the cost function. Look for fit.CostFunc, "s" attribute
-    - basl_itermax: int
-        Maximun number of iterations allowed during the baseline fitting procedure
-    - phase_kws: keyworded arguments
-        Optional arguments for the phase correction. Look for fit.SINC_phase keyworded arguments for details.
     -----------
+    data : 1darray
+        Data to be processed, complex-valued
+    split_imag : bool
+        If True, computes the baseline on the real and imaginary part separately; else, the set of polynomion coefficients are forced to be the same for both
+    n : int
+        Number of coefficients of the polynomion, i.e. it will be of degree n-1
+    basl_method : str
+        Cost function to be minimized for the baseline computation. Look for ``fit.CostFunc``, ``"method"`` attribute
+    basl_thresh : float
+        Relative threshold value for the non-quadratic behaviour of the cost function. Look for ``fit.CostFunc``, ``"s"`` attribute
+    basl_itermax : int
+        Maximun number of iterations allowed during the baseline fitting procedure
+    phase_kws : keyworded arguments
+        Optional arguments for the phase correction. Look for ``fit.SINC_phase`` keyworded arguments for details.
+
     Returns:
-    - y: 1darray
+    -----------
+    y : 1darray
         Processed data
-    - p0: float
+    p0 : float
         Zero-order phase correction angle, in degrees
-    - p1: float
+    p1 : float
         First-order phase correction angle, in degrees
-    - c: 1darray
+    c : 1darray
         Set of coefficients to be used for the baseline computation, starting from the 0-order coefficient
+
+
+    .. seealso::
+
+        :func:`klassez.fit.SINC_phase`
+        
+        :func:`klassez.processing.polyn_basl`
+
+        :class:`klassez.fit.CostFunc`
     """
 
     # Check if the data is actually complex
@@ -4686,25 +5144,27 @@ def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
     """
     Performs the calibration of a pseudo-2D experiment by circular-shifting the spectra of an appropriate amount.
     The target function aims to minimize the superimposition between a reference spectrum and the others using a brute-force method.
-    ----------
+
     Parameters:
-    - ppm_scale: 1darray
+    -----------
+    ppm_scale : 1darray
         ppm scale of the spectrum to calibrate
-    - data: 2darray
+    data : 2darray
         Complex-valued spectrum
-    - lims: tuple
+    lims : tuple
         (ppm sx, ppm dx) of the calibration region
-    - u_off: float
+    u_off : float
         Maximum offset for the circular shift, in ppm
-    - ref_idx: int
+    ref_idx : int
         Index of the spectrum to be used as reference
-    ----------
+
     Returns:
-    - data_roll: 2darray
+    -----------
+    data_roll : 2darray
         Calibrated data
-    - u_cal: list
+    u_cal : list
         Number of point of which the spectra have been circular-shifted
-    - u_cal_ppm: list
+    u_cal_ppm : list
         Correction for the ppm scale of each experiment
     """
 
@@ -4780,21 +5240,27 @@ def lp(data, pred=1, order=8, mode='b'):
     """
     Apply linear prediction on the dataset.
     This method solves the linear system
+
+    .. math::
+
         D a = d
-    where 'a' is the array of lp coefficients.
-    -----------
+
+    where `a` is the array of linear prediction coefficients.
+
     Parameters:
-    - data: 1darray
-        FID to be linear-predicted
-    - pred: int
-        Number of points to predict
-    - order: int
-        Number of coefficients to use for the prediction
-    - mode: str
-        'f' for forward linear prediction, 'b' for backward linear prediction
     -----------
+    data : 1darray
+        FID to be linear-predicted
+    pred : int
+        Number of points to predict
+    order : int
+        Number of coefficients to use for the prediction
+    mode : str
+        ``'f'`` for forward linear prediction, ``'b'`` for backward linear prediction
+
     Returns:
-    - newdata: 1darray
+    -----------
+    newdata : 1darray
         FID with linear prediction applied.
     """
     def make_Dd(x, order, mode):
@@ -4858,19 +5324,25 @@ def lp(data, pred=1, order=8, mode='b'):
 
 def blp(data, pred=1, order=8):
     """
-    Applies backward linear prediction by calling processing.lp with mode='b'.
-    -----------------
+    Applies backward linear prediction by calling :func:`klassez.processing.lp` with ``mode='b'``.
+    
     Parameters:
-    - data: 1darray
-        FID to be linear-predicted
-    - pred: int
-        Number of points to predict
-    - order: int
-        Number of coefficients to use for the prediction
     -----------
+    data : 1darray
+        FID to be linear-predicted
+    pred : int
+        Number of points to predict
+    order : int
+        Number of coefficients to use for the prediction
+
     Returns:
-    - lpdata: 1darray
+    -----------
+    lpdata : 1darray
         FID with linear prediction applied.
+
+    .. seealso::
+
+        :func:`klassez.processing.lp`
     """
     lpdata = lp(data, pred, order, mode='b')
     return lpdata
@@ -4878,24 +5350,36 @@ def blp(data, pred=1, order=8):
 def blp_ng(data, pred=1, order=8, N=2048):
     """
     Performs backwards linear prediction on data.
-    This function calls nmrglue.process.proc_lp.lp with most of the parameters set automatically.
-    The algorithm predicts "pred" points of the FID using "order" coefficient for the linear interpolation.
-    Only the first N points of the FID are used in the LP equation, because the computational cost scales with n**2, making the use of more than 8k points not effective: using more points brings negligible contiribution to the final result.
-    For Oxford spectra, set "pred" to half the value written in "TDoff".
-    ------------
+    This function calls ``nmrglue.process.proc_lp.lp`` with most of the parameters set automatically.
+    The algorithm predicts ``pred`` points of the FID using ``order`` coefficient for the linear interpolation.
+    Only the first ``N`` points of the FID are used in the LP equation, because the computational cost scales with n**2, making the use of more than 8k points not effective: using more points brings negligible contiribution to the final result.
+
+    For Oxford spectra, set ``pred`` to half the value written in "TDoff".
+
+    .. note::
+        Legacy function. Use :func:`klassez.processing.blp` instead
+
     Parameters:
-    - data: ndarray
-        Data on which to perform the linear prediction. For 2d data, it is performed row-by-row
-    - pred: int 
+    -----------
+    data : ndarray
+        Data on which to perform the linear prediction. For 2D data, it is performed row-by-row
+    pred : int 
         Number of points to be predicted
-    - order: int
+    order : int
         Number of coefficients to be used for the prediction
-    - N: int
+    N : int
         Number of points of the FID to be used in the calculation
-    -------------
+
     Returns:
-    - datap: ndarray
+    -----------
+    datap : ndarray
         Data with the predicted points appended at the beginning
+
+    .. seealso::
+        
+        :func:`klassez.processing.blp`
+
+        :func:`klassez.processing.lp`
     """
     # Compute a slice to trim the data to decrease the computation time
     if data.shape[-1] >= N:     # Slice from 0 to N
@@ -4916,15 +5400,17 @@ def stack_fids(*fids, filename=None):
     """
     Stacks together FIDs in order to create a pseudo-2D experiment.
     This function can handle either arrays or Spectrum_1D objects.
-    -----------
+
     Parameters:
-    - fids: sequence of 1darrays or Spectrum_1D objects
-        Input data.
-    - filename: str
-        Location for a .npy file to be saved. If None, no file is created.
     -----------
+    fids : sequence of 1darrays or Spectrum_1D objects
+        Input data.
+    filename : str
+        Location for a .npy file to be saved. If None, no file is created.
+
     Returns:
-    - p2d: 2darray
+    -----------
+    p2d : 2darray
         Stacked FIDs.
     """
     p2d_fid = []    # Placeholder
@@ -4951,23 +5437,37 @@ def stack_fids(*fids, filename=None):
 
 def hilbert(f):
     """
-    Computes the Hilbert transform of real vector f in order to retrieve its imaginary part.
-    Make sure that the original spectrum was zero-filled to at least twice the original size of the FID.
+    Computes the Hilbert transform of real vector ``f`` in order to retrieve its imaginary part.
     The algorithm computes the convolution by means of FT, as follows:
-    > make IFT of f = a
-    > compute h = [1j for x in range(N) if x<N/2 else -1j]
-    > Compute b = ha
-    > Build d = a + 1j*b
-    > make FT of d = F
-    > replace Re(F) with f
-    ---------
+
+    #. make IFT of ``f``: ``a``
+    #. compute ``h = [1j for x in range(N) if x < N/2 else -1j]``
+    #. Compute ``b = h * a``
+    #. Build ``d = a + 1j*b``
+    #. make FT of ``d``: ``F``
+    #. replace the real part of ``F`` with ``f``
+
+    Suitable for both 1D and 2D *non-hypercomplex* data.
+
+    .. important::
+
+        Make sure that the original spectrum was zero-filled to at least twice the original size of the FID.
+
+
     Parameters:
-    - f: ndarray
+    -----------
+    f : ndarray
         Array of which you want to compute the imaginary part
-    ---------
+
     Returns:
-    - f_cplx: ndarray
-        Complex version of f
+    -----------
+    f_cplx : ndarray
+        Complex version of ``f``
+
+
+    .. seealso::
+        :func:`klassez.processing.hilbert2`
+
     """
     # Suppress warnings for ft of real data
     warnings.simplefilter("ignore")
@@ -4994,25 +5494,40 @@ def hilbert(f):
 
 def hilbert2(data):
     """
-    Retrieve the imaginary parts of a hypercomplex dataset, when you only have the rr part.
-    RR = Re(Ht{rr})
-    IR = Im(Ht{rr})
-    RI = - Im(Ht{rr.T}.T)
-    II = Im(Ht{ri})
-    --------------
+    Retrieve the imaginary parts of a hypercomplex dataset, when you only have the `rr` part.
+
+    Given ``Ht = klassez.processing.hilbert``:
+
+    .. code-block:: python
+
+        rr = Ht(rr).real
+        ir = Ht(rr).imag
+        ri = - Ht(rr.T).T.imag
+        ii = Ht(ri).imag
+
+
     Parameters:
-    - data: 2darray
+    -----------
+    data : 2darray
         rr part
-    --------------
+
     Returns:
-    - rr: 2darray
+    -----------
+    rr : 2darray
         Real part in f2, real part in f1
-    - ir: 2darray
+    ir : 2darray
         Imaginary part in f2, real part in f1
-    - ri: 2darray
+    ri : 2darray
         Real part in f2, imaginary part in f1
-    - ii: 2darray
+    ii : 2darray
         Imaginary part in f2, imaginary part in f1
+
+
+    .. seealso::
+
+        :func:`klassez.processing.hilbert`
+
+        :func:`klassez.processing.repack_2D`
     """
     # ir: Ht on F2
     S_rr_ir = processing.hilbert(data)
@@ -5030,15 +5545,17 @@ def convolve(in1, in2):
     """
     Perform the convolution of the two array by multiplying their inverse Fourier transform.
     The two arrays must have the same dimension.
-    -----------
+
     Parameters:
-    - in1: ndarray
-        First array
-    - in2: ndarray
-        Second array
     -----------
+    in1 : ndarray
+        First array
+    in2 : ndarray
+        Second array
+
     Returns:
-    - cnv: ndarray
+    -----------
+    cnv : ndarray
         Convolved array
     """
     assert in1.shape[-1] == in2.shape[-1], 'The two arrays have different dimensions!'
@@ -5054,16 +5571,23 @@ def inv_convolve(in1, in2):
     """
     Perform the inverse-convolution of the two array by dividing their inverse Fourier transform.
     The two arrays must have the same dimension.
-    -----------
+
+    .. important::
+
+        This operation involves a division!!! Might give unexpected and unpleasant results!
+
+
     Parameters:
-    - in1: ndarray
-        First array
-    - in2: ndarray
-        Second array
     -----------
+    in1 : ndarray
+        First array
+    in2 : ndarray
+        Second array
+
     Returns:
-    - cnv: ndarray
-        Convolved array
+    -----------
+    cnv : ndarray
+        Deconvolved array
     """
     assert in1.shape[-1] == in2.shape[-1], 'The two arrays have different dimensions!'
     size = in1.shape[-1]
@@ -5080,17 +5604,19 @@ def splitcomb(data, taq, J=53.8):
     Applies the processing required for the IPAP virtual decoupling scheme in the direct dimension.
     The data structure must be with the IP in the first half of the direct dimension, and with AP in the second half.
     The default J is 53.8 Hz, correspondant to the CO-Ca coupling.
-    ---------------
+
     Parameters:
-    - data: 2darray
+    -----------
+    data : 2darray
         FID of the spectrum to process
-    - taq: 1darray
+    taq : 1darray
         Acquisition timescale
-    - J: float
+    J : float
         Scalar coupling constant of the coupling to suppress, in Hz
-    --------------
+
     Returns:
-    - datap: 2darray
+    -----------
+    datap : 2darray
         Decoupled data. The direct dimension is halved with respect to the original FID
     """
 
@@ -5123,40 +5649,58 @@ def splitcomb(data, taq, J=53.8):
     return datap
 
 def apk(ppm, data, SFO1, alpha=3, winsize=50, ap1=True, seethrough=False):
-    """
+    r"""
     Performs automatic phase correction.
 
-    The algorithm starts with the computation of a mask to separate signal from baseline-only regions. This is done via an iterative thresholding, i.e. a point is "signal" if the first derivative of the spectrum in that point is higher than its standard deviation by alpha times:
-        if d'[k] > alpha std(d') => k in signal region
+    The algorithm starts with the computation of a mask to separate signal from baseline-only regions. This is done via an iterative thresholding, i.e. a point is "signal" if the first derivative of the spectrum in that point is higher than its standard deviation by ``alpha`` times:
+
+    .. math:: 
+
+        d'[k] > \alpha \, std(d') \implies k \in \text{signal region}
+
     The selection is further refined by repeating the same procedure on the original data.  
     Then, the regions separated by less than winsize are joined together, and the presence of actual peaks in the region is checked with a pick-picker.
 
     At this point, each region is phased independently with only phase 0. The phase angle is tested in a brute-force manner. The cost function minimizes the area below the straight line that connects the borders of the window. 
     The first-order phase correction is calculated with a weighted linear regression, where the weights are the integrals of the magnitude of each region.
 
-    The choice of alpha and winsize can be important for the outcome. Higher alpha values make the detection of peaks more stringent -> for spectra with high SNR and sharp peaks a suitable value is 4-6. Decreasing winsize makes the algorithm to estimate more regions.
-    ------------------
+    .. tip::
+
+        The choice of ``alpha`` and ``winsize`` can be important for the outcome. Higher ``alpha`` values make the detection of peaks more stringent -> for spectra with high SNR and sharp peaks a suitable value is 4-6. Decreasing ``winsize`` makes the algorithm to estimate more regions.
+
+
     Parameters:
-    - ppm: 1darray
+    -----------
+    ppm : 1darray
         ppm scale of the spectrum
-    - data: 1darray
+    data : 1darray
         Spectrum
-    - SFO1: float
+    SFO1 : float
         Nucleus' Larmor frequency /MHz
-    - alpha: float
+    alpha : float
         Factor that multiplies the std of the spectrum to set the threshold
-    - winsize: float
+    winsize : float
         Minimum size of the window that can contain peaks /Hz
-    - ap1: bool
+    ap1 : bool
         True to adjust both zero and first order, False for only phase zero
-    - seethrough: bool
+    seethrough : bool
         If True, draws a series of diagnostic figures to see what the algorithm is doing
-    ------------------
-    Returns: 
-    - datap: 1darray
+
+    Returns:
+    ----------- 
+    datap : 1darray
         Phased data
-    - values: tuple
-        Found values (p0, p1)
+    values : tuple
+        Found values ``(p0, p1)``
+
+
+    .. seealso::
+        
+        :func:`klassez.processing.mask_sgn_basl`
+
+        :func:`klassez.processing.ps`
+
+        :func:`klassez.fit.lr`
     """
     def phase0(data, slices):
         """
@@ -5294,30 +5838,41 @@ def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
     for the detection of the baseline-only region, followed by a weighted linear least squares
     optimization with a polynomion of degree n-1.
     The weights are computed on the absolute value of the first derivative of the spectrum.
-    Set qfil to True if there is a very intense solvent peak that would hamper
+    Set ``qfil=True`` if there is a very intense solvent peak that would hamper
     the computation of the threshold.
-    ------------------
+
     Parameters:
-    - ppm: 1darray
+    -----------
+    ppm : 1darray
         PPM scale of the spectrum
-    - data: 1darray
+    data : 1darray
         The spectrum to baseline-correct
-    - n: int
+    n : int
         Number of coefficients of the polynomial baseline
-    - lims: tuple or None
+    lims : tuple or None
         Limits for the region on which to compute the baseline, in ppm
-    - alpha: float
-        The threshold will be set as thr = alpha * np.std(np.gradient(data))
-    - qfil: bool
+    alpha : float
+        The threshold will be set as ``thr = alpha * np.std(np.gradient(data))``
+    qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
-    - qfilp: dict
-        Parameters to be used to compute the filter if qfil is True. Keys:
-        'u' = center of the filter in ppm
-        's' = width of the filter in Hz
-    ------------------
+    qfilp : dict
+        Parameters to be used to compute the filter if ``qfil=True``. Keys:
+        ``'u'`` = center of the filter in ppm
+        ``'s'`` = width of the filter in Hz
+
     Returns:
-    - baseline: 1darray
+    -----------
+    baseline: 1darray
         Computed baseline
+
+
+    .. seealso::
+
+        :func:`klassez.processing.qfil`
+
+        :func:`klassez.fit.lsp`
+
+        :func:`klassez.processing.abca`
     """
 
     def compute_weights(ppm, data, qfil=False, alpha=2.75):
@@ -5378,34 +5933,45 @@ def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
 def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u':4.7, 's':10}):
     """
     Automatic computation of a baseline for a spectrum using a thresholding-based method for the detection of the baseline-only region, followed by a weighted linear least squares optimization with a polynomion of degree n-1.
-    Employs the same method for the detection of signal-free regions of processing.apk.
-    Set qfil to True if there is a very intense solvent peak that would hamper the computation of the threshold.
-    ------------------
+    Employs the same method for the detection of signal-free regions of ``processing.apk``.
+    Set ``qfil=True`` if there is a very intense solvent peak that would hamper the computation of the threshold.
+
     Parameters:
-    - ppm: 1darray
+    -----------
+    ppm : 1darray
         PPM scale of the spectrum
-    - data: 1darray
+    data : 1darray
         The spectrum to baseline-correct
-    - SFO1: float
+    SFO1 : float
         Nucleus Larmor frequency /MHz
-    - n: int
+    n : int
         Number of coefficients of the polynomial baseline
-    - lims: tuple or None
+    lims : tuple or None
         Limits for the region on which to compute the baseline, in ppm
-    - alpha: float
+    alpha : float
         The threshold will be set as thr = alpha * np.std(np.gradient(data))
-    - winsize: float
+    winsize : float
         Minimum allowed window containing signals /Hz
-    - qfil: bool
+    qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
-    - qfilp: dict
-        Parameters to be used to compute the filter if qfil is True. Keys:
-        'u' = center of the filter in ppm
-        's' = width of the filter in Hz
-    ------------------
+    qfilp : dict
+        Parameters to be used to compute the filter if ``qfil=True``. Keys:
+        ``'u'`` = center of the filter in ppm
+        ``'s'`` = width of the filter in Hz
+
     Returns:
-    - baseline: 1darray
+    -----------
+    baseline : 1darray
         Computed baseline
+
+
+    .. seealso::
+
+        :func:`klassez.processing.apk`
+
+        :func:`klassez.fit.lsp`
+
+        :func:`klassez.processing.abc`
     """
 
     def compute_weights(ppm, data, SFO1, qfil=False, alpha=5, winsize=2):
@@ -5450,30 +6016,39 @@ def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
 
 def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':10}):
     """
-    Computes the baseline correction on data using processing.abc, and gives back the subtracted spectrum.
-    The imaginary part of the spectrum is reconstructed using processing.hilbert.
-    ------------------
+    Computes the baseline correction on data using ``processing.abc``, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using ``processing.hilbert``.
+
     Parameters:
-    - ppm: 1darray
+    -----------
+    ppm : 1darray
         PPM scale of the spectrum
-    - data: 1darray
+    data : 1darray
         The spectrum to baseline-correct
-    - n: int
+    n : int
         Number of coefficients of the polynomial baseline
-    - lims: tuple or None
+    lims : tuple or None
         Limits for the region on which to compute the baseline, in ppm
-    - alpha: float
+    alpha : float
         The threshold will be set as thr = alpha * np.std(np.gradient(data))
-    - qfil: bool
+    qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
-    - qfilp: dict
+    qfilp : dict
         Parameters to be used to compute the filter if qfil is True. Keys:
         'u' = center of the filter in ppm
         's' = width of the filter in Hz
-    ------------------
+
     Returns:
-    - S: 1darray
+    -----------
+    S : 1darray
         Baseline-subtracted spectrum
+
+
+    .. seealso::
+
+        :func:`klassez.processing.abc`
+
+        :func:`klassez.processing.hilbert`
     """
     # Compute the baseline
     b = processing.abc(ppm, data.real, n=n, alpha=alpha, lims=lims, qfil=qfil, qfilp=qfilp)
@@ -5485,32 +6060,41 @@ def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
 
 def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u':4.7, 's':10}):
     """
-    Computes the baseline correction on data using processing.abca, and gives back the subtracted spectrum.
-    The imaginary part of the spectrum is reconstructed using processing.hilbert.
-    ------------------
+    Computes the baseline correction on data using ``processing.abca``, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using ``processing.hilbert``.
+    
     Parameters:
-    - ppm: 1darray
+    -----------
+    ppm : 1darray
         PPM scale of the spectrum
-    - data: 1darray
+    data : 1darray
         The spectrum to baseline-correct
-    - n: int
+    n : int
         Number of coefficients of the polynomial baseline
-    - lims: tuple or None
+    lims : tuple or None
         Limits for the region on which to compute the baseline, in ppm
-    - alpha: float
-        The threshold will be set as thr = alpha * np.std(np.gradient(data))
-    - winsize: float
+    alpha : float
+        The threshold will be set as ``thr = alpha * np.std(np.gradient(data))``
+    winsize : float
         Minimum allowed window containing signals /Hz
-    - qfil: bool
+    qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
-    - qfilp: dict
+    qfilp : dict
         Parameters to be used to compute the filter if qfil is True. Keys:
         'u' = center of the filter in ppm
         's' = width of the filter in Hz
-    ------------------
+
     Returns:
-    - S: 1darray
+    -----------
+    S : 1darray
         Baseline-subtracted spectrum
+
+
+    .. seealso::
+
+        :func:`klassez.processing.abca`
+
+        :func:`klassez.processing.hilbert`
     """
     # Compute the baseline
     b = processing.abca(ppm, data.real, SFO1, n=n, alpha=alpha, winsize=winsize, lims=lims, qfil=qfil, qfilp=qfilp)
@@ -5523,30 +6107,41 @@ def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
 
 def abs2(ppm_f2, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':10}, FnMODE='States-TPPI'):
     """
-    Computes the baseline correction on data using processing.abc, and gives back the subtracted spectrum.
-    The imaginary part of the spectrum is reconstructed using processing.hilbert.
-    ------------------
+    Baseline correction for 2D datasets.
+    Computes the baseline correction on ``data`` using ``processing.abc`` for each row, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using either ``processing.hilbert`` or ``processing.hilbert2`` depending on ``FnMODE``.
+
     Parameters:
-    - ppm: 1darray
+    -----------
+    ppm : 1darray
         PPM scale of the spectrum
-    - data: 1darray
+    data : 1darray
         The spectrum to baseline-correct
-    - n: int
+    n : int
         Number of coefficients of the polynomial baseline
-    - lims: tuple or None
+    lims : tuple or None
         Limits for the region on which to compute the baseline, in ppm
-    - alpha: float
+    alpha : float
         The threshold will be set as thr = alpha * np.std(np.gradient(data))
-    - qfil: bool
+    qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
-    - qfilp: dict
+    qfilp : dict
         Parameters to be used to compute the filter if qfil is True. Keys:
         'u' = center of the filter in ppm
         's' = width of the filter in Hz
-    ------------------
+
     Returns:
-    - S: 1darray
-        Baseline-subtracted spectrum
+    -----------
+    S : 2darray
+        Baseline-subtracted spectrum, either complex or hypercomplex
+
+    .. seealso::
+
+        :func:`klassez.processing.abc`
+
+        :func:`klassez.processing.hilbert`
+
+        :func:`klassez.processing.hilbert2`
     """
     # Compute the baseline
     D = deepcopy(data)
@@ -5564,16 +6159,19 @@ def abs2(ppm_f2, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, '
 
 def rndc(data):
     """
-    Robust Noise Derivative Calculation, http://www.holoborodko.com/pavel/numerical-methods/numerical-derivative/smooth-low-noise-differentiators/
-    Used coefficients: (42, 48, 27, 8, 1)/512
+    Robust Noise Derivative Calculation, `reference`_ . Employed coefficients: ``(42, 48, 27, 8, 1)/512``
     Used to compute the first derivative of a function.
-    --------------
+
+    .. _reference: http://www.holoborodko.com/pavel/numerical-methods/numerical-derivative/smooth-low-noise-differentiators/
+
     Parameters:
-    - data: 1darray
+    -----------
+    data : 1darray
         Input data
-    --------------
+
     Returns:
-    - dy: 1darray
+    -----------
+    dy : 1darray
         First derivative of data. First and last 5 points are set to zero.
     """
 
@@ -5598,16 +6196,18 @@ def rndc(data):
 
 def smooth_g(d, m):
     """
-    Apply a smoothing with a gaussian filter by convolution. The width of the filter is 1/m.
-    -------------
+    Apply a smoothing with a gaussian filter by convolution. The width of the filter is ``1/m``.
+
     Parameters:
-    - d: 1darray
+    -----------
+    d : 1darray
         Data to be smoothed
-    - m: float
+    m : float
         Inverse width of the filter /pt
-    -------------
+
     Returns:
-    - yc: 1darray
+    -----------
+    yc : 1darray
         Smoothed data
     """
     # Shallow copy
@@ -5624,38 +6224,42 @@ def smooth_g(d, m):
 def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
     """
     Given an NMR spectrum, this function estimates the signal and baseline regions, and return a list of slices to cut the spectrum accordingly.
-    ----------
+
     Parameters:
-    - ppm: 1darray
+    -----------
+    ppm : 1darray
         ppm scale of the spectrum
-    - data: 1darray
+    data : 1darray
         Spectrum
-    - SFO1: float
+    SFO1 : float
         Nucleus' Larmor frequency /MHz
-    - alpha: float
+    alpha : float
         Factor that multiplies the std of the spectrum to set the threshold
-    - winsize: float
+    winsize : float
         Minimum size of the window that can contain peaks /Hz
-    ----------
+
     Returns:
-    - peak_slices: list of slices
+    -----------
+    peak_slices : list of slices
         Slices that trim the data in the signal-only regions
-    - basl_slices: list of slices
+    basl_slices : list of slices
         Slices that trim the data in the baseline-only regions
     """
     def calc_mask(data, alpha=3):
         """
         Compute the mask that divides "signals" from "baseline" regions.
         There is "signal" if the spectrum is higher than alpha * std of the spectrum.
-        ----------
+
         Parameters:
-        - data: 1darray
+        -----------
+        data : 1darray
             Spectrum
-        - alpha: float
+        alpha : float
             Factor that multiplies the std of the spectrum to set the threshold
-        ----------
+
         Returns:
-        - full_mask: 1darray
+        -----------
+        full_mask : 1darray
             1 if there is signal, 0 is there is not
         """
         # First derivative of data
