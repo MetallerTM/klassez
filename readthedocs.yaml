@@ -10,7 +10,7 @@ sphinx:
   configuration: docs/source/conf.py
 
 build:
-  os: ubuntu-21.04
+  os: ubuntu-24.04
 
 
 python:
