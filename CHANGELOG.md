@@ -1,5 +1,8 @@
 # Version 0.4a.12
 
+Changed all the docstrings for configuration with sphinx.
+Minor bug fixes.
+
 
 # Version 0.4a.11
 
