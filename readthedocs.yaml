@@ -13,12 +13,6 @@ sphinx:
 formats:
   - htmlzip
 
-# Specify Python configuration
-python:
-  version: 3.13
-  install:
-    - requirements: docs/requirements.txt
-
 # Optionally, specify build settings
 build:
   os: ubuntu-24.04
