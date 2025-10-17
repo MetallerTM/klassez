@@ -11,7 +11,7 @@ sphinx:
 
 # Build documentation in HTML format
 formats:
-  - html
+  - htmlzip
 
 # Specify Python configuration
 python:
