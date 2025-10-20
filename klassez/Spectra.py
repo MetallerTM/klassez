@@ -24,7 +24,7 @@ except ImportError or ModuleNotFoundError:
 from copy import deepcopy
 
 
-from . import fit, misc, sim, figures, processing
+from . import fit, misc, sim, figures, processing, anal
 #from .__init__ import CM
 from .config import CM, COLORS, cron
 
@@ -894,7 +894,7 @@ class Spectrum_1D:
     def integrate(self, lims=None):
         """
         Integrate the spectrum with a dedicated GUI.
-        Calls :func:`klassez.fit.integrate` and writes in ``self.integrals`` with keys ``[ppm1:ppm2]``
+        Calls :func:`klassez.anal.integrate` and writes in ``self.integrals`` with keys ``[ppm1:ppm2]``
 
         Parameters:
         -----------
@@ -903,11 +903,11 @@ class Spectrum_1D:
 
         .. seealso::
             
-            :func:`klassez.fit.integrate`
+            :func:`klassez.anal.integrate`
         """
         X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
         if lims is None:
-            integrals = fit.integrate(self.ppm, self.r, X_label=X_label)
+            integrals = anal.integrate(self.ppm, self.r, X_label=X_label)
             for key, value in integrals.items():
                 self.integrals[key] = value
         else:
@@ -1882,7 +1882,7 @@ class Spectrum_2D:
         Parameters:
         -----------
         which : int or None
-            Index of the F2 trace to be used for :func:`klassez.processing.interactive_qfil`. If None, a suitable trace can be selected using :func:`klassez.misc.select_traces`.
+            Index of the F2 trace to be used for :func:`klassez.processing.interactive_qfil`. If None, a suitable trace can be selected using :func:`klassez.anal.select_traces`.
         u : float
             Position /ppm
         s : float
@@ -1892,7 +1892,7 @@ class Spectrum_2D:
 
             :func:`klassez.processing.interactive_qfil`
 
-            :func:`klassez.misc.select_traces`
+            :func:`klassez.anal.select_traces`
 
         """
         if 'qfil' not in self.procs.keys(): # Then add it
@@ -1901,7 +1901,7 @@ class Spectrum_2D:
         for key, value in self.procs['qfil'].items():
             if value is None:   # missing value --> call for interaction
                 if which is None:   # select a spectrum to be used
-                    which_list = misc.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
+                    which_list = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
                     which, _ = misc.ppmfind(self.ppm_f1, which_list[0][1])
                 # Now get the values
                 self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm_f2, self.rr[which], self.acqus['SFO2'])
@@ -1943,7 +1943,7 @@ class Spectrum_2D:
             
             :func:`klassez.processing.calibration`
 
-            :func:`klassez.misc.select_traces`
+            :func:`klassez.anal.select_traces`
         """
         def _calibrate(ppm, trace, SFO1, ref=None):
             """ Main function that calls the real calibration """
@@ -1975,12 +1975,12 @@ class Spectrum_2D:
         else:
             # Get the missing entries
             if offset[0] is None or offset[1] is None:  # Select the reference traces
-                coord = misc.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
+                coord = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
                 ix, iy = coord[0][0], coord[0][1]   # Position of the first crosshair
                 # F2 reference spectrum
-                X = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
+                X = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
                 # F1 reference spectrum
-                Y = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, ix, column=True)
+                Y = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, ix, column=True)
 
             if offset[1] is None:   # Get it
                 ppm_f2 = np.copy(self.ppm_f2)
@@ -2198,7 +2198,7 @@ class Spectrum_2D:
         Store the trace in the dictionary ``self.trf1`` and as :class:`pSpectrum_1D` in ``self.Trf1``. 
         The key is ``'a'`` or ``'a:b'`` with two decimal figures.
 
-        Calls :func:`klassez.misc.get_trace` on ``self.rr`` with ``column=True``
+        Calls :func:`klassez.anal.get_trace` on ``self.rr`` with ``column=True``
 
         Parameters:
         -----------
@@ -2209,7 +2209,7 @@ class Spectrum_2D:
 
         .. seealso::
 
-            :func:`klassez.misc.get_trace`
+            :func:`klassez.anal.get_trace`
         """
         # make dictionary label
         if b is None:
@@ -2217,7 +2217,7 @@ class Spectrum_2D:
         else:
             label = f'{a:.2f}:{b:.2f}'
         # Compute the trace
-        f1 = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=True)
+        f1 = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=True)
         # Store it 
         self.trf1[label] = f1
         self.Trf1[label] = pSpectrum_1D(f1, acqus=misc.split_acqus_2D(self.acqus)[0], procs=misc.split_procs_2D(self.procs)[0], istrace=True, filename=f'T1_{label}')
@@ -2228,7 +2228,7 @@ class Spectrum_2D:
         Store the trace in the dictionary ``self.trf2`` and as :class:`pSpectrum_1D` in ``self.Trf2``. 
         The key is ``'a'`` or ``'a:b'`` with two decimal figures.
 
-        Calls :func:`klassez.misc.get_trace` on ``self.rr`` with ``column=False``
+        Calls :func:`klassez.anal.get_trace` on ``self.rr`` with ``column=False``
 
         Parameters:
         -----------
@@ -2239,7 +2239,7 @@ class Spectrum_2D:
 
         .. seealso::
 
-            :func:`klassez.misc.get_trace`
+            :func:`klassez.anal.get_trace`
         """
         # make dictionary label
         if b is None:
@@ -2247,7 +2247,7 @@ class Spectrum_2D:
         else:
             label = f'{a:.2f}:{b:.2f}'
         # Compute the trace
-        f2 = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=False)
+        f2 = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=False)
         # Store it
         self.trf2[label] = f2
         self.Trf2[label] = pSpectrum_1D(f2, acqus=misc.split_acqus_2D(self.acqus)[1], procs=misc.split_procs_2D(self.procs)[1], istrace=True, filename=f'T2_{label}')
@@ -2256,18 +2256,18 @@ class Spectrum_2D:
         """
         Integrates the spectrum with a dedicated GUI.
         Stores the results in ``self.integral``.
-        Calls :func:`klassez.fit.integrate_2D`
+        Calls :func:`klassez.anal.integrate_2D`
 
         Parameters:
         -----------
         kwargs: keyworded arguments
-            Additional parameters for :func:`klassez.fit.integrate_2D`
+            Additional parameters for :func:`klassez.anal.integrate_2D`
 
         .. seealso::
 
-            :func:`klassez.fit.integrate_2D`
+            :func:`klassez.anal.integrate_2D`
         """
-        self.integrals = fit.integrate_2D(self.ppm_f1, self.ppm_f2, self.rr, self.acqus['SFO1'], self.acqus['SFO2'], **kwargs)
+        self.integrals = anal.integrate_2D(self.ppm_f1, self.ppm_f2, self.rr, self.acqus['SFO1'], self.acqus['SFO2'], **kwargs)
 
     def write_integrals(self, other_dir=None):
         """
@@ -3035,12 +3035,12 @@ class Pseudo_2D(Spectrum_2D):
         else:
             # Get the missing entries
             if offset is None: # Select the reference traces
-                coord = misc.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
+                coord = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
                 ix, iy = coord[0][0], coord[0][1]   # Position of the first crosshair
                 # F2 reference spectrum
-                X = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
+                X = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
                 # F1 reference spectrum
-                Y = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, ix, column=True)
+                Y = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, ix, column=True)
 
                 ppm_f2 = np.copy(self.ppm_f2)
                 offp2, offh2 = _calibrate(ppm_f2, X, self.acqus['SFO1'], ref=ref)
@@ -3133,7 +3133,7 @@ class Pseudo_2D(Spectrum_2D):
         Store the trace in the dictionary ``self.trf1`` and as :class:`pSpectrum_1D` in ``self.Trf1``. 
         The key is ``'a'`` or ``'a:b'`` with two decimal figures.
 
-        Calls :func:`klassez.misc.get_trace` on ``self.rr`` with ``column=True``
+        Calls :func:`klassez.anal.get_trace` on ``self.rr`` with ``column=True``
 
         Parameters:
         -----------
@@ -3144,7 +3144,7 @@ class Pseudo_2D(Spectrum_2D):
 
         .. seealso::
 
-            :func:`klassez.misc.get_trace`
+            :func:`klassez.anal.get_trace`
         """
         # make dictionary label
         if b is None:
@@ -3152,7 +3152,7 @@ class Pseudo_2D(Spectrum_2D):
         else:
             label = f'{a:.2f}:{b:.2f}'
         # Compute the trace
-        f1 = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=True)
+        f1 = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=True)
         # Store it
         self.trf1[label] = f1
         self.Trf1[label] = pSpectrum_1D(f1, acqus=self.acqus, procs=self.procs, istrace=True)
@@ -3166,7 +3166,7 @@ class Pseudo_2D(Spectrum_2D):
         Store the trace in the dictionary ``self.trf2`` and as :class:`pSpectrum_1D` in ``self.Trf2``. 
         The key is ``'a'`` or ``'a:b'`` with two decimal figures.
 
-        Calls :func:`klassez.misc.get_trace` on ``self.rr`` with ``column=False``
+        Calls :func:`klassez.anal.get_trace` on ``self.rr`` with ``column=False``
 
         Parameters:
         -----------
@@ -3177,7 +3177,7 @@ class Pseudo_2D(Spectrum_2D):
 
         .. seealso::
 
-            :func:`klassez.misc.get_trace`
+            :func:`klassez.anal.get_trace`
         """
         # make dictionary label
         if b is None:
@@ -3185,7 +3185,7 @@ class Pseudo_2D(Spectrum_2D):
         else:
             label = f'{a:.2f}:{b:.2f}'
         # Compute the trace
-        f2 = misc.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=False)
+        f2 = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=False)
         # Store it
         self.trf2[label] = f2
         self.Trf2[label] = pSpectrum_1D(f2, acqus=self.acqus, procs=self.procs, istrace=True)
@@ -3381,7 +3381,7 @@ class Pseudo_2D(Spectrum_2D):
         Integrate the spectrum with a dedicated GUI.
         Calls :func:`klassez.processing.integral` on each experiment, then saves the results in ``self.integrals``.
         Therefore, the entries of ``self.integrals`` are sequences!
-        If ``lims`` is not given, calls :func:`klassez.fit.integrate` on the trace to select the regions to integrate.
+        If ``lims`` is not given, calls :func:`klassez.anal.integrate` on the trace to select the regions to integrate.
 
         Parameters:
         -----------
@@ -3392,12 +3392,12 @@ class Pseudo_2D(Spectrum_2D):
 
         .. seealso::
             
-            :func:`klassez.fit.integrate`
+            :func:`klassez.anal.integrate`
         """
         # Select the integration region
         if lims is None:
             X_label = r'$\delta\,$'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
-            integrals = fit.integrate(self.ppm_f2, self.rr[which], X_label=X_label)
+            integrals = anal.integrate(self.ppm_f2, self.rr[which], X_label=X_label)
             for key, _ in integrals.items():
                 if ':' in key:
                     lims = [eval(q) for q in key.split(':')] # trasforma stringa in float!!!

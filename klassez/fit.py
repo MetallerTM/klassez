@@ -22,7 +22,7 @@ from datetime import datetime
 import warnings
 from copy import deepcopy
 
-from . import fit, misc, sim, figures, processing
+from . import fit, misc, sim, figures, processing, anal
 #from .__init__ import CM
 from .config import CM, COLORS, cron
 
@@ -1699,264 +1699,6 @@ def calc_fit_lines(ppm_scale, limits, t_AQ, SFO1, o1p, N, V, C=False):
 
     return sgn, Total, baseline
 
-def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
-    r"""
-    Allows interactive integration of a NMR spectrum through a dedicated GUI. Returns the values as a dictionary, where the keys are the selected regions truncated to the 2nd decimal figure.
-    The returned dictionary contains pre-defined keys, as follows:
-
-    * total:    total integrated area
-    * ref_pos:  location of the reference peak /ppm1:ppm2
-    * ref_int:  absolute integral of the reference peak
-    * ref_val:  for how many nuclei the reference peak integrates
-
-    The absolute integral of the x-th peak, :math:`I_x`, must be calculated according to the formula:
-
-    .. math::
-
-        I_x = I_x^{\text(relative)} \frac{\text{ ref_int }}{ \text{ ref_val }}
-
-
-    Parameters:
-    -----------
-    ppm : 1darray
-        PPM scale of the spectrum
-    data : 1darray
-        Spectrum to be integrated.
-    X_label : str
-        Label of the x-axis
-
-    Returns:
-    -----------
-    f_vals : dict
-        Dictionary containing the values of the integrated peaks.
-    """
-
-    # Copy to prevent overwriting
-    ppm = np.copy(ppm0)
-    data = np.copy(data0)
-
-    # Calculate the total integral function
-    int_f = processing.integral(data, ppm)
-
-    # Make the figure
-    fig = plt.figure('Spectrum Integration')
-    fig.set_size_inches(figures.figsize_large)
-    plt.subplots_adjust(left=0.10, bottom=0.15, top=0.90, right=0.80)
-    ax = fig.add_subplot()
-
-    # Make boxes for buttons
-    add_box = plt.axes([0.875, 0.80, 0.05, 0.06])
-    setref_box = plt.axes([0.825, 0.72, 0.075, 0.06])
-    save_box = plt.axes([0.875, 0.20, 0.05, 0.06])
-    # Make box for tbox
-    reftb_box = plt.axes([0.925, 0.72, 0.05, 0.06])
-    # Make buttons
-    add_button = Button(add_box, 'ADD', hovercolor='0.875')
-    save_button = Button(save_box, 'SAVE', hovercolor='0.875')
-    setref_button = Button(setref_box, 'SET REF', hovercolor='0.875')
-    # Make tbox
-    ref_tbox = TextBox(ax=reftb_box, label='', initial='{}'.format(1), textalignment='center')
-
-    # Declare variables
-    f_vals = {      # Initialize output variable
-            'total': float(0),              # Total integrated area
-            'ref_pos': '{:.2f}:{:.2f}'.format(ppm[0], ppm[-1]), # Position of the reference signal /ppm1:ppm2
-            'ref_val': float(1),            # For how many nuclei the reference peak integrates
-            'ref_int': int_f[-1]-int_f[0],            # Reference peak integral, absolute value
-            }      
-    abs_vals = {}                           # dictionary: integrals of the peaks, absolute values
-    text_integrals={}                       # dictionary: labels to keep record of the integrals
-
-    # ---------------------------------------------------------------------------------------
-    # Functions connected to the widgets
-    def redraw_labels(f_vals):
-        """ Computes the relative integrals and updates the texts on the plot """
-        corr_func = f_vals['ref_val'] / f_vals['ref_int']   # Correction 
-
-        # Update all the integral texts according to the new total_integral value
-        tmp_text.set_text('{:.5f}'.format(tmp_plot.get_ydata()[-1] * corr_func))      # Relative value of the integral: under the red label on the right
-        for key, value in abs_vals.items():
-            text_integrals[key].set_text('{:.4f}'.format(abs_vals[key] * corr_func))
-
-        fig.canvas.draw()
-
-    def set_ref_val(xxx):
-        """ Function of the textbox """
-        nonlocal f_vals
-        f_vals['ref_val'] = eval(xxx)
-        redraw_labels(f_vals)
-
-    def set_ref_int(event):
-        nonlocal f_vals
-        tmp_plot.set_visible(False)                     # Set the integral function as invisible so that it does not overlay with the permanent one
-        xdata, ydata = tmp_plot.get_data()              # Get the data from the red curve
-
-        f_vals['ref_int'] = ydata[-1]                   # Calculate the integral and cast it to the correct entry in f_vals
-        f_vals['ref_pos'] = '{:.2f}:{:.2f}'.format(xdata[0], xdata[-1]) # Get reference peak position from the plot and save it in f_vals
-
-        # Update the plot
-        ref_plot.set_data(xdata, ydata) # Draw permanent integral function, in blue
-        ref_plot.set_visible(True)      # Because at the beginning it is invisible
-
-        ref_text.set_text('{:.4e}'.format(f_vals['ref_int']))   # Update label under the blue label on the right
-        redraw_labels(f_vals)
-
-
-    def onselect(vsx, vdx):
-        """ When you drag and release """
-        tmp_total_integral = np.copy(f_vals['total'])   # Copy total_integral inside
-
-        corr_func = f_vals['ref_val'] / f_vals['ref_int']   # Correction function
-
-        sx, dx = max(vsx, vdx), min(vsx, vdx)           # Sort the borders of the selected window
-        # Take indexes of the borders of the selected window and sort them
-        isx = misc.ppmfind(ppm, sx)[0]
-        idx = misc.ppmfind(ppm, dx)[0]
-        isx, idx = min(isx, idx), max(isx, idx)
-
-        # Compute the integral
-        int_fun = processing.integral(data, ppm, (sx, dx))  # Integral function
-        int_val = int_fun[-1] - int_fun[0]                                  # Value of the integral
-        tmp_total_integral += int_val                                       # Update the total integral, but only inside
-
-        # Update the plot
-        tmp_plot.set_data(ppm[isx:idx], int_fun)                            # Plot the integral function on the peak, normalized
-        tmp_plot.set_visible(True)                                          # Set this plot as visible, if it is not
-
-        tmp_text.set_text('{:.5f}'.format(int_val * corr_func))             # Relative value of the integral: under the red label on the right
-        tot_text.set_text('{:.4e}'.format(tmp_total_integral))              # Total integrated area: under the green label on the right
-        fig.canvas.draw()
-
-    def f_add(event):
-        """ When you click 'ADD' """
-        nonlocal f_vals, abs_vals
-
-        tmp_plot.set_visible(False)                     # Set the integral function as invisible so that it does not overlay with the permanent one
-        xdata, ydata = tmp_plot.get_data()              # Get the data from the red curve
-
-        # Update the variables
-        f_vals['total'] += ydata[-1]
-        abs_vals['{:.2f}:{:.2f}'.format(xdata[0], xdata[-1])] = ydata[-1]
-
-        # Update the plot
-        ax.plot(xdata, ydata, c='tab:green', lw=0.8)    # Draw permanent integral function
-        tot_text.set_text('{:.4e}'.format(f_vals['total']))  # Text under green label on the right
-
-        xtext = (xdata[0] + xdata[-1]) / 2      # x coordinate of the text: centre of the selected window
-        text_integrals['{:.2f}:{:.2f}'.format(xdata[0], xdata[-1])] = ax.text(xtext, ax.get_ylim()[-1], '{:.5f}'.format(ydata[-1]), horizontalalignment='center', verticalalignment='bottom', fontsize=10, rotation=60)     # Add whatever to the label
-
-        # Update all the integral texts according to the new total_integral value
-        redraw_labels(f_vals)
-        
-    def f_save(event):
-        """ When you click 'SAVE' """
-        nonlocal f_vals     # to update the output variable
-        # Append in the dictionary the relative values of the integrals
-        for key, value in abs_vals.items():     
-            f_vals[key] = value * f_vals['ref_val'] / f_vals['ref_int']
-        plt.close()
-
-    # ---------------------------------------------------------------------------------------
-    
-    # Add things to the figure panel
-
-    ax.plot(ppm, data, c='tab:blue', lw=0.8)        # Spectrum
-    tmp_plot, = ax.plot(ppm, int_f/max(int_f)*max(data), c='tab:red', lw=0.8, visible=False)    # Draw the total integral function but set to invisible because it is useless, needed as placeholder for the red curve
-    ref_plot, = ax.plot(ppm, int_f/max(int_f)*max(data), c='b', lw=0.8, visible=False)    # Draw the total integral function but set to invisible because it is useless, needed as placeholder for the blue curve
-
-    # Draw text labels in the figure, on the right
-    ax.text(0.90, 0.68, 'Current integral (normalized)', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14, color='tab:red')
-    tmp_text = ax.text(0.90, 0.65, '0', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14)
-    ax.text(0.90, 0.60, 'Total integral', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14, color='tab:green')
-    tot_text = ax.text(0.90, 0.55, '0', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14)
-    ax.text(0.90, 0.50, 'Reference integral', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14, color='b')
-    ref_text = ax.text(0.90, 0.45, '{:.4e}'.format(f_vals['ref_int']), horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14)
-
-    # Fancy shit
-    ax.set_xlim(ppm[0], ppm[-1])
-    ax.set_xlabel(X_label)
-    ax.set_ylabel('Intensity /a.u.')
-    misc.pretty_scale(ax, ax.get_xlim(), 'x')
-    misc.pretty_scale(ax, ax.get_ylim(), 'y')
-    misc.mathformat(ax, 'y')
-    misc.set_fontsizes(ax, 14)
-
-    # Add more widgets and connect the buttons to their functions
-    cursor = Cursor(ax, c='tab:red', lw=0.8, horizOn=False)                                     # Vertical line that follows the cursor
-    span = SpanSelector(ax, onselect, 'horizontal', props=dict(facecolor='tab:red', alpha=0.5)) # Draggable window
-    add_button.on_clicked(f_add)
-    save_button.on_clicked(f_save)
-    setref_button.on_clicked(set_ref_int)
-    ref_tbox.on_submit(set_ref_val)
-
-    # Show the figure
-    plt.show()
-
-    return f_vals
-
-
-def integrate_2D(ppm_f1, ppm_f2, data, SFO1, SFO2, fwhm_1=200, fwhm_2=200, utol_1=0.5, utol_2=0.5, plot_result=False):
-    """ 
-    Function to select and integrate 2D peaks of a spectrum, using dedicated GUIs.
-    Calls integral_2D to do the dirty job.
-    
-    .. error::
-
-        Old function!! Legacy
-
-
-    Parameters:
-    -----------
-    ppm_f1 : 1darray
-        PPM scale of the indirect dimension
-    ppm_f2 : 1darray 
-        PPM scale of the direct dimension
-    data : 2darray 
-        real part of the spectrum
-    SFO1 : float
-        Larmor frequency of the nucleus in the indirect dimension
-    SFO2 : float
-        Larmor frequency of the nucleus in the direct dimension
-    fwhm_1 : float
-        Starting FWHM /Hz in the indirect dimension
-    fwhm_2 : float
-        Starting FWHM /Hz in the direct dimension
-    utol_1 : float
-        Allowed tolerance for u_1 during the fit. (u_1-utol_1, u_1+utol_1)
-    utol_2 : float
-        Allowed tolerance for u_2 during the fit. (u_2-utol_2, u_2+utol_2)
-    plot_result : bool
-        True to show how the program fitted the traces.
-
-    Returns:
-    -----------
-    I : dict
-        Computed integrals. The keys are ``'<ppm f1>:<ppm f2>'`` with 2 decimal figures.
-    """
-
-    # Get all the information that integral_2D needs
-    peaks = misc.select_for_integration(ppm_f1, ppm_f2, data, Neg=True)
-
-    I = {}      # Declare empty dictionary
-    for P in peaks:
-        # Extract trace F1
-        T1 = misc.get_trace(data, ppm_f2, ppm_f1, P['f2']['u'], column=True)
-        x_T1, y_T1 = misc.trim_data(ppm_f1, T1, *P['f1']['lim'])    # Trim according to the rectangle
-        # Extract trace F2
-        T2 = misc.get_trace(data, ppm_f2, ppm_f1, P['f1']['u'], column=False)
-        x_T2, y_T2 = misc.trim_data(ppm_f2, T2, *P['f2']['lim'])    # Trim according to the rectangle
-
-        # Compute the integrals
-        I_p = processing.integral_2D(x_T1, y_T1, SFO1, x_T2, y_T2, SFO2,
-                u_1=P['f1']['u'], fwhm_1=fwhm_1, utol_1=utol_1, 
-                u_2=P['f2']['u'], fwhm_2=fwhm_2, utol_2=utol_2,
-                plot_result=plot_result)
-
-        # Store the integral in the dictionary
-        I[f'{P["f2"]["u"]:.2f}:{P["f1"]["u"]:.2f}'] = I_p
-    return I
-
-
 
 class Peak:
     """
@@ -2009,7 +1751,7 @@ class Peak:
             Identifier for the component of a multiplet
         """
         # Unpack the acqus dictionary
-        self.t = misc.extend_taq(acqus['t1'], N)
+        self.t = processing.extend_taq(acqus['t1'], N)
         self.SFO1 = acqus['SFO1']
         self.o1p = acqus['o1p']
         self.N = N
@@ -3880,7 +3622,7 @@ class Voigt_Fit:
         """
         self.ppm_scale = ppm_scale
         self.S = S
-        self.t_AQ = misc.extend_taq(t_AQ, self.S.shape[-1])
+        self.t_AQ = processing.extend_taq(t_AQ, self.S.shape[-1])
         self.SFO1 = SFO1
         self.SW = np.abs( (max(ppm_scale) - min(ppm_scale)) * SFO1 )
         self.o1p = o1p
@@ -4670,7 +4412,7 @@ def peak_pick(ppm_f1, ppm_f2, data, coord_filename='coord.tmp'):
     Make interactive peak_picking.
     The position of the selected signals are saved in ``coord_filename``.
     If ``coord_filename`` already exists, the new signals are appended at its bottom: nothing is overwritten.
-    Calls :func:`klassez.misc.select_traces` for the selection.
+    Calls :func:`klassez.anal.select_traces` for the selection.
 
     Parameters:
     -----------
@@ -4700,7 +4442,7 @@ def peak_pick(ppm_f1, ppm_f2, data, coord_filename='coord.tmp'):
         n_C = 0 
 
     # Make peak_picking
-    coord = misc.select_traces(ppm_f1, ppm_f2, data)
+    coord = anal.select_traces(ppm_f1, ppm_f2, data)
 
     # Update the fucking coord file
     for k, obj in enumerate(coord):
@@ -4952,8 +4694,8 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
             peak, *_ = processing.xfb(signal, zf=N)     # Just zero-fill
 
         # Extract the traces
-        tr_f1 = misc.get_trace(peak, ppm_f2, ppm_f1, a=values[1], column=True)  # F2 @ u1 ppm
-        tr_f2 = misc.get_trace(peak, ppm_f2, ppm_f1, a=values[0], column=False) # F1 @ u2 ppm
+        tr_f1 = anal.get_trace(peak, ppm_f2, ppm_f1, a=values[1], column=True)  # F2 @ u1 ppm
+        tr_f2 = anal.get_trace(peak, ppm_f2, ppm_f1, a=values[0], column=False) # F1 @ u2 ppm
 
         return tr_f1, tr_f2
 
@@ -5573,8 +5315,8 @@ class Voigt_Fit_2D:
         def extract(coord):
             """ Generator: yields the chemical shifts and the traces onto which to loop """
             for x, y in coord:   # u2, u1
-                tr1 = misc.get_trace(self.data, self.ppm_f2, self.ppm_f1, x, column=True)  # F1 @ u2 ppm
-                tr2 = misc.get_trace(self.data, self.ppm_f2, self.ppm_f1, y, column=False) # F2 @ u1 ppm
+                tr1 = anal.get_trace(self.data, self.ppm_f2, self.ppm_f1, x, column=True)  # F1 @ u2 ppm
+                tr2 = anal.get_trace(self.data, self.ppm_f2, self.ppm_f1, y, column=False) # F2 @ u1 ppm
                 yield (y, tr1), (x, tr2)    # (u1, f1), (u2, f2)
         peaks_coord = extract(self.coord)   # Call the generator
 

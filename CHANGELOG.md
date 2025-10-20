@@ -2,6 +2,17 @@
 
 Changed all the docstrings for configuration with sphinx.
 Minor bug fixes.
+Moved functions in a new module for analysis **anal**. All the calls of those functions were updated.
+
+## Moved functions:
+- *misc.extend_taq* -> *processing.extend_taq*
+- *misc.get_trace* -> *anal.get_trace*
+- *misc.noise_std* -> *anal.noise_std*
+- *misc.select_for_integration* -> *anal.select_for_integration*
+- *misc.snr* -> *anal.snr*
+- *misc.snr_2D* -> *anal.snr_2D*
+- *fit.integrate* -> *anal.integrate*
+- *fit.integrate_2D* -> *anal.integrate_2D*
 
 
 # Version 0.4a.11

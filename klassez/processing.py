@@ -21,7 +21,7 @@ from datetime import datetime
 import warnings
 from copy import deepcopy
 
-from . import fit, misc, sim, figures, processing
+from . import fit, misc, sim, figures, processing, anal
 from .config import CM, COLORS, cron
 from .Spectra import Spectrum_1D
 
@@ -2398,7 +2398,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
         
     .. seealso::
 
-        :func:`klassez.misc.select_traces`
+        :func:`klassez.anal.select_traces`
 
         :func:`klassez.processing.ps`
 
@@ -2443,15 +2443,15 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
         f1, f2 = [], []
         npk = len(coord)
         for i in range(npk):
-            y = misc.get_trace(S_rr, ppm_f2, ppm_f1, coord[i][0], column=True)
+            y = anal.get_trace(S_rr, ppm_f2, ppm_f1, coord[i][0], column=True)
             f1.append(y)
-            x = misc.get_trace(S_rr, ppm_f2, ppm_f1, coord[i][1], column=False)
+            x = anal.get_trace(S_rr, ppm_f2, ppm_f1, coord[i][1], column=False)
             f2.append(x)
         return f1, f2
 
 
     # Get the traces on which to see the effects of phase adjustment
-    coord = misc.select_traces(ppm_f1, ppm_f2, S_rr)
+    coord = anal.select_traces(ppm_f1, ppm_f2, S_rr)
     npk = len(coord)
 
     # Make the figure
@@ -2829,125 +2829,6 @@ def integrate(fx, x=None, lims=None):
     # Calculus fundamental theorem
     I = Fx[...,-1] - Fx[...,0]
     return I
-
-def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, utol_1=0.5, u_2=None, fwhm_2=200, utol_2=0.5, plot_result=False):
-    """
-    Calculate the integral of a 2D peak. The idea is to extract the traces correspondent to the peak center and fit them with a gaussian function in each dimension. Then, once got the intensity of each of the two gaussians, multiply them together in order to obtain the 2D integral. 
-    This procedure should be equivalent to what CARA does.
-
-    .. note :: 
-
-        In development!!!
-
-    
-    Parameters:
-    -----------
-    ppm_f1 : 1darray
-        PPM scale of the indirect dimension
-    t_f1 : 1darray 
-        Trace of the indirect dimension, real part
-    SFO1 : float
-        Larmor frequency of the nucleus in the indirect dimension
-    ppm_f2 : 1darray 
-        PPM scale of the direct dimension
-    t_f2 : 1darray 
-        Trace of the direct dimension, real part
-    SFO2 : float
-        Larmor frequency of the nucleus in the direct dimension
-    u_1 : float
-        Chemical shift in F1 /ppm. Defaults to the center of the scale
-    fwhm_1 : float
-        Starting FWHM /Hz in the indirect dimension
-    utol_1 : float
-        Allowed tolerance for u_1 during the fit. (u_1-utol_1, u_1+utol_1)
-    u_2 : float
-        Chemical shift in F2 /ppm. Defaults to the center of the scale
-    fwhm_2 : float
-        Starting FWHM /Hz in the direct dimension
-    utol_2 : float
-        Allowed tolerance for u_2 during the fit. (u_2-utol_2, u_2+utol_2)
-    plot_result : bool
-        True to show how the program fitted the traces.
-
-    Returns:
-    -----------
-    I_tot : float
-        Computed integral.
-    """
-
-    def f2min(param, T, x, SFO1):
-        """ Cost function """
-        par = param.valuesdict()
-        sigma = misc.freq2ppm(par['fwhm'], np.abs(SFO1)) / (2 * (2 * np.log(2))**0.5)     # Convert FWHM to ppm and then to std
-        model = sim.f_gaussian(x, par['u'], sigma, A=par['I'])      # Compute gaussian
-        par['I'] = fit.fit_int(T, model)                            # Calculate integral
-        residual = par['I'] * model - T
-        return residual
-    
-    def fitting(ppm, T, SFO1, u_0, fwhm_0, utol=0.5):
-        """ Main function """
-        param = l.Parameters()
-        param.add('u', value=u_0, min=u_0-utol, max=u_0+utol)
-        param.add('fwhm', value=fwhm_0, min=0)
-        param.add('I', value=1, vary=False)         # Do not vary as it is adjusted during the fit
-
-        minner = l.Minimizer(f2min, param, fcn_args=(T, ppm, SFO1))
-        result = minner.minimize(method='leastsq', max_nfev=10000, xtol=1e-10, ftol=1e-10)
-        popt = result.params.valuesdict()
-        res = result.residual
-
-        # Calculate the model, update the popt dictionary
-        sigma = misc.freq2ppm(popt['fwhm'], np.abs(SFO1)) / (2 * (2 * np.log(2))**0.5) 
-        model_0 = sim.f_gaussian(ppm, popt['u'], sigma, A=popt['I'])
-        popt['I'] = fit.fit_int(T, model_0)
-        model_0 *= popt['I']
-
-        return popt, model_0 
-
-    # Calculate u_0 if not given
-    if u_1 is None:
-        u_1 = np.mean(ppm_f1)
-    if u_2 is None:
-        u_2 = np.mean(ppm_f2)
-
-    # Fit both traces using the function above
-    popt_f2, fit_f2 = fitting(ppm_f2, t_f2, SFO2, u_2, fwhm_2, utol_2)
-    popt_f1, fit_f1 = fitting(ppm_f1, t_f1, SFO1, u_1, fwhm_1, utol_1)
-
-    if plot_result: # Do the plot
-        xlim = [(max(ppm_f2), min(ppm_f2)),
-                (max(ppm_f1), min(ppm_f1))]
-
-        # Make the figure
-        fig = plt.figure('Computed Integrals')
-        fig.set_size_inches(figures.figsize_large)
-        plt.subplots_adjust(left=0.05, right=0.95, bottom=0.10, top=0.90, wspace=0.20)
-        
-        axes = [fig.add_subplot(1,2,w+1) for w in range(2)]
-        axes[0].set_title('FIT F2')
-        axes[1].set_title('FIT F1')
-        axes[0].plot(ppm_f2, t_f2, c='tab:blue', label='Trace F2')
-        axes[0].plot(ppm_f2, fit_f2, c='tab:red', lw=0.9, label='Fit F2')
-        axes[0].plot(ppm_f2, t_f2-fit_f2, c='green', lw=0.6, label='residual')
-        axes[1].plot(ppm_f1, t_f1, c='tab:blue', label='Trace F1')
-        axes[1].plot(ppm_f1, fit_f1, c='tab:red', lw=0.9, label='Fit F1')
-        axes[1].plot(ppm_f1, t_f1-fit_f1, c='green', lw=0.6, label='residual')
-
-        # Fancy shit
-        for k, ax in enumerate(axes):
-            misc.pretty_scale(ax, xlim[k], 'x')
-            misc.pretty_scale(ax, ax.get_ylim(), 'y')
-            misc.mathformat(ax)
-            ax.set_xlabel(r'$\delta$ /ppm')
-            ax.legend()
-            misc.set_fontsizes(ax, 16)
-
-        plt.show()
-        plt.close()
-
-    # Calculate integral
-    I_tot = popt_f1['I'] * popt_f2['I']
-    return I_tot
 
 
 
@@ -5632,7 +5513,7 @@ def splitcomb(data, taq, J=53.8):
     data_dif = data_ip - data_ap
 
     # Make sure the acquisition timescale matches the dimensions
-    taq_ext = misc.extend_taq(taq, N//2)
+    taq_ext = processing.extend_taq(taq, N//2)
 
     # Make Dirac delta functions to shift the data
     delta_sx = np.exp(+1j * np.pi * J * taq)
@@ -5886,7 +5767,7 @@ def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
         # Second derivative of the qfilled data, if the case
         d2 = np.abs(np.gradient(d))
         # Use d2 to compute the threshold
-        thr = alpha * misc.noise_std(d2)
+        thr = alpha * anal.noise_std(d2)
 
         # Find peaks and widths on the second derivative
         peaks, *_ = scipy.signal.find_peaks(y, height=thr, threshold=None, distance=None, prominence=None, width=None, wlen=None, rel_height=0.5, plateau_size=None)
@@ -6449,3 +6330,29 @@ def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
 
     return peak_slices, basl_slices
 
+
+def extend_taq(old_taq, newsize=None):
+    """
+    Extend the acquisition timescale to a longer size, using the same dwell time
+
+    Parameters:
+    -----------
+    old_taq : 1darray
+        Old timescale
+    newsize : int
+        New size of acqusition timescale, in points
+
+    Returns:
+    --------
+    new_taq : 1darray
+        Extended timescale
+    """
+    # Safety check
+    if newsize is None:
+        new_taq = np.copy(old_taq)
+    elif newsize <= len(old_taq):  # Extend only if needed
+        new_taq = np.copy(old_taq)
+    else:
+        dw = misc.calcres(old_taq)      # Get the dwell time
+        new_taq = np.arange(0, dw * newsize, dw)    # Compute new scale
+    return new_taq

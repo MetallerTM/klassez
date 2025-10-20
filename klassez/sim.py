@@ -21,7 +21,7 @@ import warnings
 from pkg_resources import resource_stream
 from . import tables
 
-from . import fit, misc, sim, figures, processing
+from . import fit, misc, sim, figures, processing, anal
 from .config import CM, COLORS, cron
 #from .__init__ import CM
 
