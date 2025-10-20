@@ -18,7 +18,7 @@ import lmfit as l
 from datetime import datetime
 import warnings
 
-from . import fit, misc, sim, figures, processing
+from . import fit, misc, sim, figures, processing, anal
 s_colors=[ 'tab:cyan', 'tab:red', 'tab:green', 'tab:purple', 'tab:pink', 'tab:gray', 'tab:brown', 'tab:olive', 'salmon', 'indigo' ]
 
 from .config import CM, COLORS, cron, CM_2D

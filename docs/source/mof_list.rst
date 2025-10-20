@@ -11,6 +11,7 @@ List of modules and functions
    figures
    sim
    fit
+   anal
    Spectra
    
 
