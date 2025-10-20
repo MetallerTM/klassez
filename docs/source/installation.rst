@@ -1,5 +1,5 @@
-Installation and import instructions
-====================================
+Installation
+============
 
 KLASSEZ can be installed from PyPI through:
 
@@ -7,7 +7,23 @@ KLASSEZ can be installed from PyPI through:
 
    pip install klassez
 
-The required dependencies are sorted out automatically.
+Another option is to clone the `GitHub repository`_ and install the package with ``pip`` directly from the source folder:
+
+
+.. _GitHub repository: https://github.com/MetallerTM/klassez
+
+::
+
+   git clone git@github.com:Metallertm/klassez.git
+
+   cd klassez
+   pip install .
+
+The required dependencies are sorted out automatically in either case.
+
+
+Import instructions
+===================
 
 Initialize the package by writing, at the top of your file:
 
@@ -31,7 +47,7 @@ This line executes the following code:
         from copy import deepcopy
         from pprint import pprint
 
-        from . import fit, misc, sim, figures, processing
+        from . import fit, misc, sim, figures, processing, anal
         from .Spectra import Spectrum_1D, pSpectrum_1D, Spectrum_2D, pSpectrum_2D, Pseudo_2D
 
         # Use seaborn's colormaps and save it to a dictionary
@@ -50,7 +66,7 @@ is:
 In this case, additional packages for the main script must be declared
 explicitely.
 
----
+
 
 Initializing ``KLASSEZ`` also grants access to ``CM`` and ``COLORS``.
 

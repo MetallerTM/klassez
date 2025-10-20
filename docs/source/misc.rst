@@ -5,6 +5,9 @@ MISC Module
 
 This module contains miscellaneous functions for the calculation of several properties, and generally for the handling of NMR spectra.
 
+.. contents::
+   :local:
+
 .. automodule:: klassez.misc
    :members:
    :undoc-members:

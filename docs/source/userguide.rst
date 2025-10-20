@@ -15,6 +15,7 @@ through:
    Path = r"/home/myself/spectra/mydataset/1/"
    s = Spectrum_1D(Path)
 
+
 This command will do three main tasks:
 
 -  read the binary FID of your spectrum and store it in a complex array
@@ -26,7 +27,7 @@ This command will do three main tasks:
 -  initialize a dictionary ``s.procs`` which contains the processing
    parameters.
 
-``KLASSEZ`` is able to read also Varian and Spinsolve (Magritek) data,
+**KLASSEZ** is able to read also Varian and Spinsolve (Magritek) data,
 by specifying the option "``spect``".
 
 A detailed description of ``acqus`` and ``procs`` is shown in
@@ -44,6 +45,9 @@ called *"name.procs"*, where "name" is the path name.
       | Key         | Explanation                                           |
       +=============+=======================================================+
       | ``B0``      | Magnetic field strength /T                            |
+      +-------------+-------------------------------------------------------+
+      | ``spect``   | Spectrometer format: ``simulated``, ``bruker``,       |
+      |             | ``varian``, ``oxford``                                |
       +-------------+-------------------------------------------------------+
       | ``BYTORDA`` | Endianness of binary data: ``0`` little endian, ``1`` |
       |             | big endian                                            |
@@ -74,6 +78,7 @@ called *"name.procs"*, where "name" is the path name.
       | ``t1``      | Acquisition timescale                                 |
       +-------------+-------------------------------------------------------+
 
+
 .. container::
    :name: t:procs_1D
 
@@ -100,7 +105,7 @@ called *"name.procs"*, where "name" is the path name.
       |            |       style                                            |
       |            |                                                        |
       |            | -  ``"lb"``: Exponential line-broadening. Read by      |
-      |            |    ``em`` and ``gm``                                   |
+      |            |    ``em``                                              |
       |            |                                                        |
       |            | -  ``"lb_gm"``: Exponential line-broadening. Read by   |
       |            |    ``gm``                                              |
@@ -140,8 +145,9 @@ called *"name.procs"*, where "name" is the path name.
       |            | scales for calibration                                 |
       +------------+--------------------------------------------------------+
 
+
 To make the Fourier transform of the FID to obtain the spectrum, you
-must invoke the ``process`` method, which reads the ``procs`` dictionary
+must invoke the :meth:`process` method, which reads the ``procs`` dictionary
 to get the instructions on the processing you want to make on your
 spectrum. For instance, if you want to obtain a final spectrum of
 :math:`8k` points with an exponential broadening of 25 Hz:
@@ -154,7 +160,19 @@ spectrum. For instance, if you want to obtain a final spectrum of
    s.process()
    s.pknl()    # Tries to remove the digital filter through a first-order phase correction
 
-Calling the ``process`` method generates new attributes of the class:
+It is also possible to use composite functions by combining more methods.
+For instance:
+
+::
+
+   s.procs["wf"]["mode"] = "em", "qsin"
+   s.procs["wf"]["lb"] = 10, 0
+   s.procs["wf"]["ssb"] = 0, 2
+
+will generate a composite window function made with ``em, lb=10`` and ``qsin, ssb=2``.
+
+
+Calling the :meth:`process` method generates new attributes of the class:
 
 -  ``freq``: the frequency scale, in Hz;
 
@@ -167,9 +185,9 @@ Calling the ``process`` method generates new attributes of the class:
 -  ``S``: the complex spectrum
    (:math:`{\tt S} = {\tt r} + \ui {\tt i}`).
 
-After the Fourier transform, the ``process`` method applies the phase
+After the Fourier transform, the :meth:`process` method applies the phase
 correction and the calibration using the phase angles and the
-calibration value saved in the *procs* dictionary automatically. This
+calibration value saved in the ``procs`` dictionary automatically. This
 allows the user to not phase their spectra every time, as well as
 keeping a record of the processing.
 
@@ -180,7 +198,7 @@ interactively:
 
    s.adjph()
 
-or by passing the phase angles, in degrees, to ``adjph``. Example, if
+or by passing the phase angles, in degrees, to :meth:`adjph`. Example, if
 you know you need to phase your spectrum with :math:`30` degrees of
 :math:`\phi^{(0)}` and :math:`-55` degrees of :math:`\phi^{(1)}` with
 the pivot set at 7.32 ppm:
@@ -207,14 +225,23 @@ set the ``isHz`` keyword to ``True``).
 
 Both ``ppm`` and ``freq`` are updated according to the given values.
 
+The spectrum can be interactively integrated with a dedicated GUI, that calls for :func:`klassez.anal.integrate`, by typing:
+
+::
+
+   s.integrate()
+
+The values of the integrals are saved in the ``integrals`` attribute.
+
+
 The class ``pSpectrum_1D``
 --------------------------
 
-The class ``Spectrum_1D`` does not work if you want to read the
+The class :class:`Spectrum_1D` does not work if you want to read the
 processed data directly from TopSpin (or whatever software you used to
 acquire and process them). Instead, you should use the class
-``pSpectrum_1D``, which is designed to perform exactly this task. It
-inherits most of the attributes and methods of the ``Spectrum_1D``
+:class:`klassez.Spectra.pSpectrum_1D`, which is designed to perform exactly this task. It
+inherits most of the attributes and methods of the :class:`klassez.Spectra.Spectrum_1D`
 class, therefore its usage closely resembles the example reported in the
 previous section.
 
@@ -294,6 +321,7 @@ on both dimensions.
       +-------------+-------------------------------------------------------+
       | ``t2``      | Acquisition timescale                                 |
       +-------------+-------------------------------------------------------+
+
 
 .. container::
    :name: t:procs_2D
@@ -376,6 +404,7 @@ on both dimensions.
       | ``cal_2`` | Calibration offset for F2 /ppm                          |
       +-----------+---------------------------------------------------------+
 
+
 Then, the sequence of commands resembles the ones of the 1D spectra.
 
 ::
@@ -401,9 +430,28 @@ table below:
    pivot              ``pv1`` ``pv2``
    ================== ======= =======
 
-For further information, rely on the ``help`` python builtin function.
+On the processed data, one may want to use the method :meth:`qfil` to suppress the solvent signal.
+This can be done interactively by invoking the function without further arguments:
 
-To read the processed data, use the ``pSpectrum_2D`` class instead.
+::
+        
+   s.qfil()
+
+The key ``qfil = {'u': u, 's': s}`` are then saved in the ``procs`` dictionary for additional use.
+
+Another useful option is to make a so-called "strip transform" to use only the part of the spectrum you are interested in.
+Example:
+
+::
+
+   xlim = (max(s.ppm), 6)
+   ylim = None
+   s.strip(xlim=xlim, ylim=ylim)
+
+will trim the direct dimension from the left side of the spectrum to 6 ppm, and leave the indirect dimension untouched.
+
+
+To read the processed data, use the :class:`pSpectrum_2D` class instead.
 
 Computing projections
 ---------------------
@@ -411,13 +459,13 @@ Computing projections
 While the 2D spectra give an overall look on the whole experiment, the
 user might want to extract projection of the direct or the indirect
 dimension, to focus onto particular features in the spectrum. In order
-to do so, ``klassez`` offers two commands: ``projf1`` and ``projf2``,
+to do so, **KLASSEZ** offers two commands: ``projf1`` and ``projf2``,
 which compute the sum projections on the indirect or on the direct
 dimension, respectively, and store the result in dictionaries called
 ``trf1`` and ``trf2``, whose keys are the ppm values correspondant to
 the projections. Actually, the capitalized versions of the two
 dictionaries (with the same keys), i.e. ``Trf1`` and ``Trf2``, can be
-more useful, as they are instances of the ``pSpectrum_1D`` class and
+more useful, as they are instances of the :class:`pSpectrum_1D` class and
 therefore are initialized with ppm scales and other parameters.
 
 Example:
@@ -429,24 +477,24 @@ Example:
    #   Extract the direct dimension trace at 115 ppm, 15N scale
    s.projf2(115)   
    #   Access to it through
-   Proj_115 = s.Trf2['115']
+   Proj_115 = s.Trf2['115.00']
 
    #   Extract the indirect dimension trace from 6 to 8 ppm, 1H scale
    s.projf1(6, 8)
-   Proj_indim = s.Trf1['6:8']
+   Proj_indim = s.Trf1['6.00:8.00']
 
    # You can plot them:
    Proj_115.plot()
    Proj_indim.plot()
 
+
 Simulating data
 ***************
 
-The classes ``Spectrum_1D`` and ``Spectrum_2D`` are also able to
+The classes :class:`Spectrum_1D` and :class:`Spectrum_2D` are also able to
 generate simulated data by reading a custom-written input file. The
-functions they use are ``sim.sim_1D`` and ``sim.sim_2D``.
+functions they use are :func:`klassez.sim.sim_1D` and :func:`klassez.sim.sim_2D`.
 
-.. _`ssec:sim_1D`:
 
 Simulate 1D data
 ----------------
@@ -470,7 +518,7 @@ The input file you have to write *must* have the following keys:
 
 -  ``amplitudes``: Intensity of the peaks in the FID;
 
--  ``beta``: Fraction of gaussianity. :math:`\beta = 0 \implies` pure
+-  ``b``: Fraction of gaussianity. :math:`\beta = 0 \implies` pure
    Lorentzian peak, :math:`\beta = 1 \implies` pure Gaussian peak;
 
 and *can* have the following keys:
@@ -501,11 +549,12 @@ Example:
    shifts  1, 3, 5, 7
    fwhm    [10 for k in range(4)]
    amplitudes  10, 20, 15, 10
-   beta    0, 0.4, 0.6, 1
+   b       0, 0.4, 0.6, 1
    phases  5, 0, 10, 0
 
    mult    s, t, dt, ddd   
    Jconst  0, 15, [12, 9.5], [25, 15, 10]
+
 
 This input file generates the spectrum in Figure `1 <#fig:test_1D>`__.
 
@@ -522,9 +571,11 @@ Code:
 
    figures.figure1D(s.ppm, s.r, name='test_1D', X_label=r'$\delta\, ^1$H  /ppm', Y_label=r'Intensity /a.u.')
 
+
 .. figure:: _static/test_1D.png
    :alt: 
    :width: 80.0%
+
 
 Simulate 2D data
 ----------------
@@ -542,9 +593,9 @@ accordingly.
 
 -  ``nuc2``: Observed nucleus in F2(e.g. ``1H``);
 
--  ``o1p``: Carrier frequency i.e. centre of F1 /ppm;
+-  ``o1p``: Carrier frequency i.e. center of F1 /ppm;
 
--  ``o2p``: Carrier frequency i.e. centre of F2 /ppm;
+-  ``o2p``: Carrier frequency i.e. center of F2 /ppm;
 
 -  ``SW1p``: Sweep width /ppm. The indirect dimension will cover the
    range :math:`[{\tt o1p} - {\tt SW1p}/2, {\tt o1p} + {\tt SW1p}/2]`;
@@ -566,7 +617,7 @@ accordingly.
 
 -  ``amplitudes``: Intensity of the peaks in the FID;
 
--  ``beta``: Fraction of gaussianity. :math:`\beta = 0 \implies` pure
+-  ``b``: Fraction of gaussianity. :math:`\beta = 0 \implies` pure
    Lorentzian peak, :math:`\beta = 1 \implies` pure Gaussian peak;
 
 Phase distortions and fine structures are not allowed for
@@ -609,9 +660,11 @@ Code:
 
    figures.figure2D(s.ppm_f2, s.ppm_f1, s.rr, lvl=0.005, name='test_2D', X_label=r'$\delta\, ^1$H  /ppm', Y_label=r'$\delta\, ^{15}$N  /ppm')
 
+
 .. figure:: _static/test_2D.png
    :alt: 
    :width: 80.0%
+
 
 The ``Pseudo_2D`` class
 ***********************
@@ -623,15 +676,15 @@ principle, but their processing and analysis resemble the one of 1D
 spectra. Therefore, they lie somewhere in between 1D spectra and 2D
 spectra, hence they are often referred to as *pseudo_2D*.
 
-Also in this case, ``klassez`` offers a specific class to deal with this
-kind of data: ``Pseudo_2D``. ``Pseudo_2D`` is a subclass of
-``Spectrum_2D``; however, many functions have been adapted to resemble
+Also in this case, **KLASSEZ** offers a specific class to deal with this
+kind of data: :class:`klassez.Spectra.Pseudo_2D`. :class:`Pseudo_2D` is a subclass of
+:class:`Spectrum_2D`; however, many functions have been adapted to resemble
 the 1D version.
 
-``Pseudo_2D`` does not encode for a routine to automatically simulate
+:class:`Pseudo_2D` does not encode for a routine to automatically simulate
 data. If you want to, you should give a 1D-like input file (just like
-the one in section `4.1 <#ssec:sim_1D>`__), and replace the attribute
-``fid`` with your FID by using the method ``mount``, generated as you
+the one in the previous section), and replace the attribute
+``fid`` with your FID by using the method :meth:`mount`, generated as you
 wish. With a real dataset this is not required, as it is able to read
 everything automatically.
 
@@ -640,21 +693,27 @@ everything automatically.
    path_to_pseudo = "/home/myself/spectra/mydataset/899/"
    s = Pseudo_2D(path_to_pseudo)
 
-The ``process()`` function applies apodization, zero-filling and Fourier
+The :meth:`process()` function applies apodization, zero-filling and Fourier
 transform only on the direct dimension, reading the parameters from a
-``procs`` dictionary like the one of ``Spectrum_1D``. The attributes
+``procs`` dictionary like the one of :class:`Spectrum_1D`. The attributes
 ``freq_f1`` and ``ppm_f1`` are initialized with
-``np.arange(``\ :math:`N`\ ``)``, where :math:`N` is the number of
+``np.arange(N)``, where ``N`` is the number of
 experiments that your FID comprises of. In particular, ``freq_f1``
 numbers the experiments sequentially from :math:`0` to :math:`N-1`,
 whereas ``ppm_f1`` does it from :math:`1` to :math:`N`. Therefore, when
 calling the method ``projf2`` to extract the experiments as
 ``Spectrum_1D`` objects, the argument must follow ``ppm_f1``. As an
-example, to project the first experiment, one should type
+example, to project the first transient, one should type
 
 ::
 
    s.projf2(1)
+
+and access to it from
+
+::
+
+   t = s.Trf2["1.00"]
 
 The user can replace this "standard" numbering with the actual parameter
 that is varied during the evolution of the indirect dimension, by
@@ -669,13 +728,13 @@ one, but you can choose the one that fits the most your needs.
 
    s.process()
    s.pknl()        # Tries to remove the digital filter
-   s.adjph(expno = 10) # Calls interactive_phase_1D on the 10th experiment
+   s.adjph(expno=10) # Calls interactive_phase_1D on the 10th experiment
 
-The method ``plot`` shows the 2D contour map of the spectrum, just like
-the one of ``Spectrum_2D``. However, this is not always the most
+The method :meth:`plot` shows the 2D contour map of the spectrum, just like
+the one of :meth:`Spectrum_2D`. However, this is not always the most
 intelligent way to plot the data in order to gather information. This is
 the reason why this class features two unique additional methods that
-plot data: ``plot_md`` and ``plot_stacked``. Both rely on the parameter
+plot data: :meth:`plot_md` and :meth:`plot_stacked`. Both rely on the parameter
 ``which``, that is a string of code (i.e. it should be interpreted by
 ``eval``) that identifies which experiment to show by pointing at their
 index. ``which = "all"`` results in pointing at all spectra.
@@ -701,19 +760,19 @@ an array as long as the number of experiment.
 Deconvolution of 1D datasets
 ****************************
 
-The class ``fit.Voigt_Fit`` in KLASSEZ offers a very convenient
+The class :class:`klassez.fit.Voigt_Fit` in *KLASSEZ* offers a very convenient
 interface to deconvolve a spectrum by fitting. A shortcut to the class,
 which initializes the parameters automatically, is implemented in the
-attribute ``F`` of ``Spectrum_1D``.
+attribute ``F`` of :class:`Spectrum_1D`.
 
 To generate the input guess for the fit, you have to call the method
-``iguess`` of the class. This can work in two different modes: the
+:meth:`iguess` of the class. This can work in two different modes: the
 default one, which allows to build the guess peak-by-peak, and with
 ``auto=True``, that features a peak-picker for the selection. The former
 is more precise, the second is much faster.
 
 Whatever the employed method, the building of the initial guess is a
-two-stage process. First, you must zoom in with the matplotlib
+two-stage process. First, you must zoom in with the :mod:`matplotlib`
 interactive viewer on the region of the spectrum you are interested in.
 Then, you can build the guess following the instructions in the GUI.
 When you press "SAVE", your guess is stored, and the spectrum returns to
@@ -728,13 +787,13 @@ red to green. Should the region be moved during the optimization of the
 initial guess, the box turns back to red, and the "SET BASL" button must
 be pressed again to adjust the baseline scale accordingly.
 
-The information on the peaks is saved in a ``.vf`` file, which can be
-imported with the function ``fit.read_vf``. There are two kind of
-``.vf`` file: ``.ivf``, that marks initial guesses, and ``.fvf``, for
+The information on the peaks is saved in a `.vf` file, which can be
+imported with the function :func:`klassez.fit.read_vf``. There are two kind of
+`.vf` file: `.ivf`, that marks initial guesses, and `.fvf`, for
 the results of the fit. However, this is a human-only distinction, as
 the structure of the files is the same.
 
-An example of ``.vf`` file is shown here:
+An example of `.vf` file is shown here:
 
 ::
 
@@ -763,11 +822,12 @@ An example of ``.vf`` file is shown here:
 
    ================================================================================================
 
-The header line, that starts with a ``!``, is a comment, and acts as a
-separator between different attempts of the fit. In fact, ``.vf`` files
+
+The header line, that starts with a `!`, is a comment, and acts as a
+separator between different attempts of the fit. In fact, `.vf` files
 are never overwritten: working again on the same file appends the
 information at the bottom. Hence, there is a parameter ``n`` in the
-``fit.read_vf`` function that allows to select which attempt to read.
+:func:`klassez.fit.read_vf` function that allows to select which attempt to read.
 
 Then, a series of blocks follow. Each block marks a region of selection:
 the keys "Region" and "Intensity" mark the limits of the fitting window,
@@ -779,24 +839,26 @@ not optimized during the computation of the guess, and the coefficients
 will all be set to 0 when the file is read. The end of the block is
 marked with a line of "=".
 
-The method ``iguess`` automatically search for the existing input file.
+The method :meth:`iguess` automatically search for the existing input file.
 If it finds it, it is automatically loaded. Otherwise, the GUI for the
 computation of the initial guess opens up.
 
-The fit can be performed by calling the method ``dofit``, which returns
+The fit can be performed by calling the method :meth:`dofit`, which returns
 a list of ``lmfit.MinimizerResult`` objects (one for each region) for a
 detailed inspection on how the fit performed. The behavior of the fit
 can be customized by setting the parameters of the method (see examples
 or the dedicated page of the manual). The fit goes region-by-region, and
-the results are saved in a ``.fvf`` file.
+the results are saved in a `.fvf` file.
 
-A ``.fvf`` file can be loaded using the method ``load_fit``.
+A `.fvf` file can be loaded using the method :meth:`load_fit`.
 
 Either the initial guess or the result of the fit can be conveniently
-visualized by using the method ``plot``. Alternatively, the arrays of
-the model can be retrieved by calling ``calc_fit_lines``. The method
-``res_histogram`` computes the histogram of the residuals, for a better
+visualized by using the method :meth:`plot`. Alternatively, the arrays of
+the model can be retrieved by calling :meth:`calc_fit_lines`. The method
+:meth:`res_histogram` computes the histogram of the residuals, for a better
 understanding of the outcome of the fit procedure.
+
+Vide infra for a working example.
 
 Example scripts
 ***************
@@ -838,6 +900,7 @@ Reading and processing of 1D spectra
    s.adjph()
    # Plot the data
    s.plot()
+
 
 Fit 1D spectrum
 ---------------
@@ -894,6 +957,7 @@ The beginning of the script is the same of the reading example.
    # Convert the tables of numbers in arrays
    peaks, total, limits, whole_basl = s.F.get_fit_lines(what='result')
 
+
 Read and process 2D spectrum
 ----------------------------
 
@@ -942,4 +1006,6 @@ Read and process 2D spectrum
    s.projf2(ppm_f1)    # Extract F2 trace @ ppm_f1 ppm
    f2 = s.Trf2[f'{ppm_f1:.2f}']    # Call it back: it is a Spectrum_1D object!
    f2.plot()
+
+
 

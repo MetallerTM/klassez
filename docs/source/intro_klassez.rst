@@ -15,8 +15,8 @@ The development of the toolkit started with ``python 3.8`` and therefore
 it is compatible with that version. Nevertheless, the use of
 ``python 3.10`` is advised.
 
-The key objects provided by **KLASSEZ** are the classes ``Spectrum_1D``
-and ``Spectrum_2D``, that are able to fulfil the aims of the package
+The key objects provided by **KLASSEZ** are the classes :class:`klassez.Spectrum_1D`
+and :class:`klassez.Spectrum_2D`, that are able to fulfil the aims of the package
 with a few lines of code. The classes are able to read both simulated
 (i.e. generated with a custom-made input file) and experimental
 datasets. The latter feature was tested with Bruker data after the
@@ -25,9 +25,9 @@ should be compatible with other kind of spectrometers, thanks to the
 remarkable work made by J. J. Helmus and coworkers with their
 **nmrglue** package [1]_. Either the FID or the spectrum processed with
 external solver can be read from **KLASSEZ** by using the classes
-``Spectrum_nD`` or ``pSpectrum_nD``, respectively.
+:class:`klassez.Spectrum_nD` or :class:`pSpectrum_nD`, respectively.
 
-The ``processing`` module, besides the classical functions used for the
+The :mod:`klassez.processing` module, besides the classical functions used for the
 processing of NMR data (window functions, Fourier transform, etc.),
 includes denoising algorithms based on Multivariate Curve
 Resolution [2]_ and on Cadzow method [3]_. Details are illustrated in
@@ -36,16 +36,16 @@ the description of the functions.
 Functions to show and analyze data in real time are provided, with
 dedicated GUIs. However, it is better to rely on the standalone
 functions, enclosed in the single modules, to save the figures. In fact,
-the ``figures`` module offers a wide plethora of functions (all based on
-``matplotlib``) to plot the data with a high degree of customization for
+the :mod:`klassez.figures` module offers a wide plethora of functions (all based on
+:mod:`matplotlib`) to plot the data with a high degree of customization for
 the appearance.
 
-The fitting functions use ``lmfit`` to build the initial guess and to
+The fitting functions use :mod:`lmfit` to build the initial guess and to
 minimize the difference between the experimental data and the model,
 generated with a Voigt profile in the time domain and then
 Fourier-transformed, in the least-square sense (employing the
-Levenberg-Marquardt algorithm implemented in ``scipy``). For this
-purpose, the class ``Voigt_fit`` of the ``fit`` module includes
+Levenberg-Marquardt algorithm implemented in :mod:`scipy`). For this
+purpose, the class :class:`klassez.fit.Voigt_fit` includes
 attribute functions to construct an initial guess interactively, fit the
 data, and save the parameters in dedicated files.
 
