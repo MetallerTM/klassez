@@ -1,2 +1,9 @@
 sphinx>=8.2.3
 sphinx-rtd-theme>=2.0.0
+numpy
+scipy
+lmfit
+seaborn
+nmrglue
+matplotlib>=3.8
+csaps
