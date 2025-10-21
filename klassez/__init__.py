@@ -19,4 +19,4 @@ from .Spectra import Spectrum_1D, pSpectrum_1D, Spectrum_2D, pSpectrum_2D, Pseud
 # Use seaborn's colormaps and save it to a dictionary
 from .config import CM, CM_2D, COLORS, cron
 
-__version__ = '0.4a.12'
+__version__ = "0.4a.12"

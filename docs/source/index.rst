@@ -3,26 +3,25 @@
 
 .. container:: center
    
-   **Author**:
-   Francesco Bruno
+   **Author**: Francesco Bruno
 
-   **Major contributors**:
-   Letizia Fiorucci
+   **Major contributors**: Letizia Fiorucci
 
-   **Version**: 
-   0.4a.10
+   **Version**: 0.4a.12
 
-   **Documentation release date**: 
-   |today|
+   **Documentation release date**: |today|
 
 
 
 The **KLASSEZ** package is a collection of classes and functions to handle NMR data.
 It is organized in modules, each of which contains functions dedicated to specific tasks.
-Some of the functions employed by KLASSEZ are taken from the `NMRGLUE package`_ and modified to suit the needs of the KLASSEZ package itself.
+Some of the functions employed by KLASSEZ are taken from the `nmrglue package`_ and modified to suit the needs of the KLASSEZ package itself.
 KLASSEZ is developed and tested on Ubuntu 24.04 LTS. Other OS should encounter no issues; however, if it raises any errors, please notify.
 
-.. _NMRGLUE package: https://nmrglue.readthedocs.io/en/latest/#
+Full documentation is available at `https://klassez.readthedocs.io/latest/`_.
+
+.. _nmrglue package: https://nmrglue.readthedocs.io/en/latest/#
+.. _https://klassez.readthedocs.io/latest/: https://klassez.readthedocs.io/latest/
 
 
 Contents

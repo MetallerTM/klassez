@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 project = 'klassez'
 copyright = '2025, Francesco Bruno and Letizia Fiorucci'
 author = 'Francesco Bruno and Letizia Fiorucci'
-release = '0.4a.11'
+release = "0.4a.12"
 
 # -- General configuration ---------------------------------------------------
 
