@@ -3329,7 +3329,7 @@ def test_randomsign(data, thresh=1.96):
     return z < thresh
 
 def test_correl(data, subtract_mean=True):
-    """
+    r"""
     Tests an array of residuals for their correlation.
     It compares the unit-lag autocorrelation `P` of the ``data`` (see below) with the theoretical value for non-correlated data `T_P`:
 
@@ -5828,7 +5828,7 @@ def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
 
 
 class SINC_ObjFunc:
-    """
+    r"""
     Computes the objective function as explained in M. Sawall et al., Journal of Magnetic Resonance 289 (2018), 132-141.
     The cost function is computed as:
 
