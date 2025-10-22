@@ -837,22 +837,6 @@ class Spectrum_1D:
         # Update the .procs file
         self.write_procs()
 
-    def baseline_correction(self, basl_file='spectrum.basl', winlim=None):
-        """
-        Correct the baseline of the spectrum, according to a pre-existing file or interactively.
-        Calls :func:`klassez.processing.baseline_correction` or :func:`klassez.processing.load_baseline`
-
-        Parameters
-        ----------
-        basl_file : str
-            Path to the baseline file. If it already exists, the baseline will be built according to this file; otherwise this will be the destination file of the baseline.
-        winlim : tuple or None
-            Limits of the baseline. If it is None, it will be interactively set. If basl_file exists, it will be read from there. Else, (ppm1, ppm2).
-        """
-        if not os.path.exists(basl_file):
-            processing.baseline_correction(self.ppm, self.r, basl_file=basl_file, winlim=winlim)
-        self.baseline = processing.load_baseline(basl_file, self.ppm, self.r)
-
     def basl(self, from_procs=False, phase=True):
         """
         Apply the baseline correction by subtracting ``self.baseline`` from ``self.S``. Then, ``self.S`` is unpacked in ``self.r`` and ``self.i``

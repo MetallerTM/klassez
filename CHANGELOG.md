@@ -5,6 +5,7 @@ Replaced *pkg_resources* for reading the text files from the *tables* subdirecto
 Code cleanup and check with *flake8*.
 Minor bug fixes.
 Moved functions in a new module for analysis **anal**. All the calls of those functions were updated.
+Removed some old functions never used, put in *klassez/old_and_unused*.
 
 ## Moved functions:
 - *misc.extend_taq* -> *processing.extend_taq*

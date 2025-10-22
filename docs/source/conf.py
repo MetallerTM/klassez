@@ -41,6 +41,8 @@ extensions = [
     'sphinx.ext.imgconverter',
 ]
 
+autosummary_generate = True
+
 intersphinx_mapping = {
     'numpy': ('https://numpy.org/doc/stable/', None),
     'scipy': ('https://docs.scipy.org/doc/scipy/', None),
