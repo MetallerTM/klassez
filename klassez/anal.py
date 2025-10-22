@@ -1,38 +1,22 @@
 #! /usr/bin/env python3
 
-import os
-import sys
 import numpy as np
-from numpy import linalg
-from scipy import stats
-from scipy.spatial import ConvexHull
-from scipy.signal import find_peaks, peak_widths
-from scipy import interpolate
-from csaps import csaps
-import random
-import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-from matplotlib.widgets import Slider, Button, RadioButtons, TextBox, CheckButtons, Cursor, LassoSelector, SpanSelector
-from matplotlib.path import Path
-import seaborn as sns
-import nmrglue as ng
-import lmfit as l
-from datetime import datetime
-import warnings
-from copy import deepcopy
+from matplotlib.widgets import Button, TextBox, Cursor, SpanSelector, RectangleSelector
+import lmfit
 
 from . import fit, misc, sim, figures, processing, anal
-from .config import CM, COLORS, cron
+from .config import CM
+
 
 def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
     """
-    Select traces from a 2D spectrum, save the coordinates in a list. 
+    Select traces from a 2D spectrum, save the coordinates in a list.
     Left click to select a point, right click to remove it.
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm_f1 : 1darray
         ppm scale of the indirect dimension
     ppm_f2 : 1darray
@@ -44,8 +28,8 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
     grid : bool
         Choose if to display the grid ( True) or not ( False )
 
-    Returns:
-    --------
+    Returns
+    -------
     coord : list
         List containing the ``[x,y]`` coordinates of the selected points.
     """
@@ -56,7 +40,7 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
     # Make the figure
     fig = plt.figure('Traces Selector')
     fig.set_size_inches(figures.figsize_large)
-    ax = fig.add_subplot(1,1,1)
+    ax = fig.add_subplot()
     ax.set_title('Left double click (or middle click) to add point, right click to remove point')
     plt.subplots_adjust(left=0.1, bottom=0.1, right=0.95, top=0.90)
 
@@ -71,7 +55,7 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
     cnt = figures.ax2D(ax, ppm_f2, ppm_f1, data, xlims=(xsx, xdx), ylims=(ysx, ydx), cmap=cmaps[0], c_fac=1.4, lvl=livello, lw=0.5, X_label='', Y_label='')
     if Neg:
         Ncnt = figures.ax2D(ax, ppm_f2, ppm_f1, -data, xlims=(xsx, xdx), ylims=(ysx, ydx), cmap=cmaps[1], c_fac=1.4, lvl=livello, lw=0.5)
-    else: 
+    else:
         Ncnt = None
 
     # Make pretty scales
@@ -86,7 +70,7 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
         for j in ygrid:
             ax.axhline(j, color='grey', lw=0.1)
 
-    # Parameters: to save coordinates
+    # Parameters to save coordinates
     coord = []          # Final list of coordinates
     dot = []            # Bullets in figure
     dothline = []       # Horizontal lines
@@ -99,7 +83,7 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
             ix, iy = misc.find_nearest(xgrid, x), misc.find_nearest(ygrid, y)       # Handle to the grid
             if (event.button == 1 and event.dblclick) or event.button == 2:     # Left click: add point
                 if [ix, iy] not in coord:       # Avoid superimposed peaks
-                    coord.append([ix,iy])       # Update list
+                    coord.append([ix, iy])       # Update list
                     # Update figure:
                     #   add bullet
                     line, = ax.plot(ix, iy, 'ro', markersize=2)
@@ -121,7 +105,7 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
                     killv.remove()
 
         fig.canvas.draw()
-    
+
     def on_scroll(event):
         # Zoom
         nonlocal livello, cnt
@@ -132,7 +116,7 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
         ysx, ydx = ax.get_ylim()
 
         if event.button == 'up':
-            livello *= lvlstep 
+            livello *= lvlstep
         if event.button == 'down':
             livello /= lvlstep
         if livello > 1:
@@ -143,24 +127,25 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
         fig.canvas.draw()
 
     # Widgets
-    cursor = Cursor(ax, useblit=True, color='red', linewidth=0.4)
-    mouse = fig.canvas.mpl_connect('button_press_event', on_click)
-    scroll = fig.canvas.mpl_connect('scroll_event', on_scroll)
+    Cursor(ax, useblit=True, color='red', linewidth=0.4)
+    fig.canvas.mpl_connect('button_press_event', on_click)
+    fig.canvas.mpl_connect('scroll_event', on_scroll)
 
     plt.show()
     plt.close()
 
     return coord
 
+
 def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
     """
     Select the peaks of a 2D spectrum to integrate.
     First, select the area where your peak is located by dragging the red square.
-    Then, select the center of the peak by right_clicking. 
+    Then, select the center of the peak by right_clicking.
     Finally, click 'ADD' to store the peak. Repeat the procedure for as many peaks as you want.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm_f1 : 1darray
         ppm scale of the indirect dimension
     ppm_f2 : 1darray
@@ -170,10 +155,10 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
     Neg : bool
         Choose if to show the negative contours ( True) or not ( False )
 
-    Returns:
-    -----------
+    Returns
+    ----------
     peaks : list of dict
-        For each peak there are two keys, 'f1' and 'f2', whose meaning is obvious. 
+        For each peak there are two keys, 'f1' and 'f2', whose meaning is obvious.
         For each of these keys, you have 'u': center of the peak /ppm, and 'lim': the limits of the square you drew before.
     """
 
@@ -183,7 +168,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
     # Make an underlying grid to snap the pointer
     xgrid = np.copy(ppm_f2)
     ygrid = np.copy(ppm_f1)
-    # Parameters: to save coordinates
+    # Parameters to save coordinates
     coord = []          # Final list of coordinates
     rekt = []           # Rectangles
     # Set figure borders
@@ -197,8 +182,8 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
     def add_crosshair(coord, ix, iy):
         """ Add blue crosshair in (ix, iy) """
         if [ix, iy] not in coord:       # Avoid superimposed peaks
-            coord.append([ix,iy])       # Update list
-            ax.plot(ix, iy, 'bo', markersize=2) # add dot
+            coord.append([ix, iy])       # Update list
+            ax.plot(ix, iy, 'bo', markersize=2)  # add dot
             ax.axhline(iy, c='b', lw=0.4)   # add horizontal line
             ax.axvline(ix, c='b', lw=0.4)   # add vertical line
             for obj in (tmp_dot, tmp_hline, tmp_vline):
@@ -208,9 +193,9 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
     def on_click(event):
         """ Right click moves the red crosshair """
         x, y = event.xdata, event.ydata     # x,y position of cursor
-        if event.inaxes == ax: # You are inside the figure
+        if event.inaxes == ax:   # You are inside the figure
             ix, iy = misc.find_nearest(xgrid, x), misc.find_nearest(ygrid, y)       # Snap to the grid
-            if event.button == 3:    
+            if event.button == 3:
                 # Update figure:
                 tmp_dot.set_data((ix,), (iy,))
                 tmp_hline.set_ydata((iy,))
@@ -221,7 +206,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
         else:
             pass
         fig.canvas.draw()
-    
+
     def on_scroll(event):
         """ Redraw contours with more/less levels """
         nonlocal lvl0, cnt
@@ -230,7 +215,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
 
         # Read the input
         if event.button == 'up':
-            lvl0 *= lvlstep 
+            lvl0 *= lvlstep
         if event.button == 'down':
             lvl0 /= lvlstep
         if lvl0 > 1:
@@ -249,7 +234,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
 
     def onselect(epress, erelease):
         """ Drag rectangle """
-        if epress.button == 1: # left click
+        if epress.button == 1:   # left click
             # Vertices of the rectangle, counterclockwise
             X = np.array(span.extents[0:2])
             Y = np.array(span.extents[2:4])
@@ -259,21 +244,21 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
             # Make visible the red rectangle
             if not tmp_rekt.get_visible():
                 tmp_rekt.set_visible(True)
-            tmp_rekt.set_xy(np.array((vertX, vertY)).T) # .T because (vertX, vertY).shape = (2, 4)
+            tmp_rekt.set_xy(np.array((vertX, vertY)).T)  # .T because (vertX, vertY).shape = (2, 4)
         else:
             pass
         fig.canvas.draw()
 
     def add_func(event):
         """ ADD button """
-        nonlocal tmp_rekt, coord
+        nonlocal coord
         # Draw blue crosshair reading data from the red dot
         ix, iy = tmp_dot.get_data()
         coord = add_crosshair(coord, ix, iy)    # Update coord with the new peak
 
         # Draw blue rectangle reading data from the red rectangle
         verts = np.array(tmp_rekt.get_xy())[:-1]    # Skip the latter because it knows it has to close the perimeter
-        dummy_rekt, = ax.fill(verts[:,0], verts[:,1], 'tab:blue', alpha=0.25)
+        dummy_rekt, = ax.fill(verts[:, 0], verts[:, 1], 'tab:blue', alpha=0.25)
         rekt.append(dummy_rekt)
         # Set red rectangle to invisible
         tmp_rekt.set_visible(False)
@@ -284,22 +269,22 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
     # Make the figure
     fig = plt.figure('Manual Peak Picking')
     fig.set_size_inches(figures.figsize_large)
-    ax = fig.add_subplot(1,1,1)
+    ax = fig.add_subplot()
     ax.set_title('Drag with left peak for region; select peak with right click')
     plt.subplots_adjust(left=0.1, bottom=0.1, right=0.875, top=0.90)
-    
+
     # ADD button
     add_box = plt.axes([0.925, 0.70, 0.05, 0.05])
     add_button = Button(add_box, 'ADD', hovercolor='0.975')
 
     # Draw contour
     cnt = figures.ax2D(ax, ppm_f2, ppm_f1, data, cmap=cmaps[0], c_fac=1.4, lvl=lvl0, lw=0.5)
-    if Neg:   
+    if Neg:
         Ncnt = figures.ax2D(ax, ppm_f2, ppm_f1, -data, cmap=cmaps[1], c_fac=1.4, lvl=lvl0, lw=0.5)
 
     # Initialize the red curves
-    tmp_rekt, = ax.fill(np.array([0.1,0.2,0.3]), np.array([0.1,0.2,0.3]), 'tab:red', alpha=0.25, visible=False) # Rectangle
-    tmp_dot, = ax.plot(0, 0, 'ro', markersize=2, visible=False) # Dot
+    tmp_rekt, = ax.fill(np.array([0.1, 0.2, 0.3]), np.array([0.1, 0.2, 0.3]), 'tab:red', alpha=0.25, visible=False)  # Rectangle
+    tmp_dot, = ax.plot(0, 0, 'ro', markersize=2, visible=False)  # Dot
     tmp_hline = ax.axhline(0, 0, c='r', lw=0.4, visible=False)  # Horizontal line
     tmp_vline = ax.axvline(0, 0, c='r', lw=0.4, visible=False)  # Vertical line
 
@@ -309,11 +294,11 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
     misc.set_fontsizes(ax, 14)
 
     # Widgets
-    cursor = Cursor(ax, useblit=True, color='red', linewidth=0.4)       # Moving crosshair
-    mouse = fig.canvas.mpl_connect('button_press_event', on_click)      # Right click
-    scroll = fig.canvas.mpl_connect('scroll_event', on_scroll)          # Mouse scroll
-    span = RectangleSelector(ax, onselect, useblit=False, props=dict(facecolor='tab:red', alpha=0.5)) # Draggable rectangle
-    add_button.on_clicked(add_func) # Button
+    Cursor(ax, useblit=True, color='red', linewidth=0.4)       # Moving crosshair
+    fig.canvas.mpl_connect('button_press_event', on_click)      # Right click
+    fig.canvas.mpl_connect('scroll_event', on_scroll)          # Mouse scroll
+    span = RectangleSelector(ax, onselect, useblit=False, props=dict(facecolor='tab:red', alpha=0.5))    # Draggable rectangle
+    add_button.on_clicked(add_func)  # Button
 
     plt.show()
     plt.close()
@@ -321,12 +306,12 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
     # -----------------------------------------------------------------------------------------------------------------
 
     # collect results
-    peaks = [] 
+    peaks = []
 
     def calc_borders(rect):
         """ Calculate the limits of the rectangle """
         vert = rect.get_xy()
-        vertX, vertY = vert[:,0], vert[:,1]
+        vertX, vertY = vert[:, 0], vert[:, 1]
         x_lims = min(vertX), max(vertX)
         y_lims = min(vertY), max(vertY)
         return x_lims, y_lims
@@ -335,13 +320,13 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
         x_lims, y_lims = calc_borders(rec)
         # Create an entry for each peak as stated in the description
         peaks.append({
-            'f1' : {
-                'u' : dot[1],
-                'lim' : y_lims,
+            'f1': {
+                'u': dot[1],
+                'lim': y_lims,
                 },
-            'f2' : { 
-                'u' : dot[0], 
-                'lim' : x_lims,
+            'f2': {
+                'u': dot[0],
+                'lim': x_lims,
                 },
             })
     return peaks
@@ -349,21 +334,23 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
 
 def noise_std(y):
     r"""
-    Calculates the standard deviation of the noise using the Bruker formula: 
+    Calculates the standard deviation of the noise using the Bruker formula:
 
     Taken :math:`y` as an array of :math:`N` points, and :math:`y[i]` its i-th entry:
 
     .. math::
-       \sigma_N = \frac{1}{\sqrt{r-1}} \sqrt{ \sum_{k=0}^{r-1} (y[k]^2) - \frac{1}{r} [ ( \sum_{k=0}^{r-1} y[k] )^2 + \frac{3}{r^2 -1}( \sum_{k=0}^{r / 2 - 1} (k+1) (y[r/ 2 + k] - y[r/ 2 - k -1 ] ) )^2 ] }
+
+       \sigma_N = \frac{1}{\sqrt{r-1}} \sqrt{ \sum_{k=0}^{r-1} (y[k]^2) - \frac{1}{r}
+       [ ( \sum_{k=0}^{r-1} y[k] )^2 + \frac{3}{r^2 -1}( \sum_{k=0}^{r / 2 - 1} (k+1) (y[r/ 2 + k] - y[r/ 2 - k -1 ] ) )^2 ] }
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     y : 1darray
         The spectral region you would like to use to calculate the standard deviation of the noise.
 
-    Returns:
-    ---------
+    Returns
+    --------
     noisestd : float
         The standard deviation of the noise.
     """
@@ -374,11 +361,11 @@ def noise_std(y):
     # Y
     Y = np.sum(y**2)
     # X
-    if N%2 == 0:
+    if N % 2 == 0:
         X = np.sum([(k+1) * (y[n+k] - y[n-k-1]) for k in range(n)])
     else:
         X = np.sum([(k+1) * (y[n+k] - y[n-k-1]) for k in range(n)])
-    noisestd = (N-1)**(-0.5) * np.sqrt( Y - 1/N * (W + 3 * X**2 / (N**2 -1) ))
+    noisestd = (N-1)**(-0.5) * np.sqrt(Y - 1/N * (W + 3 * X**2 / (N**2 - 1)))
     return noisestd
 
 
@@ -386,8 +373,8 @@ def snr(data, x=None, signal=None, n_reg=None):
     """
     Computes the signal to noise ratio of a 1D spectrum as height of the signal over twice the noise standard deviation.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 1darray
         The spectrum of which you want to compute the SNR
     x : 1darray
@@ -396,9 +383,9 @@ def snr(data, x=None, signal=None, n_reg=None):
         If provided, uses this value as maximum signal. Otherwise, it is selected as the maximum value in ``data``
     n_reg : list or tuple, optional
         If provided, contains the points that delimit the noise region. Otherwise, the whole spectrum is used.
-    
-    Returns:
-    --------
+
+    Returns
+    -------
     snr : float
         The SNR of the spectrum
     """
@@ -415,25 +402,26 @@ def snr(data, x=None, signal=None, n_reg=None):
     else:
         A = misc.ppmfind(x, n_reg[0])[0]
         B = misc.ppmfind(x, n_reg[1])[0]
-        w = slice(min(A,B), max(A,B))
+        w = slice(min(A, B), max(A, B))
         y = data[w]
     snr = signal / (2 * anal.noise_std(y))
     return snr
 
+
 def snr_2D(data, n_reg=None):
     """
     Computes the signal to noise ratio of a 2D spectrum.
-   
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     data : 1darray
         The spectrum of which you want to compute the SNR
     n_reg : list or tuple
         If provided, the points of F1 scale and F2 scale, respectively, of which to extract the projections.
         Otherwise, opens the tool for interactive selection.
-  
-    Returns:
-    --------
+
+    Returns
+    -------
     snr_f1 : float
         The SNR of the indirect dimension
     snr_f2 : float
@@ -446,10 +434,10 @@ def snr_2D(data, n_reg=None):
         y_scale = np.arange(data.shape[0])
         coord = anal.select_traces(y_scale, x_scale, data)
         n_reg = (coord[0][0], coord[0][1])
-        print('index for SNR (F1 | F2): ',n_reg)
+        print('index for SNR (F1 | F2): ', n_reg)
 
-    f1_trace = data[:,n_reg[0]]
-    f2_trace = data[n_reg[1],:]
+    f1_trace = data[:, n_reg[0]]
+    f2_trace = data[n_reg[1], :]
 
     snr_f1 = anal.snr(f1_trace, signal=np.max(data))
     snr_f2 = anal.snr(f2_trace, signal=np.max(data))
@@ -461,12 +449,12 @@ def get_trace(data, ppm_f2, ppm_f1, a, b=None, column=True):
     """
 
     Takes as input a 2D dataset and the ppm scales of direct and indirect dimensions respectively.
-    Calculates the projection on the given axis summing from ``a`` (ppm) to ``b`` (ppm). 
+    Calculates the projection on the given axis summing from ``a`` (ppm) to ``b`` (ppm).
     Default: indirect dimension projection (i.e. ``column=True``), change it to False for the direct dimension projection.
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 2darray
         Spectrum of which to extract the projections
     ppm_f2 : 1darray
@@ -480,8 +468,8 @@ def get_trace(data, ppm_f2, ppm_f1, a, b=None, column=True):
     column : bool
         If True, extracts the F1 projection. If False, extracts the F2 projection.
 
-    Returns:
-    --------
+    Returns
+    -------
     y : 1darray
         Computed projection
     """
@@ -491,38 +479,38 @@ def get_trace(data, ppm_f2, ppm_f1, a, b=None, column=True):
     if column:
         A = misc.ppmfind(ppm_f2, a)[0]
         B = misc.ppmfind(ppm_f2, b)[0]+1
-        w = slice(min(A,B), max(A,B))
-        y = np.sum(data[...,w],axis=1)
+        w = slice(min(A, B), max(A, B))
+        y = np.sum(data[..., w], axis=1)
     else:
         A = misc.ppmfind(ppm_f1, a)[0]
         B = misc.ppmfind(ppm_f1, b)[0]+1
-        w = slice(min(A,B), max(A,B))
-        y = np.sum(data[w,...],axis=0)
+        w = slice(min(A, B), max(A, B))
+        y = np.sum(data[w, ...], axis=0)
     return y
-
 
 
 def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, utol_1=0.5, u_2=None, fwhm_2=200, utol_2=0.5, plot_result=False):
     """
-    Calculate the integral of a 2D peak. The idea is to extract the traces correspondent to the peak center and fit them with a gaussian function in each dimension. Then, once got the intensity of each of the two gaussians, multiply them together in order to obtain the 2D integral. 
+    Calculate the integral of a 2D peak. The idea is to extract the traces correspondent to the peak center and fit them with a gaussian function in each dimension.
+    Then, once got the intensity of each of the two gaussians, multiply them together in order to obtain the 2D integral.
     This procedure should be equivalent to what CARA does.
 
-    .. note :: 
+    .. note ::
 
         In development!!!
 
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     ppm_f1 : 1darray
         PPM scale of the indirect dimension
-    t_f1 : 1darray 
+    t_f1 : 1darray
         Trace of the indirect dimension, real part
     SFO1 : float
         Larmor frequency of the nucleus in the indirect dimension
-    ppm_f2 : 1darray 
+    ppm_f2 : 1darray
         PPM scale of the direct dimension
-    t_f2 : 1darray 
+    t_f2 : 1darray
         Trace of the direct dimension, real part
     SFO2 : float
         Larmor frequency of the nucleus in the direct dimension
@@ -541,8 +529,8 @@ def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, ut
     plot_result : bool
         True to show how the program fitted the traces.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     I_tot : float
         Computed integral.
     """
@@ -555,26 +543,25 @@ def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, ut
         par['I'] = fit.fit_int(T, model)                            # Calculate integral
         residual = par['I'] * model - T
         return residual
-    
+
     def fitting(ppm, T, SFO1, u_0, fwhm_0, utol=0.5):
         """ Main function """
-        param = l.Parameters()
+        param = lmfit.Parameters()
         param.add('u', value=u_0, min=u_0-utol, max=u_0+utol)
         param.add('fwhm', value=fwhm_0, min=0)
         param.add('I', value=1, vary=False)         # Do not vary as it is adjusted during the fit
 
-        minner = l.Minimizer(f2min, param, fcn_args=(T, ppm, SFO1))
+        minner = lmfit.Minimizer(f2min, param, fcn_args=(T, ppm, SFO1))
         result = minner.minimize(method='leastsq', max_nfev=10000, xtol=1e-10, ftol=1e-10)
         popt = result.params.valuesdict()
-        res = result.residual
 
         # Calculate the model, update the popt dictionary
-        sigma = misc.freq2ppm(popt['fwhm'], np.abs(SFO1)) / (2 * (2 * np.log(2))**0.5) 
+        sigma = misc.freq2ppm(popt['fwhm'], np.abs(SFO1)) / (2 * (2 * np.log(2))**0.5)
         model_0 = sim.f_gaussian(ppm, popt['u'], sigma, A=popt['I'])
         popt['I'] = fit.fit_int(T, model_0)
         model_0 *= popt['I']
 
-        return popt, model_0 
+        return popt, model_0
 
     # Calculate u_0 if not given
     if u_1 is None:
@@ -586,7 +573,7 @@ def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, ut
     popt_f2, fit_f2 = fitting(ppm_f2, t_f2, SFO2, u_2, fwhm_2, utol_2)
     popt_f1, fit_f1 = fitting(ppm_f1, t_f1, SFO1, u_1, fwhm_1, utol_1)
 
-    if plot_result: # Do the plot
+    if plot_result:  # Do the plot
         xlim = [(max(ppm_f2), min(ppm_f2)),
                 (max(ppm_f1), min(ppm_f1))]
 
@@ -594,8 +581,8 @@ def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, ut
         fig = plt.figure('Computed Integrals')
         fig.set_size_inches(figures.figsize_large)
         plt.subplots_adjust(left=0.05, right=0.95, bottom=0.10, top=0.90, wspace=0.20)
-        
-        axes = [fig.add_subplot(1,2,w+1) for w in range(2)]
+
+        axes = [fig.add_subplot(1, 2, w+1) for w in range(2)]
         axes[0].set_title('FIT F2')
         axes[1].set_title('FIT F1')
         axes[0].plot(ppm_f2, t_f2, c='tab:blue', label='Trace F2')
@@ -632,15 +619,11 @@ def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
     * ref_int:  absolute integral of the reference peak
     * ref_val:  for how many nuclei the reference peak integrates
 
-    The absolute integral of the x-th peak, :math:`I_x`, must be calculated according to the formula:
-
-    .. math::
-
-        I_x = I_x^{\text(relative)} \frac{\text{ ref_int }}{ \text{ ref_val }}
+    The absolute integral of the x-th peak must be calculated by multiplying the relative value times ``ref_int / ref_val``.
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm : 1darray
         PPM scale of the spectrum
     data : 1darray
@@ -648,8 +631,8 @@ def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
     X_label : str
         Label of the x-axis
 
-    Returns:
-    -----------
+    Returns
+    ----------
     f_vals : dict
         Dictionary containing the values of the integrated peaks.
     """
@@ -683,18 +666,18 @@ def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
     # Declare variables
     f_vals = {      # Initialize output variable
             'total': float(0),              # Total integrated area
-            'ref_pos': '{:.2f}:{:.2f}'.format(ppm[0], ppm[-1]), # Position of the reference signal /ppm1:ppm2
+            'ref_pos': '{:.2f}:{:.2f}'.format(ppm[0], ppm[-1]),  # Position of the reference signal /ppm1:ppm2
             'ref_val': float(1),            # For how many nuclei the reference peak integrates
             'ref_int': int_f[-1]-int_f[0],            # Reference peak integral, absolute value
-            }      
+            }
     abs_vals = {}                           # dictionary: integrals of the peaks, absolute values
-    text_integrals={}                       # dictionary: labels to keep record of the integrals
+    text_integrals = {}                       # dictionary: labels to keep record of the integrals
 
     # ---------------------------------------------------------------------------------------
     # Functions connected to the widgets
     def redraw_labels(f_vals):
         """ Computes the relative integrals and updates the texts on the plot """
-        corr_func = f_vals['ref_val'] / f_vals['ref_int']   # Correction 
+        corr_func = f_vals['ref_val'] / f_vals['ref_int']   # Correction
 
         # Update all the integral texts according to the new total_integral value
         tmp_text.set_text('{:.5f}'.format(tmp_plot.get_ydata()[-1] * corr_func))      # Relative value of the integral: under the red label on the right
@@ -705,25 +688,22 @@ def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
 
     def set_ref_val(xxx):
         """ Function of the textbox """
-        nonlocal f_vals
         f_vals['ref_val'] = eval(xxx)
         redraw_labels(f_vals)
 
     def set_ref_int(event):
-        nonlocal f_vals
         tmp_plot.set_visible(False)                     # Set the integral function as invisible so that it does not overlay with the permanent one
         xdata, ydata = tmp_plot.get_data()              # Get the data from the red curve
 
         f_vals['ref_int'] = ydata[-1]                   # Calculate the integral and cast it to the correct entry in f_vals
-        f_vals['ref_pos'] = '{:.2f}:{:.2f}'.format(xdata[0], xdata[-1]) # Get reference peak position from the plot and save it in f_vals
+        f_vals['ref_pos'] = '{:.2f}:{:.2f}'.format(xdata[0], xdata[-1])  # Get reference peak position from the plot and save it in f_vals
 
         # Update the plot
-        ref_plot.set_data(xdata, ydata) # Draw permanent integral function, in blue
+        ref_plot.set_data(xdata, ydata)     # Draw permanent integral function, in blue
         ref_plot.set_visible(True)      # Because at the beginning it is invisible
 
         ref_text.set_text('{:.4e}'.format(f_vals['ref_int']))   # Update label under the blue label on the right
         redraw_labels(f_vals)
-
 
     def onselect(vsx, vdx):
         """ When you drag and release """
@@ -752,7 +732,6 @@ def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
 
     def f_add(event):
         """ When you click 'ADD' """
-        nonlocal f_vals, abs_vals
 
         tmp_plot.set_visible(False)                     # Set the integral function as invisible so that it does not overlay with the permanent one
         xdata, ydata = tmp_plot.get_data()              # Get the data from the red curve
@@ -766,26 +745,29 @@ def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
         tot_text.set_text('{:.4e}'.format(f_vals['total']))  # Text under green label on the right
 
         xtext = (xdata[0] + xdata[-1]) / 2      # x coordinate of the text: centre of the selected window
-        text_integrals['{:.2f}:{:.2f}'.format(xdata[0], xdata[-1])] = ax.text(xtext, ax.get_ylim()[-1], '{:.5f}'.format(ydata[-1]), horizontalalignment='center', verticalalignment='bottom', fontsize=10, rotation=60)     # Add whatever to the label
+        text_integrals['{:.2f}:{:.2f}'.format(xdata[0], xdata[-1])] = ax.text(
+                xtext, ax.get_ylim()[-1], '{:.5f}'.format(ydata[-1]),
+                ha='center', va='bottom', fontsize=10, rotation=60)     # Add whatever to the label
 
         # Update all the integral texts according to the new total_integral value
         redraw_labels(f_vals)
-        
+
     def f_save(event):
         """ When you click 'SAVE' """
-        nonlocal f_vals     # to update the output variable
         # Append in the dictionary the relative values of the integrals
-        for key, value in abs_vals.items():     
+        for key, value in abs_vals.items():
             f_vals[key] = value * f_vals['ref_val'] / f_vals['ref_int']
         plt.close()
 
     # ---------------------------------------------------------------------------------------
-    
+
     # Add things to the figure panel
 
     ax.plot(ppm, data, c='tab:blue', lw=0.8)        # Spectrum
-    tmp_plot, = ax.plot(ppm, int_f/max(int_f)*max(data), c='tab:red', lw=0.8, visible=False)    # Draw the total integral function but set to invisible because it is useless, needed as placeholder for the red curve
-    ref_plot, = ax.plot(ppm, int_f/max(int_f)*max(data), c='b', lw=0.8, visible=False)    # Draw the total integral function but set to invisible because it is useless, needed as placeholder for the blue curve
+    # Draw the total integral function but set to invisible because it is useless, needed as placeholder for the red curve
+    tmp_plot, = ax.plot(ppm, int_f/max(int_f)*max(data), c='tab:red', lw=0.8, visible=False)
+    # Draw the total integral function but set to invisible because it is useless, needed as placeholder for the blue curve
+    ref_plot, = ax.plot(ppm, int_f/max(int_f)*max(data), c='b', lw=0.8, visible=False)
 
     # Draw text labels in the figure, on the right
     ax.text(0.90, 0.68, 'Current integral (normalized)', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14, color='tab:red')
@@ -805,8 +787,8 @@ def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
     misc.set_fontsizes(ax, 14)
 
     # Add more widgets and connect the buttons to their functions
-    cursor = Cursor(ax, c='tab:red', lw=0.8, horizOn=False)                                     # Vertical line that follows the cursor
-    span = SpanSelector(ax, onselect, 'horizontal', props=dict(facecolor='tab:red', alpha=0.5)) # Draggable window
+    Cursor(ax, c='tab:red', lw=0.8, horizOn=False)                                     # Vertical line that follows the cursor
+    SpanSelector(ax, onselect, 'horizontal', props=dict(facecolor='tab:red', alpha=0.5))     # Draggable window
     add_button.on_clicked(f_add)
     save_button.on_clicked(f_save)
     setref_button.on_clicked(set_ref_int)
@@ -819,22 +801,22 @@ def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
 
 
 def integrate_2D(ppm_f1, ppm_f2, data, SFO1, SFO2, fwhm_1=200, fwhm_2=200, utol_1=0.5, utol_2=0.5, plot_result=False):
-    """ 
+    """
     Function to select and integrate 2D peaks of a spectrum, using dedicated GUIs.
     Calls integral_2D to do the dirty job.
-    
+
     .. error::
 
         Old function!! Legacy
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm_f1 : 1darray
         PPM scale of the indirect dimension
-    ppm_f2 : 1darray 
+    ppm_f2 : 1darray
         PPM scale of the direct dimension
-    data : 2darray 
+    data : 2darray
         real part of the spectrum
     SFO1 : float
         Larmor frequency of the nucleus in the indirect dimension
@@ -851,8 +833,8 @@ def integrate_2D(ppm_f1, ppm_f2, data, SFO1, SFO2, fwhm_1=200, fwhm_2=200, utol_
     plot_result : bool
         True to show how the program fitted the traces.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     I : dict
         Computed integrals. The keys are ``'<ppm f1>:<ppm f2>'`` with 2 decimal figures.
     """
@@ -860,7 +842,7 @@ def integrate_2D(ppm_f1, ppm_f2, data, SFO1, SFO2, fwhm_1=200, fwhm_2=200, utol_
     # Get all the information that integral_2D needs
     peaks = anal.select_for_integration(ppm_f1, ppm_f2, data, Neg=True)
 
-    I = {}      # Declare empty dictionary
+    Int = {}      # Declare empty dictionary
     for P in peaks:
         # Extract trace F1
         T1 = anal.get_trace(data, ppm_f2, ppm_f1, P['f2']['u'], column=True)
@@ -871,12 +853,10 @@ def integrate_2D(ppm_f1, ppm_f2, data, SFO1, SFO2, fwhm_1=200, fwhm_2=200, utol_
 
         # Compute the integrals
         I_p = processing.integral_2D(x_T1, y_T1, SFO1, x_T2, y_T2, SFO2,
-                u_1=P['f1']['u'], fwhm_1=fwhm_1, utol_1=utol_1, 
-                u_2=P['f2']['u'], fwhm_2=fwhm_2, utol_2=utol_2,
-                plot_result=plot_result)
+                                     u_1=P['f1']['u'], fwhm_1=fwhm_1, utol_1=utol_1,
+                                     u_2=P['f2']['u'], fwhm_2=fwhm_2, utol_2=utol_2,
+                                     plot_result=plot_result)
 
         # Store the integral in the dictionary
-        I[f'{P["f2"]["u"]:.2f}:{P["f1"]["u"]:.2f}'] = I_p
-    return I
-
-
+        Int[f'{P["f2"]["u"]:.2f}:{P["f1"]["u"]:.2f}'] = I_p
+    return Int

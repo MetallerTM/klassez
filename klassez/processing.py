@@ -1,37 +1,30 @@
 #! /usr/bin/env python3
 
 import os
-import sys
 import numpy as np
 from numpy import linalg
-from scipy import linalg as slinalg
-from scipy import stats
-from scipy.spatial import ConvexHull
 import scipy
-import random
-import matplotlib
+from scipy import linalg as slinalg
+from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from matplotlib.widgets import Slider, Button, RadioButtons, TextBox, CheckButtons, Cursor, LassoSelector
+from matplotlib.widgets import Button, RadioButtons, TextBox, Cursor, LassoSelector
 from matplotlib.path import Path
-import seaborn as sns
 import nmrglue as ng
-import lmfit as l
+import lmfit
 from datetime import datetime
 import warnings
 from copy import deepcopy
 
 from . import fit, misc, sim, figures, processing, anal
-from .config import CM, COLORS, cron
 from .Spectra import Spectrum_1D
 
-""" 
+"""
 Contains a series of processing functions for different purposes
 """
 
-
-
 # CPMG processing
+
 
 def interactive_echo_param(data0):
     """
@@ -45,20 +38,19 @@ def interactive_echo_param(data0):
 
     as they are in the correct order to be used in this way.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data0 : ndarray
         CPMG FID
 
-    Returns:
-    -----------
+    Returns
+    ----------
     n : int
         Distance between one echo and the next one
     n_echoes : int
         Number of echoes to sum/split
     i_p : int
         Offset points from the start of the FID
-
 
     .. seealso::
 
@@ -71,7 +63,7 @@ def interactive_echo_param(data0):
     if len(data0.shape) == 1:
         data = np.copy(data0)
     elif len(data0.shape) == 2:
-        data = np.copy(data0[0,:])
+        data = np.copy(data0[0, :])
     else:
         raise ValueError('Data shape not supported')
 
@@ -79,18 +71,12 @@ def interactive_echo_param(data0):
     fig = plt.figure('Echo Splitter')
     fig.set_size_inches(figures.figsize_large)
     plt.subplots_adjust(left=0.25, right=0.95, top=0.90, bottom=0.15)
-    ax = fig.add_subplot(2,3,(1,5)) # Square plot
-    axs = fig.add_subplot(2,3,3)    # Right top
-    axt = fig.add_subplot(2,3,6)    # Right bottom
-
-    # Initialize the three values in a dictionary
-    param = {
-            'n' : 20,
-            'n_echoes' : 2,
-            'i_p' : 0,
-            }
+    ax = fig.add_subplot(2, 3, (1, 5))    # Square plot
+    axs = fig.add_subplot(2, 3, 3)        # Right top
+    axt = fig.add_subplot(2, 3, 6)        # Right bottom
 
     # ---------------------------------------------------------
+
     def update_axs():
         """ Redraw the figure """
         # Compute new data
@@ -122,7 +108,6 @@ def interactive_echo_param(data0):
 
     def change_param(text):
         """ Change parameters according to the TextBox """
-        nonlocal param
         try:    # Avoid error due to the clear text
             param[f'{radio.value_selected}'] = read_tb(text)
         except SyntaxError:
@@ -143,7 +128,6 @@ def interactive_echo_param(data0):
 
     def key_press(event):
         """ Edit the param dictionary with uparrow and downarrow """
-        nonlocal param
         if event.key == 'up':
             param[f'{radio.value_selected}'] += 1
         elif event.key == 'down':
@@ -158,6 +142,13 @@ def interactive_echo_param(data0):
 
     # ---------------------------------------------------------
 
+    # Initialize the three values in a dictionary
+    param = {
+            'n': 20,
+            'n_echoes': 2,
+            'i_p': 0,
+            }
+
     # Make the widgets with their boxes
     radio_box = plt.axes([0.025, 0.40, 0.15, 0.35])
     input_box = plt.axes([0.025, 0.20, 0.15, 0.08])
@@ -168,9 +159,9 @@ def interactive_echo_param(data0):
     # Write the current values to be updated
     val_text = {}
     for k, label in enumerate(radio.labels):
-        val_text[f'{label.get_text()}'] = radio_box.text(0.95, label.get_position()[1]-0.025, 
-                f'{param[label.get_text()]:.0f}',
-                ha='right', va='bottom')
+        val_text[f'{label.get_text()}'] = radio_box.text(0.95, label.get_position()[1]-0.025,
+                                                         f'{param[label.get_text()]:.0f}',
+                                                         ha='right', va='bottom')
 
     # Set a scale
     x = np.arange(data.shape[-1])
@@ -212,9 +203,9 @@ def sum_echo_train(datao, n, n_echoes, i_p=0):
     """
     Sum up a CPMG echo-train FID into echoes so to be enchance the SNR.
     This function calls ``processing.split_echo_train`` with the same parameters.
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     datao : ndarray
         FID with an echo train on its last dimension
     n : int
@@ -223,15 +214,14 @@ def sum_echo_train(datao, n, n_echoes, i_p=0):
         number of echoes to sum
     i_p : int
         Number of offset points
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     data_p : ndarray
         Summed echoes
 
-
     .. seealso::
-        
+
         :func:`klassez.processing.interactive_echo_param`
     """
     # Separate the echoes
@@ -242,15 +232,14 @@ def sum_echo_train(datao, n, n_echoes, i_p=0):
     return data_p
 
 
-
 def split_echo_train(datao, n, n_echoes, i_p=0):
     """
     Separate a CPMG echo-train FID into echoes so to be processed separately.
-    The first decay, i.e. the native FID, is extracted, and corresponds to echo number 0. 
+    The first decay, i.e. the native FID, is extracted, and corresponds to echo number 0.
     Then, for each echo, the left side (reversed) is summed up to its right part.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     datao : ndarray
         FID with an echo train on its last dimension
     n : int
@@ -260,24 +249,23 @@ def split_echo_train(datao, n, n_echoes, i_p=0):
     i_p : int
         Number of offset points
 
-    Returns:
-    -----------
+    Returns
+    ----------
     data_p : (n+1)darray
         Separated echoes
 
-
     .. seealso::
-        
+
         :func:`klassez.processing.interactive_echo_param`
     """
-    # Take account of the offset points 
+    # Take account of the offset points
     data = datao[..., i_p:]
     # nm = middle point. +1 if n is odd
-    if np.mod(n,2) == 0:
+    if np.mod(n, 2) == 0:
         nm = n // 2
     else:
         nm = n // 2 + 1
-    
+
     # Where to save the echoes
     datap = []
     datap.append(datao[..., :nm])   # Add first decay
@@ -287,13 +275,13 @@ def split_echo_train(datao, n, n_echoes, i_p=0):
         A = slice(c-nm+1, c+1)              # Left part to echo centre
         B = slice(c, c+nm)                  # Right part from echo centre
 
-        datal = data[..., A][...,::-1]      # Left part, reversed
+        datal = data[..., A][..., ::-1]      # Left part, reversed
         datar = data[..., B]                # Right part
-        
+
         # Reversing in time means to change sign to the imaginary part
         if np.iscomplexobj(data):
             datal = np.conj(datal)
-        datap.append(datal + datar) # Sum up
+        datap.append(datal + datar)  # Sum up
     # Create the output data by stacking the echoes. This adds a dimension
     data_p = np.stack(datap)
 
@@ -301,40 +289,41 @@ def split_echo_train(datao, n, n_echoes, i_p=0):
 
 # -----------------------------------------------------------------------
 
-#   fid adjustment
+
 def quad(fid):
     """
     Subtracts from the FID the arithmetic mean of its last quarter. The real and imaginary channels are treated separately.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     fid : ndarray
         Self-explanatory.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     fid : ndarray
         Processed FID.
     """
     size = fid.shape[-1]
     qsize = size//4
-    avg_re = np.average(fid[...,-qsize:].real)
-    avg_im = np.average(fid[...,-qsize:].imag)
+    avg_re = np.average(fid[..., -qsize:].real)
+    avg_im = np.average(fid[..., -qsize:].imag)
     fid.real = fid.real - avg_re
     fid.imag = fid.imag - avg_im
     return fid
 
+
 def qpol(fid):
     """
     Fits the FID with a 4-th degree polynomion, then subtracts it from the original FID. The real and imaginary channels are treated separately.
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     fid : ndarray
         Self-explanatory.
-   
-    Returns:
-    -----------
+
+    Returns
+    ----------
     fid_corr : ndarray
         Processed FID
     """
@@ -351,24 +340,25 @@ def qpol(fid):
 
 # -------------------------------------------------------------------------------------------------------------------------------------------------------
 # window functions
+
+
 def qsin(data, ssb):
     r"""
     Sine-squared apodization.
 
     .. math::
-        
+
         a(x) = \sin^2 \biggl[\frac{\pi}{SSB} + \pi \biggl(1 - \frac{1}{SSB}\biggr) x \biggr]
-        
-  
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     data: ndarray
         FID to be processed
     ssb: int
-        Sine bell shift. 
+        Sine bell shift.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datap: ndarray
         Apodized data
 
@@ -386,23 +376,24 @@ def qsin(data, ssb):
     apod = np.power(np.sin(np.pi * off + np.pi * (end - off) * np.arange(size) / (size)).astype(data.dtype), 2).astype(data.dtype)
     return apod * data
 
+
 def sin(data, ssb):
     r"""
     Sine apodization.
 
     .. math::
-        
+
         a(x) = \sin \biggl[\frac{\pi}{SSB} + \pi \biggl(1 - \frac{1}{SSB}\biggr) x \biggr]
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data: ndarray
         FID to be processed
     ssb: int
-        Sine bell shift. 
+        Sine bell shift.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datap: ndarray
         Apodized data
 
@@ -420,16 +411,17 @@ def sin(data, ssb):
     apod = np.sin(np.pi * off + np.pi * (end - off) * np.arange(size) / (size)).astype(data.dtype)
     return apod * data
 
+
 def em(data, lb, sw):
     r"""
     Exponential apodization
 
     .. math::
-        
+
         a(x) = \exp\biggl[-\pi \frac{LB}{2\,SW} x \biggr]
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     data: ndarray
         Input data
     lb: float
@@ -437,8 +429,8 @@ def em(data, lb, sw):
     sw: float
         Spectral width /Hz
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datap: ndarray
         Apodized data
 
@@ -450,6 +442,7 @@ def em(data, lb, sw):
     apod = np.exp(- np.pi * np.arange(data.shape[-1]) * lb).astype(data.dtype)
     return apod * data
 
+
 def gm(data, lb, gb, gc, sw):
     r"""
     Gaussian apodization.
@@ -458,13 +451,13 @@ def gm(data, lb, gb, gc, sw):
     ``gc`` moves the central point of the gaussian filter.
 
     .. math::
-        
+
         a(x) = \exp\biggl\{ -\pi \frac{LB}{SW} x - \biggl[ \pi \frac{GB}{SW} \biggl(GC (N-1) -x \biggr) \biggr]^2 \biggr\}
 
     Apply this function VERY CAREFULLY. Choose the right values through the interactive processing.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : ndarray
         Input data
     lb : float
@@ -476,8 +469,8 @@ def gm(data, lb, gb, gc, sw):
     sw : float
         Spectral width /Hz
 
-    Returns:
-    -----------
+    Returns
+    ----------
     pdata : ndarray
         Processed data
 
@@ -492,18 +485,19 @@ def gm(data, lb, gb, gc, sw):
     apod = np.exp(A - B**2)
     return apod * data
 
+
 def gmb(data, lb, gb, sw):
     r"""
     Bruker-style Gaussian apodization.
 
     .. math::
-        
+
         a(x) = \exp\biggl[ -N \frac{\pi}{SW} \biggl( LB\,x - \frac{LB}{2\,GB}x^2 \biggr) \biggr]
 
     Apply this function VERY CAREFULLY. Choose the right values through the interactive processing.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : ndarray
         Input data
     lb : float
@@ -513,8 +507,8 @@ def gmb(data, lb, gb, sw):
     sw : float
         Spectral width /Hz
 
-    Returns:
-    -----------
+    Returns
+    ----------
     pdata : ndarray
         Processed data
 
@@ -528,19 +522,21 @@ def gmb(data, lb, gb, sw):
     return apod * data
 
 # zero-filling
+
+
 def zf(data, size):
     """
     Zero-filling of ``data`` up to ``size`` in its last dimension.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : ndarray
         Array to be zero-filled
     size : int
         Number of points of the last dimension after zero-filling
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datazf : ndarray
         Zero-filled data
 
@@ -554,28 +550,30 @@ def zf(data, size):
         z = np.zeros(size, dtype=data.dtype)
         return np.concatenate((data, z), axis=-1)
     zpad = size - data.shape[-1]
-    if zpad <= 0 :
+    if zpad <= 0:
         zpad = 0
     datazf = zf_pad(data, pad=zpad)
     return datazf
 
 # Fourier transform
+
+
 def ft(data0, alt=False, fcor=0.5):
-    """ 
+    """
     Fourier transform in NMR sense.
     This means it returns the reversed spectrum.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data0 : ndarray
         Array to Fourier-transform
     alt : bool
         negates the sign of the odd points, then take their complex conjugate. Required for States-TPPI processing.
     fcor : float
         weighting factor for FID 1st point. Default value (0.5) prevents baseline offset
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     dataft : ndarray
         Transformed data
     """
@@ -583,65 +581,67 @@ def ft(data0, alt=False, fcor=0.5):
     if not np.iscomplexobj(data):
         # Suppress "casting complex to real" warning
         warnings.simplefilter("ignore")
-    size = data.shape[-1]
-    data[...,0] = data[...,0] * fcor
+    data[..., 0] = data[..., 0] * fcor
     if alt:
-        data[...,1::2] = data[...,1::2] * -1
+        data[..., 1::2] = data[..., 1::2] * -1
         data.imag = data.imag * -1
-    dataft = np.fft.fftshift(np.fft.fft(data, axis=-1).astype(data.dtype), -1)[...,::-1]
+    dataft = np.fft.fftshift(np.fft.fft(data, axis=-1).astype(data.dtype), -1)[..., ::-1]
     # Restore the normal warnings behavior
     warnings.simplefilter("default")
     return dataft
 
+
 def ift(data0, alt=False, fcor=0.5):
-    """ 
+    """
     Inverse Fourier transform in NMR sense.
     This means that the input dataset is reversed before to do iFT.
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     data0 : ndarray
         Array to Fourier-transform
     alt : bool
         negates the sign of the odd points, then take their complex conjugate. Required for States-TPPI processing.
     fcor : float
         weighting factor for FID 1st point. Default value (0.5) prevents baseline offset
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     dataft : ndarray
         Transformed data
     """
-    data = np.copy(data0)[...,::-1]
+    data = np.copy(data0)[..., ::-1]
     if not np.iscomplexobj(data):
         # Suppress "casting complex to real" warning
         warnings.simplefilter("ignore")
-    size = data.shape[-1]
     dataft = np.fft.ifft(np.fft.ifftshift(data, -1), axis=-1).astype(data.dtype)
     if alt:
-        dataft[...,1::2] = dataft[...,1::2] * -1
+        dataft[..., 1::2] = dataft[..., 1::2] * -1
         dataft.imag = dataft.imag * -1
-    dataft[...,0] = dataft[...,0] / fcor
+    dataft[..., 0] = dataft[..., 0] / fcor
     # Restore the normal warnings behavior
     warnings.simplefilter("default")
     return dataft
-    
+
+
 def rev(data):
     """
     Reverse data over its last dimension
     """
-    datarev = data[...,::-1]
+    datarev = data[..., ::-1]
     return datarev
-    
+
     # phase correction
+
+
 def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False, reference=None):
     """
     Applies phase correction on the last dimension of data.
     The pivot is set at the center of the spectrum by default.
     Missing parameters will be inserted interactively.
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     data : ndarray
         Input data
     ppmscale : 1darray or None
@@ -657,8 +657,8 @@ def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False, ref
     reference : list of 1darray or Spectrum_1D object
         Reference spectrum to be used for phasing. Can be also given as ``[ppm, spectrum]``
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datap : ndarray
         Phased data
     final_values : tuple
@@ -677,10 +677,10 @@ def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False, ref
 
     if not np.iscomplexobj(data):
         raise ValueError('Data is not complex! Impossible to phase')
-    
+
     if ppmscale is None and interactive is True and pivot is not None:
         raise ValueError('PPM scale not supplied. Aborting...')
-    
+
     if interactive is True and len(data.shape) < 2:
         datap, final_values = processing.interactive_phase_1D(ppmscale, data, reference)
     else:
@@ -691,13 +691,13 @@ def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False, ref
         if pivot is None:
             pv = 0.5
         else:
-            pv = (misc.ppmfind(ppmscale, pivot)[0] / size) 
+            pv = (misc.ppmfind(ppmscale, pivot)[0] / size)
         apod = np.exp(1j * (p0 + p1 * (pvscale - pv))).astype(data.dtype)
         datap = data * apod
         final_values = p0*180/np.pi, p1*180/np.pi, pivot
     return datap, final_values
-    
-    
+
+
 def eae(data):
     """
     Shuffles data if the spectrum is acquired with FnMODE = Echo-Antiecho.
@@ -709,14 +709,13 @@ def eae(data):
         pdata[::2] = (data[::2].real - data[1::2].real) + 1j*(data[::2].imag - data[1::2].imag)
         pdata[1::2] = -(data[::2].imag + data[1::2].imag) + 1j*(data[::2].real + data[1::2].real)
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 2darray
         FID in echo-antiecho format
 
-    Returns:
-    -----------
+    Returns
+    ----------
     pdata : 2darray
         FID in States-TPPI format
     """
@@ -724,20 +723,20 @@ def eae(data):
     pdata[::2] = (data[::2].real - data[1::2].real) + 1j*(data[::2].imag - data[1::2].imag)
     pdata[1::2] = -(data[::2].imag + data[1::2].imag) + 1j*(data[::2].real + data[1::2].real)
     return pdata
-    
-    
+
+
 def tp_hyper(data):
     """
     Computes the hypercomplex transpose of data.
     Needed for the processing of data acquired in a phase-sensitive manner in the indirect dimension.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 2darray
         Hypercomplex data to be transposed
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datap : 2darray
         Transposed data
     """
@@ -748,6 +747,7 @@ def tp_hyper(data):
         n[..., ::2] = data.real
         n[..., 1::2] = data.imag
         return n
+
     def c2ri(data):
         temp = np.array(data.flat[0] + 1j*data.flat[1])
         s = list(data.shape)
@@ -759,18 +759,19 @@ def tp_hyper(data):
         return n
     datatp = np.array(c2ri(ri2c(data).T), dtype='complex64')
     return datatp
-        
+
+
 def unpack_2D(data):
     """
     Separates hypercomplex data into 4 distinct components
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 2darray
         Hypercomplex matrix
 
-    Returns:
-    -----------
+    Returns
+    ----------
     rr : 2darray
         Real F2, Real F1
     ir : 2darray
@@ -785,13 +786,14 @@ def unpack_2D(data):
     ri = data.real[1::2]
     ii = data.imag[1::2]
     return rr, ir, ri, ii
-    
+
+
 def repack_2D(rr, ir, ri, ii):
     """
     Renconstruct hypercomplex 2D NMR data given the 4 components
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     rr : 2darray
         Real F2, Real F1
     ir : 2darray
@@ -801,18 +803,19 @@ def repack_2D(rr, ir, ri, ii):
     ii : 2darray
         Imaginary F2, Imaginary F1
 
-    Returns:
-    -----------
+    Returns
+    ----------
     data : 2darray
         Hypecomplex matrix
     """
-    data = np.empty((2*rr.shape[0],rr.shape[1]), dtype='complex64')
+    data = np.empty((2*rr.shape[0], rr.shape[1]), dtype='complex64')
     data.real[::2] = rr
     data.imag[::2] = ir
     data.real[1::2] = ri
     data.imag[1::2] = ii
     return data
-    
+
+
 def td_eff(data, tdeff):
     """
     Uses only the first ``tdeff`` points of data. Equivalent to box-like apodization.
@@ -822,23 +825,23 @@ def td_eff(data, tdeff):
 
         tdeff = [F1, F2, ..., Fn]
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : ndarray
         Data to be trimmed
     tdeff : list of int
         Number of points to be used in each dimension
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datain : ndarray
         Trimmed data
     """
     datain = np.copy(data)
 
     def trim(datain, n):
-        return datain[...,:n]
-    
+        return datain[..., :n]
+
     ndim = len(datain.shape)
     # if tdeff is a number, make it list
     if isinstance(tdeff, int):
@@ -846,30 +849,29 @@ def td_eff(data, tdeff):
         tdeff = []
         tdeff.append(L)
         del L
-    
+
     tdeff = tdeff[::-1]     # to obtain correct final shape
-    
+
     if len(tdeff) != ndim:       # Check
         raise ValueError('Shape mismatch between datain and tdeff')
-    
-    X = tuple(np.roll(np.arange(ndim),1)) # Roll the dimensions to the right
-    
+
+    X = tuple(np.roll(np.arange(ndim), 1))  # Roll the dimensions to the right
+
     for k in range(ndim):
         if tdeff[k]:
             datain = trim(datain, tdeff[k])
         datain = np.transpose(datain, X)
-    
+
     return datain
-    
-    
-    
+
+
 def fp(data, wf=None, zf=None, fcor=0.5, tdeff=0):
     """
     Performs the full processing of a 1D NMR FID (``data``).
     Also works for pseudo-2D: only applies the processing on the last dimension.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : ndarray
         Input data
     wf : dict
@@ -881,11 +883,10 @@ def fp(data, wf=None, zf=None, fcor=0.5, tdeff=0):
     tdeff : int
         number of points of the FID to be used for the processing.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datap : ndarray
         Processed data
-
 
     .. seealso::
 
@@ -913,8 +914,9 @@ def fp(data, wf=None, zf=None, fcor=0.5, tdeff=0):
     datap = processing.ft(datap, fcor=fcor)
     return datap
 
+
 def apodf(size, wf):
-    """ 
+    """
     Generates a function to be used as apodization function on the basis of the ``wf`` dictionary.
     The behavior is controlled by the ``mode`` key. Each ``mode`` reads the attributes of the corresponding positions, e.g.:
 
@@ -930,19 +932,17 @@ def apodf(size, wf):
 
         processing.em(lb=5) * processing.qsin(ssb=2) * processing.qsin(ssb=3)
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     size : tuple
         Dimension of data to be windowed
     wf : dict
         Dictionary of window functions modes and parameters
 
-    Returns:
-    -----------
+    Returns
+    ----------
     apod_func : np.ndarray
         Custom apodization function of dimension ``size``
-
 
     .. seealso::
 
@@ -969,7 +969,7 @@ def apodf(size, wf):
         for key, item in wf.items():    # loop in the dictionary
             if 'sw' not in key:     # SW is always the only one
                 # Put the element in a list
-                wf[key] = [item]    
+                wf[key] = [item]
                 # Remove extra lists that might appear
                 wf[key] = misc.listsqueeze(wf[key])
 
@@ -1005,29 +1005,27 @@ def interactive_fp(fid0, acqus, procs):
 
         The rendering can be *very slow*. Use with great care.
 
-
     .. error::
 
         To be checked, might not work as expected
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     fid0 : 1darray
         FID to process
     acqus : dict
         Dictionary of acquisition parameters
     procs : dict
         Dictionary of processing parameters
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     pdata : 1darray
         Processed spectrum
     procs : dict
         Updated dictionary of processing parameters.
     """
-    
+
     def get_apod(size, procs):
         """ Calculate the window function on the basis of 'procs' """
         Y = np.ones(size, dtype='complex64')    # array of ones
@@ -1040,33 +1038,30 @@ def interactive_fp(fid0, acqus, procs):
         if apodf.shape[-1] > size:  # if longet than size, trim
             apodf = processing.td_eff(apodf, size)
         return apodf
-    
+
     # Copy initial FID to prevent overwriting
     fid = np.copy(fid0)
     fid0 = np.copy(fid)
-    Y = np.ones_like(fid0)
-    
+
     # Calculate starting values
     data = processing.fp(fid, wf=procs['wf'], zf=procs['zf'], tdeff=procs['tdeff'])
-    
-    
+
     # Get WF
     apodf = get_apod(fid0.shape[-1], procs)
-    
+
     # Calculate the ppm scale
     fq_scale = processing.make_scale(data.shape[-1], acqus['dw'], rev=True)
     ppm_scale = misc.freq2ppm(fq_scale, acqus['SFO1'], acqus['o1p'])
-    
-    
+
     # Make the figure panel
     fig = plt.figure('Interactive Processing')
-    fig.set_size_inches(15,9)
+    fig.set_size_inches(15, 9)
     plt.subplots_adjust(left=0.1, bottom=0.05, right=0.8, top=0.95, hspace=0.4)
-    ax = fig.add_subplot(4,1,(1,3))     # spectrum
-    axf = fig.add_subplot(4,1,4)        # fid
-    # Define useful things 
+    ax = fig.add_subplot(4, 1, (1, 3))     # spectrum
+    axf = fig.add_subplot(4, 1, 4)        # fid
+    # Define useful things
     modes = ['No', 'em', 'sin', 'qsin', 'gm', 'gmb']   # entries for the radiobuttons
-    act_keys = {    # Active Parameters:
+    act_keys = {    # Active Parameters
             'No': [],
             'em': ['lb'],
             'sin': ['ssb'],
@@ -1074,8 +1069,8 @@ def interactive_fp(fid0, acqus, procs):
             'gm': ['lb_gm', 'gb_gm', 'gc'],
             'gmb': ['lb', 'gb'],
             }
-    tx = {} # Dictionary of the texts
-    
+    tx = {}  # Dictionary of the texts
+
     # Draw boxes for widgets
     SI_box = plt.axes([0.85, 0.85, 0.07, 0.04])
     tdeff_box = plt.axes([0.85, 0.80, 0.07, 0.04])
@@ -1086,7 +1081,7 @@ def interactive_fp(fid0, acqus, procs):
     lb_gm_box = plt.axes([0.85, 0.25, 0.07, 0.04])
     gb_gm_box = plt.axes([0.85, 0.20, 0.07, 0.04])
     gc_box = plt.axes([0.85, 0.15, 0.07, 0.04])
-    
+
     # Define widgets
     SI_tb = TextBox(SI_box, 'SI', textalignment='center')
     tdeff_tb = TextBox(tdeff_box, 'TDeff', textalignment='center')
@@ -1097,8 +1092,7 @@ def interactive_fp(fid0, acqus, procs):
     lb_gm_tb = TextBox(lb_box, 'LB_GM', textalignment='center')
     gb_gm_tb = TextBox(gb_box, 'GB_GM', textalignment='center')
     gc_tb = TextBox(gc_box, 'GC', textalignment='center')
-    
-    
+
     # Functions connected to widgets
     def update():
         # Redraw the plot
@@ -1118,28 +1112,25 @@ def interactive_fp(fid0, acqus, procs):
         misc.set_ylim(ax, data.real)
         misc.set_ylim(axf, (apodf, -apodf))
         plt.draw()
-    
+
     def update_SI(v):
-        nonlocal procs
         try:
             SI = eval(v)
             procs['zf'] = SI
-        except:
+        except Exception:
             pass
         update()
-    
+
     def update_tdeff(v):
-        nonlocal procs
         try:
             val = eval(v)
             procs['tdeff'] = int(val)
-        except:
+        except Exception:
             pass
         tx['tdeff'].set_text('{:.0f}'.format(procs['tdeff']))
         update()
-    
+
     def update_mode(label):
-        nonlocal procs
         for key, value in tx.items():
             value.set_color('k')
         if label == 'No':
@@ -1149,71 +1140,63 @@ def interactive_fp(fid0, acqus, procs):
         for key in act_keys[label]:
             tx[key].set_color('tab:blue')
         update()
-    
+
     def update_lb(v):
-        nonlocal procs
         try:
             lb = eval(v)
             procs['wf']['lb'] = lb
-        except:
+        except Exception:
             pass
         tx['lb'].set_text('{:.0f}'.format(procs['wf']['lb']))
         update()
-            
+
     def update_gb(v):
-        nonlocal procs
         try:
             gb = eval(v)
             procs['wf']['gb'] = gb
-        except:
+        except Exception:
             pass
         tx['gb'].set_text('{:.2f}'.format(procs['wf']['gb']))
         update()
 
     def update_lb_gm(v):
-        nonlocal procs
         try:
             lb = eval(v)
             procs['wf']['lb_gm'] = lb
-        except:
+        except Exception:
             pass
         tx['lb_gm'].set_text('{:.0f}'.format(procs['wf']['lb_gm']))
         update()
-            
+
     def update_gb_gm(v):
-        nonlocal procs
         try:
             gb = eval(v)
             procs['wf']['gb_gm'] = gb
-        except:
+        except Exception:
             pass
         tx['gb_gm'].set_text('{:.2f}'.format(procs['wf']['gb_gm']))
         update()
-    
+
     def update_gc(v):
-        nonlocal procs
         try:
             gc = eval(v)
             procs['wf']['gc'] = gc
-        except:
+        except Exception:
             pass
         tx['gc'].set_text('{:.2f}'.format(procs['wf']['gc']))
         update()
-    
+
     def update_ssb(v):
-        nonlocal procs
         try:
             ssb = eval(v)
             procs['wf']['ssb'] = ssb
-        except:
+        except Exception:
             pass
         tx['ssb'].set_text('{:.0f}'.format(procs['wf']['ssb']))
         update()
-    
-    
-    
+
     # Draw the figure panel
-    
+
     ax.axhline(0, c='k', lw=0.4)    # baseline
     axf.axhline(0, c='k', lw=0.4)   # baseline
     line, = ax.plot(ppm_scale, data.real, c='tab:blue')         # Spectrum
@@ -1221,15 +1204,15 @@ def interactive_fp(fid0, acqus, procs):
     fidp.set_label('Normalized FID')
     apodp, = axf.plot(np.arange(fid.shape[-1]), apodf, c='tab:red', lw=1.0)     # Window function
     apodp.set_label('Window function')
-    
+
     axf.legend()
-    
+
     def calcy(box):
         """ y_coordinate + (box_height / 2) """
         pos = box.get_position().bounds
         y = round(pos[1] + pos[3]/2, 2)
         return y
-    
+
     # Write text alongside figures
     tx['SI'] = plt.text(0.93, calcy(SI_box), '{:.0f}'.format(data.shape[-1]), ha='left', va='center', transform=fig.transFigure)
     tx['tdeff'] = plt.text(0.93, calcy(tdeff_box), '{:.0f}'.format(procs['tdeff']), ha='left', va='center', transform=fig.transFigure)
@@ -1239,19 +1222,19 @@ def interactive_fp(fid0, acqus, procs):
     tx['lb_gm'] = plt.text(0.93, calcy(lb_gm_box), '{:.0f}'.format(procs['wf']['lb_gm']), ha='left', va='center', transform=fig.transFigure)
     tx['gb_gm'] = plt.text(0.93, calcy(gb_gm_box), '{:.2f}'.format(procs['wf']['gb_gm']), ha='left', va='center', transform=fig.transFigure)
     tx['gc'] = plt.text(0.93, calcy(gc_box), '{:.2f}'.format(procs['wf']['gc']), ha='left', va='center', transform=fig.transFigure)
-    
+
     # Customize appearance
     ax.set_xlabel(r'$\delta\,$'+misc.nuc_format(acqus['nuc'])+' /ppm')
     ax.set_ylabel('Intensity /a.u.')
     misc.set_ylim(ax, data.real)
-    misc.set_ylim(axf, (-1,1))
+    misc.set_ylim(axf, (-1, 1))
     misc.mathformat(ax)
     misc.mathformat(axf)
     misc.pretty_scale(ax, (max(ppm_scale), min(ppm_scale)))
     misc.pretty_scale(axf, (0, fid.shape[-1]))
     misc.set_fontsizes(ax, 14)
     misc.set_fontsizes(axf, 14)
-    
+
     # Connect function to widgets
     SI_tb.on_submit(update_SI)
     mode_radio.on_clicked(update_mode)
@@ -1262,25 +1245,21 @@ def interactive_fp(fid0, acqus, procs):
     lb_gm_tb.on_submit(update_lb_gm)
     gb_gm_tb.on_submit(update_gb_gm)
     gc_tb.on_submit(update_gc)
-    
+
     plt.show()
-    
+
     # Calculate final spectrum, return it
     datap = processing.fp(fid0, wf=procs['wf'], zf=procs['zf'], tdeff=procs['tdeff'])
-    
+
     return datap, procs
-    
-    
-    
-    
-    
-    
+
+
 def inv_fp(data, wf=None, size=None, fcor=0.5):
     """
     Performs the full inverse processing of a 1D NMR spectrum (``data``).
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 1darray
         Spectrum
     wf : dict
@@ -1290,8 +1269,8 @@ def inv_fp(data, wf=None, size=None, fcor=0.5):
     fcor : float
         weighting factor for the FID first point
 
-    Returns:
-    -----------
+    Returns
+    ----------
     pdata : 1darray
         FID
     """
@@ -1302,7 +1281,7 @@ def inv_fp(data, wf=None, size=None, fcor=0.5):
         pdata = processing.td_eff(pdata, size)
     # Reverse window function
     if wf is not None:
-        if wf['mode'] == None:
+        if wf['mode'] is None:
             apod = np.ones_like(pdata)
         if wf['mode'] == 'qsin':
             apod = processing.qsin(pdata, ssb=wf['ssb'])/pdata
@@ -1314,23 +1293,22 @@ def inv_fp(data, wf=None, size=None, fcor=0.5):
             apod = processing.gm(pdata, lb=wf['lb'], gb=wf['gb'], sw=wf['sw'])/pdata
         pdata = pdata / apod
     return pdata
-    
-    
-    
-def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5,0.5], tdeff=[0,0], u=True, FnMODE='States-TPPI'):
+
+
+def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5, 0.5], tdeff=[0, 0], u=True, FnMODE='States-TPPI'):
     """
-    Performs the full processing of a 2D NMR FID (``data``). 
+    Performs the full processing of a 2D NMR FID (``data``).
     The returned values depend on ``u``: if it is True, returns a sequence of 2darrays depending on FnMODE, otherwise just the complex/hypercomplex data after FT in both dimensions.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 2darray
         Input data
     wf : sequence of dict
         (F1, F2); ``{'mode': function to be used, 'parameters': different from each function}``
     zf : sequence of int
         final size of spectrum, (F1, F2)
-    fcor : sequence of float 
+    fcor : sequence of float
         weighting factor for the FID first point, (F1, F2)
     tdeff : sequence of int
         number of points of the FID to be used for the processing, (F1, F2)
@@ -1339,8 +1317,8 @@ def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5,0.5], tdeff=[0,0], u=T
     FnMODE : str
         Acquisition mode in F1
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datap : 2darray or tuple of 2darray
         Processed data or tuple of 2darray
 
@@ -1354,10 +1332,10 @@ def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5,0.5], tdeff=[0,0], u=T
 
         :func:`klassez.processing.unpack_2D`
     """
-    
+
     # First of all, cut the data
     data = processing.td_eff(data, tdeff)
-    
+
     # Processing the direct dimension
     # Window function
     data *= processing.apodf(data.shape, wf[1])
@@ -1375,7 +1353,7 @@ def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5,0.5], tdeff=[0,0], u=T
             data = data.T
         else:
             data = processing.tp_hyper(data)
-        
+
         # Window function
         data *= processing.apodf(data.shape, wf[0])
 
@@ -1406,23 +1384,20 @@ def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5,0.5], tdeff=[0,0], u=T
             return processing.unpack_2D(data)           # rr, ir, ri, ii
     else:
         return data
-    
-    
-    
-    
+
+
 def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     """
     Perform the processing of a 2D NMR spectrum interactively. The GUI offers the opportunity to test different window functions, as well as different tdeff values and final sizes.
     The active parameters appear as blue text.
-    When changing the parameters, give it some time to compute. 
+    When changing the parameters, give it some time to compute.
 
     .. warning::
 
         *Extremely slow rendering!* Use with care
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     fid0 : 2darray
         FID to process
     acqus : dict
@@ -1434,14 +1409,14 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     show_cnt : bool
         Choose if to display data using contours (True) or heatmap (False)
 
-    Returns:
-    -----------
+    Returns
+    ----------
     pdata : 2darray
         Processed spectrum
     procs : dict
         Updated dictionary of processing parameters
     """
-    
+
     def get_apod(size, procs):
         """ Calculate the window function on the basis of 'procs' """
         Y = np.ones(size, dtype='complex64')    # array of ones
@@ -1454,15 +1429,13 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
         if apodf.shape[-1] > size:  # if longet than size, trim
             apodf = processing.td_eff(apodf, size)
         return apodf
-    
+
     CNT = bool(show_cnt)
-    
+
     # Copy initial FID to prevent overwriting and create new variables
     fid = np.copy(fid0)
     fid0 = np.copy(fid)
-    A1 = np.ones_like(fid0[:,0])    # WF F1
-    A2 = np.ones_like(fid0[0,:])    # WF F2
-    
+
     # Split acqus and procs from 2D version in two 1D-like dictionaries
     acqu1s, acqu2s = misc.split_acqus_2D(acqus)
     proc1s, proc2s = misc.split_procs_2D(procs)
@@ -1482,9 +1455,9 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     fq2_scale = processing.make_scale(data.shape[1], acqu2s['dw'], rev=True)
     ppm_f2 = misc.freq2ppm(fq2_scale, acqu2s['SFO1'], acqu2s['o1p'])
 
-    # Define useful things 
+    # Define useful things
     modes = ['No', 'em', 'sin', 'qsin', 'gm', 'gmb']   # entries for the radiobuttons
-    act_keys = {    # Active Parameters:
+    act_keys = {    # Active Parameters
             'No': [],
             'em': ['lb'],
             'sin': ['ssb'],
@@ -1492,7 +1465,7 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
             'gm': ['lb', 'gb', 'gc'],
             'gmb': ['lb', 'gb'],
             }
-    tx = [{},{}] # Dictionary of the texts. [Left column i.e. F2, Right column i.e. F1]
+    tx = [{}, {}]  # Dictionary of the texts. [Left column i.e. F2, Right column i.e. F1]
 
     # Draw boxes for widgets
     SI_box = [  # Sizes
@@ -1546,8 +1519,8 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
         nonlocal cnt
         proc1s, proc2s = misc.split_procs_2D(procs)     # split procs for WFs
         fid = np.copy(fid0)      # Starting value
-        fid02 = np.copy(fid0[0,:])      # F2 FID
-        fid01 = np.copy(fid0[:,0])      # F1 FID
+        fid02 = np.copy(fid0[0, :])      # F2 FID
+        fid01 = np.copy(fid0[:, 0])      # F1 FID
         fidp = np.copy(fid0)            # Whole FID for heatmap
 
         # Calculate the processed FID before FT, as processing.xfb does but without FTs
@@ -1597,8 +1570,8 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
         hm.set_data(fidp.real)
 
         # Update the limits and make figure pretty
-        ax.set_xlabel(r'$\delta\,$'+ misc.nuc_format(acqu2s['nuc'])+' /ppm')
-        ax.set_ylabel(r'$\delta\,$'+ misc.nuc_format(acqu1s['nuc'])+' /ppm')
+        ax.set_xlabel(r'$\delta\,$' + misc.nuc_format(acqu2s['nuc'])+' /ppm')
+        ax.set_ylabel(r'$\delta\,$' + misc.nuc_format(acqu1s['nuc'])+' /ppm')
         misc.set_ylim(axf2, (apodf2, -apodf2))
         misc.set_ylim(axf1, (apodf1, -apodf1))
         misc.set_fontsizes(ax, 14)
@@ -1607,21 +1580,20 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
         fig.canvas.draw()
 
     # --------------------------------------------------
-    # update_SI = [update_SI_f2, update_SI_f1]    
+    # update_SI = [update_SI_f2, update_SI_f1]
     def update_SI_f2(v):
-        nonlocal procs
         try:
             SI = eval(v)
             procs['zf'][1] = SI
-        except:
+        except Exception:
             pass
         update()
+
     def update_SI_f1(v):
-        nonlocal procs
         try:
             SI = eval(v)
             procs['zf'][0] = SI
-        except:
+        except Exception:
             pass
         update()
     update_SI = [update_SI_f2, update_SI_f1]
@@ -1629,20 +1601,19 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     # --------------------------------------------------
     # update_tdeff = [update_tdeff_f2, update_tdeff_f1]
     def update_tdeff_f2(v):
-        nonlocal procs
         try:
             val = eval(v)
             procs['tdeff'][1] = int(val)
-        except:
+        except Exception:
             pass
         tx[0]['tdeff'].set_text('{:.0f}'.format(procs['tdeff'][1]))
         update()
+
     def update_tdeff_f1(v):
-        nonlocal procs
         try:
             val = eval(v)
             procs['tdeff'][0] = int(val)
-        except:
+        except Exception:
             pass
         tx[1]['tdeff'].set_text('{:.0f}'.format(procs['tdeff'][0]))
         update()
@@ -1651,7 +1622,6 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     # --------------------------------------------------
     # update_mode = [update_mode_f2, update_mode_f1]
     def update_mode_f2(label):
-        nonlocal procs
         for key, value in tx[0].items():
             value.set_color('k')
         if label == 'No':
@@ -1661,8 +1631,8 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
         for key in act_keys[label]:
             tx[0][key].set_color('tab:blue')
         update()
+
     def update_mode_f1(label):
-        nonlocal procs
         for key, value in tx[1].items():
             value.set_color('k')
         if label == 'No':
@@ -1677,20 +1647,19 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     # --------------------------------------------------
     # update_ssb = [update_ssb_f2, update_ssb_f1]
     def update_ssb_f2(v):
-        nonlocal procs
         try:
             ssb = eval(v)
             procs['wf'][1]['ssb'] = ssb
-        except:
+        except Exception:
             pass
         tx[0]['ssb'].set_text('{:.0f}'.format(procs['wf'][1]['ssb']))
         update()
+
     def update_ssb_f1(v):
-        nonlocal procs
         try:
             ssb = eval(v)
             procs['wf'][0]['ssb'] = ssb
-        except:
+        except Exception:
             pass
         tx[1]['ssb'].set_text('{:.0f}'.format(procs['wf'][0]['ssb']))
         update()
@@ -1699,42 +1668,40 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     # --------------------------------------------------
     # update_lb = [update_lb_f2, update_lb_f1]
     def update_lb_f2(v):
-        nonlocal procs
         try:
             lb = eval(v)
             procs['wf'][1]['lb'] = lb
-        except:
+        except Exception:
             pass
         tx[0]['lb'].set_text('{:.0f}'.format(procs['wf'][1]['lb']))
         update()
+
     def update_lb_f1(v):
-        nonlocal procs
         try:
             lb = eval(v)
             procs['wf'][0]['lb'] = lb
-        except:
+        except Exception:
             pass
         tx[1]['lb'].set_text('{:.0f}'.format(procs['wf'][0]['lb']))
         update()
     update_lb = [update_lb_f2, update_lb_f1]
-            
+
     # --------------------------------------------------
     # update_gb = [update_gb_f2, update_gb_f1]
     def update_gb_f2(v):
-        nonlocal procs
         try:
             gb = eval(v)
             procs['wf'][1]['gb'] = gb
-        except:
+        except Exception:
             pass
         tx[0]['gb'].set_text('{:.2f}'.format(procs['wf'][1]['gb']))
         update()
+
     def update_gb_f1(v):
-        nonlocal procs
         try:
             gb = eval(v)
             procs['wf'][0]['gb'] = gb
-        except:
+        except Exception:
             pass
         tx[1]['gb'].set_text('{:.2f}'.format(procs['wf'][0]['gb']))
         update()
@@ -1743,20 +1710,19 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     # --------------------------------------------------
     # update_gc = [update_gc_f2, update_gc_f1]
     def update_gc_f2(v):
-        nonlocal procs
         try:
             gc = eval(v)
             procs['wf'][1]['gc'] = gc
-        except:
+        except Exception:
             pass
         tx[0]['gc'].set_text('{:.2f}'.format(procs['wf'][1]['gc']))
         update()
+
     def update_gc_f1(v):
-        nonlocal procs
         try:
             gc = eval(v)
             procs['wf'][0]['gc'] = gc
-        except:
+        except Exception:
             pass
         tx[1]['gc'].set_text('{:.2f}'.format(procs['wf'][0]['gc']))
         update()
@@ -1765,23 +1731,23 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     # ------------------------------------------------------------------------------------------------------------
     # ------------------------------------------------------------------------------------------------------------
 
-
     # Draw the figure panel
     fig = plt.figure('Interactive Processing')
-    fig.set_size_inches(15,9)
+    fig.set_size_inches(15, 9)
     plt.subplots_adjust(left=0.1, bottom=0.05, right=0.725, top=0.95, hspace=0.75, wspace=0.25)
-    ax = fig.add_subplot(4,3,(1,9))     # spectrum
-    axf2 = fig.add_subplot(4,3,10)        # fid F2
-    axf1 = fig.add_subplot(4,3,11)        # fid F1
-    axhm = fig.add_subplot(4,3,12)        # fid total
-
+    ax = fig.add_subplot(4, 3, (1, 9))     # spectrum
+    axf2 = fig.add_subplot(4, 3, 10)        # fid F2
+    axf1 = fig.add_subplot(4, 3, 11)        # fid F1
+    axhm = fig.add_subplot(4, 3, 12)        # fid total
 
     # Spectrum plot
     ax.set_title('Spectrum')
     if CNT:
         cnt = figures.ax2D(ax, ppm_f2, ppm_f1, data, lvl=lvl0, X_label='', Y_label='', fontsize=14)
     else:
-        cnt, axcbar = figures.ax_heatmap(ax, data, zlim='auto', z_sym=True, cmap=None, xscale=ppm_f2, yscale=ppm_f1, rev=(True,True), n_xticks=10, n_yticks=10, n_zticks=10, fontsize=14)
+        cnt, axcbar = figures.ax_heatmap(ax, data, zlim='auto', z_sym=True, cmap=None,
+                                         xscale=ppm_f2, yscale=ppm_f1, rev=(True, True),
+                                         n_xticks=10, n_yticks=10, n_zticks=10, fontsize=14)
         axcbar.tick_params(axis='y', labelright=False)  # Turn off the ticks of the colorbar otherwise it is ugly as shit
 
     # FID F2 plot
@@ -1792,11 +1758,11 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     apodp2, = axf2.plot(np.arange(fid.shape[-1]), apodf2, c='tab:red', lw=1.0)     # Window function
     apodp2.set_label('Window function')
     axf2.legend()
-    
+
     # FID F1 plot
     axf1.set_title('F1 FID')
     axf1.axhline(0, c='k', lw=0.4)   # baseline
-    fidp1, = axf1.plot(np.arange(fid.shape[0]), fid0[:,0].real/max(fid0[:,0].real), c='tab:blue', lw=0.6)  # FID
+    fidp1, = axf1.plot(np.arange(fid.shape[0]), fid0[:, 0].real/max(fid0[:, 0].real), c='tab:blue', lw=0.6)  # FID
     fidp1.set_label('Normalized FID')
     apodp1, = axf1.plot(np.arange(fid.shape[0]), apodf1, c='tab:red', lw=1.0)     # Window function
     apodp1.set_label('Window function')
@@ -1851,13 +1817,13 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
 
     #   FID F2 axes
     #       y
-    misc.set_ylim(axf2, (-1,1))
+    misc.set_ylim(axf2, (-1, 1))
     misc.mathformat(axf2)
     #       x
     misc.pretty_scale(axf2, (0, fid.shape[1]), n_major_ticks=4)
     #   FID F1 y-axis
     #       y
-    misc.set_ylim(axf1, (-1,1))
+    misc.set_ylim(axf1, (-1, 1))
     misc.mathformat(axf1)
     #       x
     misc.pretty_scale(axf1, (0, fid.shape[0]), n_major_ticks=4)
@@ -1879,7 +1845,7 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
         gc_tb[i].on_submit(update_gc[i])
 
     plt.show()
-    
+
     # Calculate final spectrum. Do not unpack the hyperser
     datap = processing.xfb(fid, wf=procs['wf'], zf=procs['zf'], tdeff=procs['tdeff'], FnMODE=acqus['FnMODE'], u=False)
 
@@ -1887,12 +1853,12 @@ def interactive_xfb(fid0, acqus, procs, lvl0=0.1, show_cnt=True):
     return datap, procs
 
 
-def inv_xfb(data, wf=[None, None], size=(None, None), fcor=[0.5,0.5], FnMODE='States-TPPI'):
+def inv_xfb(data, wf=[None, None], size=(None, None), fcor=[0.5, 0.5], FnMODE='States-TPPI'):
     """
     Reverts the full processing of a 2D NMR FID (data).
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 2darray
         Input data, complex or hypercomplex
     wf : list of dict
@@ -1904,11 +1870,10 @@ def inv_xfb(data, wf=[None, None], size=(None, None), fcor=[0.5,0.5], FnMODE='St
     FnMODE : str
         Acquisition mode in F1
 
-    Returns:
-    -----------
+    Returns
+    ----------
     data : 2darray
         Processed data
-
 
     .. seealso::
 
@@ -1945,7 +1910,7 @@ def inv_xfb(data, wf=[None, None], size=(None, None), fcor=[0.5,0.5], FnMODE='St
 
     # Reverse window function
     if wf[0] is not None:
-        if wf[0]['mode'] == None:
+        if wf[0]['mode'] is None:
             apod = np.ones_like(data)
         if wf[0]['mode'] == 'qsin':
             apod = processing.qsin(data, ssb=wf[0]['ssb'])/data
@@ -1972,7 +1937,7 @@ def inv_xfb(data, wf=[None, None], size=(None, None), fcor=[0.5,0.5], FnMODE='St
 
     # Reverse window function
     if wf[1] is not None:
-        if wf[1]['mode'] == None:
+        if wf[1]['mode'] is None:
             apod = np.ones_like(data)
         if wf[1]['mode'] == 'qsin':
             apod = processing.qsin(data, ssb=wf[1]['ssb'])/data
@@ -1989,11 +1954,11 @@ def inv_xfb(data, wf=[None, None], size=(None, None), fcor=[0.5,0.5], FnMODE='St
 
 def make_scale(size, dw, rev=True):
     """
-    Computes the frequency scale of the NMR spectrum, given the number of points and the employed dwell time (the REAL one, not the TopSpin one!). 
+    Computes the frequency scale of the NMR spectrum, given the number of points and the employed dwell time (the REAL one, not the TopSpin one!).
     ``rev=True`` is required for the correct frequency arrangement in the NMR sense.
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     size: int
         Number of points of the frequency scale
     dw : float
@@ -2001,8 +1966,8 @@ def make_scale(size, dw, rev=True):
     rev: bool
         Reverses the scale
 
-    Returns:
-    -----------
+    Returns
+    ----------
     fqscale: 1darray
         The computed frequency scale.
     """
@@ -2023,9 +1988,9 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
     """
     # Make the figure
     fig = plt.figure('Tabula Rasa')
-    fig.set_size_inches(12,8)
+    fig.set_size_inches(12, 8)
     plt.subplots_adjust(left=0.15, bottom=0.15)
-    ax = fig.add_subplot(1,1,1)
+    ax = fig.add_subplot()
     # Define grid
     xscale = np.arange(data.shape[1])
     yscale = np.arange(data.shape[0])
@@ -2046,19 +2011,19 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
         selected = []
         for i in yscale:
             for j in xscale:
-                if path.contains_point((float(j),float(i))):
-                    selected.append([j,i])
+                if path.contains_point((float(j), float(i))):
+                    selected.append([j, i])
 
         # Create convex hull around the raw lasso
         CH = ConvexHull(np.array(selected))
         # Create delimiting wall
-        xhull = list(CH.points[CH.vertices,0])
-        xhull.append(CH.points[CH.vertices[0],0])
+        xhull = list(CH.points[CH.vertices, 0])
+        xhull.append(CH.points[CH.vertices[0], 0])
         xhull = np.array(xhull)
-        yhull = list(CH.points[CH.vertices,1])
-        yhull.append(CH.points[CH.vertices[0],1])
+        yhull = list(CH.points[CH.vertices, 1])
+        yhull.append(CH.points[CH.vertices[0], 1])
         yhull = np.array(yhull)
-    
+
         # Update the plot
         hull.set(visible=True)
         hull.set_data(xhull, yhull)
@@ -2068,8 +2033,8 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
         selected = []
         for i in yscale:
             for j in xscale:
-                if path.contains_point((float(j),float(i))):
-                    selected.append([j,i])
+                if path.contains_point((float(j), float(i))):
+                    selected.append([j, i])
         # Store the selected points in a non-local variable
         sgn_reg = np.array(selected)
 
@@ -2078,16 +2043,15 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
     def save(event):
         # Function connected to the button
 
-        nonlocal thesignal
-        thesignal.append(sgn_reg)       # Save the region 
+        thesignal.append(sgn_reg)       # Save the region
 
         CH = ConvexHull(sgn_reg)        # Compute convex hull
         # Create the walls
-        xhull = list(CH.points[CH.vertices,0])
-        xhull.append(CH.points[CH.vertices[0],0])
+        xhull = list(CH.points[CH.vertices, 0])
+        xhull.append(CH.points[CH.vertices[0], 0])
         xhull = np.array(xhull)
-        yhull = list(CH.points[CH.vertices,1])
-        yhull.append(CH.points[CH.vertices[0],1])
+        yhull = list(CH.points[CH.vertices, 1])
+        yhull.append(CH.points[CH.vertices[0], 1])
         yhull = np.array(yhull)
 
         ax.plot(xhull, yhull, 'g')      # Plot the region walls on the figure forever
@@ -2102,14 +2066,13 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
 
     ax.contour(xscale, yscale, data, cl, cmap=cmap, linewidths=0.5)     # plot the contours
 
-    hull, = ax.plot(0,0, visible=False)             # Create variable for the lasso selection on screen
+    hull, = ax.plot(0, 0, visible=False)             # Create variable for the lasso selection on screen
 
     # Set limits
-    #ax.set_xlim(data.shape[1], 0)
     ax.set_ylim(data.shape[0], 0)
 
     # Widgets
-    lasso = LassoSelector(ax, onselect)
+    LassoSelector(ax, onselect)
     button.on_clicked(save)
 
     plt.show()
@@ -2120,22 +2083,22 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
     if len(thesignal) > 0:
         thesignal = np.concatenate(thesignal)
         for k in range(thesignal.shape[0]):
-            mask[thesignal[k,1], thesignal[k,0]] = 1
+            mask[thesignal[k, 1], thesignal[k, 0]] = 1
     #   If you did not select anything, the masking matrix does not alter the spectrum
     else:
         mask = np.ones_like(data)
     return mask
 
-
-
 # Phase correction
+
+
 def interactive_phase_1D(ppmscale, S, reference=None):
     """
     This function allow to adjust the phase of 1D spectra interactively. Use the mouse scroll to regulate the values.
     Press the "Z" key to toggle between automatic and manual adjustment of the window.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppmscale : 1darray
         ppm scale of the spectrum. Used to regulate the pivot position
     S :  1darray
@@ -2143,8 +2106,8 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     reference : list of 1darray or Spectrum_1D object
         Reference spectrum to be used for phasing. Can be also given as ``[ppm, spectrum]``
 
-    Returns:
-    -----------
+    Returns
+    ----------
     phased_data : 1darray
         Phased spectrum
     final_values: tuple
@@ -2164,15 +2127,15 @@ def interactive_phase_1D(ppmscale, S, reference=None):
         if pivot is None:
             pv = 0.5
         else:
-            pv = misc.ppmfind(ppmscale, pivot)[0]/size 
+            pv = misc.ppmfind(ppmscale, pivot)[0]/size
         apod = np.exp(1j * (p0 + p1 * (pvscale - pv))).astype(data.dtype)
         return apod * data
 
     # Make the figure
     fig = plt.figure('Phase Correction')
-    fig.set_size_inches(15,8)
-    plt.subplots_adjust(left = 0.075, bottom=0.10, right=0.8, top=0.9)    # Make room for the sliders
-    ax = fig.add_subplot(1,1,1)
+    fig.set_size_inches(15, 8)
+    plt.subplots_adjust(left=0.075, bottom=0.10, right=0.8, top=0.9)    # Make room for the sliders
+    ax = fig.add_subplot()
 
     if reference is not None:
         if isinstance(reference, Spectrum_1D):
@@ -2205,12 +2168,11 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     box_z.text(0.5, 0.5, 'Z', ha='center', va='center', fontsize=15, transform=box_z.transAxes)
 
     radiolabels = [     # labels for the radio buttons
-            '0$^{th}$-order\nphase correction', 
-            '1$^{st}$-order\nphase correction', 
+            '0$^{th}$-order\nphase correction',
+            '1$^{st}$-order\nphase correction',
             '1$^{st}$-order\npivot'
             ]
 
-    
     # Make widgets
     #   Buttons
     up_button = Button(box_us, r'$\uparrow$', hovercolor='0.975')
@@ -2224,7 +2186,7 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     # Array 'status': 1 means active, 0 means inactive.
     stat = np.array([1, 0, 0])
     # values:     p0 p1 pivot
-    P = np.array([0, 0, float(round(np.mean(ppmscale), 2))] )
+    P = np.array([0, 0, float(round(np.mean(ppmscale), 2))])
 
     zoom_adj = True
 
@@ -2238,32 +2200,29 @@ def interactive_phase_1D(ppmscale, S, reference=None):
 
     def roll_up(event):
         # Increase the active value of its 'sens'
-        nonlocal P
         for k in range(3):
             if stat[k]:
                 P[k] += sens[k]
 
     def roll_down(event):
         # Decrease the active value of its 'sens'
-        nonlocal P
         for k in range(3):
             if stat[k]:
                 P[k] -= sens[k]
 
     def sens_up(event):
         # Doubles the active 'sens'
-        nonlocal sens
         for k in range(3):
             if stat[k]:
                 sens[k] = sens[k]*2
+
     def sens_down(event):
         # Halves the active 'sens'
-        nonlocal sens
         for k in range(3):
             if stat[k]:
                 sens[k] = sens[k]/2
 
-    def on_scroll(event): 
+    def on_scroll(event):
         # When you move the mouse scroll
         if event.button == 'up':
             roll_up(event)
@@ -2283,23 +2242,16 @@ def interactive_phase_1D(ppmscale, S, reference=None):
         pivot_bar.set_xdata((pivot,))              # update pivot bar
         # Interactively update the vertical limits
         if zoom_adj:
-            T = max(data_inside.real)   
+            T = max(data_inside.real)
             B = min(data_inside.real)
             ax.set_ylim(B - 0.05*T, T + 0.05*T)
         # Update
         fig.canvas.draw()
 
-
-    def update_lim(val):
-        # Trim the figure according to the border sliders
-        L = l.val
-        R = r.val
-        ax.set_xlim(L,R)
-
     def reset(event):
         # Reset the phase and pivot values to their starting point
         nonlocal P
-        P = np.array([0, 0, round(np.mean([min(ppmscale),max(ppmscale)])) ] )
+        P = np.array([0, 0, round(np.mean([min(ppmscale), max(ppmscale)]))])
         on_scroll(event)
 
     def save(event):
@@ -2318,13 +2270,12 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     def zoom_onoff(event):
         nonlocal zoom_adj
         if event.key == 'z':
-            zoom_adj = not(zoom_adj)
+            zoom_adj = not zoom_adj
             if zoom_adj:
                 box_z.set_facecolor('tab:green')
             else:
                 box_z.set_facecolor('tab:red')
             plt.draw()
-
 
     # Set borders and scale
     ax.set_xlim(max(ppmscale), min(ppmscale))
@@ -2335,14 +2286,13 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     misc.pretty_scale(ax, ax.get_xlim(), 'x')
     misc.pretty_scale(ax, ax.get_ylim(), 'y')
     misc.mathformat(ax)
-    
 
     # Write axis label
     plt.text(0.5, 0.05, r'$\delta$ /ppm', ha='center', va='center', fontsize=20, transform=fig.transFigure)
 
-    phases_text = plt.text(0.75, 0.015, 
-            'p0={:7.2f} | p1={:7.2f} | pv={:7.2f}'.format(*P),
-            ha='center', va='bottom', transform=fig.transFigure, fontsize=10)
+    phases_text = plt.text(0.75, 0.015,
+                           'p0={:7.2f} | p1={:7.2f} | pv={:7.2f}'.format(*P),
+                           ha='center', va='bottom', transform=fig.transFigure, fontsize=10)
 
     ax.axhline(0, c='k', lw=0.2)    # baseline guide
 
@@ -2357,9 +2307,8 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     reset_button.on_clicked(reset)
     save_button.on_clicked(save)
     saveandexit.on_clicked(save_and_exit)
-    scroll = fig.canvas.mpl_connect('scroll_event', on_scroll)
+    fig.canvas.mpl_connect('scroll_event', on_scroll)
     fig.canvas.mpl_connect('key_press_event', zoom_onoff)
-
 
     plt.show()
 
@@ -2369,15 +2318,14 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     return phased_data, final_values
 
 
-
 def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     """
     Interactively adjust the phases of a 2D spectrum.
     First select the traces you want to use as reference, then use the mouse scroll to adjust the phase angles.
     ``S`` must be complex or hypercomplex, so BEFORE TO UNPACK with ::func::`klassez.processing.unpack_2D`
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm_f1 : 1darray
         ppm scale of the indirect dimension
     ppm_f2 : 1darray
@@ -2386,16 +2334,16 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
         Data to be phase-adjusted
     hyper : bool
         True if ``S`` is hypercomplex, False if ``S`` is just complex
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     S : 2darray
         Phased data
     final_values_f1 : tuple
         ``(p0_f1, p1_f1, pivot_f1)``
     final_values_f2 : tuple
         ``(p0_f2, p1_f2, pivot_f2)``
-        
+
     .. seealso::
 
         :func:`klassez.anal.select_traces`
@@ -2409,7 +2357,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     if hyper:
         S_rr, S_ri, S_ir, S_ii = processing.unpack_2D(S)
     else:
-        S_rr, S_ii = S.real, S.imag
+        S_rr, _ = S.real, S.imag
 
     zoom_adj = True
 
@@ -2427,9 +2375,9 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
         if pivot is None:
             pv = 0.5
         elif dim == 'f2':
-            pv = misc.ppmfind(ppm_f2, pivot)[0]/size 
+            pv = misc.ppmfind(ppm_f2, pivot)[0]/size
         elif dim == 'f1':
-            pv = misc.ppmfind(ppm_f1, pivot)[0]/size 
+            pv = misc.ppmfind(ppm_f1, pivot)[0]/size
         apod = np.exp(1j * (p0 + p1 * (pvscale - pv))).astype(data.dtype)
         return apod * data
 
@@ -2438,7 +2386,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
         if hyper:
             S_rr, S_ri, S_ir, S_ii = processing.unpack_2D(S)
         else:
-            S_rr, S_ii = S.real, S.imag
+            S_rr, _ = S.real, S.imag
         # Create empty lists for the traces
         f1, f2 = [], []
         npk = len(coord)
@@ -2449,15 +2397,14 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
             f2.append(x)
         return f1, f2
 
-
     # Get the traces on which to see the effects of phase adjustment
     coord = anal.select_traces(ppm_f1, ppm_f2, S_rr)
     npk = len(coord)
 
     # Make the figure
     fig = plt.figure('Phase Correction')
-    fig.set_size_inches(15,8)
-    plt.subplots_adjust(left = 0.125, bottom=0.125, right=0.8, top=0.9, wspace=0.10, hspace=0.20)    # Make room for the sliders
+    fig.set_size_inches(15, 8)
+    plt.subplots_adjust(left=0.125, bottom=0.125, right=0.8, top=0.9, wspace=0.10, hspace=0.20)    # Make room for the sliders
 
     # Get the traces
     f1, f2 = maketraces(coord, S, ppm_f2, ppm_f1, hyper)
@@ -2483,8 +2430,8 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     box_z.text(0.5, 0.5, 'Z', ha='center', va='center', fontsize=15, transform=box_z.transAxes)
 
     radiolabels = [     # labels for the radio buttons
-            '0$^{th}$-order\nphase correction', 
-            '1$^{st}$-order\nphase correction', 
+            '0$^{th}$-order\nphase correction',
+            '1$^{st}$-order\nphase correction',
             '1$^{st}$-order\npivot'
             ]
 
@@ -2501,18 +2448,18 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     seldim = RadioButtons(box_dimen, ['F2', 'F1'])
 
     # Array "sensitivity":
-    sens = [#p0 p1 pivot
-            [5, 5, 0.1],    #F2
-            [5, 5, 0.1]     #F1
+    sens = [    # p0 p1 pivot
+            [5, 5, 0.1],    # F2
+            [5, 5, 0.1]     # F1
             ]
 
-    # "status" arrays: 
+    # "status" arrays:
     stat = np.array([1, 0, 0])  # p0, p1, pivot
     statf = np.array([1, 0])    # f2, f1
 
     P = np.array([  # Values
-        [0, 0, round(np.mean([min(ppm_f2),max(ppm_f2)]), 2) ],  #F2
-        [0, 0, round(np.mean([min(ppm_f1),max(ppm_f1)]), 2) ]   #F1
+        [0, 0, round(np.mean([min(ppm_f2), max(ppm_f2)]), 2)],  # F2
+        [0, 0, round(np.mean([min(ppm_f1), max(ppm_f1)]), 2)]   # F1
         ])
     # For reset
     P0 = np.copy(P)
@@ -2525,7 +2472,6 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     p1_f1 = P0[1][1]
     pivot_f1 = P0[1][2]
 
-    
     # Functions connected to widgets
     def statmod(label):
         # changes the 'stat' array according to the radiobutton
@@ -2538,17 +2484,16 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     def change_dim(label):
         nonlocal statf
         if label == 'F2':
-            statf = np.array([1,0])
+            statf = np.array([1, 0])
         if label == 'F1':
-            statf = np.array([0,1])
+            statf = np.array([0, 1])
 
     def roll_up(event):
         # Increase the active value of its 'sens'
-        nonlocal P
         for i in range(2):
             for k in range(3):
                 if statf[i] and stat[k]:
-                    P[i,k] += sens[i][k]
+                    P[i, k] += sens[i][k]
                     # Manage out-of-border
                     if P[0][2] > max(ppm_f2):
                         P[0][2] = round(np.floor(max(ppm_f2)), 2)
@@ -2557,7 +2502,6 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
 
     def roll_down(event):
         # Decrease the active value of its 'sens'
-        nonlocal P
         for i in range(2):
             for k in range(3):
                 if statf[i] and stat[k]:
@@ -2570,20 +2514,19 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
 
     def sens_up(event):
         # Doubles the active 'sens'
-        nonlocal sens
         for i in range(2):
             for k in range(3):
                 if statf[i] and stat[k]:
                     sens[i][k] = sens[i][k]*2
+
     def sens_down(event):
         # Halves the active 'sens'
-        nonlocal sens
         for i in range(2):
             for k in range(3):
                 if statf[i] and stat[k]:
                     sens[i][k] = sens[i][k]/2
 
-    def on_scroll(event): 
+    def on_scroll(event):
         # When you move the mouse scroll
         if event.button == 'up':
             roll_up(event)
@@ -2627,22 +2570,12 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     def zoom_onoff(event):
         nonlocal zoom_adj
         if event.key == 'z':
-            zoom_adj = not(zoom_adj)
+            zoom_adj = not zoom_adj
             if zoom_adj:
                 box_z.set_facecolor('tab:green')
             else:
                 box_z.set_facecolor('tab:red')
             fig.canvas.draw()
-
-    def update_lim(val):
-        # Update zoom
-        L2 = l_f2.val
-        R2 = r_f2.val
-        L1 = l_f1.val
-        R1 = r_f1.val
-        for i in range(npk):
-            ax[2*i].set_xlim(L2,R2)
-            ax[2*i+1].set_xlim(L1,R1)
 
     def reset(event):
         # Reset the sliders
@@ -2673,14 +2606,14 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
 
     # Set axis limits
     for i in range(2*npk):
-        if np.mod(i+1,2)!=0:
+        if np.mod(i+1, 2) != 0:
             ax[i].set_xlim(max(ppm_f2), min(ppm_f2))
         else:
             ax[i].set_xlim(max(ppm_f1), min(ppm_f1))
     # Set vertical limits
     for i in range(npk):
         for j in range(2):
-            if j==0:    # left
+            if j == 0:    # left
                 T = max(f2[i].real)
                 B = min(f2[i].real)
                 panel = 2 * i
@@ -2690,8 +2623,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
                 B = min(f1[i].real)
                 panel = 2 * i + 1
                 ax[panel].set_title(r'$\delta\,$F2: '+'{:.1f} ppm'.format(coord[i][0]))
-            
-            
+
             ax[panel].set_ylim(B - 0.01*T, T + 0.01*T)
             # Make pretty scale
             xsx, xdx = ax[panel].get_xlim()
@@ -2702,7 +2634,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
             # Plot ticks only in the bottom row
             if i != npk-1:
                 ax[panel].tick_params(axis='x', labelbottom=False)
-    
+
     # Create empty lists for traces plots
     t_f2 = []
     t_f1 = []
@@ -2726,25 +2658,25 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     plt.text(0.5, 0.98, 'Use mouse scroll to adjust the phases. Press Z to toggle zoom adjustment',
              ha='center', va='top', transform=fig.transFigure, fontsize=16)
 
-    phases_text = plt.text(0.975, 0.015, 
-            'p02={:7.2f} | p12={:7.2f} | pv2={:7.2f} || p01={:7.2f} | p11={:7.2f} | pv1={:7.2f}'.format(*P[0], *P[1]),
-            ha='right', va='bottom', transform=fig.transFigure, fontsize=10)
+    phases_text = plt.text(0.975, 0.015,
+                           'p02={:7.2f} | p12={:7.2f} | pv2={:7.2f} || p01={:7.2f} | p11={:7.2f} | pv1={:7.2f}'.format(*P[0], *P[1]),
+                           ha='right', va='bottom', transform=fig.transFigure, fontsize=10)
 
     # Connect the widgets to the functions
     reset_button.on_clicked(reset)
     save_button.on_clicked(save)
     saveandexit.on_clicked(save_and_exit)
-    
+
     up_button.on_clicked(sens_up)
     down_button.on_clicked(sens_down)
     radio.on_clicked(statmod)
     seldim.on_clicked(change_dim)
-    scroll = fig.canvas.mpl_connect('scroll_event', on_scroll)
+    fig.canvas.mpl_connect('scroll_event', on_scroll)
     fig.canvas.mpl_connect('key_press_event', zoom_onoff)
 
     plt.show()
 
-    # Phase the spectrum with the final Parameters:
+    # Phase the spectrum with the final Parameters
     S = phase(S, p0=p0_f2, p1=p1_f2, pivot=pivot_f2, dim='f2')
     if hyper:
         S = processing.tp_hyper(S)
@@ -2763,12 +2695,13 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
 
     return S, final_values_f1, final_values_f2
 
+
 def integral(fx, x=None, lims=None):
     """
     Calculates the primitive of ``fx``. If ``fx`` is a multidimensional array, the integrals are computed along the last dimension.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     fx : ndarray
         Function (array) to integrate
     x : 1darray or None
@@ -2776,8 +2709,8 @@ def integral(fx, x=None, lims=None):
     lims : tuple or None
         Integration range. If None, the whole function is integrated.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     Fx : ndarray
         Integrated function.
     """
@@ -2796,18 +2729,19 @@ def integral(fx, x=None, lims=None):
     else:
         # Trim data according to lims
         x_tr, fx_tr = misc.trim_data(x_in, fx_in, lims)
-    
+
     # Integrate
     Fx = np.cumsum(fx_tr, axis=-1) * dx
     return Fx
+
 
 def integrate(fx, x=None, lims=None):
     """
     Calculates the definite integral of ``fx`` as ``I = F[-1] - F[0]`` (basically it applies the fundamental theorem of calculus).
     If ``fx`` is a multidimensional array, the integrals are computed along the last dimension.
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     fx : ndarray
         Function (array) to integrate
     x : 1darray or None
@@ -2815,31 +2749,29 @@ def integrate(fx, x=None, lims=None):
     lims : tuple or None
         Integration range. If None, the whole function is integrated.
 
-    Returns:
-    -----------
-    I : float
+    Returns
+    ----------
+    integ : float
         Integrated function.
 
-
     .. seealso::
-        
+
         :func:`klassez.processing.integral`
     """
     Fx = processing.integral(fx, x, lims)
     # Calculus fundamental theorem
-    I = Fx[...,-1] - Fx[...,0]
-    return I
-
+    integ = Fx[..., -1] - Fx[..., 0]
+    return integ
 
 
 def pknl(data, grpdly=0, onfid=False):
     """
     Compensate for the Bruker group delay at the beginning of FID through a first-order phase correction of ``p1 = - 360 * GRPDLY`` degrees.
-    If applied on the FID (``onfid=True``), it is equivalent to a left circular shift of ``GRPDLY`` points. 
+    If applied on the FID (``onfid=True``), it is equivalent to a left circular shift of ``GRPDLY`` points.
     However, in order to accomodate for also non-integer ``GRPDLY``, it is computed by doing the Fourier transform on the fly.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : ndarray
         Input data. Be sure it is complex!
     grpdly : int
@@ -2847,8 +2779,8 @@ def pknl(data, grpdly=0, onfid=False):
     onfid : bool
         If it is True, performs FT before to apply the phase correction, and IFT after.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datap : ndarray
         Corrected data
     """
@@ -2862,7 +2794,8 @@ def pknl(data, grpdly=0, onfid=False):
         return datap
     else:   # Just ps
         datap, *_ = processing.ps(data, p1=-360*grpdly)
-        return datap 
+        return datap
+
 
 def convdta(data, grpdly=0, scaling=1):
     """
@@ -2871,12 +2804,11 @@ def convdta(data, grpdly=0, scaling=1):
     These differences are not invisible to human's eye.
 
     .. note::
-        
+
         Since TopSpin version 4.0 the algorithm changed somehow, and the result is different.
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : ndarray
         FID with digital filter
     grpdly : int
@@ -2884,8 +2816,8 @@ def convdta(data, grpdly=0, scaling=1):
     scaling : float
         Scaling factor of the resulting FID. Needed to match TopSpin's intensities.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     data_in : ndarray
         FID without the digital filter. It will have ``grpdly`` points less than ``data``.
     """
@@ -2898,9 +2830,9 @@ def convdta(data, grpdly=0, scaling=1):
     dig_filt = data_in[..., -grpdly:][::-1]
 
     # Subtract the digital filter, reversed, from the start of the FID
-    data_in[...,:grpdly] -= dig_filt 
+    data_in[..., :grpdly] -= dig_filt
     # Trim the digital filter at the end of FID
-    data_in = data_in[...,:-grpdly]
+    data_in = data_in[..., :-grpdly]
     # Correct the intensities
     data_in *= scaling
     return data_in
@@ -2910,12 +2842,13 @@ def calibration(ppmscale, S, ref=None):
     """
     Scroll the ppm scale of spectrum to make calibration.
     The interface offers two guidelines: the red one, labelled 'reference signal' remains fixed, whereas the green one ('calibration value') moves with the ppm scale.
-    The ideal calibration procedure consists in placing the red line on the signal you want to use as reference, and the green line on the ppm value that the reference signal must assume in the calibrated spectrum. Then, scroll with the mouse until the two lines are superimposed.
+    The ideal calibration procedure consists in placing the red line on the signal you want to use as reference,
+    and the green line on the ppm value that the reference signal must assume in the calibrated spectrum.
+    Then, scroll with the mouse until the two lines are superimposed.
     You can use another spectrum as reference.
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppmscale : 1darray
         The ppm scale to be calibrated
     S : 1darray
@@ -2923,21 +2856,21 @@ def calibration(ppmscale, S, ref=None):
     ref : list of 1darray or Spectrum_1D object
         Reference spectrum to be used for calibration. If list, ``[ppm scale, spectrum]``
 
-    Returns:
-    -----------
+    Returns
+    ----------
     offset : float
         Difference between original scale and new scale. This must be summed up to the original ppm scale to calibrate the spectrum.
     """
-        
-    #initialize values
+
+    # initialize values
     if ppmscale[0] < ppmscale[-1]:
         S = S[::-1]
         ppmscale = ppmscale[::-1]
     ppmscale0 = np.copy(ppmscale)       # save original scale for reset
 
     offset = 0                          # initialize returned value
-    calstep = 0.25                      # calibration step 
-    
+    calstep = 0.25                      # calibration step
+
     # Initialize guidelines positions
     #   Fixed one
     g_idx = len(ppmscale)//2
@@ -2946,11 +2879,11 @@ def calibration(ppmscale, S, ref=None):
     d_idx = len(ppmscale)//2
     d_pos = ppmscale[g_idx]
 
-    # Make the figure 
+    # Make the figure
     fig = plt.figure('Calibration')
-    fig.set_size_inches(15,8)
-    plt.subplots_adjust(left = 0.1, bottom=0.125, right=0.875, top=0.85)
-    ax = fig.add_subplot(1,1,1)
+    fig.set_size_inches(15, 8)
+    plt.subplots_adjust(left=0.1, bottom=0.125, right=0.875, top=0.85)
+    ax = fig.add_subplot()
 
     # Boxes and widgets
     #   Buttons
@@ -2991,7 +2924,6 @@ def calibration(ppmscale, S, ref=None):
         ppmscale = np.copy(ppmscale0)
         on_scroll(event)
         fig.canvas.draw()
-        
 
     def mouse_click(event):
         if event.inaxes != ax:
@@ -3000,30 +2932,30 @@ def calibration(ppmscale, S, ref=None):
             move_fixed(event)
         elif event.button == 3:
             move_mobile(event)
-            
+
     def move_fixed(event):
         # set position of the red bar
         x = event.xdata
         if (event.dblclick and event.button == 1) or event.button == 2:
             nonlocal g_pos, g_idx
-            g_pos = x 
+            g_pos = x
             g_idx = misc.ppmfind(ppmscale, g_pos)[0]
             guide.set_xdata((x,))
         gtext.set_text(f'{"Mobile":^9s}\n{g_pos:^9.3f}')
         fig.canvas.draw()
-        
+
     def move_mobile(event):
         # set position of the green bar
         x = event.xdata
         if x is not None:
             if (event.dblclick and event.button == 3):
                 nonlocal d_pos, d_idx
-                d_pos = x 
+                d_pos = x
                 d_idx = misc.ppmfind(ppmscale, d_pos)[0]
                 dguide.set_xdata((x,))
             dtext.set_text(f'{"Fixed":^9s}\n{d_pos:^9.3f}')
         fig.canvas.draw()
-        
+
     def on_scroll(event):
         # move the scale
         nonlocal ppmscale
@@ -3049,7 +2981,6 @@ def calibration(ppmscale, S, ref=None):
         gtext.set_text(f'{"Mobile":^9s}\n{ppmscale[g_idx]:^9.3f}')
         dtext.set_text(f'{"Fixed":^9s}\n{d_pos:^9.3f}')
         fig.canvas.draw()
-        
 
     if ref is not None:
         if isinstance(ref, Spectrum_1D):
@@ -3073,7 +3004,9 @@ def calibration(ppmscale, S, ref=None):
 
     ax.set_xlabel(r'$\delta\,$ /ppm')
 
-    instruction_text = 'Set the red bar with left double click on the reference signal of your spectrum.\nSet the green bar with right double click on where you want the red bar to be after the calibration.\nScroll with the mouse to move the spectrum. Press "overlay" to align the red bar with the green bar in a single go.'
+    instruction_text = '''Set the red bar with left double click on the reference signal of your spectrum.\n
+                       Set the green bar with right double click on where you want the red bar to be after the calibration.\n
+                       Scroll with the mouse to move the spectrum. Press "overlay" to align the red bar with the green bar in a single go.'''
 
     ax.legend()
     misc.mathformat(ax)
@@ -3083,15 +3016,15 @@ def calibration(ppmscale, S, ref=None):
     ax.set_title(instruction_text, fontsize=16)
 
     # Connect widgets to functions
-    button.on_clicked(save)  
-    overlay_button.on_clicked(overlay)  
+    button.on_clicked(save)
+    overlay_button.on_clicked(overlay)
     reset_button.on_clicked(reset)
     up_button.on_clicked(increase_step)
     down_button.on_clicked(decrease_step)
-    cursor = Cursor(ax, useblit=True, horizOn=False, color='k', linewidth=0.4)
-    mouse = fig.canvas.mpl_connect('button_press_event', mouse_click)
-    scroll = fig.canvas.mpl_connect('scroll_event', on_scroll)
-    
+    Cursor(ax, useblit=True, horizOn=False, color='k', linewidth=0.4)
+    fig.canvas.mpl_connect('button_press_event', mouse_click)
+    fig.canvas.mpl_connect('scroll_event', on_scroll)
+
     plt.show()
     plt.close(1)
 
@@ -3099,8 +3032,10 @@ def calibration(ppmscale, S, ref=None):
 
     return offset
 
-#-----------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------
 # MCR and related
+
+
 def mcr_stack(input_data, P='H'):
     """
     Performs matrix augmentation by assembling input_data according to the positioning matrix ``P``.
@@ -3108,19 +3043,17 @@ def mcr_stack(input_data, P='H'):
     The entries of the ``P`` matrix are the indices of the data in input_data. The shape of the matrix determines the final arrangement. See example.
     If each dataset in ``input_data`` has dimensions ``(m, n)`` and ``P`` has dimensions ``(u,v)``, then the returned data matrix will have dimensions ``(m*u, n*v)``.
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     input_data : 3darray or list of 2darray
         Contains the spectra to be stacked together. The index that runs on the datasets must be the first one.
     P : str or 2darray
         ``'H'`` for horizontal stacking, ``'V'`` for vertical stacking, or custom matrix as explained in the description
 
-    Returns:
-    -----------
+    Returns
+    ----------
     data : 2darray
         Augmented data matrix.
-
 
     Examples:
     -----------
@@ -3129,15 +3062,14 @@ def mcr_stack(input_data, P='H'):
 
         .. code-block:: python
 
-            P = [ 
-                [0, 1], 
-                [3, 2], 
+            P = [
+                [0, 1],
+                [3, 2],
                 [5, 4]
                 ]
 
-
     .. seealso::
-        
+
         :func:`klassez.processing.mcr_unpack`
     """
     # Get the number of datasets
@@ -3151,12 +3083,12 @@ def mcr_stack(input_data, P='H'):
     # Compute the P matrix
     if isinstance(P, str):  # default options
         if P == 'H':    # Horizontal
-            P = np.arange(nds).reshape(1,-1)
+            P = np.arange(nds).reshape(1, -1)
         elif P == 'V':  # Vertical
-            P = np.arange(nds).reshape(-1,1)
+            P = np.arange(nds).reshape(-1, 1)
         else:   # Unknown
             raise ValueError('Unrecognized P type')
-    elif isinstance(P, np.ndarray): # Check if the dimensions are compatible
+    elif isinstance(P, np.ndarray):  # Check if the dimensions are compatible
         assert np.prod(P.shape) == nds, 'Wrong P shape'
 
     # Assemble the data
@@ -3166,7 +3098,7 @@ def mcr_stack(input_data, P='H'):
         # Find the position of the k-th spectrum in P
         i, j = np.where(P == k)
         # Set that position as a 1 in Mk, all the rest is 0
-        Mk[i[-1],j[-1]] = 1     # np.where returns lists of 1 number each
+        Mk[i[-1], j[-1]] = 1     # np.where returns lists of 1 number each
         if k == 0:  # Make the variable
             data = np.kron(Mk, Q[k])
         else:       # Add it
@@ -3177,16 +3109,15 @@ def mcr_stack(input_data, P='H'):
 def mcr_unpack(C, S, nds, P='H'):
     """
     Reverts matrix augmentation of :func:`klassez.processing.mcr_stack`.
-    The denoised spectra can be calculated by matrix multiplication: 
+    The denoised spectra can be calculated by matrix multiplication:
 
     .. code-block:: python
 
         for k in range(nds):
             D[k] = C_f[k] @ S_f[k]
 
-    
-    Parameters:
-    -----------
+    Parameters
+    ----------
     C : 2darray
         MCR C matrix
     S : 2darray
@@ -3196,33 +3127,32 @@ def mcr_unpack(C, S, nds, P='H'):
     P : str or 2darray
         ``'H'`` for horizontal stacking, ``'V'`` for vertical stacking, or custom matrix as explained in the description of ``mcr_stack``
 
-    Returns:
-    -----------
+    Returns
+    ----------
     C_f : list of 2darray
         Disassembled MCR C matrix
     S_f : list of 2darray
         Disassembled MCR C matrix
 
-
     .. seealso::
-        
+
         :func:`klassez.processing.mcr_stack`
     """
     # Compute the P matrix
     if isinstance(P, str):  # default options
         if P == 'H':    # Horizontal
-            P = np.arange(nds).reshape(1,-1)
+            P = np.arange(nds).reshape(1, -1)
         elif P == 'V':  # Vertical
-            P = np.arange(nds).reshape(-1,1)
+            P = np.arange(nds).reshape(-1, 1)
         else:   # Unknown
             raise ValueError('Unrecognized P type')
-    elif isinstance(P, np.ndarray): # Check if the dimensions are compatible
+    elif isinstance(P, np.ndarray):  # Check if the dimensions are compatible
         assert np.prod(P.shape) == nds, 'Wrong P shape'
 
     # Compute the dimension of each original dataset
     m = C.shape[0] // P.shape[0]    # num. rows of C / num. exp. per column
     n = S.shape[-1] // P.shape[-1]  # num. columns of S / num. exp. per row
-    
+
     # Initialize variables for storing the final C and S matrices
     C_f, S_f = [], []
 
@@ -3230,13 +3160,14 @@ def mcr_unpack(C, S, nds, P='H'):
         i, j = np.where(P == k)     # find whe position of the k-th dataset in P
         # Compute slices for delimiting the k-th spectrum
         #   in C: all the columns, rows according to P
-        rslice = slice(i[0]*m, i[0]*m + m)  
+        rslice = slice(i[0]*m, i[0]*m + m)
         C_f.append(C[rslice, ...])
         #   in S: all the rows, columns according to P
         cslice = slice(j[0]*n, j[0]*n + n)
-        S_f.append(S[...,cslice])
+        S_f.append(S[..., cslice])
 
     return np.array(C_f), np.array(S_f)
+
 
 def calc_nc(data, s_n):
     """
@@ -3245,22 +3176,20 @@ def calc_nc(data, s_n):
 
     .. _this article: https://arxiv.org/abs/1710.09787v2
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 2darray
         Input data
     s_n : float
         Noise standard deviation
 
-    Returns:
-    -----------
+    Returns
+    ----------
     n_c : int
         Number of components
 
-
     .. seealso::
-        
+
         :func:`klassez.processing.lrd`
 
         :func:`klassez.processing.mcr`
@@ -3268,10 +3197,10 @@ def calc_nc(data, s_n):
     M, N = data.shape
 
     S = slinalg.svdvals(data)
-    
+
     b = M/N
-    c = (1/2**0.5) * ( 1 + b + (1 + 14*b + b**2)**0.5 )**0.5
-    threshold = s_n * ( (c + 1/c) * (c + b/c))**0.5
+    c = (1/2**0.5) * (1 + b + (1 + 14*b + b**2)**0.5)**0.5
+    threshold = s_n * ((c + 1/c) * (c + b/c))**0.5
 
     threshold *= S[0]
     for k in range(len(S)):
@@ -3284,12 +3213,14 @@ def calc_nc(data, s_n):
 
 def simplisma(D, nc, f=10, oncols=True):
     """
-    Finds the first ``nc`` purest components of matrix ``D`` using the *simplisma* algorithm, proposed by `Windig and Guilment`_ . If ``oncols=True``, this function estimates ``S`` with simplisma, then calculates :math:`C = D S^+` . If ``oncols=False``, this function estimates ``C`` with *simplisma*, then calculates :math:`S = C^+ D`. ``f`` defines the percentage of allowed noise.
+    Finds the first ``nc`` purest components of matrix ``D`` using the *simplisma* algorithm, proposed by `Windig and Guilment`_ .
+    If ``oncols=True``, this function estimates ``S`` with simplisma, then calculates :math:`C = D S^+`.
+    If ``oncols=False``, this function estimates ``C`` with *simplisma*, then calculates :math:`S = C^+ D`. ``f`` defines the percentage of allowed noise.
 
     .. _Windig and Guilment: 10.1021/ac00014a016
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     D : 2darray
         Input data, of dimensions ``(m, n)``
     nc : int
@@ -3298,14 +3229,13 @@ def simplisma(D, nc, f=10, oncols=True):
         Percentage of allowed noise.
     oncols : bool
         If True, simplisma estimates the ``S`` matrix, otherwise estimates ``C``.
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     C : 2darray
         Estimation of the ``C`` matrix, of dimensions ``(m, nc)``.
     S : 2darray
         Estimation of the ``S`` matrix, of dimensions ``(nc, n)``.
-
 
     .. seealso::
 
@@ -3324,8 +3254,8 @@ def simplisma(D, nc, f=10, oncols=True):
         s = np.zeros(rows).astype(D.dtype)
 
         for i in range(rows):
-            m[i] = np.mean(D[i,:])      # mean of the i-th row
-            s[i] = np.std(D[i,:])       # STD of the i-th row
+            m[i] = np.mean(D[i, :])      # mean of the i-th row
+            s[i] = np.std(D[i, :])       # STD of the i-th row
 
         # Correction factor for the noise 'alpha'
         a = 0.01 * f * max(m)
@@ -3333,10 +3263,10 @@ def simplisma(D, nc, f=10, oncols=True):
         print('Computing 1° purest variable...', end='\r')
         # Rescaling of data for lambda: makes determinant of COO
         # proportional only to the independance between variables
-        l = ( s**2 + (m + a)**2 )**0.5  # lambda corrected for alpha
+        L = (s**2 + (m + a)**2)**0.5  # lambda corrected for alpha
         Dl = np.zeros_like(D)
         for i in range(rows):
-            Dl[i,:] = D[i,:] / l[i]
+            Dl[i, :] = D[i, :] / L[i]
 
         Q = (1/cols) * Dl @ Dl.T      # Correlation-around-origin matrix
 
@@ -3347,16 +3277,16 @@ def simplisma(D, nc, f=10, oncols=True):
         s_s = np.zeros((rows, nc)).astype(D.dtype)     # STD spectra
 
         # First weight
-        w[:,0] =  (s**2 + m**2) / (s**2 + (m + a)**2)
+        w[:, 0] = (s**2 + m**2) / (s**2 + (m + a)**2)
         p0 = s / (m + a)    # First purity spectrum
         pv, ipv = [], []    # Purest variables and correspondant index
 
-        p_s[:,0] = w[:,0] * p0
-        s_s[:,0] = w[:,0] * s
+        p_s[:, 0] = w[:, 0] * p0
+        s_s[:, 0] = w[:, 0] * s
 
         # 1st purest variable
-        pv.append(max(p_s[:,0]))
-        ipv.append(np.argmax(p_s[:,0]))
+        pv.append(max(p_s[:, 0]))
+        ipv.append(np.argmax(p_s[:, 0]))
 
         # Matrix for computing the determinants
         #   It has the following structure, where Q denotes the COO matrix
@@ -3371,28 +3301,28 @@ def simplisma(D, nc, f=10, oncols=True):
         for c in range(1, nc):      # 'c' cycles on number of components
             print('Computing '+str(c+1)+'° purest variable...', end='\r')
             for i in range(rows):   # i cycles on the number of rows
-                W = np.zeros((c+1,c+1)).astype(D.dtype)
-                W[0,0] = Q[i,i]
+                W = np.zeros((c+1, c+1)).astype(D.dtype)
+                W[0, 0] = Q[i, i]
                 for k in range(1, c+1):                 # cycles inside W
-                    W[0,k] = Q[i,ipv[k-1]]              # first row \{0,0}
-                    W[k,0] = Q[ipv[k-1],i]              # first column \{0,0}
+                    W[0, k] = Q[i, ipv[k-1]]              # first row \{0,0}
+                    W[k, 0] = Q[ipv[k-1], i]              # first column \{0,0}
                     for q in range(1, c+1):
-                        W[k,q] = Q[ipv[k-1],ipv[q-1]]   # all the rest, going row per row
-                w[i,c] = linalg.det(W)
+                        W[k, q] = Q[ipv[k-1], ipv[q-1]]   # all the rest, going row per row
+                w[i, c] = linalg.det(W)
 
-            p_s[:,c] = p0 * w[:,c]              # Create pure spectrum of c-th component
-            s_s[:,c] = s_s[:,0] * w[:,c]        # Create STD spectrum of c-th component
-            pv.append(max(p_s[:,c]))            # Update pure component
-            ipv.append(np.argmax(p_s[:,c]))     # Update pure variable
+            p_s[:, c] = p0 * w[:, c]              # Create pure spectrum of c-th component
+            s_s[:, c] = s_s[:, 0] * w[:, c]        # Create STD spectrum of c-th component
+            pv.append(max(p_s[:, c]))            # Update pure component
+            ipv.append(np.argmax(p_s[:, c]))     # Update pure variable
 
         print('Purest variables succesfully found.\n')
         for c in range(nc):
             print('{}° purest variable:\t\t{}'.format(c+1, ipv[c]))
 
         # MCR "S" matrix (D = CS + E)
-        S = np.zeros((nc, cols)).astype(D.dtype)     
+        S = np.zeros((nc, cols)).astype(D.dtype)
         for c in range(nc):
-            S[c,:] = D[ipv[c],:]
+            S[c, :] = D[ipv[c], :]
         C = D @ linalg.pinv(S)
 
     else:
@@ -3401,8 +3331,8 @@ def simplisma(D, nc, f=10, oncols=True):
         s = np.zeros((cols)).astype(D.dtype)
 
         for j in range(cols):
-            m[j] = np.mean(D[:,j])      # mean of the i-th row
-            s[j] = np.std(D[:,j])       # STD of the i-th row
+            m[j] = np.mean(D[:, j])      # mean of the i-th row
+            s[j] = np.std(D[:, j])       # STD of the i-th row
 
         # Correction factor for the noise 'alpha'
         a = 0.01 * f * max(m)
@@ -3416,16 +3346,16 @@ def simplisma(D, nc, f=10, oncols=True):
         pv.append(max(p1))
         ipv.append(np.argmax(p1))
 
-        # Rescaling of data for lambda: makes determinant of COO 
+        # Rescaling of data for lambda: makes determinant of COO
         # proportional only to the independance between variables
-        l = ( s**2 + (m + a)**2 )**0.5  # lambda corrected for alpha
+        L = (s**2 + (m + a)**2)**0.5  # lambda corrected for alpha
         Dl = np.zeros_like(D)
         for j in range(cols):
-            Dl[:,j] = D[:,j] / l[j]
+            Dl[:, j] = D[:, j] / L[j]
 
         Q = (1/rows) * Dl.T @ Dl      # Correlation-around-origin matrix
 
-        # Calculation of the weighting factors: 
+        # Calculation of the weighting factors:
         # express the independency between the variables
 
         w = np.zeros((cols, nc)).astype(D.dtype)       # Weights
@@ -3433,9 +3363,9 @@ def simplisma(D, nc, f=10, oncols=True):
         s_s = np.zeros((cols, nc)).astype(D.dtype)     # STD spectra
 
         # First weight
-        w[:,0] =  (s**2 + m**2) / (s**2 + (m + a)**2)
-        p_s[:,0] = w[:,0] * p1
-        s_s[:,0] = w[:,0] * s
+        w[:, 0] = (s**2 + m**2) / (s**2 + (m + a)**2)
+        p_s[:, 0] = w[:, 0] * p1
+        s_s[:, 0] = w[:, 0] * s
 
         # Matrix for computing the determinants
         # It has the following structure, where Q denotes the COO matrix
@@ -3447,31 +3377,31 @@ def simplisma(D, nc, f=10, oncols=True):
             ...             ...             ...             ... ...
             Q[p(j-1),j]     Q[p(j-1),p1]    Q[p(j-1),p2]    ... Q[p(j-1),p(j-1)]
         """
-        for c in range(1, nc):      # 'c' cycles on number of components 
+        for c in range(1, nc):      # 'c' cycles on number of components
             print('Computing '+str(c+1)+'° purest variable...', end='\r')
             for j in range(cols):   # j cycles on the number of colums
-                W = np.zeros((c+1,c+1)).astype(D.dtype)
-                W[0,0] = Q[j,j]
-                for k in range(1, c+1): # cycles inside W
-                    W[0,k] = Q[j,ipv[k-1]]        # first row \{0,0}
-                    W[k,0] = Q[ipv[k-1],j]        # first column \{0,0}
+                W = np.zeros((c+1, c+1)).astype(D.dtype)
+                W[0, 0] = Q[j, j]
+                for k in range(1, c+1):  # cycles inside W
+                    W[0, k] = Q[j, ipv[k-1]]        # first row \{0,0}
+                    W[k, 0] = Q[ipv[k-1], j]        # first column \{0,0}
                     for q in range(1, c+1):
-                        W[k,q] = Q[ipv[k-1],ipv[q-1]] # all the rest, going row per row
-                w[j,c] = linalg.det(W)
+                        W[k, q] = Q[ipv[k-1], ipv[q-1]]  # all the rest, going row per row
+                w[j, c] = linalg.det(W)
 
-            p_s[:,c] = p_s[:,0] * w[:,c]      # Create pure spectrum of c-th component
-            s_s[:,c] = s_s[:,0] * w[:,c]      # Create STD spectrum of c-th component
-            pv.append(max(p_s[:,c]))          # Update pure component
-            ipv.append(np.argmax(p_s[:,c]))   # Update pure variable
-            
+            p_s[:, c] = p_s[:, 0] * w[:, c]      # Create pure spectrum of c-th component
+            s_s[:, c] = s_s[:, 0] * w[:, c]      # Create STD spectrum of c-th component
+            pv.append(max(p_s[:, c]))          # Update pure component
+            ipv.append(np.argmax(p_s[:, c]))   # Update pure variable
+
         print('Purest variables succesfully found.\n')
         for c in range(nc):
             print('{}° purest variable:\t\t{}'.format(c+1, ipv[c]))
 
         # MCR "C" matrix (D = CS + E)
-        C = np.zeros((rows, nc)).astype(D.dtype)    
+        C = np.zeros((rows, nc)).astype(D.dtype)
         for c in range(nc):
-            C[:,c] = D[:,ipv[c]]
+            C[:, c] = D[:, ipv[c]]
         S = linalg.pinv(C) @ D
 
     return C, S
@@ -3480,7 +3410,7 @@ def simplisma(D, nc, f=10, oncols=True):
 def mcr_als(D, C, S, itermax=10000, tol=1e-5):
     r"""
     Performs alternating least squares to get the final ``C`` and ``S`` matrices. Being the fundamental MCR equation:
-    
+
     .. math::
 
         D = CS + E
@@ -3492,7 +3422,7 @@ def mcr_als(D, C, S, itermax=10000, tol=1e-5):
     3. :math:`E_{(k)} = D - C_{(k)} S_{(k)}`
 
     Defined ``rC`` and ``rS`` as the Frobenius norm of the difference of ``C`` and ``S`` matrices between two subsequent steps:
-    
+
     .. math::
 
         rC = || C_{(k)} - C_{(k-1)} || \qquad
@@ -3504,9 +3434,8 @@ def mcr_als(D, C, S, itermax=10000, tol=1e-5):
 
         \frac{ rC_{(k)} }{rC_{1}} \leq tol \quad \text{and} \quad \frac{ rS_{(k)} }{rS_{1}} \leq tol
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     D : 2darray
         Input data, of dimensions ``(m, n)``
     C : 2darray
@@ -3518,13 +3447,12 @@ def mcr_als(D, C, S, itermax=10000, tol=1e-5):
     tol : float
         Threshold for the arrest criterion.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     C : 2darray
         Optimized C matrix, of dimensions ``(m, nc)``.
     S : 2darray
         Optimized S matrix, of dimensions ``(nc, n)``.
-
 
     .. seealso::
 
@@ -3534,7 +3462,6 @@ def mcr_als(D, C, S, itermax=10000, tol=1e-5):
     """
 
     itermax = int(itermax)
-    E = D - C @ S
 
     start_time = datetime.now()
     print('\n-----------------------------------------------------\n')
@@ -3546,7 +3473,6 @@ def mcr_als(D, C, S, itermax=10000, tol=1e-5):
     # First round is basically null, hence it happens outside the loop
     C = D @ linalg.pinv(S)
     S = linalg.pinv(C) @ D
-    E = D - C @ S
     for kk in range(itermax):
         # Copy from previous cycle
         C0 = np.copy(C)
@@ -3555,7 +3481,6 @@ def mcr_als(D, C, S, itermax=10000, tol=1e-5):
         # Compute new C, S and E
         C = D @ linalg.pinv(S)
         S = linalg.pinv(C) @ D
-        E = D - C @ S
 
         # Compute the Frobenius norm of the difference matrices
         # between two subsequent cycles
@@ -3571,17 +3496,18 @@ def mcr_als(D, C, S, itermax=10000, tol=1e-5):
         # Arrest criterion
         if (rC < tol) and (rS < tol):
             end_time = datetime.now()
-            print( '\n\n\tMCR converges in '+str(kk+1)+' steps.')
+            print('\n\n\tMCR converges in '+str(kk+1)+' steps.')
             convergence_flag = 1    # Set to 1 if the arrest criterion is reached
             break
 
     if not convergence_flag:
-        print ('\n\n\tMCR does not converge.')
+        print('\n\n\tMCR does not converge.')
     end_time = datetime.now()
-    print( '\tTotal runtime: {}'.format(end_time - start_time))
+    print('\tTotal runtime: {}'.format(end_time - start_time))
 
     return C, S
-    
+
+
 def new_MCR_ALS(D, C, S, itermax=10000, tol=1e-5, reg_f=None, reg_fargs=[]):
     """
     Modified function to do ALS
@@ -3592,22 +3518,19 @@ def new_MCR_ALS(D, C, S, itermax=10000, tol=1e-5, reg_f=None, reg_fargs=[]):
     """
 
     itermax = int(itermax)
-    E = D - C @ S
 
     start_time = datetime.now()
     print('\n-----------------------------------------------------\n')
     print('             MCR optimization running...             \n')
 
     convergence_flag = 0
-    print( '#   \tC convergence\tS convergence')
+    print('#   \tC convergence\tS convergence')
     reg_fargs.append(None)
     for kk in range(itermax):
         # Copy from previous cycle
         C0 = np.copy(C)
-        E0 = np.copy(E)
         S0 = np.copy(S)
-        
-            
+
         # Compute new C, S and E
         C = D @ linalg.pinv(S)
 
@@ -3619,10 +3542,6 @@ def new_MCR_ALS(D, C, S, itermax=10000, tol=1e-5, reg_f=None, reg_fargs=[]):
             reg_fargs[-1] = prev_param
 
         S = linalg.pinv(C) @ D
-        if reg_f is not None:
-            for i in range(S.shape[0]):
-                S[i] /= 1#np.max(S[i])
-        E = D - C @ S
 
         # Compute the Frobenius norm of the difference matrices
         # between two subsequent cycles
@@ -3630,19 +3549,19 @@ def new_MCR_ALS(D, C, S, itermax=10000, tol=1e-5, reg_f=None, reg_fargs=[]):
         rS = linalg.norm(S - S0)
 
         # Ongoing print of the residues
-        print(str(kk+1)+' \t{:.5e}'.format(rC)+ '\t'+'{:.5e}'.format(rS), end='\r')
+        print(str(kk+1)+' \t{:.5e}'.format(rC) + '\t'+'{:.5e}'.format(rS), end='\r')
 
         # Arrest criterion
         if (rC < tol) and (rS < tol):
             end_time = datetime.now()
-            print( '\n\n\tMCR converges in '+str(kk+1)+' steps.')
+            print('\n\n\tMCR converges in '+str(kk+1)+' steps.')
             convergence_flag = 1    # Set to 1 if the arrest criterion is reached
             break
 
     if not convergence_flag:
-        print ('\n\n\tMCR does not converge.')
+        print('\n\n\tMCR does not converge.')
     end_time = datetime.now()
-    print( '\tTotal runtime: {}'.format(end_time - start_time))
+    print('\tTotal runtime: {}'.format(end_time - start_time))
 
     return C, S
 
@@ -3659,11 +3578,13 @@ def mcr(input_data, nc, f=10, tol=1e-3, itermax=1e4, P='H', oncols=True):
     where `C` and `S` are matrices of dimension ``(m, nc)`` and ``(nc, n)``, respectively, and `E` contains the part of the data that are not reproduced by the factorization.
     Being `D` the FID of a NMR spectrum, `C` will contain time evolutions of the indirect dimension, and `S` will contain transients in the direct dimension.
 
-    The total MCR workflow can be separated in two parts: a first algorithm that produces an initial guess for the three matrices `C`, `S` and `E` (``simplisma``), and an optimization step that aims at the removal of the unwanted features of the data by iteratively filling the E matrix (``mcr_als``).
+    The total MCR workflow can be separated in two parts:
+    a first algorithm that produces an initial guess for the three matrices `C`, `S` and `E` (``simplisma``),
+    and an optimization step that aims at the removal of the unwanted features of the data by iteratively filling the E matrix (``mcr_als``).
     This function returns the denoised datasets, `CS`, and the single `C` and `S` matrices.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     input_data : 2darray or 3darray
         a 3D array containing the set of 2D NMR datasets to be coprocessed stacked along the first dimension. A single 2D array can be passed, if the denoising of a single dataset is desired.
     nc : int
@@ -3678,16 +3599,15 @@ def mcr(input_data, nc, f=10, tol=1e-3, itermax=1e4, P='H', oncols=True):
         ``'H'`` for horizontal stacking, ``'V'`` for vertical stacking, or custom matrix as explained in the description of ``mcr_stack``
     oncols : bool
         True to estimate ``S`` with ``processing.simplisma``, False to estimate ``C``.
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     CS_f : 2darray or 3darray
         Final denoised data matrix
     C_f : 2darray or 3darray
         Final C matrix
     S_f : 2darray or 3darray
         Final S matrix
-
 
     .. seealso::
 
@@ -3713,7 +3633,6 @@ def mcr(input_data, nc, f=10, tol=1e-3, itermax=1e4, P='H', oncols=True):
         else:
             print('Input data is not a matrix!')
             exit()
-            
 
     print('\n*****************************************************')
     print('*                                                   *')
@@ -3724,14 +3643,14 @@ def mcr(input_data, nc, f=10, tol=1e-3, itermax=1e4, P='H', oncols=True):
     D = processing.mcr_stack(input_data, P=P)           # Matrix augmentation
 
     # Get initial estimation of C, S and E
-    C0, S0 = processing.simplisma(D, nc, f, oncols=oncols)  
+    C0, S0 = processing.simplisma(D, nc, f, oncols=oncols)
 
     # Optimize C and S matrix through Alternating Least Squares
     C, S = processing.mcr_als(D, C0, S0, itermax=itermax, tol=tol)
 
     # Revert matrix augmentation
     C_f, S_f = processing.mcr_unpack(C, S, nds, P)
-        
+
     # Obtain the denoised data of the same shape as the input
     CS_f = [C_f[j] @ S_f[j] for j in range(nds)]
 
@@ -3746,7 +3665,6 @@ def mcr(input_data, nc, f=10, tol=1e-3, itermax=1e4, P='H', oncols=True):
     return CS_f, C_f, S_f
 
 # ---------------------------------------------------------------------------------------- #
-
 
 
 def new_MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True, our_function=None, fargs=[], our_function2=None, f2args=[]):
@@ -3781,7 +3699,6 @@ def new_MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True, ou
         else:
             print('Input data is not a matrix!')
             exit()
-            
 
     print('\n*****************************************************')
     print('*                                                   *')
@@ -3793,7 +3710,7 @@ def new_MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True, ou
 
     # Get initial estimation of C, S and E
     if our_function is None:
-        C0, S0 = processing.simplisma(D, nc, f, oncols=oncols) 
+        C0, S0 = processing.simplisma(D, nc, f, oncols=oncols)
     else:
         C0, S0, nc = our_function(D, *fargs)
 
@@ -3805,7 +3722,7 @@ def new_MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True, ou
 
     # Revert matrix augmentation
     C_f, S_f = processing.mcr_unpack(C, S, nds, H)
-        
+
     # Obtain the denoised data of the same shape as the input
     if isinstance(input_data, list):
         CS_f = []
@@ -3821,10 +3738,11 @@ def new_MCR(input_data, nc, f=10, tol=1e-5, itermax=1e4, H=True, oncols=True, ou
         CS_f = CS_f[0]
         C_f = C_f[0]
         S_f = S_f[0]
-  
+
     print('\n*****************************************************\n')
 
     return CS_f, C_f, S_f
+
 
 def lrd(data, nc):
     """
@@ -3832,15 +3750,15 @@ def lrd(data, nc):
     The algorithm performs a singular value decomposition on data, then keeps only the first ``nc`` singular values while setting all the others to 0.
     Finally, rebuilds the data matrix using the modified singular values.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 2darray
         Data to be denoised
     nc : int
         Number of components, i.e. number of singular values to keep
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     data_out : 2darray
         Denoised data
     """
@@ -3867,6 +3785,7 @@ def lrd(data, nc):
     print('\n*****************************************************\n')
     return data_out
 
+
 def cadzow(data, n, nc, print_head=True):
     """
     Performs Cadzow denoising on data, which is a 1D array of ``N`` points.
@@ -3880,8 +3799,8 @@ def cadzow(data, n, nc, print_head=True):
 
     Set ``print_head=True`` to display the fancy heading.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 1darray
         Input data
     n : int
@@ -3890,12 +3809,11 @@ def cadzow(data, n, nc, print_head=True):
         Number of singular values to keep.
     print_head : bool
         Set it to True to display the fancy heading.
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     datap : 1darray
         Denoised data
-
 
     .. seealso::
 
@@ -3946,9 +3864,8 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
 
         \frac{S_{(k-1)}[nc-1] }{ S_{(k-1)}[0] } - \frac{S_{(k)}[nc-1] }{ S_{(k)}[0] } < f \frac{S_{(0)}[nc-1] }{ S_{(0)}[0] }
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 1darray
         Data to be processed
     n : int
@@ -3964,11 +3881,10 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
     print_head : bool
         set it to True to display the fancy heading.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datap : 1darray
         Denoised data
-
 
     .. seealso::
 
@@ -4000,7 +3916,6 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
         tol = (s[nc] / s[0]) * f
         return tol
 
-
     start_time = datetime.now()
 
     N = data.shape[-1]
@@ -4013,7 +3928,6 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
     s0 = slinalg.svdvals(H0)     # Calculate the singular values of H0
     sp = np.zeros_like(s0)      # Create empty array to store the singular values to be kept
 
-    
     tol = calc_tol(s0, nc, f=f)
 
     print(f'{"#":>6s} | {"Control":>12s} | {"Target":>12s}')
@@ -4033,27 +3947,28 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
             print(f'\nCadzow converges in {k+1} steps.')
             break
         else:
-            s0 = s 
+            s0 = s
             data0 = datap
 
     end_time = datetime.now()
     if k+1 == itermax:
         print('\tCadzow does not converge.')
     if print_time is True:
-        print( 'Total runtime: {}'.format(end_time - start_time))
+        print('Total runtime: {}'.format(end_time - start_time))
     # Add empty line for aesthetic purposes
     print()
 
     return datap
 
+
 def cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
     """
-    Performs the Cadzow denoising method on a 2D spectrum, one transient at the time. 
-    This function calls either Cadzow or iterCadzow, depending on the parameter ``i``: 
+    Performs the Cadzow denoising method on a 2D spectrum, one transient at the time.
+    This function calls either Cadzow or iterCadzow, depending on the parameter ``i``:
     True for ``iterCadzow``, False for normal ``cadzow``.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 2darray
         Input data
     n : int
@@ -4069,8 +3984,8 @@ def cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
     print_time : bool
         Set it to True to display the time spent.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datap : 2darray
         Denoised data
     """
@@ -4080,7 +3995,7 @@ def cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
     print('*                   Cadzow denoising                *')
     print('*                                                   *')
     print('*****************************************************\n')
-    
+
     datap = np.zeros_like(data)
     for k in range(data.shape[0]):
         print('Processing of transient '+str(k+1)+' of '+str(data.shape[0]))
@@ -4091,45 +4006,45 @@ def cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
     print('Processing has ended!')
     end_time = datetime.now()
     if print_time is True:
-        print( 'Total runtime: {}'.format(end_time - start_time))
+        print('Total runtime: {}'.format(end_time - start_time))
 
     return datap
 
-#-------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
 
 # BASELINE
 
 
 def interactive_basl_windows(ppm, data):
     """
-    Allows for interactive partitioning of a spectrum in windows. 
+    Allows for interactive partitioning of a spectrum in windows.
     Double left click to add a bar, double right click to remove it.
     Returns the location of the red bars as a list.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm : 1darray
         PPM scale of the spectrum
     data : 1darray
         Spectrum to be partitioned
 
-    Returns:
-    -----------
+    Returns
+    ----------
     coord : list
         List containing the coordinates of the windows, plus ``ppm[0]`` and ``ppm[-1]``
     """
 
     # Make the figure
     fig = plt.figure('Manual Computation of Polynomial Baseline')
-    fig.set_size_inches(15,8)
-    ax = fig.add_subplot(1,1,1)
+    fig.set_size_inches(15, 8)
+    ax = fig.add_subplot()
     plt.subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.95)
 
     ax.set_title('Divide the spectrum into windows. Double click to set a wall, right click to remove it')
 
     # Set figure borders
 
-    spectrum = figures.ax1D(ax, ppm, data)
+    figures.ax1D(ax, ppm, data)
 
     # Parameters to save coordinates
     coord = []          # Final list of coordinates
@@ -4144,7 +4059,7 @@ def interactive_basl_windows(ppm, data):
 
         x = event.xdata     # x,y position of cursor
         if x is not None:     # You are inside the figure
-            idx, ix = misc.ppmfind(ppm, x) 
+            idx, ix = misc.ppmfind(ppm, x)
             if (event.button == 1 and event.dblclick) or event.button == 2:     # Left click: add point
                 if ix not in coord:       # Avoid superimposed peaks
                     coord.append(ix)       # Update list
@@ -4160,15 +4075,14 @@ def interactive_basl_windows(ppm, data):
                     killv.remove()
 
         fig.canvas.draw()
-    
+
     misc.set_fontsizes(ax, 14)
     # Widgets
-    cursor = Cursor(ax, useblit=True, color='k', linewidth=0.2)
-    mouse = fig.canvas.mpl_connect('button_press_event', on_click)
+    Cursor(ax, useblit=True, color='k', linewidth=0.2)
+    fig.canvas.mpl_connect('button_press_event', on_click)
 
     plt.show()
     plt.close()
-
 
     # Append initial and final values of the ppm scale
     coord.append(ppm[0])
@@ -4182,9 +4096,9 @@ def interactive_basl_windows(ppm, data):
 def make_polynomion_baseline(ppm, data, limits):
     """
     Interactive baseline correction with 4th degree polynomion.
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     ppm : 1darray
         PPM scale of the spectrum
     data : 1darray
@@ -4192,8 +4106,8 @@ def make_polynomion_baseline(ppm, data, limits):
     limits : tuple
         Window limits (left, right).
 
-    Returns:
-    -----------
+    Returns
+    ----------
     mode : str
         Baseline correction mode: ``'polynomion'`` as default, ``'spline'`` if you press the button
     C_f : 1darray or str
@@ -4203,14 +4117,11 @@ def make_polynomion_baseline(ppm, data, limits):
     # Initialize mode
     mode = 'polynomion'
 
-    # Lenght of data
-    N = data.shape[-1]
-
     # Get index for the limits
     lim1 = misc.ppmfind(ppm, limits[0])[0]
     lim2 = misc.ppmfind(ppm, limits[1])[0]
     lim1, lim2 = min(lim1, lim2), max(lim1, lim2)
-    
+
     # make boxes for widgets
     poly_box = plt.axes([0.87, 0.10, 0.10, 0.3])
     su_box = plt.axes([0.815, 0.825, 0.08, 0.075])
@@ -4218,19 +4129,19 @@ def make_polynomion_baseline(ppm, data, limits):
     callspline_box = plt.axes([0.825, 0.625, 0.15, 0.075])
     save_box = plt.axes([0.88, 0.725, 0.085, 0.04])
     reset_box = plt.axes([0.88, 0.765, 0.085, 0.04])
-    
+
     # Make widgets
     #   Buttons
-    up_button = Button(su_box, r'$\uparrow$', hovercolor = '0.975')    
-    down_button = Button(giu_box, r'$\downarrow$', hovercolor = '0.975')
-    save_button = Button(save_box, 'SAVE', hovercolor = '0.975')
-    reset_button = Button(reset_box, 'RESET', hovercolor = '0.975')
-    callspline_button = Button(callspline_box, 'SPLINE BASELINE\nCORRECTION', hovercolor = '0.975')
-    
+    up_button = Button(su_box, r'$\uparrow$', hovercolor='0.975')
+    down_button = Button(giu_box, r'$\downarrow$', hovercolor='0.975')
+    save_button = Button(save_box, 'SAVE', hovercolor='0.975')
+    reset_button = Button(reset_box, 'RESET', hovercolor='0.975')
+    callspline_button = Button(callspline_box, 'SPLINE BASELINE\nCORRECTION', hovercolor='0.975')
+
     #   Radio
     poly_name = ['a', 'b', 'c', 'd', 'e']
     poly_radio = RadioButtons(poly_box, poly_name, activecolor='tab:orange')       # Polynomion
-    
+
     # Create variable for the 'active' status
     stats = np.zeros(len(poly_name))
     #    a   b   c   d   e
@@ -4238,10 +4149,10 @@ def make_polynomion_baseline(ppm, data, limits):
 
     # Initial values
     #   Polynomion coefficients
-    C = np.zeros(len(poly_name))  
+    C = np.zeros(len(poly_name))
     #   Increase step for the polynomion (order of magnitude)
     om = np.zeros(len(poly_name))
-    
+
     # Functions connected to the widgets
     def statmod(label):
         # Sets 'label' as active modifying 'stats'
@@ -4252,35 +4163,31 @@ def make_polynomion_baseline(ppm, data, limits):
                 if label == L:
                     stats[k] = 1
         update(0)       # Call update to redraw the figure
-                
+
     def roll_up_p(event):
         # Increase polynomion with mouse scroll
-        nonlocal C
         for k in range(len(poly_name)):
             if stats[k]:
-                C[k]+=10**om[k]
-                
+                C[k] += 10**om[k]
+
     def roll_down_p(event):
         # Decrease polynomion with mouse scroll
-        nonlocal C
         for k in range(len(poly_name)):
             if stats[k]:
-                C[k]-=10**om[k]
-    
+                C[k] -= 10**om[k]
+
     def up_om(event):
         # Increase the om of the active coefficient by 1
-        nonlocal om
         for k in range(len(poly_name)):
             if stats[k]:
                 om[k] += 1
-        
+
     def down_om(event):
         # Decrease the om of the active coefficient by 1
-        nonlocal om
         for k in range(len(poly_name)):
             if stats[k]:
                 om[k] -= 1
-                
+
     def on_scroll(event):
         # Mouse scroll
         if event.button == 'up':
@@ -4288,27 +4195,25 @@ def make_polynomion_baseline(ppm, data, limits):
         elif event.button == 'down':
             roll_down_p(event)
         update(0)
-                
+
     # polynomion
     x = np.linspace(0, 1, ppm[lim1:lim2].shape[-1])[::-1]
     y = np.zeros_like(x)
 
-
     # Initial figure
     fig = plt.figure('Manual Computation of Polynomial Baseline')
-    fig.set_size_inches(15,8)
+    fig.set_size_inches(15, 8)
     plt.subplots_adjust(bottom=0.10, top=0.90, left=0.05, right=0.80)
-    ax = fig.add_subplot(1,1,1)
+    ax = fig.add_subplot()
 
-    ax.plot(ppm[lim1:lim2], data[lim1:lim2], label='Spectrum', lw=1.0, c='tab:blue')  # experimental
+    ax.plot(ppm[lim1:lim2], data[lim1:lim2], label='Spectrum', lw=1.0, c='tab:blue')     # experimental
 
-    poly_plot, = ax.plot(ppm[lim1:lim2], y, label = 'Baseline', lw=0.8, c='tab:orange') # Polynomion
+    poly_plot, = ax.plot(ppm[lim1:lim2], y, label='Baseline', lw=0.8, c='tab:orange')    # Polynomion
 
     # make pretty scale
-    ax.set_xlim(max(limits),min(limits))
+    ax.set_xlim(max(limits), min(limits))
     misc.pretty_scale(ax, ax.get_xlim(), axis='x', n_major_ticks=10)
     misc.set_ylim(ax, data[lim1:lim2])
-
 
     def update(val):
         # Calculates and draws all the figure elements
@@ -4316,16 +4221,17 @@ def make_polynomion_baseline(ppm, data, limits):
         poly_plot.set_ydata(y)
         values_print.set_text('{:+5.2e}, {:+5.2e}, {:+5.2e}, {:+5.2e}, {:+5.2e}'.format(C[0], C[1], C[2], C[3], C[4]))
         plt.draw()
-    
+
     def reset(event):
         # Sets all the widgets to their starting values
-        nonlocal C, om 
+        nonlocal C, om
         C = np.zeros(len(poly_name))
         om = np.zeros_like(C)
         update(0)       # to update the figure
-    
+
     # Declare variables to store the final values
     C_f = np.zeros_like(C)
+
     def save(event):
         # Put current values in the final variables that are returned
         nonlocal C_f
@@ -4340,18 +4246,18 @@ def make_polynomion_baseline(ppm, data, limits):
 
     # Header for current values print
     plt.text(0.1, 0.04,
-            '{:_^11}, {:_^11}, {:_^11}, {:_^11}, {:_^11}'.format('a', 'b', 'c', 'd', 'e'),
-            ha='left', va='bottom', transform=fig.transFigure, fontsize=10)
+             '{:_^11}, {:_^11}, {:_^11}, {:_^11}, {:_^11}'.format('a', 'b', 'c', 'd', 'e'),
+             ha='left', va='bottom', transform=fig.transFigure, fontsize=10)
     values_print = plt.text(0.1, 0.01,
-            '{:+5.2e}, {:+5.2e}, {:+5.2e}, {:+5.2e}, {:+5.2e}'.format(*C),
-            ha='left', va='bottom', transform=fig.transFigure, fontsize=10)
+                            '{:+5.2e}, {:+5.2e}, {:+5.2e}, {:+5.2e}, {:+5.2e}'.format(*C),
+                            ha='left', va='bottom', transform=fig.transFigure, fontsize=10)
     misc.set_fontsizes(ax, 14)
 
     # Connect widgets to functions
     poly_radio.on_clicked(statmod)
     up_button.on_clicked(up_om)
     down_button.on_clicked(down_om)
-    scroll = fig.canvas.mpl_connect('scroll_event', on_scroll)
+    fig.canvas.mpl_connect('scroll_event', on_scroll)
     save_button.on_clicked(save)
     reset_button.on_clicked(reset)
     callspline_button.on_clicked(use_spline_instead)
@@ -4359,7 +4265,7 @@ def make_polynomion_baseline(ppm, data, limits):
     ax.legend()
     plt.show()
     plt.close()
-   
+
     return mode, C_f
 
 
@@ -4367,8 +4273,8 @@ def write_basl_info(f, limits, mode, data):
     """
     Writes the baseline parameters of a certain window in a file.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     f : TextIO object
         File where to write the parameters
     limits : tuple
@@ -4386,7 +4292,7 @@ def write_basl_info(f, limits, mode, data):
     if mode == 'polynomion':
         N = len(data)
         for k, c in enumerate(data):
-            if k < N - 1: 
+            if k < N - 1:
                 f.write('{: 5.2e}\t'.format(c))
             else:
                 f.write('{: 5.2e}\n'.format(c))
@@ -4394,7 +4300,7 @@ def write_basl_info(f, limits, mode, data):
     else:
         N = 5
         for k, c in enumerate(np.zeros(5)):
-            if k < N - 1: 
+            if k < N - 1:
                 f.write('{: 5.2e}\t'.format(c))
             else:
                 f.write('{: 5.2e}\n'.format(c))
@@ -4413,8 +4319,8 @@ def baseline_correction(ppm, data, basl_file='spectrum.basl', winlim=None):
     The program starts with an interface to partition the spectrum in windows to correct separately.
     Then, for each window, an interactive panel opens to allow the user to compute the baseline.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm : 1darray
         PPM scale of the spectrum
     data : 1darray
@@ -4433,7 +4339,7 @@ def baseline_correction(ppm, data, basl_file='spectrum.basl', winlim=None):
         if os.path.exists(winlim):
             coord = list(np.loadtxt(winlim))
         else:
-            raise NameError('File {} not found.'.format(winlim)) 
+            raise NameError('File {} not found.'.format(winlim))
     else:
         # Interactive partitioning
         coord = processing.interactive_basl_windows(ppm, data)
@@ -4462,12 +4368,13 @@ def baseline_correction(ppm, data, basl_file='spectrum.basl', winlim=None):
         processing.write_basl_info(F, limits, mode, C_f)
     F.close()
 
+
 def load_baseline(filename, ppm, data):
     """
     Read the baseline parameters from a file and builds the baseline itself.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     filename : str
         Location of the baseline file
     ppm : 1darray
@@ -4475,12 +4382,12 @@ def load_baseline(filename, ppm, data):
     data : 1darray
         Spectrum of which to correct the baseline
 
-    Returns:
-    -----------
+    Returns
+    ----------
     baseline : 1darray
         Computed baseline
     """
-    
+
     # Opens the file
     f = open(filename, 'r')
     r = f.readlines()
@@ -4521,7 +4428,7 @@ def load_baseline(filename, ppm, data):
             else:
                 S.append(0)
             continue
-        # Reset tmpmode 
+        # Reset tmpmode
         if '-----' in line:
             tmpmode = None
             continue
@@ -4538,10 +4445,10 @@ def load_baseline(filename, ppm, data):
         lim2 = misc.ppmfind(ppm, limits[k][1])[0]
         lim1, lim2 = min(lim1, lim2), max(lim1, lim2)
 
-        if mode[k] == 'polynomion': # Compute polynomion in the active region
+        if mode[k] == 'polynomion':  # Compute polynomion in the active region
             x = np.linspace(0, 1, ppm[lim1:lim2].shape[-1])[::-1]
             tmpbasl = misc.polyn(x, C[k])
-        elif mode[k] == 'spline': # Fit the spectrum in the active region with a spline
+        elif mode[k] == 'spline':    # Fit the spectrum in the active region with a spline
             y = data[lim1:lim2]
             tmpbasl = fit.smooth_spl(y, S[k])
         # Put the just computed baseline in the corresponding region
@@ -4549,12 +4456,13 @@ def load_baseline(filename, ppm, data):
 
     return baseline
 
+
 def qfil(ppm, data, u, s, SFO1):
     """
     Suppress signals in the spectrum using a gaussian filter.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm : 1darray
         ppm scale of the spectrum
     data : ndarray
@@ -4565,25 +4473,26 @@ def qfil(ppm, data, u, s, SFO1):
         Width of the filter (standard deviation) /Hz
     SFO1 : float
         Spectrometer larmor frequency
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     pdata : ndarray
         Filtered data
     """
     sppm = misc.freq2ppm(s, SFO1)
     G = sim.gaussian_filter(ppm, u, sppm)
     datap = np.zeros_like(data)
-    datap[...,:] = data[...,:] * G
+    datap[..., :] = data[..., :] * G
     return datap
 
+
 def interactive_qfil(ppm, data_in, SFO1):
-    """ 
+    """
     Interactive function to design a gaussian filter with the aim of suppressing signals in the spectrum.
     You can adjust position and width of the filter scrolling with the mouse.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm : 1darray
         ppm scale of the spectrum
     data_in : 1darray
@@ -4591,8 +4500,8 @@ def interactive_qfil(ppm, data_in, SFO1):
     SFO1 : float
         Spectrometer Larmor frequency
 
-    Returns:
-    -----------
+    Returns
+    ----------
     u : float
         Position of the gaussian filter /ppm
     s : float
@@ -4604,7 +4513,7 @@ def interactive_qfil(ppm, data_in, SFO1):
 
     # Initialize the values: u at the center of the spectrum, s as 100 points
     u = np.mean(ppm)
-    s = misc.freq2ppm(150, SFO1) / (2 * ( 2 * np.log(2))**0.5)
+    s = misc.freq2ppm(150, SFO1) / (2 * (2 * np.log(2))**0.5)
 
     sens = misc.freq2ppm(10, SFO1)  # one mouse 'tick'
     stat = 1    # move s
@@ -4617,9 +4526,9 @@ def interactive_qfil(ppm, data_in, SFO1):
     fig = plt.figure('Adjust Position and Width for QFIL')
     fig.set_size_inches(figures.figsize_large)
     plt.subplots_adjust(left=0.10, bottom=0.15, right=0.85, top=0.90)
-    ax = fig.add_subplot(1,1,1)
+    ax = fig.add_subplot()
 
-    # Plot 
+    # Plot
     #   Original spectrum
     figures.ax1D(ax, ppm, data, c='tab:blue', lw=0.8, X_label=r'$\delta\, $/ppm', Y_label='Intensity /a.u.', label='Original')
     #   Filter
@@ -4632,7 +4541,7 @@ def interactive_qfil(ppm, data_in, SFO1):
 
     # WIDGETS
     #   Radio-buttons to select which value to modify
-    radio_box = plt.axes([0.875, 0.40, 0.10, 0.20]) 
+    radio_box = plt.axes([0.875, 0.40, 0.10, 0.20])
     radio_labels = ['u', 's']
     radio = RadioButtons(radio_box, radio_labels, active=1)
 
@@ -4654,6 +4563,7 @@ def interactive_qfil(ppm, data_in, SFO1):
         """ Double sens """
         nonlocal sens
         sens *= 2
+
     def dn_sens(event):
         """ Halves sens """
         nonlocal sens
@@ -4666,7 +4576,7 @@ def interactive_qfil(ppm, data_in, SFO1):
             stat = 0
         elif label == radio_labels[1]:  # s
             stat = 1
-            
+
     def on_scroll(event):
         """ On mouse scroll, modify the correspondant value, then redraw the figure """
         nonlocal u, s
@@ -4701,7 +4611,6 @@ def interactive_qfil(ppm, data_in, SFO1):
         v_text.set_text(values_text)
         plt.draw()
 
-
     # --------------------------------------------------
 
     # CONNECT WIDGETS TO THE FUNCTIONS
@@ -4723,24 +4632,26 @@ def interactive_qfil(ppm, data_in, SFO1):
 
     return u, shz
 
+
 def acme(data, m=1, a=5e-5):
     r"""
     Automated phase Correction based on Minimization of Entropy.
-    This algorithm allows for automatic phase correction by minimizing the entropy of the m-th derivative of the spectrum, as explained in detail by L. Chen et.al. in Journal of Magnetic Resonance 158 (2002) 164-168.
-    
+    This algorithm allows for automatic phase correction by minimizing the entropy of the m-th derivative of the spectrum,
+    as explained in detail by L. Chen et.al. in Journal of Magnetic Resonance 158 (2002) 164-168.
+
     Defined the entropy of `h` as:
 
-    .. math:: 
+    .. math::
 
         S = - \sum_j h[j] \ln( h[j] )
 
-    and 
+    and
 
     .. math::
 
         h = \frac { | R[j]^{(m)} | }{ \sum_j | R[j]^{(m)} | }
 
-    where 
+    where
 
     .. math::
 
@@ -4756,9 +4667,8 @@ def acme(data, m=1, a=5e-5):
 
     The phase correction is applied using :func:`klassez.processing.ps`. The values ``p0`` and ``p1`` are fitted using Nelder-Mead algorithm.
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 1darray
         Spectrum to be phased, complex
     m : int
@@ -4766,8 +4676,8 @@ def acme(data, m=1, a=5e-5):
     a : float
         Weighting factor for the penalty function
 
-    Returns:
-    -----------
+    Returns
+    ----------
     p0f : float
         Fitted zero-order phase correction, in degrees
     p1f : float
@@ -4778,19 +4688,19 @@ def acme(data, m=1, a=5e-5):
         """
         Compute entropy of data.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         data : ndarray
             Input data
 
-        Returns:
-        -----------
+        Returns
+        ----------
         S : float
             Entropy of data
         """
         data_in = np.copy(data)
         if not data_in.all():
-            zero_ind = np.flatnonzero(data_in==0)
+            zero_ind = np.flatnonzero(data_in == 0)
             for i in zero_ind:
                 data_in[i] = 1e-15
 
@@ -4800,15 +4710,15 @@ def acme(data, m=1, a=5e-5):
         """
         Computes the m-th derivative of data by applying np.gradient m times.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         data : 1darray
             Input data
         m : int
             Order of the derivative to be computed
 
-        Returns:
-        -----------
+        Returns
+        ----------
         pdata : 1darray
             m-th derivative of data
         """
@@ -4820,23 +4730,23 @@ def acme(data, m=1, a=5e-5):
     def penalty_function(data, a=5e-5):
         """
         F(y) is a function that is 0 for positive y and 1 otherwise.
-        The returned value is 
+        The returned value is
             a * sum_j F(y_j) y_j^2
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         data : 1darray
             Input data
         a : float
             Weighting factor
 
-        Returns:
-        -----------
+        Returns
+        ----------
         p_fun : float
             a * sum_j F(y_j) y_j^2
         """
         signs = - np.sign(data)     # 1 for negative entries, -1 for positive entries
-        p_arr = np.array([0 if j<1 else 1 for j in signs])  # replace all !=1 values in signs with 0
+        p_arr = np.array([0 if j < 1 else 1 for j in signs])  # replace all !=1 values in signs with 0
         p_fun = a * np.sum(p_arr * data**2)     # Make the sum
         return p_fun
 
@@ -4866,12 +4776,12 @@ def acme(data, m=1, a=5e-5):
         raise ValueError('Input data is not complex.')
 
     # Define the parameters of the fit
-    param = l.Parameters()
+    param = lmfit.Parameters()
     param.add('p0', value=0, min=-180, max=180)
     param.add('p1', value=0, min=-720, max=720)
 
     # Minimize using simplex method because the residue is a scalar
-    minner = l.Minimizer(f2min, param, fcn_args=(np.copy(data), m, a))
+    minner = lmfit.Minimizer(f2min, param, fcn_args=(np.copy(data), m, a))
     result = minner.minimize(method='nelder', tol=1e-15)
     popt = result.params.valuesdict()
 
@@ -4883,8 +4793,8 @@ def whittaker_smoother(data, n=2, s_f=1, w=None):
     Adapted from P.H.C. Eilers, Anal. Chem 2003, 75, 3631-3636.
     Implementation of the smoothing algorithm proposed by Whittaker in 1923.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 1darray
         Data to be smoothed
     n : int
@@ -4894,8 +4804,8 @@ def whittaker_smoother(data, n=2, s_f=1, w=None):
     w : 1darray or None
         Array of weights. If None, no weighting is applied.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     z : 1darray
         Smoothed data
     """
@@ -4927,26 +4837,26 @@ def whittaker_smoother(data, n=2, s_f=1, w=None):
     return z
 
 
-
-
-
-
 def rpbc(data, split_imag=False, n=5, basl_method='huber', basl_thresh=0.2, basl_itermax=2000, **phase_kws):
     """
-    Reversed Phase and Baseline Correction. 
+    Reversed Phase and Baseline Correction.
     Allows for the automatic phase correction and baseline subtraction of NMR spectra.
     It is called "reversed" because the baseline is actually computed and subtracted before to perform the phase correction.
 
-    The baseline is computed using a low-order polynomion, built on a scale that goes from -1 to 1, whose coefficients are obtained minimizing a non-quadratic cost function. It is recommended to use either ``"tq"`` (truncated quadratic, much faster) or ``"huber"`` (Huber function, slower but sometimes more accurate). The user is requested to choose between separating the real and imaginary channel in this step. The order of the polynomion and the threshold value are the key parameters for obtaining a good baseline. The used function is :func:`klassez.processing.polyn_basl`
+    The baseline is computed using a low-order polynomion, built on a scale that goes from -1 to 1, whose coefficients are obtained minimizing a non-quadratic cost function.
+    It is recommended to use either ``"tq"`` (truncated quadratic, much faster) or ``"huber"`` (Huber function, slower but sometimes more accurate).
+    The user is requested to choose between separating the real and imaginary channel in this step.
+    The order of the polynomion and the threshold value are the key parameters for obtaining a good baseline. The used function is :func:`klassez.processing.polyn_basl`
 
-    The phase correction is computed on the baseline-subtracted complex data as described in the SINC algorithm. The default parameters are generally fine, but in case of data with poor SNR (approximately SNR < 10) better results can be obtained by increasing the value of the ``e1`` parameter. The employed function is :func:`klassez.fit.SINC_phase`
+    The phase correction is computed on the baseline-subtracted complex data as described in the SINC algorithm.
+    The default parameters are generally fine, but in case of data with poor SNR (approximately SNR < 10) better results can be obtained by increasing the value of the ``e1`` parameter.
+    The employed function is :func:`klassez.fit.SINC_phase`
 
-    .. note:: 
+    .. note::
         Not excellent results. Computation might be slow
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 1darray
         Data to be processed, complex-valued
     split_imag : bool
@@ -4962,8 +4872,8 @@ def rpbc(data, split_imag=False, n=5, basl_method='huber', basl_thresh=0.2, basl
     phase_kws : keyworded arguments
         Optional arguments for the phase correction. Look for ``fit.SINC_phase`` keyworded arguments for details.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     y : 1darray
         Processed data
     p0 : float
@@ -4973,11 +4883,10 @@ def rpbc(data, split_imag=False, n=5, basl_method='huber', basl_thresh=0.2, basl
     c : 1darray
         Set of coefficients to be used for the baseline computation, starting from the 0-order coefficient
 
-
     .. seealso::
 
         :func:`klassez.fit.SINC_phase`
-        
+
         :func:`klassez.processing.polyn_basl`
 
         :class:`klassez.fit.CostFunc`
@@ -4989,8 +4898,8 @@ def rpbc(data, split_imag=False, n=5, basl_method='huber', basl_thresh=0.2, basl
     else:
         raise ValueError('Input data is not complex. Aborting...')
 
-    ## BASELINE COMPUTATION AND SUBTRACTION
-    if not n: # Do not correct the baseline
+    # BASELINE COMPUTATION AND SUBTRACTION
+    if not n:  # Do not correct the baseline
         c = [0+0j]
         basl = np.zeros_like(y)
     else:
@@ -5010,7 +4919,7 @@ def rpbc(data, split_imag=False, n=5, basl_method='huber', basl_thresh=0.2, basl
     # Subtract the baseline to the data
     y -= basl
 
-    ## PHASE CORRECTION
+    # PHASE CORRECTION
     # Compute the phase angles
     p0, p1 = fit.sinc_phase(y, **phase_kws)
     # Apply it
@@ -5019,15 +4928,13 @@ def rpbc(data, split_imag=False, n=5, basl_method='huber', basl_thresh=0.2, basl
     return y, p0, p1, c
 
 
-
-
 def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
     """
     Performs the calibration of a pseudo-2D experiment by circular-shifting the spectra of an appropriate amount.
     The target function aims to minimize the superimposition between a reference spectrum and the others using a brute-force method.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm_scale : 1darray
         ppm scale of the spectrum to calibrate
     data : 2darray
@@ -5039,8 +4946,8 @@ def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
     ref_idx : int
         Index of the spectrum to be used as reference
 
-    Returns:
-    -----------
+    Returns
+    ----------
     data_roll : 2darray
         Calibrated data
     u_cal : list
@@ -5066,12 +4973,11 @@ def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
         res = s_ref_norm - roll_s_norm
         return res[span_region]
 
-
     # Shallow copy
     data_in = np.copy(data)
 
     # Convert the offset in points
-    npoints = int((u_off / misc.calcres(ppm_scale))) 
+    npoints = int((u_off / misc.calcres(ppm_scale)))
 
     # Convert the ppm limits into points indeces
     sx = misc.ppmfind(ppm_scale, lims[0])[0]
@@ -5092,12 +4998,12 @@ def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
     for i, s_i in enumerate(data_in):   # Loop over the experiments
         if i != ref_idx:                # The reference spectrum does not move!
             # Make the parameters of the fit
-            param = l.Parameters()
+            param = lmfit.Parameters()
             param.add('u', value=0, max=npoints, min=-npoints)
-            param['u'].set(brute_step = 1)      # Discrete step of one point
-            
+            param['u'].set(brute_step=1)      # Discrete step of one point
+
             # Fit
-            minner = l.Minimizer(f2min, param, fcn_args=(s_ref, s_i, cal_reg))
+            minner = lmfit.Minimizer(f2min, param, fcn_args=(s_ref, s_i, cal_reg))
             result = minner.minimize(method='brute', max_nfev=1000)
 
             # Unpack the parameters and store them in the output variables
@@ -5117,6 +5023,7 @@ def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
 
     return data_roll, u_cal, u_cal_ppm
 
+
 def lp(data, pred=1, order=8, mode='b'):
     """
     Apply linear prediction on the dataset.
@@ -5128,8 +5035,8 @@ def lp(data, pred=1, order=8, mode='b'):
 
     where `a` is the array of linear prediction coefficients.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 1darray
         FID to be linear-predicted
     pred : int
@@ -5139,8 +5046,8 @@ def lp(data, pred=1, order=8, mode='b'):
     mode : str
         ``'f'`` for forward linear prediction, ``'b'`` for backward linear prediction
 
-    Returns:
-    -----------
+    Returns
+    ----------
     newdata : 1darray
         FID with linear prediction applied.
     """
@@ -5150,12 +5057,12 @@ def lp(data, pred=1, order=8, mode='b'):
             # Characteristic matrix
             D = misc.hankel(x[:-1], order)
             # Coefficient vector
-            d = x[order:].reshape(L,1)
+            d = x[order:].reshape(L, 1)
         elif mode == 'b':       # Backward lp
             # Characteristic matrix
             D = misc.hankel(x[1:], order)
             # Coefficient vector
-            d = x[:L].reshape(L,1)
+            d = x[:L].reshape(L, 1)
         return D, d
 
     def find_lpc(D, d):
@@ -5181,7 +5088,7 @@ def lp(data, pred=1, order=8, mode='b'):
             for i in range(pred):   # Fill the rest point-by-point
                 ntrace[M+i] = np.sum(np.multiply(ntrace[M-m+i: M+i], a.flat))
         if mode == 'b':     # backward lp
-            ntrace[-M:] = trace # Copy the "old" fid at the end
+            ntrace[-M:] = trace  # Copy the "old" fid at the end
             for i in range(pred):   # Fill the rest point-by-point, going backwards
                 ntrace[pred-i-1] = np.sum(np.multiply(ntrace[pred-i: pred+m-i], a.flat))
         return ntrace
@@ -5190,7 +5097,7 @@ def lp(data, pred=1, order=8, mode='b'):
 
     N = data.shape[-1]      # Length of the dataset
     # Cut the data to ease the computational workload
-    t = min( N, max(10*pred, 2048) ) # 500 points or 10x the number of points
+    t = min(N, max(10*pred, 2048))  # 500 points or 10x the number of points
     if mode == 'f':     # Take the last part of the fid
         x = data[-t:]
     elif mode == 'b':   # Take the first part of the fid
@@ -5203,12 +5110,13 @@ def lp(data, pred=1, order=8, mode='b'):
     newdata = extrapolate(data, a, pred, mode)
     return newdata
 
+
 def blp(data, pred=1, order=8):
     """
     Applies backward linear prediction by calling :func:`klassez.processing.lp` with ``mode='b'``.
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     data : 1darray
         FID to be linear-predicted
     pred : int
@@ -5216,8 +5124,8 @@ def blp(data, pred=1, order=8):
     order : int
         Number of coefficients to use for the prediction
 
-    Returns:
-    -----------
+    Returns
+    ----------
     lpdata : 1darray
         FID with linear prediction applied.
 
@@ -5228,36 +5136,38 @@ def blp(data, pred=1, order=8):
     lpdata = lp(data, pred, order, mode='b')
     return lpdata
 
+
 def blp_ng(data, pred=1, order=8, N=2048):
     """
     Performs backwards linear prediction on data.
     This function calls ``nmrglue.process.proc_lp.lp`` with most of the parameters set automatically.
     The algorithm predicts ``pred`` points of the FID using ``order`` coefficient for the linear interpolation.
-    Only the first ``N`` points of the FID are used in the LP equation, because the computational cost scales with n**2, making the use of more than 8k points not effective: using more points brings negligible contiribution to the final result.
+    Only the first ``N`` points of the FID are used in the LP equation, because the computational cost scales with :math:`N^2`,
+    making the use of more than 8k points not effective: using more points brings negligible contiribution to the final result.
 
     For Oxford spectra, set ``pred`` to half the value written in "TDoff".
 
     .. note::
         Legacy function. Use :func:`klassez.processing.blp` instead
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : ndarray
         Data on which to perform the linear prediction. For 2D data, it is performed row-by-row
-    pred : int 
+    pred : int
         Number of points to be predicted
     order : int
         Number of coefficients to be used for the prediction
     N : int
         Number of points of the FID to be used in the calculation
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datap : ndarray
         Data with the predicted points appended at the beginning
 
     .. seealso::
-        
+
         :func:`klassez.processing.blp`
 
         :func:`klassez.processing.lp`
@@ -5267,7 +5177,8 @@ def blp_ng(data, pred=1, order=8, N=2048):
         data_sl = slice(0, N)
     else:                       # Leave unchanged
         data_sl = None
-    datap = ng.process.proc_lp.lp(data, 
+    datap = ng.process.proc_lp.lp(
+            data,
             pred=pred,          # Number of points to predict
             order=order,        # Number of coefficients to use
             slice=data_sl,      # Slicing
@@ -5277,20 +5188,21 @@ def blp_ng(data, pred=1, order=8, N=2048):
             method='svd')       # Choice of method basically uninfluent
     return datap
 
+
 def stack_fids(*fids, filename=None):
     """
     Stacks together FIDs in order to create a pseudo-2D experiment.
     This function can handle either arrays or Spectrum_1D objects.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     fids : sequence of 1darrays or Spectrum_1D objects
         Input data.
     filename : str
         Location for a .npy file to be saved. If None, no file is created.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     p2d : 2darray
         Stacked FIDs.
     """
@@ -5298,7 +5210,7 @@ def stack_fids(*fids, filename=None):
     # Append the FIDs to this list
     for k, fid in enumerate(fids):
         # If 1darray, append it as is
-        if isinstance(fid, np.ndarray) and len(fid.shape)==1:
+        if isinstance(fid, np.ndarray) and len(fid.shape) == 1:
             p2d_fid.append(fid)
         # If Spectrum_1D, append the "fid" attribute
         elif isinstance(fid, Spectrum_1D):
@@ -5334,17 +5246,15 @@ def hilbert(f):
 
         Make sure that the original spectrum was zero-filled to at least twice the original size of the FID.
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     f : ndarray
         Array of which you want to compute the imaginary part
 
-    Returns:
-    -----------
+    Returns
+    ----------
     f_cplx : ndarray
         Complex version of ``f``
-
 
     .. seealso::
         :func:`klassez.processing.hilbert2`
@@ -5359,12 +5269,12 @@ def hilbert(f):
     a = np.fft.ifft(f.real)
     #   compute vector h: i for the first half, -i for the other half
     h = 1j * np.ones_like(a)
-    h[...,N//2:] *= -1
+    h[..., N//2:] *= -1
     #   retrieve imaginary part
     b = a * h
     #   make the full, complex signal
     d = a + 1j * b
-    #   do ft 
+    #   do ft
     f_i = np.fft.fft(d)
     #   replace real part of the data with the original one
     f_cplx = f.real + 1j*f_i.imag
@@ -5386,14 +5296,13 @@ def hilbert2(data):
         ri = - Ht(rr.T).T.imag
         ii = Ht(ri).imag
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 2darray
         rr part
 
-    Returns:
-    -----------
+    Returns
+    ----------
     rr : 2darray
         Real part in f2, real part in f1
     ir : 2darray
@@ -5402,7 +5311,6 @@ def hilbert2(data):
         Real part in f2, imaginary part in f1
     ii : 2darray
         Imaginary part in f2, imaginary part in f1
-
 
     .. seealso::
 
@@ -5415,7 +5323,7 @@ def hilbert2(data):
     rr = S_rr_ir.real
     ir = S_rr_ir.imag
     # ri: Ht on F1. The - is because of NMR conventions
-    ri = - processing.hilbert(data.T).imag.T 
+    ri = - processing.hilbert(data.T).imag.T
     # ii: Ht on both F2 and F1
     ii = processing.hilbert(ri).imag
 
@@ -5427,15 +5335,15 @@ def convolve(in1, in2):
     Perform the convolution of the two array by multiplying their inverse Fourier transform.
     The two arrays must have the same dimension.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     in1 : ndarray
         First array
     in2 : ndarray
         Second array
 
-    Returns:
-    -----------
+    Returns
+    ----------
     cnv : ndarray
         Convolved array
     """
@@ -5448,6 +5356,7 @@ def convolve(in1, in2):
     cnv = size * np.fft.fftshift(np.fft.fft(cnvt))
     return cnv
 
+
 def inv_convolve(in1, in2):
     """
     Perform the inverse-convolution of the two array by dividing their inverse Fourier transform.
@@ -5457,16 +5366,15 @@ def inv_convolve(in1, in2):
 
         This operation involves a division!!! Might give unexpected and unpleasant results!
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     in1 : ndarray
         First array
     in2 : ndarray
         Second array
 
-    Returns:
-    -----------
+    Returns
+    ----------
     cnv : ndarray
         Deconvolved array
     """
@@ -5474,7 +5382,7 @@ def inv_convolve(in1, in2):
     size = in1.shape[-1]
     in1t = np.fft.ifft(np.fft.ifftshift(in1))
     in2t = np.fft.ifft(np.fft.ifftshift(in2))
-    cnvt = in1t * np.linalg.pinv(in2t.reshape(-1,1)).reshape(-1)
+    cnvt = in1t * np.linalg.pinv(in2t.reshape(-1, 1)).reshape(-1)
     # factor size is needed to correct the intensity
     cnv = size * np.fft.fftshift(np.fft.fft(cnvt))
     return cnv
@@ -5486,8 +5394,8 @@ def splitcomb(data, taq, J=53.8):
     The data structure must be with the IP in the first half of the direct dimension, and with AP in the second half.
     The default J is 53.8 Hz, correspondant to the CO-Ca coupling.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 2darray
         FID of the spectrum to process
     taq : 1darray
@@ -5495,8 +5403,8 @@ def splitcomb(data, taq, J=53.8):
     J : float
         Scalar coupling constant of the coupling to suppress, in Hz
 
-    Returns:
-    -----------
+    Returns
+    ----------
     datap : 2darray
         Decoupled data. The direct dimension is halved with respect to the original FID
     """
@@ -5504,16 +5412,16 @@ def splitcomb(data, taq, J=53.8):
     # Split IP and AP FIDs
     N = data.shape[-1]
     # Left one: IP
-    data_ip = data[...,:N//2]
+    data_ip = data[..., :N//2]
     # Right one: AP
-    data_ap = data[...,N//2:]
+    data_ap = data[..., N//2:]
 
     # Get single feature of the doublet
     data_sum = data_ip + data_ap
     data_dif = data_ip - data_ap
 
     # Make sure the acquisition timescale matches the dimensions
-    taq_ext = processing.extend_taq(taq, N//2)
+    taq = processing.extend_taq(taq, N//2)
 
     # Make Dirac delta functions to shift the data
     delta_sx = np.exp(+1j * np.pi * J * taq)
@@ -5529,29 +5437,33 @@ def splitcomb(data, taq, J=53.8):
 
     return datap
 
+
 def apk(ppm, data, SFO1, alpha=3, winsize=50, ap1=True, seethrough=False):
     r"""
     Performs automatic phase correction.
 
-    The algorithm starts with the computation of a mask to separate signal from baseline-only regions. This is done via an iterative thresholding, i.e. a point is "signal" if the first derivative of the spectrum in that point is higher than its standard deviation by ``alpha`` times:
+    The algorithm starts with the computation of a mask to separate signal from baseline-only regions.
+    This is done via an iterative thresholding, i.e. a point is "signal" if the first derivative of the spectrum in that point is higher than its standard deviation by ``alpha`` times:
 
-    .. math:: 
+    .. math::
 
         d'[k] > \alpha \, std(d') \implies k \in \text{signal region}
 
-    The selection is further refined by repeating the same procedure on the original data.  
+    The selection is further refined by repeating the same procedure on the original data.
     Then, the regions separated by less than winsize are joined together, and the presence of actual peaks in the region is checked with a pick-picker.
 
-    At this point, each region is phased independently with only phase 0. The phase angle is tested in a brute-force manner. The cost function minimizes the area below the straight line that connects the borders of the window. 
+    At this point, each region is phased independently with only phase 0. The phase angle is tested in a brute-force manner.
+    The cost function minimizes the area below the straight line that connects the borders of the window.
     The first-order phase correction is calculated with a weighted linear regression, where the weights are the integrals of the magnitude of each region.
 
     .. tip::
 
-        The choice of ``alpha`` and ``winsize`` can be important for the outcome. Higher ``alpha`` values make the detection of peaks more stringent -> for spectra with high SNR and sharp peaks a suitable value is 4-6. Decreasing ``winsize`` makes the algorithm to estimate more regions.
+        The choice of ``alpha`` and ``winsize`` can be important for the outcome.
+        Higher ``alpha`` values make the detection of peaks more stringent -> for spectra with high SNR and sharp peaks a suitable value is 4-6.
+        Decreasing ``winsize`` makes the algorithm to estimate more regions.
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm : 1darray
         ppm scale of the spectrum
     data : 1darray
@@ -5567,16 +5479,15 @@ def apk(ppm, data, SFO1, alpha=3, winsize=50, ap1=True, seethrough=False):
     seethrough : bool
         If True, draws a series of diagnostic figures to see what the algorithm is doing
 
-    Returns:
-    ----------- 
+    Returns
+    ----------
     datap : 1darray
         Phased data
     values : tuple
         Found values ``(p0, p1)``
 
-
     .. seealso::
-        
+
         :func:`klassez.processing.mask_sgn_basl`
 
         :func:`klassez.processing.ps`
@@ -5642,7 +5553,7 @@ def apk(ppm, data, SFO1, alpha=3, winsize=50, ap1=True, seethrough=False):
             p0s.append(p0_opt)
         return np.array(p0s)
 
-    #-----------------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------------
 
     # Get the peak-only regions
     slices, _ = processing.mask_sgn_basl(ppm, data, SFO1, alpha, winsize)
@@ -5651,7 +5562,7 @@ def apk(ppm, data, SFO1, alpha=3, winsize=50, ap1=True, seethrough=False):
     if seethrough:
         x = np.arange(data.shape[-1])
         fig = plt.figure('Detected regions to be phased')
-        fig.set_size_inches(15,8)
+        fig.set_size_inches(15, 8)
         ax = fig.add_subplot()
         for sl in slices:
             ax.plot(x[sl], data[sl].real)
@@ -5674,13 +5585,13 @@ def apk(ppm, data, SFO1, alpha=3, winsize=50, ap1=True, seethrough=False):
         # ...normalized
         weights /= np.sum(weights)
 
-        if ap1: # Compute p1
+        if ap1:  # Compute p1
             # Make a weighted linear regression
             phase_reg, (p1, p0) = fit.lr(p0s, rel_pos, w=weights)
 
             if seethrough:
                 fig = plt.figure('Linear regression for phase 1')
-                fig.set_size_inches(15,8)
+                fig.set_size_inches(15, 8)
                 ax = fig.add_subplot()
                 ax.errorbar(rel_pos, p0s, yerr=1/weights, c='k', fmt='x')
                 ax.plot(rel_pos, phase_reg, ':', c='tab:red')
@@ -5709,21 +5620,20 @@ def apk(ppm, data, SFO1, alpha=3, winsize=50, ap1=True, seethrough=False):
 
     print('APK: p0: {:.3f}, p1: {:.3f}\n'.format(p0, p1))
 
-    
     return datap, (p0, p1)
 
 
-def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':10}):
+def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's': 10}):
     """
-    Automatic computation of a baseline for a spectrum using a thresholding-based method 
+    Automatic computation of a baseline for a spectrum using a thresholding-based method
     for the detection of the baseline-only region, followed by a weighted linear least squares
     optimization with a polynomion of degree n-1.
     The weights are computed on the absolute value of the first derivative of the spectrum.
     Set ``qfil=True`` if there is a very intense solvent peak that would hamper
     the computation of the threshold.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm : 1darray
         PPM scale of the spectrum
     data : 1darray
@@ -5741,11 +5651,10 @@ def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
         ``'u'`` = center of the filter in ppm
         ``'s'`` = width of the filter in Hz
 
-    Returns:
-    -----------
+    Returns
+    ----------
     baseline: 1darray
         Computed baseline
-
 
     .. seealso::
 
@@ -5784,9 +5693,9 @@ def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
         rights = x_peaks + widths / 2
 
         # Inside the intervals, weights are zero
-        for l, r in zip(lefts, rights):
+        for left, right in zip(lefts, rights):
             # Condition: l < x < r
-            mask = (l <= x) & (x <= r)
+            mask = (left <= x) & (x <= right)
             w[mask] = 0
         return w
 
@@ -5811,14 +5720,15 @@ def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
     return baseline
 
 
-def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u':4.7, 's':10}):
+def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
     """
-    Automatic computation of a baseline for a spectrum using a thresholding-based method for the detection of the baseline-only region, followed by a weighted linear least squares optimization with a polynomion of degree n-1.
+    Automatic computation of a baseline for a spectrum using a thresholding-based method for the detection of the baseline-only region,
+    followed by a weighted linear least squares optimization with a polynomion of degree n-1.
     Employs the same method for the detection of signal-free regions of ``processing.apk``.
     Set ``qfil=True`` if there is a very intense solvent peak that would hamper the computation of the threshold.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm : 1darray
         PPM scale of the spectrum
     data : 1darray
@@ -5840,11 +5750,10 @@ def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
         ``'u'`` = center of the filter in ppm
         ``'s'`` = width of the filter in Hz
 
-    Returns:
-    -----------
+    Returns
+    ----------
     baseline : 1darray
         Computed baseline
-
 
     .. seealso::
 
@@ -5865,7 +5774,7 @@ def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
         # Initialize w all equal to 1
         w = np.zeros_like(x, dtype=int)
 
-        _, basl_slices = mask_sgn_basl(ppm, data, SFO1, alpha=alpha, winsize=winsize)
+        _, basl_slices = mask_sgn_basl(ppm, d, SFO1, alpha=alpha, winsize=winsize)
 
         for sl in basl_slices:
             w[sl] = 1
@@ -5895,13 +5804,14 @@ def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
     baseline = misc.polyn(x, c)
     return baseline
 
-def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':10}):
+
+def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's': 10}):
     """
     Computes the baseline correction on data using ``processing.abc``, and gives back the subtracted spectrum.
     The imaginary part of the spectrum is reconstructed using ``processing.hilbert``.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm : 1darray
         PPM scale of the spectrum
     data : 1darray
@@ -5919,11 +5829,10 @@ def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
         'u' = center of the filter in ppm
         's' = width of the filter in Hz
 
-    Returns:
-    -----------
+    Returns
+    ----------
     S : 1darray
         Baseline-subtracted spectrum
-
 
     .. seealso::
 
@@ -5939,13 +5848,14 @@ def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':1
     S = processing.hilbert(datab)
     return S
 
-def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u':4.7, 's':10}):
+
+def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
     """
     Computes the baseline correction on data using ``processing.abca``, and gives back the subtracted spectrum.
     The imaginary part of the spectrum is reconstructed using ``processing.hilbert``.
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     ppm : 1darray
         PPM scale of the spectrum
     data : 1darray
@@ -5965,11 +5875,10 @@ def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
         'u' = center of the filter in ppm
         's' = width of the filter in Hz
 
-    Returns:
-    -----------
+    Returns
+    ----------
     S : 1darray
         Baseline-subtracted spectrum
-
 
     .. seealso::
 
@@ -5986,14 +5895,18 @@ def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
     return S
 
 
-def abs2(ppm_f2, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, 's':10}, FnMODE='States-TPPI'):
+def absa2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}, FnMODE='States-TPPI'):
     """
-    Baseline correction for 2D datasets.
-    Computes the baseline correction on ``data`` using ``processing.abc`` for each row, and gives back the subtracted spectrum.
+    Baseline correction for 2D datasets, alternative version.
+    Computes the baseline correction on ``data`` using ``processing.abca`` for each row, and gives back the subtracted spectrum.
     The imaginary part of the spectrum is reconstructed using either ``processing.hilbert`` or ``processing.hilbert2`` depending on ``FnMODE``.
 
-    Parameters:
-    -----------
+    .. todo::
+
+        CORREGGERE
+
+    Parameters
+    ----------
     ppm : 1darray
         PPM scale of the spectrum
     data : 1darray
@@ -6011,8 +5924,61 @@ def abs2(ppm_f2, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, '
         'u' = center of the filter in ppm
         's' = width of the filter in Hz
 
-    Returns:
-    -----------
+    Returns
+    ----------
+    S : 2darray
+        Baseline-subtracted spectrum, either complex or hypercomplex
+
+    .. seealso::
+
+        :func:`klassez.processing.abca`
+
+        :func:`klassez.processing.hilbert`
+
+        :func:`klassez.processing.hilbert2`
+    """
+    # Compute the baseline
+    D = deepcopy(data)
+    for k, trace in enumerate(D):
+        b = processing.abca(ppm_f2, trace, SFO1, n=n, lims=lims, winsize=winsize, qfil=qfil, qfilp=qfilp)
+        # Subtract it
+        D[k] = trace - b
+    # Compute the missing imaginary part
+    if FnMODE in ['States-TPPI', 'Echo-Antiecho']:
+        rr, ir, ri, ii = processing.hilbert2(D)
+        S = processing.repack_2D(rr, ir, ri, ii)
+    else:
+        S = processing.hilbert(D)
+    return S
+
+
+def abs2(ppm_f2, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's': 10}, FnMODE='States-TPPI'):
+    """
+    Baseline correction for 2D datasets.
+    Computes the baseline correction on ``data`` using ``processing.abc`` for each row, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using either ``processing.hilbert`` or ``processing.hilbert2`` depending on ``FnMODE``.
+
+    Parameters
+    ----------
+    ppm : 1darray
+        PPM scale of the spectrum
+    data : 1darray
+        The spectrum to baseline-correct
+    n : int
+        Number of coefficients of the polynomial baseline
+    lims : tuple or None
+        Limits for the region on which to compute the baseline, in ppm
+    alpha : float
+        The threshold will be set as thr = alpha * np.std(np.gradient(data))
+    qfil : bool
+        Choose whether to apply a filter on the solvent region (True) or not (False)
+    qfilp : dict
+        Parameters to be used to compute the filter if qfil is True. Keys:
+        'u' = center of the filter in ppm
+        's' = width of the filter in Hz
+
+    Returns
+    ----------
     S : 2darray
         Baseline-subtracted spectrum, either complex or hypercomplex
 
@@ -6038,6 +6004,7 @@ def abs2(ppm_f2, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u':4.7, '
         S = processing.hilbert(D)
     return S
 
+
 def rndc(data):
     """
     Robust Noise Derivative Calculation, `reference`_ . Employed coefficients: ``(42, 48, 27, 8, 1)/512``
@@ -6045,13 +6012,13 @@ def rndc(data):
 
     .. _reference: http://www.holoborodko.com/pavel/numerical-methods/numerical-derivative/smooth-low-noise-differentiators/
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 1darray
         Input data
 
-    Returns:
-    -----------
+    Returns
+    ----------
     dy : 1darray
         First derivative of data. First and last 5 points are set to zero.
     """
@@ -6065,13 +6032,13 @@ def rndc(data):
     # We need to compute (d[k+j] - d[k-j]) for j = 1,...,5 and for all k eligible
     # This is the most efficient way I could think of
     couples = [[np.roll(d, -j), np.roll(d, j)] for j in range(1, 6)]
-    diffs = np.array([couple[0] - couple[1] for couple in couples])
+    diffs = np.array([coeff[k] * (couple[0] - couple[1]) for k, couple in enumerate(couples)])
 
     # 5e-2 is a correction factor to make it the same as np.gradient. IDK where it comes from
-    dy = 5e-2 * np.sum(diffs, axis=0)
+    dy = np.sum(diffs, axis=0)
     # Set first and last 5 points to 0 because they are meaningless
-    dy[...,:5] = 0
-    dy[...,-5:] = 0
+    dy[..., :5] = 0
+    dy[..., -5:] = 0
     return dy
 
 
@@ -6079,15 +6046,15 @@ def smooth_g(d, m):
     """
     Apply a smoothing with a gaussian filter by convolution. The width of the filter is ``1/m``.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     d : 1darray
         Data to be smoothed
     m : float
         Inverse width of the filter /pt
 
-    Returns:
-    -----------
+    Returns
+    ----------
     yc : 1darray
         Smoothed data
     """
@@ -6106,8 +6073,8 @@ def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
     """
     Given an NMR spectrum, this function estimates the signal and baseline regions, and return a list of slices to cut the spectrum accordingly.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm : 1darray
         ppm scale of the spectrum
     data : 1darray
@@ -6119,8 +6086,8 @@ def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
     winsize : float
         Minimum size of the window that can contain peaks /Hz
 
-    Returns:
-    -----------
+    Returns
+    ----------
     peak_slices : list of slices
         Slices that trim the data in the signal-only regions
     basl_slices : list of slices
@@ -6131,15 +6098,15 @@ def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
         Compute the mask that divides "signals" from "baseline" regions.
         There is "signal" if the spectrum is higher than alpha * std of the spectrum.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         data : 1darray
             Spectrum
         alpha : float
             Factor that multiplies the std of the spectrum to set the threshold
 
-        Returns:
-        -----------
+        Returns
+        ----------
         full_mask : 1darray
             1 if there is signal, 0 is there is not
         """
@@ -6159,7 +6126,7 @@ def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
             full_mask += mask
             # killmask kills the signal
             killmask = 1 - mask
-         
+
             if np.all(killmask == 1):   # No more peaks detected
                 break
             else:                       # Kill all the signals and start again
@@ -6172,11 +6139,11 @@ def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
         # Do the same thing but on the original dataset to see if we missed anything
         # in the "baseline" regions
         for j in range(1000):   # instead of while
-            std = np.std(d_in)  
+            std = np.std(d_in)
             mask = (np.abs(d_in) > alpha*std).astype(int)
             full_mask += mask
             killmask = 1 - mask
-            if np.all(killmask  == 1):
+            if np.all(killmask == 1):
                 break
             else:
                 d_in *= killmask
@@ -6186,17 +6153,17 @@ def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
     def noise_correlation(data, mask):
         """
         Compute the window at which the noise is correlated to estimate the smoothing factor.
-        
+
         """
 
         # Get the borders of the regions
         starts, ends = misc.detect_jumps(mask)
 
         # Make slices for the signals regions
-        slices = [slice(start,end) for start, end in zip(starts, ends)]
-        
-        m=1     # placeholder
-        for k, sl in enumerate(slices): # For each region
+        slices = [slice(start, end) for start, end in zip(starts, ends)]
+
+        m = 1     # placeholder
+        for k, sl in enumerate(slices):  # For each region
             # Trim the data
             y = data[sl]
             # Make a scale
@@ -6211,11 +6178,11 @@ def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
                                  ])
             # The noise is not correlated anymore if it is less than 60% the maximum correlation
             tol = corr_func[0] * 0.6
-            okay = np.where(corr_func < corr_func[0] * 0.6)[0]
+            okay = np.where(corr_func < tol)[0]
             if okay.size > 0:   # If this is true, take only that part of the correlation function
                 corr_func = corr_func[:okay[0]]
                 x = x[:okay[0]]
-            
+
             # Useless to consider regions less than 5 points
             if len(x) < 5:
                 continue
@@ -6242,7 +6209,7 @@ def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
         current_start = starts[0]
         current_end = ends[0]
 
-        for s, e in zip(starts[1:], ends[1:]): # for each window
+        for s, e in zip(starts[1:], ends[1:]):   # for each window
             # length of the block
             gap = s - current_end
             if gap < window:
@@ -6307,7 +6274,7 @@ def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
     fdata = processing.smooth_g(data, corr)
     #   correct the mask with the filter data
     mask = mask_to_regions(ppm, fdata, mask, winsize)
-    
+
     # Detect peaks
     peak_slices = anypeak(fdata, mask)
 
@@ -6318,7 +6285,7 @@ def mask_sgn_basl(ppm, data, SFO1, alpha=3, winsize=50):
     for sl in peak_slices:
         # start at the start and end at the end
         start = sl.start or 0
-        end = sl.stop 
+        end = sl.stop
         if start > last_end:    # avoid loop break
             # New slice is from end to start in peak_slices
             basl_slices.append(slice(last_end, start))
@@ -6335,15 +6302,15 @@ def extend_taq(old_taq, newsize=None):
     """
     Extend the acquisition timescale to a longer size, using the same dwell time
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     old_taq : 1darray
         Old timescale
     newsize : int
         New size of acqusition timescale, in points
 
-    Returns:
-    --------
+    Returns
+    -------
     new_taq : 1darray
         Extended timescale
     """

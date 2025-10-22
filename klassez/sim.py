@@ -1,28 +1,11 @@
 #! /usr/bin/env python3
 
 import os
-import sys
 import numpy as np
-from numpy import linalg
-from scipy import stats
-from scipy.spatial import ConvexHull
-import random
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-from matplotlib.widgets import Slider, Button, RadioButtons, TextBox, CheckButtons, Cursor, LassoSelector
-from matplotlib.path import Path
-import seaborn as sns
-import nmrglue as ng
-import lmfit as l
-from datetime import datetime
-import warnings
 
 from importlib.resources import open_text
-from . import tables
 
-from . import fit, misc, sim, figures, processing, anal
-from .config import CM, COLORS, cron
+from . import misc, sim
 
 # gyromagnetic ratio of all NMR active nuclei in MHz/T
 with open_text(__name__, os.path.join('tables', 'gamma.dic')) as f:
@@ -30,12 +13,13 @@ with open_text(__name__, os.path.join('tables', 'gamma.dic')) as f:
 with open_text(__name__, os.path.join('tables', 'nuclei_jeol.dic')) as f:
     jeol_nuclei = eval(f.read())
 
+
 def calc_splitting(u0, I0, m=1, J=0):
-    """ 
+    """
     Calculate the frequency and the intensities of a NMR signal splitted by scalar coupling.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     u0 : float
         Frequency of the non-splitted signal (Hz)
     I0 : float
@@ -45,17 +29,17 @@ def calc_splitting(u0, I0, m=1, J=0):
     J : float
         Scalar coupling constant (Hz)
 
-    Returns:
-    --------
+    Returns
+    -------
     u_s : 1darray
         Frequencies of the splitted signal (Hz)
-    I_s : 1darray 
-        Intensities of the splitted signal 
+    I_s : 1darray
+        Intensities of the splitted signal
     """
     # FREQUENCIES
     u_s = []
     # if m=2    =>  J_pattern = -0.5 +0.5
-    # if m=3    =>  J_pattern = -1  0  1 
+    # if m=3    =>  J_pattern = -1  0  1
     J_pattern = np.arange(m) - np.mean(np.arange(m))
     for k in J_pattern:
         u_s.append(u0 + k*J)
@@ -68,23 +52,23 @@ def calc_splitting(u0, I0, m=1, J=0):
     return u_s, I_s
 
 
-def multiplet(u, I, m='s', J=[]):
-    """ 
+def multiplet(u, Int, m='s', J=[]):
+    """
     Split a given signal according to a scalar coupling pattern.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     u : float
         Frequency of the non-splitted signal (Hz)
     I : float
-        Intensity of the non-splitted signal 
+        Intensity of the non-splitted signal
     m : str
         Organic chemistry-like multiplet, i.e. s, d, dqt, etc.
     J : float or list
         Scalar coupling constants. The number of constants should match the number of coupling branches
 
-    Returns:
-    --------
+    Returns
+    -------
     u_in : list
         List of the splitted frequencies (Hz)
     I_in : list
@@ -93,7 +77,7 @@ def multiplet(u, I, m='s', J=[]):
     n_splitting = len(m)    # Number of splittings
 
     # Adjust the variables to make them fit in the loop
-    if m=='s':      # Singlet: J is useless
+    if m == 's':      # Singlet: J is useless
         J_in = [0]
     elif isinstance(J, (list, tuple, np.ndarray)):
         J_in = J
@@ -101,7 +85,7 @@ def multiplet(u, I, m='s', J=[]):
         J_in = [J]
 
     u_in = [u]
-    I_in = [I]
+    I_in = [Int]
     for n in range(n_splitting):        # Loop in the number of splitting
         u_ret, I_ret = [], []           # Declare empty lists
         for k, _ in enumerate(u_in):    # u_in expands according to the splitting tree
@@ -132,17 +116,17 @@ def load_sim_1D(File):
     """
     Creates a dictionary from the spectral parameters listed in the input file.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     File : str
         Path to the input file location
 
-    Returns:
-    ---------
+    Returns
+    --------
     dic : dict
         Dictionary of the parameters, ready to be read from the simulation functions.
     """
-    
+
     with open(File, 'r') as f:
         inp = f.readlines()
     keys = []
@@ -161,10 +145,9 @@ def load_sim_1D(File):
             rest = rest.split('#')[0]
         try:
             value = eval(rest)
-        except:
+        except Exception:
             value = (f'{rest}')
         vals.append(value)
-
 
     dic = {}
     for i, key in enumerate(keys):
@@ -193,19 +176,20 @@ def load_sim_1D(File):
 
     return dic
 
+
 def sim_1D(File, pv=False):
     """
     Simulates a 1D NMR spectrum from the instructions written in File.
 
-    Parameters:
-    ------------
+    Parameters
+    -----------
     File : str
         Path to the input file location
     pv : bool
         True for pseudo-Voigt model, False for Voigt model.
 
-    Returns:
-    --------
+    Returns
+    -------
     fid : 1darray
         FID of the simulated spectrum.
     """
@@ -215,7 +199,7 @@ def sim_1D(File, pv=False):
         in_file = File
     else:
         raise ValueError('Unknown file type, aborting...')
-    
+
     TD = in_file['TD']     # Points of the FID
 
     shifts = np.array(in_file['shifts'])    # Chemical shift /ppm
@@ -231,26 +215,27 @@ def sim_1D(File, pv=False):
         # Account for multiplicity
         u_split, A_split = multiplet(freq[j], amplitudes[j], m=in_file['mult'][j], J=in_file['Jconst'][j])
         for u, I in zip(u_split, A_split):
-            sgn_par = dict(t=in_file['t1'], u=u, fwhm=2*np.pi*fwhm[j], b=b[j], A=I, phi=phases[j] )
+            sgn_par = dict(t=in_file['t1'], u=u, fwhm=2*np.pi*fwhm[j], b=b[j], A=I, phi=phases[j])
             if pv:          # Generate pseudo-voigt signals
                 fid += sim.t_pvoigt(**sgn_par)
             else:           # Make Voigt signals
                 fid += sim.t_voigt(**sgn_par)
     return fid
 
+
 def load_sim_2D(File, states=True):
     """
     Creates a dictionary from the spectral parameters listed in the input file.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     File : str
         Path to the input file location
     states : bool
         If FnMODE is States or States-TPPI, set it to True to get the correct timescale.
-    
-    Returns:
-    --------
+
+    Returns
+    -------
     dic : dict
         Dictionary of the parameters, ready to be read from the simulation functions.
     """
@@ -272,7 +257,7 @@ def load_sim_2D(File, states=True):
             rest = rest.split('#')[0]
         try:
             value = eval(rest)
-        except:
+        except Exception:
             value = (f'{rest}')
         vals.append(value)
 
@@ -293,7 +278,7 @@ def load_sim_2D(File, states=True):
     dic['dw2'] = np.abs(1 / dic['SW2'])             # dwell time
     dic['o1'] = dic['o1p'] * dic['SFO1']
     dic['o2'] = dic['o2p'] * dic['SFO2']
-    if states: 
+    if states:
         dic['t1'] = np.linspace(0, dic['TD1']//2 * dic['dw1'], dic['TD1'])      # acquisition time scale
     else:
         dic['t1'] = np.linspace(0, dic['TD1'] * dic['dw1'], dic['TD1'])      # acquisition time scale
@@ -303,13 +288,14 @@ def load_sim_2D(File, states=True):
 
     return dic
 
+
 def sim_2D(File, states=True, alt=True, pv=False):
     """
     Simulates a 2D NMR spectrum from the instructions written in File.
     The indirect dimension is sampled with states-TPPI as default.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     File : str
         Path to the input file location
     states : bool
@@ -318,13 +304,13 @@ def sim_2D(File, states=True, alt=True, pv=False):
         Set it to True to allow for correct spectral arrangement in the indirect dimension.
     pv : bool
         True for pseudo-Voigt model, False for Voigt model.
-    
-    Returns:
-    --------
+
+    Returns
+    -------
     fid : 2darray
         FID of the simulated spectrum.
     """
-    
+
     # Generates a dictionary of parameters from an input file
     if isinstance(File, str):
         in_file = sim.load_sim_2D(File, states=states)
@@ -332,7 +318,6 @@ def sim_2D(File, states=True, alt=True, pv=False):
         in_file = File
     else:
         raise ValueError('Unknown file type, aborting...')
-        
 
     # recall of timescales from in_file
     t1 = in_file['t1']
@@ -351,10 +336,6 @@ def sim_2D(File, states=True, alt=True, pv=False):
     fwhm1 = 2 * np.pi * fwhm_f1
     fwhm2 = 2 * np.pi * fwhm_f2
 
-    # calculation of stdev for gaussian peaks
-    sigma1 = fwhm1 / (2 * (2 * np.log(2))**0.5) 
-    sigma2 = fwhm2 / (2 * (2 * np.log(2))**0.5) 
-
     # conversion of chemical shift from ppm to rad/s
     freq1 = misc.ppm2freq(shifts_f1, B0=in_file['SFO1'], o1p=in_file['o1p'])     # peaks center frequency
     freq2 = misc.ppm2freq(shifts_f2, B0=in_file['SFO2'], o1p=in_file['o2p'])     # peaks center frequency
@@ -362,11 +343,11 @@ def sim_2D(File, states=True, alt=True, pv=False):
     # creation of empty FID
     fid = np.zeros((in_file['TD1'], in_file['TD2']), dtype='complex64')      # empty FID
 
-    # The number of NMR signals is retrieved from the length of the amplitudes array. 
+    # The number of NMR signals is retrieved from the length of the amplitudes array.
     # If there is only one peak, 'ns' (number of signals) is set to 1.
     try:
         ns = len(amplitudes)
-    except:
+    except Exception:
         ns = 1
     # Creates a pseudo-voigt signal looping on the number of peaks
 
@@ -377,12 +358,13 @@ def sim_2D(File, states=True, alt=True, pv=False):
             fid += sim.t_2Dvoigt(t1, t2, freq1[p], freq2[p], fwhm1[p], fwhm2[p], A=amplitudes[p], b=b[p], states=states, alt=alt)
     return fid
 
+
 def noisegen(size, o2, t2, s_n=1):
     """
     Simulates additive noise in the time domain.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     size : int or tuple
         Dimension of the noise matrix
     o2 : float
@@ -392,8 +374,8 @@ def noisegen(size, o2, t2, s_n=1):
     s_n : float
         Standard deviation of the noise.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     noise : 2darray
         Noise matrix, of dimensions size.
     """
@@ -401,14 +383,14 @@ def noisegen(size, o2, t2, s_n=1):
     # correlated part of noise until ADC
     white_corr = np.random.normal(0, s_n, size)
     # white noise in FID has to be centered on the offset frequency
-    noise_corr = white_corr * np.exp(1j* 2 * np.pi * o2 * t2)
+    noise_corr = white_corr * np.exp(1j * 2 * np.pi * o2 * t2)
 
     # uncorrelated part of noise: quadrature detection
     white_re = np.random.normal(0, s_n, size)
     white_im = np.random.normal(0, s_n, size)
     # cosine-modulated in the real channel and sine-modulated in the imaginary channel
-    noise_re = white_re * np.cos( 2* np.pi * o2 * t2)
-    noise_im = white_im * np.sin( 2* np.pi * o2 * t2)
+    noise_re = white_re * np.cos(2 * np.pi * o2 * t2)
+    noise_im = white_im * np.sin(2 * np.pi * o2 * t2)
 
     # final noise is sum of the two parts
     noise = noise_corr + (noise_re + 1j*noise_im)
@@ -417,10 +399,10 @@ def noisegen(size, o2, t2, s_n=1):
 
 def mult_noise(data_size, mean=0, s_n=0.1):
     """
-    Multiplicative noise model. 
-    
-    Parameters:
-    ------------
+    Multiplicative noise model.
+
+    Parameters
+    -----------
     data_size : tuple
         Dimension of the FID array
     mean : float
@@ -428,8 +410,8 @@ def mult_noise(data_size, mean=0, s_n=0.1):
     s_n : float
         Standard deviation of the random array distribution
 
-    Returns: 
-    --------
+    Returns
+    -------
     noisemat : 2darray
         Multiplicative noise array matrix
     """
@@ -442,13 +424,12 @@ def mult_noise(data_size, mean=0, s_n=0.1):
     return noisemat
 
 
-
 def water7(N, t2, vW, fwhm=300, A=1, spread=701.125):
     """
     Simulates a feature like the water ridge in HSQC spectra, in the time domain.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     N : int
         Number of transients
     t2 : 1darray
@@ -462,12 +443,11 @@ def water7(N, t2, vW, fwhm=300, A=1, spread=701.125):
     spread : float
         Standard deviation of the peak position distribution, in Hz.
 
-    Returns:
-    --------
+    Returns
+    -------
     ridge : 2darray
         Matrix of the ridge.
     """
-
 
     uW = np.random.normal(vW, spread, N)
     s = fwhm / (2 * (2 * np.log(2))**0.5)         # conversion from fwhm to sigma
@@ -475,16 +455,16 @@ def water7(N, t2, vW, fwhm=300, A=1, spread=701.125):
     for i in range(N):
         # each transient features a gaussian signal with the parameters specified above
         # but it is on phase in the even transients and 90 degree dephased in the odd ones
-        ridge[i] = sim.t_gaussian(t2, uW[i], s, A=A, phi=np.pi/2*np.mod(i,2))
-    return ridge 
+        ridge[i] = sim.t_gaussian(t2, uW[i], s, A=A, phi=np.pi/2*np.mod(i, 2))
+    return ridge
 
 
 def f_gaussian(x, u, s, A=1):
     """
     Gaussian function in the frequency domain:
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : 1darray
         Independent variable
     u : float
@@ -493,24 +473,25 @@ def f_gaussian(x, u, s, A=1):
         Standard deviation
     A : float
         Intensity
-   
-    Returns:
-    --------
+
+    Returns
+    -------
     f : 1darray
         Gaussian function.
     """
-    s= np.abs(s)
+    s = np.abs(s)
     if s < 1e-10:
         s = 1e-10
     f = A/(np.sqrt(2 * np.pi)*s) * np.exp(-1/2*((x-u)/s)**2)
     return f
 
+
 def f_lorentzian(x, u, fwhm, A=1):
     """
     Lorentzian function in the time domain:
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : 1darray
         Independent variable
     u : float
@@ -520,8 +501,8 @@ def f_lorentzian(x, u, fwhm, A=1):
     A : float
         Intensity
 
-    Returns:
-    --------
+    Returns
+    -------
     f : 1darray
         Lorentzian function.
     """
@@ -529,15 +510,16 @@ def f_lorentzian(x, u, fwhm, A=1):
     hwhm = np.abs(fwhm/2)   # half width at half maximum
     if hwhm < 1e-8:
         hwhm = 1e-8
-    f = A/(np.pi) * hwhm/((x-u)**2 + hwhm**2 )
+    f = A/(np.pi) * hwhm/((x-u)**2 + hwhm**2)
     return f
+
 
 def f_pvoigt(x, u, fwhm, A=1, b=0):
     """
     Pseudo-Voigt function in the frequency domain:
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : 1darray
         Independent variable
     u : float
@@ -548,25 +530,26 @@ def f_pvoigt(x, u, fwhm, A=1, b=0):
         Intensity
     b : float
         Fraction of gaussianity
-    
-    Returns:
-    --------
+
+    Returns
+    -------
     S : 1darray
         Pseudo-Voigt function.
     """
     fwhm = np.abs(fwhm)
     if fwhm < 1e-8:
         fwhm = 1e-8
-    s = fwhm / (2 * (2 * np.log(2))**0.5) 
-    S = A* (sim.f_gaussian(x, u, s, A=b) + sim.f_lorentzian(x, u, fwhm, A=1-b))
+    s = fwhm / (2 * (2 * np.log(2))**0.5)
+    S = A * (sim.f_gaussian(x, u, s, A=b) + sim.f_lorentzian(x, u, fwhm, A=1-b))
     return S
+
 
 def t_gaussian(t, u, s, A=1, phi=0):
     """
     Gaussian function in the time domain.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     t : 1darray
         Independent variable
     u : float
@@ -578,23 +561,24 @@ def t_gaussian(t, u, s, A=1, phi=0):
     phi : float
         Phase, in radians
 
-    Returns:
-    --------
+    Returns
+    -------
     S : 1darray
         Gaussian function.
     """
-    s = np.abs(s) # Avoid problems with s<0 
+    s = np.abs(s)    # Avoid problems with s<0
     if s < 1e-10:
         s = 1e-10
     S = A * np.exp(1j*phi) * np.exp((1j*2*np.pi*u*t) - (t**2)*(s**2)/2)
     return S
 
+
 def t_lorentzian(t, u, fwhm, A=1, phi=0):
     """
     Lorentzian function in the time domain.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     t : 1darray
         Independent variable
     u : float
@@ -606,23 +590,24 @@ def t_lorentzian(t, u, fwhm, A=1, phi=0):
     phi : float
         Phase, in radians
 
-    Returns:
-    --------
+    Returns
+    -------
     S : 1darray
         Lorentzian function.
     """
-    hwhm = np.abs(fwhm) / 2       
+    hwhm = np.abs(fwhm) / 2
     if hwhm < 1e-8:
         hwhm = 1e-8
-    S = A * np.exp(1j*phi) * np.exp((1j *2*np.pi *u * t)-(t*hwhm))
+    S = A * np.exp(1j*phi) * np.exp((1j * 2 * np.pi * u * t) - (t * hwhm))
     return S
+
 
 def t_pvoigt(t, u, fwhm, A=1, b=0, phi=0):
     """
     Pseudo-Voigt function in the time domain:
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     t : 1darray
         Independent variable
     u : float
@@ -636,8 +621,8 @@ def t_pvoigt(t, u, fwhm, A=1, b=0, phi=0):
     phi : float
         Phase, in radians
 
-    Returns:
-    --------
+    Returns
+    -------
     S : 1darray
         Pseudo-Voigt function.
     """
@@ -645,16 +630,17 @@ def t_pvoigt(t, u, fwhm, A=1, b=0, phi=0):
     fwhm = np.abs(fwhm)
     if fwhm < 1e-8:
         fwhm = 1e-8
-    s = fwhm / (2 * (2 * np.log(2))**0.5) 
+    s = fwhm / (2 * (2 * np.log(2))**0.5)
     S = A * (sim.t_gaussian(t, u, s, A=b, phi=phi) + sim.t_lorentzian(t, u, fwhm, A=1-b, phi=phi))
     return S
+
 
 def t_voigt(t, u, fwhm, A=1, b=0, phi=0):
     """
     Voigt function in the time domain. The parameter b affects the linewidth of the lorentzian and gaussian contributions.
 
-    Parameters:
-    ------------
+    Parameters
+    -----------
     t : 1darray
         Independent variable
     u : float
@@ -667,9 +653,9 @@ def t_voigt(t, u, fwhm, A=1, b=0, phi=0):
         Fraction of gaussianity
     phi : float
         Phase, in radians
-    
-    Returns:
-    ---------
+
+    Returns
+    --------
     S : 1darray
         Voigt function.
     """
@@ -677,7 +663,7 @@ def t_voigt(t, u, fwhm, A=1, b=0, phi=0):
     fwhm = np.abs(fwhm)
     if fwhm < 1e-8:
         fwhm = 1e-8
-    s = fwhm / (2 * (2 * np.log(2))**0.5) 
+    s = fwhm / (2 * (2 * np.log(2))**0.5)
     S = A * np.exp(1j*phi) * sim.t_gaussian(t, u/2, s*(b**0.5)) * sim.t_lorentzian(t, u/2, fwhm*(1-b))
     return S
 
@@ -686,8 +672,8 @@ def t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=1, states=True, alt=True):
     """
     Bidimensional gaussian function.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     t1 : 1darray
         Indirect evolution timescale
     t2 : 1darray
@@ -707,8 +693,8 @@ def t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=1, states=True, alt=True):
     alt : bool
         Set to True for "FnMODE":"States-TPPI
 
-    Returns:
-    --------
+    Returns
+    -------
     S : 2darray
         Gaussian function.
     """
@@ -720,7 +706,7 @@ def t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=1, states=True, alt=True):
         freq_1 = np.zeros(len(t1), dtype='complex64')
         for k in range(4):
             t1t = t1[k::4]
-            freq_1[k::4] = np.cos( (2 * np.pi * v1 * t1t) - (0.5 * np.pi * np.mod(k,4) ))
+            freq_1[k::4] = np.cos((2 * np.pi * v1 * t1t) - (0.5 * np.pi * np.mod(k, 4)))
     else:
         freq_1 = np.exp(1j * 2 * np.pi * v1 * t1)
     # NMR signal in the direct dimension
@@ -728,15 +714,16 @@ def t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=1, states=True, alt=True):
     # NMR signal in the indirect dimension
     F1 = freq_1 * np.exp(-(s1**2 * t1**2)/2)
     # The full FID is reconstructed by doing the external product between the two vectors
-    S = A * F1.reshape(-1,1) @ F2.reshape(1,-1)
+    S = A * F1.reshape(-1, 1) @ F2.reshape(1, -1)
     return S
+
 
 def t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=1, states=True, alt=True):
     """
     Bidimensional lorentzian function.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     t1 : 1darray
         Indirect evolution timescale
     t2 : 1darray
@@ -756,8 +743,8 @@ def t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=1, states=True, alt=True):
     alt : bool
         Set to True for "FnMODE":"States-TPPI
 
-    Returns:
-    ---------
+    Returns
+    --------
     S : 2darray
         Lorentzian function.
     """
@@ -771,7 +758,7 @@ def t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=1, states=True, alt=True):
         freq_1 = np.zeros(len(t1), dtype='complex64')
         for k in range(4):
             t1t = t1[k::4]
-            freq_1[k::4] = np.cos( (2 * np.pi * v1 * t1t) - (0.5 * np.pi * np.mod(k,4) ))
+            freq_1[k::4] = np.cos((2 * np.pi * v1 * t1t) - (0.5 * np.pi * np.mod(k, 4)))
     else:
         freq_1 = np.exp(1j * 2 * np.pi * v1 * t1)
     # NMR signal in the direct dimension
@@ -779,17 +766,18 @@ def t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=1, states=True, alt=True):
     # NMR signal in the indirect dimension
     F1 = freq_1 * np.exp(-(hwhm1 * t1))
     # The full FID is reconstructed by doing the external product between the two vectors
-    S = A * F1.reshape(-1,1) @ F2.reshape(1,-1)
+    S = A * F1.reshape(-1, 1) @ F2.reshape(1, -1)
     return S
+
 
 def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
     """
     Generates a 2D pseudo-voigt signal in the time domain.
     b states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
     Indexes '1' and '2' on the variables stand for 'F1' and 'F2', respectively.
-   
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     t1 : 1darray
         Indirect evolution timescale
     t2 : 1darray
@@ -810,30 +798,31 @@ def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
         Set to True for "FnMODE":"States-TPPI
     alt : bool
         Set to True for "FnMODE":"States-TPPI46
-    
-    Returns:
-    --------
+
+    Returns
+    -------
     fid : 2darray
         Pseudo-Voigt function.
     """
 
     # stdev computed for the gaussian part.
-    s1 = fwhm1 / (2 * (2 * np.log(2))**0.5) 
-    s2 = fwhm2 / (2 * (2 * np.log(2))**0.5) 
+    s1 = fwhm1 / (2 * (2 * np.log(2))**0.5)
+    s2 = fwhm2 / (2 * (2 * np.log(2))**0.5)
     # Passing 's' to 'gaussian' and 'fwhm' to 'lorentzian' makes the two parts of the pseudo-voigt signal to have the same width and allow proper summation
     G = sim.t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=b, states=states, alt=alt)
     L = sim.t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=(1-b), states=states, alt=alt)
     fid = A * (G + L)
     return fid
 
+
 def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
     """
     Generates a 2D Voigt signal in the time domain.
     b states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
     Indexes '1' and '2' on the variables stand for 'F1' and 'F2', respectively.
-   
-    Parameters:
-    ------------
+
+    Parameters
+    -----------
     t1 : 1darray
         Indirect evolution timescale
     t2 : 1darray
@@ -855,14 +844,14 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
     alt : bool
         Set to True for "FnMODE":"States-TPPI
 
-    Returns:
-    --------
+    Returns
+    -------
     S : 2darray
         Voigt function.
     """
     # stdev computed for the gaussian part.
-    s1 = fwhm1 / (2 * (2 * np.log(2))**0.5) 
-    s2 = fwhm2 / (2 * (2 * np.log(2))**0.5) 
+    s1 = fwhm1 / (2 * (2 * np.log(2))**0.5)
+    s2 = fwhm2 / (2 * (2 * np.log(2))**0.5)
     # hwhm computed for the lorentzian part.
     hwhm1 = fwhm1 / 2
     hwhm2 = fwhm2 / 2
@@ -872,7 +861,7 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
 
     # direct dimension
     #   frequency
-    freq_2 = np.exp(1j * 2 * np.pi * v2 * t2) 
+    freq_2 = np.exp(1j * 2 * np.pi * v2 * t2)
 
     #   Add line-broadening, fist lorentzian then gaussian, using:
     #   hwhm' = (1 - b) * hwhm        for L
@@ -885,7 +874,7 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
         freq_1 = np.zeros(len(t1), dtype='complex64')
         for k in range(4):
             t1t = t1[k::4]
-            freq_1[k::4] = np.cos( (2 * np.pi * v1 * t1t) - (0.5 * np.pi * np.mod(k,4) ))
+            freq_1[k::4] = np.cos((2 * np.pi * v1 * t1t) - (0.5 * np.pi * np.mod(k, 4)))
     else:
         freq_1 = np.exp(1j * 2 * np.pi * v1 * t1)
     #   Add line-broadening, fist lorentzian then gaussian, using:
@@ -894,25 +883,25 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
     F1 = freq_1 * np.exp(-(1-b) * hwhm1 * t1) * np.exp(-(b * s1**2 * t1**2)/2)
 
     # The full FID is reconstructed by doing the external product between the two vectors
-    S = A * F1.reshape(-1,1) @ F2.reshape(1,-1)
+    S = A * F1.reshape(-1, 1) @ F2.reshape(1, -1)
     return S
 
 
 def gaussian_filter(ppm, u, s):
-    """ 
+    """
     Compute a gaussian filter to be used in order to suppress signals in the spectrum.
-   
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     ppm : 1darray
         Scale on which to build the filter
     u : float
         Position of the filter
     s : float
         Width of the filter (standard deviation)
-    
-    Returns:
-    --------
+
+    Returns
+    -------
     G : 1darray
         Computed gaussian filter
     """
@@ -920,4 +909,3 @@ def gaussian_filter(ppm, u, s):
     G /= max(G)     # Normalize to preserve intensities
     G = 1 - G
     return G
-

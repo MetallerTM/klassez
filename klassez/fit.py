@@ -1,29 +1,20 @@
 #! /usr/bin/env python3
 
 import os
+import io
 import sys
 import numpy as np
-from numpy import linalg
-from scipy import stats
-from scipy.spatial import ConvexHull
 from scipy.signal import find_peaks, peak_widths
-from scipy import interpolate
 from csaps import csaps
-import random
 import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-from matplotlib.widgets import Slider, Button, RadioButtons, TextBox, CheckButtons, Cursor, LassoSelector, SpanSelector
-from matplotlib.path import Path
-import seaborn as sns
-import nmrglue as ng
-import lmfit as l
+from matplotlib.widgets import Slider, Button, RadioButtons, TextBox, CheckButtons, Cursor, SpanSelector
+import lmfit
 from datetime import datetime
 import warnings
 from copy import deepcopy
 
 from . import fit, misc, sim, figures, processing, anal
-#from .__init__ import CM
 from .config import CM, COLORS, cron
 
 
@@ -31,15 +22,16 @@ from .config import CM, COLORS, cron
 Functions for performing fits.
 """
 
-s_colors=[ 'tab:cyan', 'tab:red', 'tab:green', 'tab:purple', 'tab:pink', 'tab:gray', 'tab:brown', 'tab:olive', 'salmon', 'indigo' ]
+s_colors = ['tab:cyan', 'tab:red', 'tab:green', 'tab:purple', 'tab:pink', 'tab:gray', 'tab:brown', 'tab:olive', 'salmon', 'indigo']
 
-def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=False, fitG=True, barcolor='tab:blue', fontsize=10, name=None, ext='png', dpi=600):
+
+def histogram(data, nbins=100, density=True, f_lims=None, xlabel=None, x_symm=False, fitG=True, barcolor='tab:blue', fontsize=10, name=None, ext='png', dpi=600):
     """
     Computes an histogram of ``data`` and tries to fit it with a gaussian lineshape.
     The parameters of the gaussian function are calculated analytically directly from ``data`` using ``scipy.stats.norm``
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : ndarray
         the data to be binned
     nbins : int
@@ -65,20 +57,20 @@ def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=F
     dpi : int
         Resolution of the image in dots per inches
 
-    Returns:
-    -----------
+    Returns
+    ----------
     m : float
         Mean of data
     s : float
         Standard deviation of data.
 
     .. seealso::
-        
+
         :func:`klassez.fit.ax_histogram`
     """
 
     fig = plt.figure('Histogram')
-    ax = fig.add_subplot(1,1,1)
+    ax = fig.add_subplot()
     plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)
     fig.set_size_inches(figures.figsize_large)
 
@@ -94,13 +86,14 @@ def histogram(data, nbins=100, density=True, f_lims= None, xlabel=None, x_symm=F
 
     return m, s
 
+
 def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x_symm=False, fitG=True, barcolor='tab:blue', fontsize=10):
     """
     Computes an histogram of ``data`` and tries to fit it with a gaussian lineshape.
     The parameters of the gaussian function are calculated analytically directly from ``data`` using ``scipy.stats.norm``
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ax : matplotlib.subplot Object
         panel of the figure where to put the histogram
     data0 : ndarray
@@ -122,8 +115,8 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x
     fontsize : float
         Biggest fontsize in the figure
 
-    Returns:
-    -----------
+    Returns
+    ----------
     m : float
         Mean of data
     s : float
@@ -136,15 +129,15 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x
         data = np.copy(data0.real)
 
     if x_symm:
-        lims = ( -max(np.abs(data)), max(np.abs(data)) )
+        lims = (-max(np.abs(data)), max(np.abs(data)))
     else:
         lims = (min(data), max(data))
-    
+
     hist, bin_edges = np.histogram(data, bins=nbins, range=lims, density=density)   # Computes the bins for the histogram
 
     x = np.linspace(lims[0], lims[1], len(data))        # Scale for a smooth gaussian
     m, s = np.mean(data), np.std(data)                  # Get mean and standard deviation of 'data'
-   
+
     if density:
         A = 1
     else:
@@ -153,11 +146,10 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x
     if fitG:
         fit_g = sim.f_gaussian(x, m, s, A)  # Gaussian lineshape
 
-    ax.hist(data, color=barcolor, density=density, bins=bin_edges) 
+    ax.hist(data, color=barcolor, density=density, bins=bin_edges)
     if fitG:
-        ax.plot(x, fit_g, c='r', lw=0.6, label='Gaussian approximation') 
+        ax.plot(x, fit_g, c='r', lw=0.6, label='Gaussian approximation')
         ax.legend(loc='upper right')
-
 
     if density:
         ax.set_ylabel('Normalized count')
@@ -172,19 +164,19 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x
         misc.pretty_scale(ax, ax.get_xlim(), 'x')
     misc.pretty_scale(ax, ax.get_ylim(), 'y')
 
-    misc.mathformat(ax, axis='both', limits=(-3,3))
-
+    misc.mathformat(ax, axis='both', limits=(-3, 3))
 
     misc.set_fontsizes(ax, fontsize)
 
     return m, s
 
+
 def bin_data(data0, nbins=100, density=True, x_symm=False):
     """
     Computes the histogram of data, sampling it into nbins bins.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : ndarray
         the data to be binned
     nbins : int
@@ -194,8 +186,8 @@ def bin_data(data0, nbins=100, density=True, x_symm=False):
     x_symm : bool
         set it to True to make symmetric x-axis with respect to 0
 
-    Returns:
-    -----------
+    Returns
+    ----------
     hist : 1darray
         The bin intensity
     bin_scale : 1darray
@@ -207,17 +199,17 @@ def bin_data(data0, nbins=100, density=True, x_symm=False):
         data = np.copy(data0)
 
     if x_symm:
-        lims = (- max(np.abs(data)), max(np.abs(data)) )
+        lims = (- max(np.abs(data)), max(np.abs(data)))
     else:
         lims = (min(data), max(data))
 
     hist, bin_edges = np.histogram(data, bins=nbins, range=lims, density=density)   # Computes the bins for the histogram
-    bin_scale = np.array( [np.mean((bin_edges[k], bin_edges[k+1])) for k in range(len(bin_edges) - 1) ])
+    bin_scale = np.array([np.mean((bin_edges[k], bin_edges[k+1])) for k in range(len(bin_edges) - 1)])
     return hist, bin_scale
 
 
 def lr(y, x=None, force_intercept=False, w=None):
-    r""" 
+    r"""
     Performs a linear regression of ``y`` with a model :math:`y_c = mx + q`.
 
     If ``w=None`` then ``w = np.ones_like(x)``.
@@ -231,7 +223,7 @@ def lr(y, x=None, force_intercept=False, w=None):
     else, two more parameters are defined:
 
     .. math::
-        
+
         x_w = \frac{ \sum w x }{ \sum w }, \quad y_w = \frac{ \sum w y }{ \sum w }
 
     .. math::
@@ -240,9 +232,9 @@ def lr(y, x=None, force_intercept=False, w=None):
         q = y_w - m\,x_w
 
 
-   
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     y : 1darray
         Data to be fitted
     x : 1darray
@@ -252,8 +244,8 @@ def lr(y, x=None, force_intercept=False, w=None):
     w : 1darray or None
         Weights to be used for the linear regression.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     y_c : 1darray
         Fitted trend
     values : tuple
@@ -269,14 +261,15 @@ def lr(y, x=None, force_intercept=False, w=None):
         m = np.sum(w * x * y) / np.sum(w * x**2)
         q = 0
     else:                   # it is [1, x]
-        xw = np.sum(w * x) / np.sum(w) 
-        yw = np.sum(w * y) / np.sum(w) 
+        xw = np.sum(w * x) / np.sum(w)
+        yw = np.sum(w * y) / np.sum(w)
         m = np.sum(w * (x - xw) * (y - yw)) / np.sum(w * (x - xw)**2)
         q = yw - m * xw
 
     # Compute the model
-    y_c = m * x + q 
+    y_c = m * x + q
     return y_c, (m, q)
+
 
 def calc_R2(y, y_c):
     r"""
@@ -287,23 +280,22 @@ def calc_R2(y, y_c):
         R^2 = 1 - \frac{ \sum (y - <y>)^2  }{ \sum (y - y_c)^2 }
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     y : 1darray
         Experimental data
     y_c : 1darray
         Calculated data
 
-    Returns:
-    -----------
+    Returns
+    ----------
     R2 : float
         R-squared coefficient
     """
-    sst = np.sum( (y - np.mean(y))**2 )
-    sse = np.sum( (y - y_c)**2 )
+    sst = np.sum((y - np.mean(y))**2)
+    sse = np.sum((y - y_c)**2)
     R2 = 1 - sse/sst
     return R2
-
 
 
 def fit_int(y, y_c, q=True):
@@ -325,8 +317,8 @@ def fit_int(y, y_c, q=True):
         q = \frac{ <y_c>^2<y> - <y_c><y_c y> }{ <y_c^2> - <y_c>^2 }
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     y : 1darray
         Experimental data
     y_c : 1darray
@@ -334,8 +326,8 @@ def fit_int(y, y_c, q=True):
     q : bool
         If True, includes the offset in the calculation. If False, only the intensity factor is computed.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     A : float
         Optimized intensity
     q : float
@@ -359,13 +351,14 @@ def fit_int(y, y_c, q=True):
 
     return A, q
 
+
 def get_region(ppmscale, S, rev=True):
     """
-    Interactively select the spectral region to be fitted. 
+    Interactively select the spectral region to be fitted.
     Returns the border ppm values.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppmscale : 1darray
         The ppm scale of the spectrum
     S : 1darray
@@ -373,8 +366,8 @@ def get_region(ppmscale, S, rev=True):
     rev : bool
         Choose if to reverse the ppm scale and data (True) or not (False).
 
-    Returns:
-    -----------
+    Returns
+    ----------
     left : float
         Left border of the selected spectral window
     right : float
@@ -383,9 +376,9 @@ def get_region(ppmscale, S, rev=True):
 
     # Creation of interactive figure panel
     fig = plt.figure('Region Selector')
-    fig.set_size_inches(15,8)
-    plt.subplots_adjust(left = 0.10, bottom=0.25, right=0.90, top=0.90)    # Make room for the sliders
-    ax = fig.add_subplot(1,1,1)
+    fig.set_size_inches(15, 8)
+    plt.subplots_adjust(left=0.10, bottom=0.25, right=0.90, top=0.90)    # Make room for the sliders
+    ax = fig.add_subplot()
 
     # Set the slider initial values
     if rev:
@@ -414,15 +407,14 @@ def get_region(ppmscale, S, rev=True):
     l_tbox = TextBox(box_t_left, '', textalignment='center')
     r_tbox = TextBox(box_t_right, '', textalignment='center')
 
-
     # Definition of the 'update' functions
-    # 
+    #
     def update_region(val):
         # updates the value for the range selectors
         left = left_slider.val
         right = right_slider.val
         LB, RB = misc.ppmfind(ppmscale, left)[0], misc.ppmfind(ppmscale, right)[0]
-        data_inside = S[min(LB,RB):max(LB,RB)]
+        data_inside = S[min(LB, RB):max(LB, RB)]
 
         L.set_xdata([left])
         R.set_xdata([right])
@@ -435,12 +427,11 @@ def get_region(ppmscale, S, rev=True):
         if zoom_toggle:
             ax.set_ylim(B - 0.05*T, T + 0.05*T)
 
-
-
     def on_submit_l(v):
         V = eval(v)
         left_slider.set_val(V)
         update_region(0)
+
     def on_submit_r(v):
         V = eval(v)
         right_slider.set_val(V)
@@ -455,8 +446,7 @@ def get_region(ppmscale, S, rev=True):
     def key_press(event):
         nonlocal zoom_toggle
         if event.key == 'z':
-            zoom_toggle = not(zoom_toggle)
-
+            zoom_toggle = not zoom_toggle
 
     misc.pretty_scale(ax, (left, right))
     if rev:
@@ -476,8 +466,8 @@ def get_region(ppmscale, S, rev=True):
     left_slider.on_changed(update_region)
     right_slider.on_changed(update_region)
     button.on_clicked(save)
-    l_tbox.on_submit(on_submit_l) 
-    r_tbox.on_submit(on_submit_r) 
+    l_tbox.on_submit(on_submit_l)
+    r_tbox.on_submit(on_submit_r)
     fig.canvas.mpl_connect('key_press_event', key_press)
 
     misc.set_fontsizes(ax, 14)
@@ -488,13 +478,12 @@ def get_region(ppmscale, S, rev=True):
     return left, right
 
 
-
 def make_signal(t, u, s, k, b, phi, A, SFO1=701.125, o1p=0, N=None):
     """
     Generates a voigt signal on the basis of the passed parameters in the time domain. Then, makes the Fourier transform and returns it.
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     t : ndarray
         acquisition timescale
     u : float
@@ -516,30 +505,33 @@ def make_signal(t, u, s, k, b, phi, A, SFO1=701.125, o1p=0, N=None):
     N : int or None
         length of the final signal. If None, the signal is not zero-filled before to be transformed.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     sgn : 1darray
         generated signal in the frequency domain
     """
     U = misc.ppm2freq(u, SFO1, o1p)         # conversion to frequency units
     S = s * 2 * np.pi                       # conversion to radians
     phi = phi * np.pi / 180                 # conversion to radians
-    sgn = sim.t_voigt(t, U, S, A=A*k, phi=phi, b=b) # make the signal
+    sgn = sim.t_voigt(t, U, S, A=A*k, phi=phi, b=b)  # make the signal
     if isinstance(N, int):
         sgn = processing.zf(sgn, N)         # zero-fill it
     sgn = processing.ft(sgn)                # transform it
     return sgn
 
 
-def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, show_basl=False, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='png', dpi=600, dim=None):
+def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False,
+             show_res=False, res_offset=0, show_basl=False, X_label=r'$\delta$ /ppm',
+             labels=None, filename='fit', ext='png', dpi=600, dim=None):
     """
     Plots either the initial guess or the result of the fit, and saves all the figures.
-    The figure `<filename>_full` will show the whole model and the whole spectrum. 
+    The figure `<filename>_full` will show the whole model and the whole spectrum.
     The figures labelled with `_R<k>` will depict a detail of the fit in the k-th fitting region.
-    Optional labels for the components can be given: in this case, the structure of ``labels`` should match the structure of ``regions``. This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
+    Optional labels for the components can be given: in this case, the structure of ``labels`` should match the structure of ``regions``.
+    This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     S : 1darray
         Spectrum to be fitted
     ppm_scale : 1darray
@@ -578,15 +570,15 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         Calculates the sum trace from a collection of peaks stored in a dictionary.
         If the dictionary is empty, returns an array of zeros.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         peaks: dict
             Components
         A: float
             Absolute intensity
 
-        Returns:
-        -----------
+        Returns
+        ----------
         total: 1darray
             Sum spectrum
         """
@@ -603,10 +595,9 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
     S_r = np.copy(S.real)
     N = S_r.shape[-1]       # For (eventual) zero-filling
     # Make the acqus dictionary to be fed into the fit.Peak objects
-    acqus = { 't1': t_AQ, 'SFO1': SFO1, 'o1p': o1p, }
+    acqus = {'t1': t_AQ, 'SFO1': SFO1, 'o1p': o1p, }
 
-
-    ## Single regions
+    # Single regions
     whole_basl = np.zeros_like(ppm_scale)
     for k, region in enumerate(regions):        # Loop on the regions
         # Shallow copy of the region dict
@@ -619,9 +610,9 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         #   Make the slice
         lims = slice(min(limits_pt), max(limits_pt))
         # Get the absolute intensity
-        I = in_region.pop('I')
+        Int = in_region.pop('I')
         if 'bas_c' in region.keys():
-            bas_c = I * region['bas_c']
+            bas_c = Int * region['bas_c']
             in_region.pop('bas_c')
         else:
             bas_c = np.zeros(5)
@@ -629,7 +620,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         # Create a dictionary of fit.Peak objects with the same structure of in_region
         peaks = {key: fit.Peak(acqus, N=N, **peakval) for key, peakval in in_region.items()}
         # Get the total trace
-        total = calc_total(peaks, I)
+        total = calc_total(peaks, Int)
 
         # Trim the ppm scale according to the fitting region
         t_ppm = ppm_scale[lims]
@@ -656,8 +647,8 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         if show_basl is True:
             ax.plot(t_ppm, basl, c='mediumorchid', lw=0.5, label='Baseline', zorder=3)
 
-        for key, peak in peaks.items(): # Plot the components
-            p_sgn, = ax.plot(t_ppm, peak(I)[lims], lw=0.6, label=f'{key}')
+        for key, peak in peaks.items():  # Plot the components
+            p_sgn, = ax.plot(t_ppm, peak(Int)[lims], lw=0.6, label=f'{key}')
             if labels is not None:  # Set the custom label
                 p_sgn.set_label(labels[k][key-1])
 
@@ -678,8 +669,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         plt.savefig(f'{filename}_R{k+1}.{ext}', dpi=dpi)
         plt.close()
 
-
-    ## Total
+    # Total
     # Make the figure
     fig = plt.figure('Fit')
     fig.set_size_inches(figures.figsize_large)
@@ -702,7 +692,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         lims = slice(min(limits_pt), max(limits_pt))
         lims_pt.append(lims)    # Save it in the list
         # Get the absolute intensity
-        I = in_region.pop('I')
+        Int = in_region.pop('I')
         if 'bas_c' in region.keys():
             in_region.pop('bas_c')
         else:
@@ -710,17 +700,15 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
         # Make the dictionary of fit.Peak objects
         peaks = {key: fit.Peak(acqus, N=N, **peakval) for key, peakval in in_region.items()}
         # Plot the components
-        for idx, peak in peaks.items():  
-            p_sgn, = ax.plot(ppm_scale, peak(I), lw=0.6, label=f'Win. {k+1}, Comp. {idx}', zorder=10)
+        for idx, peak in peaks.items():
+            p_sgn, = ax.plot(ppm_scale, peak(Int), lw=0.6, label=f'Win. {k+1}, Comp. {idx}', zorder=10)
             if labels is not None:  # Set custom label
                 p_sgn.set_label(labels[k][idx-1])
 
         # Add these contributions to the total trace
-        total += calc_total(peaks, I)
+        total += calc_total(peaks, Int)
 
     # Residuals
-    R = S_r - total - whole_basl
-    
     if show_total is True:  # Plot the total trace
         ax.plot(ppm_scale, total+whole_basl, c='b', lw=0.5, label='Fit', zorder=2)
     if show_basl is True:
@@ -740,14 +728,16 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=
     print('Done.')
 
 
-def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k_lim=(0, 3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename='fit', method='leastsq', basl_fit='no'):
+def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
+                    u_lim=1, f_lim=10, k_lim=(0, 3), vary_phase=False, vary_b=True,
+                    itermax=10000, fit_tol=1e-8, filename='fit', method='leastsq', basl_fit='no'):
     """
     Performs a lineshape deconvolution fit using a Voigt model.
     The initial guess must be read from a `.ivf file`. All components are treated as independent, regardless from the value of the ``group`` attribute.
     The fitting procedure operates iteratively one window at the time.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     S : 1darray
         Experimental spectrum
     ppm_scale : 1darray
@@ -785,9 +775,9 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         * ``"fixed"``: The baseline is computed once and kept fixed during the optimization
         * ``"fit"``: The baseline coefficients enter as fit parameters during the nonlinear optimization
         * ``"calc"``: The baseline coefficients are calculated during the optimization via linear least-squares optimization
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     lmfit_results: list of lmfit.Minimizer.MinimizerResult
         Sequence of the fit results, ordered as the regions dictionary
 
@@ -802,22 +792,22 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
 
     """
 
-    ## USED FUNCTIONS
+    # USED FUNCTIONS
 
     def calc_total(peaks, A=1):
         """
         Calculates the sum trace from a collection of peaks stored in a dictionary.
         If the dictionary is empty, returns an array of zeros.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         peaks : dict
             Components
         A : float
             Absolute intensity
 
-        Returns:
-        -----------
+        Returns
+        ----------
         total : 1darray
             Sum spectrum
         """
@@ -834,15 +824,15 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         Replaces the values of a "peaks" dictionary, which contains a ``fit.Peak`` object for each key ``idx``, with the values contained in the ``par`` dictionary.
         The par dictionary keys must have keys of the form ``<parameter>_<idx>``, where ``<parameter>`` is in ``[u, fwhm, k, 'b', 'phi']``, and ``<idx>`` are the keys of the peaks dictionary.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         peaks : dict
             Collection of fit.Peak objects
         par : dict
             New values for the peaks
-        
-        Returns:
-        -----------
+
+        Returns
+        ----------
         peaks : dict
             Updated peaks dictionary with the new values
         """
@@ -854,13 +844,16 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
             peak.phi = par[f'phi_{idx}']
         return peaks
 
-    def f2min(param, S, fit_peaks, I, lims, x, first_residual=1, basl_fit='no'):
+    def f2min(param, S, fit_peaks, Int, lims, x, first_residual=1, basl_fit='no'):
         """
         Function that calculates the residual to be minimized in the least squares sense.
-        This function requires a set of pre-built ``fit.Peak`` objects, stored in a dictionary. The parameters of the peaks are replaced on this dictionary according to the values in the ``lmfit.Parameter object``. At this point, the total trace is computed and the residual is returned as the difference between the experimental spectrum and the total trace, only in the region delimited by the "lims" tuple.
+        This function requires a set of pre-built ``fit.Peak`` objects, stored in a dictionary.
+        The parameters of the peaks are replaced on this dictionary according to the values in the ``lmfit.Parameter object``.
+        At this point, the total trace is computed and the residual is returned as the difference between the experimental spectrum and the total trace,
+        only in the region delimited by the "lims" tuple.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         param : lmfit.Parameters object
             Usual lmfit stuff
         S : 1darray
@@ -878,8 +871,8 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         first_residual : float
             Target value at the first call of this function. Used to compute the relative target function.
 
-        Returns:
-        -----------
+        Returns
+        ----------
         residual : 1darray
             ``experimental - calculated``, in the fitting window
         """
@@ -896,7 +889,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         calc = total[lims]
         # compute the baseline
         if basl_fit != 'calc':
-            bas_c = np.array([par[f'c{w}'] for w in range(5)]) 
+            bas_c = np.array([par[f'c{w}'] for w in range(5)])
             basl = misc.polyn(x, bas_c)
             calc += basl
             correction_factor, _ = fit.fit_int(exp, calc, q=False)
@@ -904,14 +897,14 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
             correction_factor = 1
         residual = exp - calc * correction_factor
         if basl_fit == 'calc':
-            bas_c = fit.lsp(residual, x, 5) 
+            bas_c = fit.lsp(residual, x, 5)
             basl = misc.polyn(x, bas_c)
             for k, c in enumerate(bas_c):
                 param[f'c{k}'].set(value=c)
             residual -= basl
         param['correction_factor'].set(value=correction_factor)
         print(f'Step: {par["count"]:6.0f} | Target: {np.sum(residual**2)/first_residual:10.5e}', end='\r')
-        return residual 
+        return residual
 
     def gen_reg(regions):
         """
@@ -920,7 +913,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         for k, region in enumerate(regions):
             # Get limits and total intensity from the dictionary
             limits = region['limits']
-            I = region['I']
+            Int = region['I']
             if 'bas_c' in region.keys():
                 bas_c = region['bas_c']
             else:
@@ -933,11 +926,11 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
             peaks.pop('I')
             if 'bas_c' in region.keys():
                 peaks.pop('bas_c')
-            yield limits, I, peaks, bas_c
+            yield limits, Int, peaks, bas_c
 
     # -----------------------------------------------------------------------------
     # Make the acqus dictionary to be fed into the fit.Peak objects
-    acqus = { 't1': t_AQ, 'SFO1': SFO1, 'o1p': o1p, }
+    acqus = {'t1': t_AQ, 'SFO1': SFO1, 'o1p': o1p, }
 
     N = S.shape[-1]     # Number of points of the spectrum
     Nr = len(regions)   # Number of regions to be fitted
@@ -955,20 +948,20 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
 
     # Start fitting loop
     prev = 0
-    lmfit_results = []      # placeholder 
+    lmfit_results = []      # placeholder
     for q in Q:
         limits, I, peaks, bas_c = q    # Unpack
         Np = len(peaks.keys())  # Number of Peaks
 
         # Create a dictionary which contains Peak objects
         fit_peaks = {}
-        for key, peakval in peaks.items():  
+        for key, peakval in peaks.items():
             # Same keys of the input dictionary
             fit_peaks[key] = fit.Peak(acqus, N=N, **peakval)
 
         # Add the peaks' parameters to a lmfit Parameters object
         peak_keys = ['u', 'fwhm', 'k', 'b', 'phi']
-        param = l.Parameters()
+        param = lmfit.Parameters()
         # Add baseline coefficients to the Parameters object
         for n in range(5):
             if basl_fit == 'no':
@@ -994,9 +987,9 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
                 # Set the limits for each parameter, and fix the ones that have not to be varied during the fit
                 if 'u' in key:  # u: [u-u_tol, u+u_tol]
                     param[par_key].set(min=max(val-u_lim, min(limits)), max=min(val+u_lim, max(limits)))
-                elif 'fwhm' in key: # fwhm: [max(0, fwhm-f_tol), fwhm+f_tol] (avoid negative fwhm)
+                elif 'fwhm' in key:  # fwhm: [max(0, fwhm-f_tol), fwhm+f_tol] (avoid negative fwhm)
                     param[par_key].set(min=max(0, val-f_lim), max=val+f_lim)
-                elif 'k' in key:    # k: [0, 3]
+                elif 'k' in key:     # k: [0, 3]
                     if isinstance(k_lim, float):
                         param[par_key].set(min=param[par_key].value-k_lim, max=param[par_key].value+k_lim)
                     else:
@@ -1010,7 +1003,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         limits_pt = misc.ppmfind(ppm_scale, limits[0])[0], misc.ppmfind(ppm_scale, limits[1])[0]
         lims = slice(min(limits_pt), max(limits_pt))
         # Baseline x-scale
-        x = np.linspace(0,1,int(np.abs(limits_pt[1]-limits_pt[0])))
+        x = np.linspace(0, 1, int(np.abs(limits_pt[1] - limits_pt[0])))
 
         # Wrap the fitting routine in a function in order to use @cron for measuring the runtime of the fit
         @cron
@@ -1027,13 +1020,14 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
             sys.stdout = sys.__stdout__
 
             # Initialize the fit
-            minner = l.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I, lims, x, first_residual, basl_fit))
+            minner = lmfit.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I, lims, x, first_residual, basl_fit))
             if isinstance(method, str):
                 method = [method]
             elif isinstance(method, (list, tuple)):
                 pass
             else:
                 raise ValueError('The "method" flag must be a string or a list of strings.')
+            result = None
             for k, mthd in enumerate(method):
                 if k == 0:
                     params = None
@@ -1073,10 +1067,12 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_lim=1, f_lim=10, k
         lmfit_results.append(result)
     return lmfit_results
 
+
 @cron
-def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=None, procs=None, utol=(1,1), s1tol=(0,500), s2tol=(0,500), vary_b=False, logfile=None):
+def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus,
+                 N=None, procs=None, utol=(1, 1), s1tol=(0, 500), s2tol=(0, 500), vary_b=False, logfile=None):
     """
-    Function that performs the fit of a 2D peak using multiple components. 
+    Function that performs the fit of a 2D peak using multiple components.
     The program reads a parameter matrix, that contains:
     .. code-block:: bash
 
@@ -1086,11 +1082,11 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
     The function returns the analogue version of the parameters matrix, but with the optimized values.
 
     .. warning::
-        
+
         Work in progress! Does not work right now.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x_scale : 1darray
         ppm_f2 of the spectrum, full
     y_scale : 1darray
@@ -1120,18 +1116,18 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
     logfile : str or None
         Path to a file where to write the fit information. If it is None, they will be printed into standard output.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     out_parameters : 2darray
         parameters, but with the optimized values.
     """
 
     def f2min(param, n_sgn, x_scale, y_scale, data_exp, lim_f2, lim_f1):
-        """ 
+        """
         Cost function.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         param : lmfit.Parameters object
             Fit parameters. See fit_2D caption.
         n_sgn : int
@@ -1147,8 +1143,8 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
         lim_f1 : tuple
             Trimming limits for y_scale
 
-        Returns:
-        -----------
+        Returns
+        ----------
         res : 2darray
             Experimental -  calculated
         """
@@ -1173,41 +1169,40 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
         res = data_exp - data_calc
         return res
 
-    #---------------------------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------------------------
 
     # Redirect the output to logfile, if logfile is given
     if isinstance(logfile, str):    # Open the file in "append" mode
         sys.stdout = open(logfile, 'a', buffering=1)
-    elif isinstance(logfile, io.TextIOWrapper): # Just redirect
+    elif isinstance(logfile, io.TextIOWrapper):  # Just redirect
         sys.stdout = logfile
 
     # Trim the spectrum according to the given limits
     data_exp = misc.trim_data_2D(x_scale, y_scale, data, lim_f2, lim_f1)[-1]
 
-
     # Organize parameters
     parameters = np.array(parameters)
     if len(parameters.shape) == 1:  # it means it is only one signal
-        parameters = parameters.reshape(1,-1)   # therefore transform in 1 x n matrix
+        parameters = parameters.reshape(1, -1)   # therefore transform in 1 x n matrix
     n_sgn = parameters.shape[0]     # Number of signals: number of rows of parameters
 
     # Express relative intensities in "molar fractions" and adjust the absolute intensity accordingly
-    k_values, A = misc.molfrac(parameters[...,4])   
+    k_values, A = misc.molfrac(parameters[..., 4])
 
     # Initialize the Parameters object
-    param = l.Parameters()
+    param = lmfit.Parameters()
 
     param.add('A', value=A, vary=False)     # Absolute intensity
     for i in range(n_sgn):
-        param.add(f'u1_{i+1}', value=parameters[i,0])   # chemical shift f1 /ppm
-        param.add(f'u2_{i+1}', value=parameters[i,1])   # chemical shift f2 /ppm
-        param.add(f's1_{i+1}', value=parameters[i,2])   # fwhm f1 /Hz
-        param.add(f's2_{i+1}', value=parameters[i,3])   # fwhm f2 /Hz
+        param.add(f'u1_{i+1}', value=parameters[i, 0])   # chemical shift f1 /ppm
+        param.add(f'u2_{i+1}', value=parameters[i, 1])   # chemical shift f2 /ppm
+        param.add(f's1_{i+1}', value=parameters[i, 2])   # fwhm f1 /Hz
+        param.add(f's2_{i+1}', value=parameters[i, 3])   # fwhm f2 /Hz
         param.add(f'k_{i+1}', value=k_values[i])        # relative intensity
-        param.add(f'b_{i+1}', value=parameters[i,5], min=0-1e-5, max=1+1e-5)   # Fraction of gaussianity
-    
+        param.add(f'b_{i+1}', value=parameters[i, 5], min=0-1e-5, max=1+1e-5)   # Fraction of gaussianity
+
     # Set limits to u and s
-    u1tol, u2tol = utol # Unpack tolerances for chemical shifts
+    u1tol, u2tol = utol  # Unpack tolerances for chemical shifts
     [param[f'u1_{i+1}'].set(min=param[f'u1_{i+1}'].value - u1tol) for i in range(n_sgn)]    # min u1
     [param[f'u1_{i+1}'].set(max=param[f'u1_{i+1}'].value + u1tol) for i in range(n_sgn)]    # max u1
     [param[f'u2_{i+1}'].set(min=param[f'u2_{i+1}'].value - u2tol) for i in range(n_sgn)]    # min u2
@@ -1220,15 +1215,15 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
     [param[f'k_{i+1}'].set(max=5) for i in range(n_sgn)]    # max rel int to 5
     if vary_b is False:    # fix it
         [param[f'b_{i+1}'].set(vary=False) for i in range(n_sgn)]
-        
+
     # Initialize the fit
-    minner = l.Minimizer(f2min, param, fcn_args=(n_sgn, x_scale, y_scale, data_exp, lim_f2, lim_f1))
+    minner = lmfit.Minimizer(f2min, param, fcn_args=(n_sgn, x_scale, y_scale, data_exp, lim_f2, lim_f1))
     result = minner.minimize(method='leastsq', max_nfev=10000, xtol=1e-10, ftol=1e-10)
 
     # Adjust relative and absolute intensities, then update the optimized Parameters object
     k_opt, A_opt = misc.molfrac([result.params.valuesdict()[f'k_{i+1}'] * param['A'] for i in range(n_sgn)])
     [result.params[f'k_{i+1}'].set(value=k_opt[i]) for i in range(n_sgn)]
-    result.params['A'].set(value=A_opt) 
+    result.params['A'].set(value=A_opt)
 
     def calc_uncert(param, n_sgn, keys_list=None):
         """ Get the stderr from Parameters and organize them in a matrix. """
@@ -1242,7 +1237,7 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
                 tmp_key = f'{key}_{i+1}'
                 try:    # There might not be stderr (NaN)
                     tmp_stderr.append(param[tmp_key].stderr)
-                except Exception as E: # Therefore append None instead of NaN
+                except Exception as E:   # Therefore append None instead of NaN
                     print(E, tmp_key)
                     tmp_stderr.append(None)
             uncert.append(tmp_stderr)
@@ -1267,9 +1262,9 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus, N=No
 
     # Print the outcome of the fit
     print(f'{result.message} Number of function evaluations: {result.nfev:5.0f}.\nEstimated uncertainties:')
-    print(f'{"#":<4s},', *[f'{key:>8s},' for key in keys_list]) 
+    print(f'{"#":<4s},', *[f'{key:>8s},' for key in keys_list])
     for k in range(stderr.shape[0]):
-        print(f'{k+1:<4},', *[f'{value:8.3g},' if value is not None else f'{"None":>8s}' for value in stderr[k]]) 
+        print(f'{k+1:<4},', *[f'{value:8.3g},' if value is not None else f'{"None":>8s}' for value in stderr[k]])
     print('')
 
     return out_parameters
@@ -1282,8 +1277,8 @@ def smooth_spl(x, y, s_f=1, size=0, weights=None):
     Fit the input data with a 3rd-order spline, given the smoothing factor to be applied.
     Uses the package ``csaps``.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : 1darray
         Location of the experimental points
     y : 1darray
@@ -1292,9 +1287,9 @@ def smooth_spl(x, y, s_f=1, size=0, weights=None):
         Smoothing factor of the spline. 0=best straight line, 1=native spline.
     size : int
         Size of the spline. If ``size=0``, the same dimension as ``y`` is chosen.
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     x_s : 1darray
         Location of the spline data points.
     y_s : 1darray
@@ -1330,29 +1325,30 @@ def smooth_spl(x, y, s_f=1, size=0, weights=None):
         y_s = y_s[::-1]
     return x_s, y_s
 
+
 def interactive_smoothing(x, y, cmap='RdBu'):
     """
     Interpolate the given data with a 3rd-degree spline. Type the desired smoothing factor in the box and see the outcome directly on the figure.
     When the panel is closed, the smoothed function is returned.
 
-    .. warning:: 
+    .. warning::
 
         Extremely slow rendering!!! There is a problem that must be fixed somewhen.
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : 1darray
         Scale of the data
     y : 1darray
         Data to be smoothed
     cmap : str
         Name of the colormap to be used to represent the weights. Must be present in ``CM``
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     sx : 1darray
-        Location of the spline points        
+        Location of the spline points
     sy : 1darray
         Smoothed ``y``
     s_f : float
@@ -1371,10 +1367,10 @@ def interactive_smoothing(x, y, cmap='RdBu'):
     # Get the limits for the figure
     lims = x[0], x[-1]
 
-    # Initialize data 
-    s_f = 0.95                      # Smoothing factor
-    size = x.shape[-1]              # Spline size
-    weights = np.ones_like(x) * 0.5 # Weights vector
+    # Initialize data
+    s_f = 0.95                       # Smoothing factor
+    size = x.shape[-1]               # Spline size
+    weights = np.ones_like(x) * 0.5  # Weights vector
     sx, sy = fit.smooth_spl(x, y, size=size, s_f=s_f, weights=weights)  # Calculate starting spline
 
     # Make the widgets
@@ -1390,12 +1386,12 @@ def interactive_smoothing(x, y, cmap='RdBu'):
     slider_box = plt.axes([0.90, 0.15, 0.01, 0.8])
     weight_slider = Slider(
         ax=slider_box,
-        label = 'Weight',
-        valmin = 1e-5,
-        valmax = 1,
-        valinit = 0.5,
-        valstep = 0.05, 
-        orientation = 'vertical'
+        label='Weight',
+        valmin=1e-5,
+        valmax=1,
+        valinit=0.5,
+        valstep=0.05,
+        orientation='vertical'
         )
 
     #   Colorbar for the weights
@@ -1417,7 +1413,7 @@ def interactive_smoothing(x, y, cmap='RdBu'):
         nonlocal size
         try:
             size = int(eval(text))
-        except:
+        except Exception:
             pass
         size_text.set_text('Size:\n{:.0f}'.format(size))
         update_plot()
@@ -1427,7 +1423,7 @@ def interactive_smoothing(x, y, cmap='RdBu'):
         nonlocal s_f
         try:
             s_f = eval(text)
-        except:
+        except Exception:
             pass
         s_text.set_text('Smoothing factor:\n{:.4f}'.format(s_f))
         update_plot()
@@ -1447,15 +1443,14 @@ def interactive_smoothing(x, y, cmap='RdBu'):
         """ Draw the figure background according to the weight vector """
         [fill.set_fc(cmap(q)) for fill, q in zip(tmp_fill, weights)]
         fig.canvas.draw()
-        
+
     def press_space(key):
         """ When you press 'space' """
         if key.key == ' ':
-            nonlocal weights
             span.set_visible(False)                         # Hide the spanselector
             xmin, xmax = span.extents                       # Get the shaded area
             # Get indexes on x of the shaded area, and sort them
-            imin, _ = misc.ppmfind(x, xmin)                 
+            imin, _ = misc.ppmfind(x, xmin)
             imax, _ = misc.ppmfind(x, xmax)
             imin, imax = min(imin, imax), max(imin, imax)
             # Set the weights according to the value set on the slider
@@ -1481,7 +1476,6 @@ def interactive_smoothing(x, y, cmap='RdBu'):
 
     # --------------------------------------------------------------------------------------------------------
 
-
     ax.set_title('Press SPACE to set the weights')
 
     # Background
@@ -1506,8 +1500,9 @@ def interactive_smoothing(x, y, cmap='RdBu'):
 
     # Declare span selector
     span = SpanSelector(ax, onselect, "horizontal", useblit=True,
-        props=dict(alpha=0.25, facecolor="tab:blue"), interactive=True, drag_from_anywhere=True)
-    
+                        props=dict(alpha=0.25, facecolor="tab:blue"),
+                        interactive=True, drag_from_anywhere=True)
+
     # Press space and mouse left button
     fig.canvas.mpl_connect('key_press_event', press_space)
     fig.canvas.mpl_connect('button_press_event', onselect)
@@ -1520,6 +1515,7 @@ def interactive_smoothing(x, y, cmap='RdBu'):
 
     return sx, sy, s_f, weights
 
+
 def build_baseline(ppm_scale, C, L=None):
     """
     Builds the baseline calculating the polynomion with the given coefficients, and summing up to the right position.
@@ -1529,8 +1525,8 @@ def build_baseline(ppm_scale, C, L=None):
         Old function!! Legacy
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm_scale : 1darray
         ppm scale of the spectrum
     C : list
@@ -1538,8 +1534,8 @@ def build_baseline(ppm_scale, C, L=None):
     L : list
         List of window regions. If it is None, the baseline is built on the whole ``ppm_scale``
 
-    Returns:
-    -----------
+    Returns
+    ----------
     baseline : 1darray
         Self-explanatory.
     """
@@ -1557,7 +1553,8 @@ def build_baseline(ppm_scale, C, L=None):
     for k, coeff in enumerate(C):
         if coeff is False:      # No baseline
             continue
-        lims = misc.ppmfind(ppm_scale, L[k][0])[0], misc.ppmfind(ppm_scale, L[k][1])[0] # Find the indexes on ppm_scale
+        lims = misc.ppmfind(
+                ppm_scale, L[k][0])[0], misc.ppmfind(ppm_scale, L[k][1])[0]     # Find the indexes on ppm_scale
         lims = min(lims), max(lims)                 # Sort them to avoid stupid mistakes
         size_x = int(np.abs(lims[0] - lims[1]))     # Size of the polynomion scale
         x = np.linspace(0, 1, size_x)[::-1]         # Build the polynomion scale as the one of the fit
@@ -1566,31 +1563,29 @@ def build_baseline(ppm_scale, C, L=None):
     return baseline
 
 
-
-
 def join_par(filenames, ppm_scale, joined_name=None):
     """
     Load a series of parameters fit files. Join them together, returning a unique array of signal parameters, a list of coefficients for the baseline, and a list of tuples for the regions.
     Also, uses the coefficients and the regions to directly build the baseline according to the ppm windows.
-    
+
     .. error::
 
         Old function!! Legacy
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     filenames : list
         List of directories of the input files.
     ppm_scale : 1darray
         ppm scale of the spectrum. Used to build the baseline
     joined_name : str or None
         If it is not None, concatenates the files in the list ``filenames`` and saves them in a single file named ``joined_name``.
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     V : 2darray
-        Array of joined signal parameters        
+        Array of joined signal parameters
     C : list
         Parameters coefficients. No baseline corresponds to False.
     L : list
@@ -1622,10 +1617,10 @@ def join_par(filenames, ppm_scale, joined_name=None):
                 f.close()
         print('Joined parameters are saved in {}'.format(joined_name))
 
-    # Check if the regions superimpose 
+    # Check if the regions superimpose
     sup = np.zeros_like(ppm_scale)
     for k in range(len(L)):
-        lims = misc.ppmfind(ppm_scale, L[k][0])[0], misc.ppmfind(ppm_scale, L[k][1])[0] # Find the indexes on ppm_scale
+        lims = misc.ppmfind(ppm_scale, L[k][0])[0], misc.ppmfind(ppm_scale, L[k][1])[0]  # Find the indexes on ppm_scale
         lims = min(lims), max(lims)                 # Sort them to avoid stupid mistakes
         sup[lims[0]:lims[1]] += 1                   # Add 1 in the highlighted region
 
@@ -1651,8 +1646,8 @@ def calc_fit_lines(ppm_scale, limits, t_AQ, SFO1, o1p, N, V, C=False):
         Old function!! Legacy
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm_scale : 1darray
         PPM scale of the spectrum
     limits : tuple
@@ -1670,8 +1665,8 @@ def calc_fit_lines(ppm_scale, limits, t_AQ, SFO1, o1p, N, V, C=False):
     C : 1darray
         Baseline polynomion coefficients. False to not use the baseline
 
-    Returns:
-    -----------
+    Returns
+    ----------
     sgn : list
         Voigt signals built using ``V``
     Total : 1darray
@@ -1694,7 +1689,7 @@ def calc_fit_lines(ppm_scale, limits, t_AQ, SFO1, o1p, N, V, C=False):
     sgn = []
     Total = np.zeros_like(x) + 1j*np.zeros_like(x)
     for i in range(V.shape[0]):
-        sgn.append(fit.make_signal(t_AQ, V[i,0], V[i,1], V[i,2], V[i,3], V[i,4], V[i,5], SFO1=SFO1, o1p=o1p, N=N))
+        sgn.append(fit.make_signal(t_AQ, *V[i], SFO1=SFO1, o1p=o1p, N=N))
         Total += sgn[i][lim1:lim2]
 
     return sgn, Total, baseline
@@ -1731,8 +1726,8 @@ class Peak:
         """
         Initialize the class with the configuration parameters, and with defauls values, if not given.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         acqus: dict
             It should contain "t", "SFO1", "o1p", and "N"
         u: float
@@ -1770,8 +1765,8 @@ class Peak:
         """
         Generates a voigt signal on the basis of the stored attributes, in the time domain. Then, makes the Fourier transform and returns it after the eventual zero-filling.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         A : float
             Absolute intensity value
         cplx : bool
@@ -1779,8 +1774,8 @@ class Peak:
         get_fid : bool
             If True, returns the FID instead of the transformed signal
 
-        Returns:
-        -----------
+        Returns
+        ----------
         sgn : 1darray
             generated signal according to ``get_fid`` and ``cplx``
         """
@@ -1793,31 +1788,31 @@ class Peak:
             return sgn.real
 
     def get_fid(self, A=1):
-        """ 
+        """
         Compute and returns the FID encoding for that signal.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         A : float
             Absolute intensity value
 
-        Returns:
-        -----------
+        Returns
+        ----------
         sgn : 1darray
             generated signal in the time domain
         """
         v = misc.ppm2freq(self.u, self.SFO1, self.o1p)         # conversion to frequency units
         fwhm = self.fwhm * 2 * np.pi                    # conversion to radians
         phi = self.phi * np.pi / 180                    # conversion to radians
-        sgn = sim.t_voigt(self.t, v, fwhm, A=A*self.k, phi=phi, b=self.b) # make the signal
+        sgn = sim.t_voigt(self.t, v, fwhm, A=A*self.k, phi=phi, b=self.b)    # make the signal
         return sgn
 
     def par(self):
         """
         Creates a dictionary with the currently stored attributes and returns it.
 
-        Returns:
-        -----------
+        Returns
+        ----------
         dic: dict
             Dictionary of parameters
         """
@@ -1832,7 +1827,6 @@ class Peak:
         return dict(dic)
 
 
-
 def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     """
     Creates the initial guess for a lineshape deconvolution fitting procedure, using a dedicated GUI.
@@ -1841,13 +1835,15 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     Then, use the "+" button to add components to the spectrum. The black column of text under the textbox will be colored with the same color of the active peak.
     Use the mouse scroll to adjust the parameters of the active peak. Write a number in the "Group" textbox to mark the components of the same multiplet.
     Group 0 identifies independent peaks, not part of a multiplet (default).
-    The sensitivity of the mouse scroll can be regulated using the "up arrow" and "down arrow" buttons. 
+    The sensitivity of the mouse scroll can be regulated using the "up arrow" and "down arrow" buttons.
     The active peak can be changed in any moment using the slider.
 
-    The baseline can be computed first by initializing the x-scale on the selected window through the "SET BASL" button. The informer light next to the button becomes green if it is properly set. 
-    The baseline coefficients can be set with the mouse scroll analogously to any other parameter. 
+    The baseline can be computed first by initializing the x-scale on the selected window through the "SET BASL" button. The informer light next to the button becomes green if it is properly set.
+    The baseline coefficients can be set with the mouse scroll analogously to any other parameter.
 
-    When you are satisfied with your fit, press "SAVE" to write the information in the output file. Then, the GUI is brought back to the initial situation, and the region you were working on will be marked with a green rectangle. You can repeat the procedure as many times as you wish, to prepare the guess on multiple spectral windows.
+    When you are satisfied with your fit, press "SAVE" to write the information in the output file.
+    Then, the GUI is brought back to the initial situation, and the region you were working on will be marked with a green rectangle.
+    You can repeat the procedure as many times as you wish, to prepare the guess on multiple spectral windows.
 
     Keyboard shortcuts:
 
@@ -1861,8 +1857,8 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     * "change component, backward": 'page down'
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     S_in : 1darray
         Experimental spectrum
     ppm_scale : 1darray
@@ -1882,21 +1878,21 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         :func:`klassez.fit.make_iguess_auto`
     """
 
-    #-----------------------------------------------------------------------
-    ## USEFUL STRUCTURES
+    # -----------------------------------------------------------------------
+    # USEFUL STRUCTURES
     def rename_dic(dic, Np):
         """
         Change the keys of a dictionary with a sequence of increasing numbers, starting from 1.
-    
-        Parameters:
-        -----------
+
+        Parameters
+        ----------
         dic : dict
             Dictionary to edit
         Np : int
             Number of peaks, i.e. the sequence goes from 1 to Np
 
-        Returns:
-        -----------
+        Returns
+        ----------
         new_dic : dict
             Dictionary with the changed keys
         """
@@ -1914,13 +1910,13 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         Calculate the sum trace from a collection of peaks stored in a dictionary.
         If the dictionary is empty, returns an array of zeros.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         peaks : dict
             Components
 
-        Returns:
-        -----------
+        Returns
+        ----------
         total : 1darray
             Sum spectrum
         """
@@ -1932,7 +1928,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         else:
             return np.zeros_like(ppm_scale)
 
-    #-------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------
     # Write the info on the file
     with open(f'{filename}.ivf', 'a', buffering=1) as f:
         now = datetime.now()
@@ -1954,7 +1950,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     acqus = {'t1': t_AQ, 'SFO1': SFO1, 'o1p': o1p}
 
     # Baseline scale
-    x_bsl = np.linspace(0,1,N)
+    x_bsl = np.linspace(0, 1, N)
     # Baseline - from where to where?
     x_bsl_lims = [max(ppm_scale), min(ppm_scale)]
     x_bsl_lims_pts = [misc.ppmfind(ppm_scale, w)[0] for w in x_bsl_lims]
@@ -1966,7 +1962,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     # Set limits
     limits = [max(ppm_scale), min(ppm_scale)]
-    
+
     # Get point indices for the limits
     lim1, lim2 = sorted([misc.ppmfind(ppm_scale, limit)[0] for limit in limits])
     # Calculate the absolute intensity (or something that resembles it)
@@ -1988,7 +1984,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
             'c2': 0.1,
             'c3': 0.1,
             'c4': 0.1,
-            'B' : 1,
+            'B': 1,
             }
     _sens = dict(sens)                          # RESET value
     # baseline coefficients
@@ -2000,10 +1996,10 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     # Initial figure
     fig = plt.figure('Manual Computation of Inital Guess')
-    fig.set_size_inches(15,8)
+    fig.set_size_inches(15, 8)
     plt.subplots_adjust(bottom=0.10, top=0.90, left=0.05, right=0.65)
-    ax = fig.add_subplot(1,1,1)
-    
+    ax = fig.add_subplot()
+
     # make boxes for widgets
     slider_box = plt.axes([0.68, 0.10, 0.01, 0.65])     # Peak selector slider
     peak_box = plt.axes([0.875, 0.275, 0.10, 0.425])       # Radiobuttons
@@ -2018,35 +2014,34 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     basset_flagbox = plt.axes([0.955, 0.71, 0.02, 0.04])
     basset_flagbox.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
     basset_flagbox.set_fc('tab:red')
-    
+
     # Make widgets
     #   Buttons
-    up_button = Button(up_box, r'$\uparrow$', hovercolor = '0.975')    
-    down_button = Button(down_box, r'$\downarrow$', hovercolor = '0.975')
-    save_button = Button(save_box, 'SAVE', hovercolor = '0.975')
-    reset_button = Button(reset_box, 'RESET', hovercolor = '0.975')
+    up_button = Button(up_box, r'$\uparrow$', hovercolor='0.975')
+    down_button = Button(down_box, r'$\downarrow$', hovercolor='0.975')
+    save_button = Button(save_box, 'SAVE', hovercolor='0.975')
+    reset_button = Button(reset_box, 'RESET', hovercolor='0.975')
     plus_button = Button(plus_box, '$+$', hovercolor='0.975')
     minus_button = Button(minus_box, '$-$', hovercolor='0.975')
     basset_button = Button(basset_box, 'Set BASL', hovercolor='0.975')
 
     #   Textbox
     group_tb = TextBox(group_box, 'Group', textalignment='center')
-    
+
     #   Radiobuttons
-    peak_name = [r'$\delta$ /ppm', r'$\Gamma$ /Hz', '$k$', r'$\beta$', r'$\phi$', '$A$', 
-                 r'$c_0$', r'$c_1$', r'$c_2$', r'$c_3$', r'$c_4$', r'$B$' ]
+    peak_name = [r'$\delta$ /ppm', r'$\Gamma$ /Hz', '$k$', r'$\beta$', r'$\phi$', '$A$',
+                 r'$c_0$', r'$c_1$', r'$c_2$', r'$c_3$', r'$c_4$', r'$B$']
     peak_radio = RadioButtons(peak_box, peak_name, activecolor='tab:blue')      # Signal parameters
     peak_box.text(0, 0.5, '-'*30, ha='left', va='center', transform=peak_box.transAxes)
-    
+
     #   Slider
     slider = Slider(ax=slider_box, label='Active\nSignal', valmin=0, valmax=1-1e-3, valinit=0, valstep=1e-10, orientation='vertical', color='tab:blue')
 
-
-    #-------------------------------------------------------------------------------
-    ## SLOTS
+    # -------------------------------------------------------------------------------
+    # SLOTS
     def make_x_basl(event):
         nonlocal x_bsl_lims, x_bsl, basl
-        
+
         x_bsl_lims = sorted(ax.get_xlim())
         n_pts_basl = int(np.abs(x_bsl_lims[1] - x_bsl_lims[0]) / misc.calcres(ppm_scale))
         x_bsl = np.linspace(0, 1, n_pts_basl)
@@ -2071,7 +2066,6 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     def up_sens(event):
         """ Doubles sensitivity of active parameter """
-        nonlocal sens
         active = peak_name.index(peak_radio.value_selected)
         param = list(sens.keys())[active]
         sens[param] *= 2
@@ -2079,7 +2073,6 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     def down_sens(event):
         """ Halves sensitivity of active parameter """
-        nonlocal sens
         active = peak_name.index(peak_radio.value_selected)
         param = list(sens.keys())[active]
         sens[param] /= 2
@@ -2094,11 +2087,9 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
             nonlocal B
             B += sens['B']
         elif 'c' in param:
-            nonlocal bas_c
             i_c = int(eval(param.replace('c', '')))
             bas_c[i_c] += sens[param]
         else:
-            nonlocal peaks
             peaks[idx].__dict__[param] += sens[param]
             # Make safety check for b
             if peaks[idx].b > 1:
@@ -2113,11 +2104,9 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
             nonlocal B
             B -= sens['B']
         elif 'c' in param:
-            nonlocal bas_c
             i_c = int(eval(param.replace('c', '')))
             bas_c[i_c] -= sens[param]
         else:
-            nonlocal peaks
             peaks[idx].__dict__[param] -= sens[param]
             # Safety check for fwhm
             if peaks[idx].fwhm < 0:
@@ -2132,7 +2121,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         active = peak_name.index(peak_radio.value_selected)
         param = list(sens.keys())[active]
         # Get the active peak
-        if Np == 0: # No peaks!
+        if Np == 0:  # No peaks!
             idx = 0
         else:
             idx = int(np.floor(slider.val * Np) + 1)
@@ -2185,10 +2174,8 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         # Redraw the figure
         plt.draw()
 
-
     def set_group(text):
         """ Set the attribute 'group' of the active signal according to the textbox """
-        nonlocal peaks
         if not Np:  # Clear the textbox and do nothing more
             group_tb.text_disp.set_text('')
             plt.draw()
@@ -2197,7 +2184,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         idx = int(np.floor(slider.val * Np) + 1)
         try:
             group = int(eval(text))
-        except:
+        except Exception:
             group = peaks[idx].group
         group_tb.text_disp.set_text('')
         peaks[idx].group = group
@@ -2245,7 +2232,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     def reset(event):
         """ Return everything to default """
-        nonlocal Np, peaks, p_sgn, A, sens, bas_c, basl, whole_basl, B
+        nonlocal A, sens, bas_c, basl, whole_basl, B
         bas_c = np.zeros(5)
         basl = np.zeros_like(x_bsl)
         basl_plot.set_ydata(basl)
@@ -2266,15 +2253,15 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     def add_peak(event):
         """ Add a component """
-        nonlocal Np, peaks, p_sgn
+        nonlocal Np
         # Increase the number of peaks
-        Np += 1 
+        Np += 1
         # Add an entry to the dictionary labelled as last
         peaks[Np] = fit.Peak(acqus, u=np.mean(ax.get_xlim()), N=N, group=lastgroup)
         # Plot it and add the trace to the plot dictionary
         p_sgn[Np] = ax.plot(ppm_scale[lim1:lim2], peaks[Np](A)[lim1:lim2], lw=0.8)[-1]
         # Move the slider to the position of the new peak
-        slider.set_val( (Np - 1) / Np )
+        slider.set_val((Np - 1) / Np)
         # Recompute the step of the slider
         slider.valstep = 1 / Np
         # Calculate the total trace with the new peak
@@ -2310,7 +2297,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         # Update the total trace plot
         p_fit.set_ydata(whole_basl[lim1:lim2] + total[lim1:lim2])
         # Change the slider position
-        if Np == 0: # to zero and do not make it move
+        if Np == 0:  # to zero and do not make it move
             slider.set_val(0)
             slider.valstep = 1e-10
             write_par(0)
@@ -2324,7 +2311,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
             if idx == 1:
                 slider.set_val(0)
             else:
-                slider.set_val( (idx - 2) / Np)     # (idx - 1) -1
+                slider.set_val((idx - 2) / Np)     # (idx - 1) -1
             slider.valstep = 1 / Np
             write_par(int(np.floor(slider.val * Np) + 1))
             write_bpar()
@@ -2338,46 +2325,47 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         bas_c_norm = B / A * bas_c
         fit.write_vf(f'{filename}.ivf', peaks, ax.get_xlim(), A, prev, bas_c=bas_c_norm)
         prev += len(peaks)
-        
+
         # Mark a region as "fitted" with a green box
         ax.axvspan(*ax.get_xlim(), color='tab:green', alpha=0.1)
         # Call reset to return at the initial situation
         reset(event)
 
-    #-------------------------------------------------------------------------------
-
+    # -------------------------------------------------------------------------------
 
     ax.plot(ppm_scale[lim1:lim2], S[lim1:lim2], label='Experimental', lw=1.0, c='k')  # experimental
     p_fit = ax.plot(ppm_scale[lim1:lim2], np.zeros_like(S)[lim1:lim2], label='Fit', lw=0.9, c='b', zorder=10)[-1]  # Total trace
     basl_plot = ax.plot(x_bsl_2plot, basl, label='Baseline', lw=1.0, c='mediumorchid')[-1]  # Baseline
     p_sgn = {}  # Components
-    
+
     # Header for current values print
-    head_print = ax.text(0.75, 0.4750, 
-            '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}\n{:>7}'.format(
-                r'$\delta$', r'$\Gamma$', '$k$', r'$\beta$', r'$\phi$', '$A$', 'Group'),
-            ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5)
+    head_print = ax.text(0.75, 0.4750,
+                         '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}\n{:>7}'.format(
+                             r'$\delta$', r'$\Gamma$', '$k$', r'$\beta$', r'$\phi$', '$A$', 'Group'),
+                         ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5)
     # Text placeholder for the values - linspacing is different to align with the header
     values_print = ax.text(0.85, 0.4750, '',
-            ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.55)
-    headb_print = ax.text(0.75, 0.2250, 
+                           ha='right', va='top', transform=fig.transFigure,
+                           fontsize=14, linespacing=1.55)
+    ax.text(0.75, 0.2250,
             '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}'.format(
                 r'$c_0$', r'$c_1$', '$c_2$', '$c_3$', '$c_4$', '$B$'),
             ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5, color='mediumorchid')
     # Text placeholder for the values - linspacing is different to align with the header
     valuesb_print = ax.text(0.85, 0.2250, '',
-            ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.55)
+                            ha='right', va='top', transform=fig.transFigure,
+                            fontsize=14, linespacing=1.55)
     write_bpar()
     # Text to display the active sensitivity values
     sens_print = ax.text(0.875, 0.775, f'Sensitivity: $\\pm${sens["u"]:10.4g}',
-            ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
+                         ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
     # Text to remind keyboard shortcuts
     t_uparrow = r'$\uparrow$'
     t_downarrow = r'$\downarrow$'
     keyboard_text = '\n'.join([
         f'{"KEYBOARD SHORTCUTS":^50s}',
         f'{"Key":>5s}: Action',
-        f'-'*50,
+        '-'*50,
         f'{"<":>5s}: Decrease sens.',
         f'{">":>5s}: Increase sens.',
         f'{"+":>5s}: Add component',
@@ -2386,13 +2374,13 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         f'{"Pg"+t_downarrow:>5s}: Change component, down',
         f'{t_uparrow:>5s}: Increase value',
         f'{t_downarrow:>5s}: Decrease value',
-        f'-'*50,
+        '-'*50,
         ])
-    keyboard_print = ax.text(0.86, 0.025, keyboard_text, 
+    ax.text(0.86, 0.025, keyboard_text,
             ha='left', va='bottom', transform=fig.transFigure, fontsize=8, linespacing=1.55)
 
     # make pretty scales
-    ax.set_xlim(max(limits[0],limits[1]),min(limits[0],limits[1]))
+    ax.set_xlim(max(limits[0], limits[1]), min(limits[0], limits[1]))
     misc.pretty_scale(ax, ax.get_xlim(), axis='x', n_major_ticks=10)
     misc.pretty_scale(ax, ax.get_ylim(), axis='y', n_major_ticks=10)
     misc.mathformat(ax)
@@ -2428,8 +2416,8 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     The file `<filename>.ivf` is written upon pressing the SAVE button.
     Press Z to activate/deactivate the cursor snap.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm : 1darray
         PPM scale of the spectrum
     data : 1darray
@@ -2452,7 +2440,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         :func:`scipy.signal.peak_widths`
     """
 
-    ## MISCELLANEOUS FUNCTIONS
+    # MISCELLANEOUS FUNCTIONS
     def is_in(x, lims):
         """ Checks if x is inside the lims interval """
         return min(lims) <= x and x <= max(lims)
@@ -2466,11 +2454,11 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
             IW = 1
 
     def get_pos(x, y, H, P):
-        """ 
+        """
         Find the position of the peaks given height and prominence with ``scipy.signal.find_peaks``
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         x : 1darray
             array of x values
         y : 1darray
@@ -2480,8 +2468,8 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         P : float
             Threshold values (prominence)
 
-        Returns:
-        -----------
+        Returns
+        ----------
         ks : list
             List of indices where the program found peaks
         """
@@ -2489,16 +2477,16 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         return ks
 
     def maketotal(xj):
-        """ 
+        """
         Compute the model trace, given the peak positions
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         xj: list
             Indices of peak positions
 
-        Returns:
-        -----------
+        Returns
+        ----------
         peak_in: list of fit.Peak objects
             Model peaks
         """
@@ -2514,19 +2502,20 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         # Estimate the integrals of the peaks
         As = []
         for k, u in enumerate(xj):
-            lims=(freq[u]-IW*fwhms[k]/2, freq[u]+IW*fwhms[k]/2)
+            lims = (freq[u] - IW * fwhms[k]/2, freq[u] + IW * fwhms[k]/2)
             try:
-                As.append( processing.integrate(s, freq, lims=lims) / (0.5 * SW) )
-            except:
+                As.append(processing.integrate(s, freq, lims=lims) / (0.5 * SW))
+            except Exception:
                 As.append(1)
                 print(lims)
 
         # Make the fit.Peak objects with the estimated parameters
         q = [(fit.Peak(acqus,
-                          ppm[x], 
-                          fwhms[j],
-                          k=As[j],
-                          )) for j, x in enumerate(xj)]
+                       ppm[x],
+                       fwhms[j],
+                       k=As[j],
+                       ))
+             for j, x in enumerate(xj)]
         # Select only the peaks that are within the window
         peak_in = [peak for peak in q if is_in(peak.u, ax.get_xlim())]
         # Make the total model trace
@@ -2539,7 +2528,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         plt.draw()
         return peak_in
 
-    ##  Initialize variables
+    #  Initialize variables
     # Write the info on the file
     with open(f'{filename}.ivf', 'a', buffering=1) as f:
         now = datetime.now()
@@ -2554,7 +2543,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     # Acquisition timescale
     t_aq = np.linspace(0, TD*dw, TD)
     # acquisition parameters for the fit.Peak class
-    acqus = {'t1':t_aq, 'SFO1':SFO1, 'o1p':o1p, 'N':TD}
+    acqus = {'t1': t_aq, 'SFO1': SFO1, 'o1p': o1p, 'N': TD, }
 
     # Frequency scale
     freq = misc.ppm2freq(ppm, SFO1, o1p)
@@ -2596,8 +2585,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     # Number of peaks
     n_p = len(xj) + len(xi)
 
-
-    ## SLOTS
+    # SLOTS
 
     def up_sens(event):
         """
@@ -2612,13 +2600,13 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         sens_fork(0.5)
 
     def sens_fork(val):
-        """ 
-        Routes the sensitivity modifications to the correct value. 
+        """
+        Routes the sensitivity modifications to the correct value.
         Val is 2 if up_sens, 1/2 if down_sens
         """
         if radio.value_selected == 'Height':
             nonlocal sensH
-            sensH *= val 
+            sensH *= val
         elif radio.value_selected == 'Prominence':
             nonlocal sensP
             sensP *= val
@@ -2637,7 +2625,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         plt.draw()
 
     def update(val):
-        """ 
+        """
         Update the values according to mouse scrolls, compute the trace, updates the figure.
         val = +1 if scroll up, = -1 if scroll down, 0 in all other cases
         """
@@ -2678,7 +2666,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         # Update the figure
         update_text()
         plt.draw()
-        
+
     def on_scroll(event):
         """ Handles scroll events """
         if event.button == 'up':
@@ -2725,18 +2713,17 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         o_track.set_data((x,), (y,))
         plt.draw()
 
-
     def keybindings(event):
         """ Handles key press """
         key = event.key
         if key == 'z':      # switches snap between True and False
             nonlocal snap
-            snap = not(snap)
+            snap = not snap
         if key == '<':      # halves sensitivity
             sens_fork(0.5)
         if key == '>':      # doubles sensitivity
             sens_fork(2)
-        if key == 'pageup': # cycle radiobuttons down
+        if key == 'pageup':  # cycle radiobuttons down
             i = radio_labels.index(radio.value_selected)
             j = i - 1
             if j < 0:   # e.g. j=-1
@@ -2745,7 +2732,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         if key == 'pagedown':   # cycle radiobuttons up
             i = radio_labels.index(radio.value_selected)
             j = i + 1
-            if j > len(radio.labels) - 1: # e.g. j = 3, len(radio.labels) = 3
+            if j > len(radio.labels) - 1:    # e.g. j = 3, len(radio.labels) = 3
                 j = j - len(radio.labels)
             radio.set_active(j)
         if key == 'up':     # as scrolling up
@@ -2758,10 +2745,9 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         """ Manually adds/removes peaks """
         if not event.inaxes:    # do nothing
             return
-        # Find the position of the mouse 
+        # Find the position of the mouse
         x = misc.ppmfind(ppm, event.xdata)[0]
         if (event.button == 1 and event.dblclick) or event.button == 2:    # Left double click or middle click
-            nonlocal xi, x_blacklist
             xi.append(x)    # Append the value to the manual peak list
             if x in x_blacklist:    # Remove it
                 i = x_blacklist.index(x)    # First find the index of x in the blacklist
@@ -2770,18 +2756,18 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
             update(0)
         if event.button == 3:   # Right single click
             # Find the closest peak to the point you clicked
-            if len(xi): # first in the manual list
+            if len(xi):  # first in the manual list
                 closest_i = misc.find_nearest(xi, x)
             else:   # if it is empty, set None
                 closest_i = None
-            if len(xj): # then in the automatic list
+            if len(xj):  # then in the automatic list
                 closest_j = misc.find_nearest(xj, x)
             else:   # if it is empty, set None
                 closest_j = None
 
             if closest_i is not None:   # If there are any peaks in the manual list:
                 # do things only if the closest manual peak is within 10 points to where you actually clicked
-                if np.abs(x - closest_i) < 10:  
+                if np.abs(x - closest_i) < 10:
                     # Find the position of such peak
                     i = xi.index(closest_i)
                     # Remove it from the list
@@ -2812,7 +2798,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         # Use 1 as A because the relative intensities are calculated inside write_wf
         fit.write_vf(f'{filename}.ivf', peaks, ax.get_xlim(), 1, prev)
         prev += len(peak_in)
-        
+
         # Mark a region as "fitted" with a green box
         ax.axvspan(*ax.get_xlim(), color='tab:green', alpha=0.1)
         # Call reset to return at the initial situation
@@ -2823,7 +2809,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         nonlocal H, P, IW, sensH, sensP, sensIW
         H = _H
         P = _P
-        IW = _IW    
+        IW = _IW
         sensH = _sensH
         sensP = _sensP
         sensIW = _sensIW
@@ -2832,13 +2818,12 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         update(0)
         plt.draw()
 
-
-    #-------------------------------------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------------------------------------
 
     # Make the figure panel
     fig = plt.figure('Automatic Computation of Initial Guess')
     fig.set_size_inches(figures.figsize_large)
-    ax = fig.add_subplot(1,1,1)
+    ax = fig.add_subplot()
     plt.subplots_adjust(left=0.1, right=0.8, top=0.95, bottom=0.1)
 
     # Boxes where to place the widgets
@@ -2865,7 +2850,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     #   save button
     save_button = Button(box_save, r'SAVE', hovercolor='0.975')
     #   mouse position
-    cursor = Cursor(ax, horizOn=False, vertOn=False, useblit=True, lw=0.2, color='tab:green')
+    Cursor(ax, horizOn=False, vertOn=False, useblit=True, lw=0.2, color='tab:green')
 
     # Draw the spectrum in blue
     ax.plot(ppm, s, c='tab:blue', lw=0.8)
@@ -2875,7 +2860,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     squares, = ax.plot(ppm[xi], s[xi], '+', c='tab:orange')
     # Draw a placeholder for the total model trace
     model, = ax.plot(ppm, np.zeros_like(ppm), c='tab:red', lw=0.8)
-    # Draw a line for the threshold 
+    # Draw a line for the threshold
     thr = ax.axhline(H, c='tab:green', lw=0.5, ls='--')
     # Draw the crosshair, but invisible
     #   Horizontal line
@@ -2887,7 +2872,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     # Compute the model
     maketotal(xj)
 
-    # Make the text values to be updated 
+    # Make the text values to be updated
     #   Compute the positions of the text: in the middle between two subsequent radio labels
     radiolabel_pos = [label.get_position() for label in radio.labels]
     yshift = (radiolabel_pos[1][1] - radiolabel_pos[0][1]) / 2
@@ -2907,7 +2892,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     keyboard_text = '\n'.join([
         f'{"KEYBOARD SHORTCUTS":^50s}',
         f'{"Key":>5s}: Action',
-        f'-'*50,
+        '-'*50,
         f'{"<":>5s}: Decrease sens.',
         f'{">":>5s}: Increase sens.',
         f'{"Pg"+uparrow_text:>5s}: Change parameter, up',
@@ -2915,9 +2900,9 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         f'{uparrow_text:>5s}: Increase value',
         f'{downarrow_text:>5s}: Decrease value',
         f'{"z":>5s}: Toggle snap on cursor',
-        f'-'*50,
+        '-'*50,
         ])
-    keyboard_print = ax.text(0.86, 0.2, keyboard_text, 
+    ax.text(0.86, 0.2, keyboard_text,
             ha='left', va='bottom', transform=fig.transFigure, fontsize=8, linespacing=1.55)
 
     # Adjust visual shit
@@ -2943,12 +2928,12 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
 
 
 # --------------------------------------------------------------------
-def write_vf(filename, peaks, lims, I, prev=0, header=False, bas_c=None):
+def write_vf(filename, peaks, lims, Int, prev=0, header=False, bas_c=None):
     """
     Write a section in a fit report file, which shows the fitting region and the parameters of the peaks to feed into a Voigt lineshape model.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     filename : str
         Path to the file to be written
     peaks : dict
@@ -2962,7 +2947,7 @@ def write_vf(filename, peaks, lims, I, prev=0, header=False, bas_c=None):
     header : bool
         If True, adds a "!" starting line to separate fit trials
     bas_c : None or 1darray
-        Baseline coefficients 
+        Baseline coefficients
 
     .. seealso::
 
@@ -2986,7 +2971,7 @@ def write_vf(filename, peaks, lims, I, prev=0, header=False, bas_c=None):
     f.write('-'*96+'\n')
     #   Values
     region = '{:-.3f}:{:-.3f}'.format(*lims)   # From the zoom of the figure
-    f.write(f'{region:>16};\t{I*I_corr:14.8e}\n\n')
+    f.write(f'{region:>16};\t{Int*I_corr:14.8e}\n\n')
 
     # Info on the peaks
     #   Header
@@ -3007,20 +2992,22 @@ def write_vf(filename, peaks, lims, I, prev=0, header=False, bas_c=None):
     f.write('='*96+'\n\n')
     f.close()
 
+
 def read_vf(filename, n=-1):
     """
     Reads a `.ivf` (initial guess) or `.fvf` (final fit) file, containing the parameters for a lineshape deconvolution fitting procedure.
-    The file is separated and unpacked into a list of dictionaries, each of which contains the limits of the fitting window, the total intensity value, and a dictionary for each peak with the characteristic values to compute it with a Voigt line.
+    The file is separated and unpacked into a list of dictionaries, each of which contains the limits of the fitting window,
+    the total intensity value, and a dictionary for each peak with the characteristic values to compute it with a Voigt line.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     filename : str
         Path to the filename to be read
     n : int
-        Number of performed fit to be read. Default: last one. The breakpoints are lines that start with "!". For this reason, ``n=0`` returns an empty dictionary, hence the first fit is ``n=1``. 
+        Number of performed fit to be read. Default: last one. The breakpoints are lines that start with "!". For this reason, ``n=0`` returns an empty dictionary, hence the first fit is ``n=1``.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     regions: list
         List of dictionaries for running the fit.
 
@@ -3037,7 +3024,7 @@ def read_vf(filename, n=-1):
         # Separate the lines and remove the empty ones
         R = R.split('\n')
         for k, r in enumerate(R):
-            if len(r)==0 or r.isspace():
+            if len(r) == 0 or r.isspace():
                 _ = R.pop(k)
 
         n_bp = 0        # Number of breaking points (----)
@@ -3049,12 +3036,12 @@ def read_vf(filename, n=-1):
                 continue
 
             if n_bp == 1 and k_bp == k-1:   # First section: region limits and total intensity
-                line = r.split(';') # Separate the values
-                dic_r['limits'] = eval(line[0].replace(':',', '))   # Get the limits
-                dic_r['I'] = eval(line[-1]) # Get the intensity
+                line = r.split(';')  # Separate the values
+                dic_r['limits'] = eval(line[0].replace(':', ', '))   # Get the limits
+                dic_r['I'] = eval(line[-1])     # Get the intensity
 
             if n_bp == 2:       # Second section: peak parameters
-                line = r.split(';') # Separate the values
+                line = r.split(';')  # Separate the values
                 # Unpack the line
                 idx, u, fwhm, k, phi, b, group = [eval(w) for w in line]
                 # Put the values in a dictionary
@@ -3091,10 +3078,10 @@ def read_vf(filename, n=-1):
             _ = R.pop(k)
 
     regions = []    # Placeholder for return values
-    for r in R: # Loop on the big sections to read them
+    for r in R:  # Loop on the big sections to read them
         regions.append(read_region(r))
     return regions
-        
+
 
 def read_par(filename):
     """
@@ -3104,14 +3091,14 @@ def read_par(filename):
 
         Old function!! Legacy
 
-    
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     filename : str
         directory and name of the input file to be read
 
-    Returns:
-    -----------
+    Returns
+    ----------
     V : 2darray
         matrix (# signals, parameters)
     C : 1darray or False
@@ -3149,10 +3136,9 @@ def read_par(filename):
             f.close()
             break
 
-
         if L_flag:
             v = line.split('\t')
-            limits = float(v[-2].replace(' ','')), float(v[-1].replace(' ', ''))
+            limits = float(v[-2].replace(' ', '')), float(v[-1].replace(' ', ''))
             L_flag = 0
 
         if V_flag:
@@ -3177,13 +3163,13 @@ def write_par(V, C, limits, filename='i_guess.inp'):
         Old function!! Legacy
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     V : 2darray
         matrix (# signals, parameters)
     C : 1darray or False
         Coefficients of the polynomion to be used as baseline correction. If the 'baseline' checkbox in the interactive figure panel is not checked, C_f is False.
-    limits : tuple 
+    limits : tuple
         Trim limits for the spectrum (left, right).
     filename : str
         directory and name of the file to be written
@@ -3198,7 +3184,7 @@ def write_par(V, C, limits, filename='i_guess.inp'):
     f.write('***{:^60}***\n'.format('SIGNAL PARAMETERS'))
     f.write('{:<4}\t{:>7}\t{:>5}\t{:>5}\t{:>5}\t{:>5}\t{:<9}\n'.format('#', 'u', 's', 'k', 'b', 'phi', 'A'))
     for i in range(V.shape[0]):
-        f.write('{:<4.0f}\t{:=7.2f}\t{:5.0f}\t{:5.3f}\t{:5.2f}\t{: 5.2f}\t{:5.2e}\n'.format( i+1, V[i,0], V[i,1], V[i,2], V[i,3], V[i,4], V[i,5]))
+        f.write('{:<4.0f}\t{:=7.2f}\t{:5.0f}\t{:5.3f}\t{:5.2f}\t{: 5.2f}\t{:5.2e}\n'.format(i+1, *V[i]))
     f.write('***{:^60}***\n'.format('END OF SIGNAL PARAMETERS'))
 
     if C is not False:      # Write baseline coefficients only if explicitely said
@@ -3206,13 +3192,13 @@ def write_par(V, C, limits, filename='i_guess.inp'):
         f.write('#\t{:^9}\t{:^9}\t{:^9}\t{:^9}\t{:^9}\n'.format('a', 'b', 'c', 'd', 'e'))
         f.write(' \t{: 5.2e}\t{: 5.2e}\t{: 5.2e}\t{: 5.2e}\t{: 5.2e}\n'.format(C[0], C[1], C[2], C[3], C[4]))
         f.write('\n***{:^60}***\n'.format('END OF BASELINE PARAMETERS'))
-    
+
     if isinstance(filename, str):
         f.write('\n***{:^60}***\n'.format('END OF FILE'))
         f.close()
 
 
-def print_par(V, C, limits=[None,None]):
+def print_par(V, C, limits=[None, None]):
     """
     Prints on screen the same thing that write_par writes in a file.
 
@@ -3221,8 +3207,8 @@ def print_par(V, C, limits=[None,None]):
         Old function!! Legacy
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     V : 2darray
         matrix (# signals, parameters)
     C : 1darray or False
@@ -3233,7 +3219,7 @@ def print_par(V, C, limits=[None,None]):
     print('***{:^60}***'.format('SIGNAL PARAMETERS'))
     print('{:<4}\t{:>7}\t{:>5}\t{:>5}\t{:>5}\t{:>5}\t{:<9}'.format('#', 'u', 's', 'k', 'b', 'phi', 'A'))
     for i in range(V.shape[0]):
-        print('{:<4.0f}\t{:=7.2f}\t{:5.0f}\t{:5.3f}\t{:5.2f}\t{: 5.2f}\t{:5.2e}'.format( i+1, V[i,0], V[i,1], V[i,2], V[i,3], V[i,4], V[i,5]))
+        print('{:<4.0f}\t{:=7.2f}\t{:5.0f}\t{:5.3f}\t{:5.2f}\t{: 5.2f}\t{:5.2e}'.format(i+1, *V[i]))
 
     if C is not False:
         print('***{:^60}***\n'.format('BASELINE PARAMETERS'))
@@ -3242,18 +3228,20 @@ def print_par(V, C, limits=[None,None]):
         print('#\tWINDOW DELIMITERS /ppm')
         print('{:=7.2f}\t{:=7.2f}'.format(limits[0], limits[1]))
 
+
 def dic2mat(dic, peak_names, ns, A=None):
     """
-    This is used to make the matrix of the parameters starting from a dictionary like the one produced by l.
-    The column of the total intensity is not added, unless the parameter 'A' is passed. In this case, the third column (which is the one with the relative intesities) is corrected using the function molfrac.
+    This is used to make the matrix of the parameters starting from a dictionary like the one produced by lmfit.
+    The column of the total intensity is not added, unless the parameter 'A' is passed.
+    In this case, the third column (which is the one with the relative intesities) is corrected using the function molfrac.
 
     .. error::
 
         Old function!! Legacy
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     dic : dict
         input dictionary
     peak_names : list
@@ -3263,13 +3251,13 @@ def dic2mat(dic, peak_names, ns, A=None):
     A : float or None
         Total intensity.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     V : 2darray
         Matrix containing the parameters.
     """
     V = []
-    #   u   s   k   b  phi A   
+    #   u   s   k   b  phi A
     for i in range(ns):
         V.append([])
         for j in range(len(peak_names)):
@@ -3278,12 +3266,10 @@ def dic2mat(dic, peak_names, ns, A=None):
     if A is None:
         return V
     else:
-        V[:,2], Acorr = misc.molfrac(V[:,2])
+        V[:, 2], Acorr = misc.molfrac(V[:, 2])
         A_arr = Acorr * np.array([A for w in range(ns)])
         V = np.concatenate((V, A_arr.reshape(-1, 1)), axis=-1)
         return V
-
-
 
 # --------------------------------------------------------------------
 
@@ -3293,15 +3279,15 @@ def test_randomsign(data, thresh=1.96):
     Test an array of residuals for the randomness of the sign changes.
     The result it True if the sequence is recognized as random.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 1darray
         Residuals to test
     thresh : float
         Significance level. The default is 1.96, which corresponds to 5% significance level.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     test : bool
         True if the signs are random, False otherwise
     """
@@ -3321,12 +3307,13 @@ def test_randomsign(data, thresh=1.96):
 
     # The statistical distribution of runs can be approximated with a Gaussian
     # with mean = u and std = sigma
-    u = ( 2 * n_p * n_n) / N + 1
-    sigma = ( (u - 1) * (u - 2) / (N - 1) )**0.5
+    u = (2 * n_p * n_n) / N + 1
+    sigma = ((u - 1) * (u - 2) / (N - 1))**0.5
 
     # If z < thresh, the sign distribution is random
     z = np.abs(n_runs - u) / sigma
     return z < thresh
+
 
 def test_correl(data, subtract_mean=True):
     r"""
@@ -3339,15 +3326,15 @@ def test_correl(data, subtract_mean=True):
 
     If :math:`P < T_P`, the residuals are not correlated, and the result is True.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data: 1darray
         Residuals to be test
     subtract_mean: bool
         If True, subtracts from the residuals their mean.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     test: bool
         True if the residuals are non correlated, False otherwise
     """
@@ -3355,17 +3342,18 @@ def test_correl(data, subtract_mean=True):
     r = np.copy(data)
     # Size of the data
     N = len(r)
-    if subtract_mean: # Subtract from the residuals their mean
+    if subtract_mean:    # Subtract from the residuals their mean
         r -= np.mean(r)
 
     # Compute the discrete correlation function of the residuals P
     r_roll = np.roll(r, 1)
-    P = np.sum( (r * r_roll)[:-1] )
+    P = np.sum((r * r_roll)[:-1])
     # Compute threshold for correlation
     T_P = 1 / (N - 1)**0.5 * np.sum(r**2)
 
     # Residuals are not correlated if P < T_P
     return np.abs(P) < T_P
+
 
 def test_ks(data, thresh=0.05):
     """
@@ -3373,15 +3361,15 @@ def test_ks(data, thresh=0.05):
     The implementation is :func:`scipy.stats.kstest`.
     The result is True if the residuals are Gaussian.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 1darray
         Residuals to test
     thresh : float
         Significance level for the test. Default is 5%
 
-    Returns:
-    -----------
+    Returns
+    ----------
     test : bool
         True if the residuals are Gaussian, False otherwise
     """
@@ -3392,21 +3380,22 @@ def test_ks(data, thresh=0.05):
     # Residuals are gaussian distributed if p_value > thresh
     return ksstat.pvalue > thresh
 
+
 def test_residuals(res, alpha=0.05):
     """
     Tests an array of residuals for their randomness, correlation, and underlying distribution.
     To do this, it uses the functions :func:`klassez.fit.test_randomsign`, :func:`klassez.fit.test_correl`, :func:`klassez.fit.test_ks`.
     The results of the tests will be print in standard output and returned.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     res : ndarray
         Residuals to be tested
     alpha : float
         Significance level
 
-    Returns:
-    -----------
+    Returns
+    ----------
     test_random : bool
         Randomness of the residuals (True = random)
     test_correlation : bool
@@ -3424,16 +3413,16 @@ def test_residuals(res, alpha=0.05):
 
     """
     from scipy.stats import norm
-    
+
     # Get the z-score from the significance level
     z_value = norm.ppf(1 - alpha/2)
 
     # Convert the residuals to 1D
     r = np.copy(res).flatten()
-    
+
     # Compute the tests
-    test_randomness = fit.test_randomsign(r, z_value) 
-    test_correlation = fit.test_correl(r, False) 
+    test_randomness = fit.test_randomsign(r, z_value)
+    test_correlation = fit.test_correl(r, False)
     test_gaussian = fit.test_ks(r, alpha)
 
     # Print the results
@@ -3446,7 +3435,6 @@ def test_residuals(res, alpha=0.05):
     return test_randomness, test_correlation, test_gaussian
 
 
-
 def write_log(input_file, output_file, limits, V_i, C_i, V_f, C_f, result, runtime, test_res=True, log_file='fit.log'):
     """
     Write a log file with all the information of the fit.
@@ -3457,8 +3445,8 @@ def write_log(input_file, output_file, limits, V_i, C_i, V_f, C_f, result, runti
         Old function!! Legacy
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     input_file : str
         Location and filename of the input file
     output_file : str
@@ -3491,29 +3479,29 @@ def write_log(input_file, output_file, limits, V_i, C_i, V_f, C_f, result, runti
     f.write('-'*60)
     f.write('\n\n')
 
-    f.write('{:<12}{:>}\n'.format('Input file:', os.path.abspath(input_file))) 
+    f.write('{:<12}{:>}\n'.format('Input file:', os.path.abspath(input_file)))
     write_par(V_i, C_i, limits=limits, filename=f)
 
     f.write('-'*60)
     f.write('\n\n')
 
-    f.write('{:<12}{:>}\n'.format('Output file:', os.path.abspath(output_file))) 
+    f.write('{:<12}{:>}\n'.format('Output file:', os.path.abspath(output_file)))
     write_par(V_f, C_f, limits=limits, filename=f)
 
     f.write('-'*60)
     f.write('\n')
 
     f.write('{}\nTotal runtime: {}.\nNumber of function evaluations: {:5.0f}\n\n'.format(result.message, runtime, result.nfev))
-    
+
     # Check for the gaussianity of the residual
     if test_res is True:
         R = result.residual
         m_R = np.mean(R)
         SYSDEV, Q_G = test_residuals(R)
         f.write('{:^60}\n'.format('Statistics of the fit'))
-        f.write('{:<30} = {:=9.2e} | Optimal : 0\n'.format('Mean of residuals', m_R)) 
-        f.write('{:<30} = {:9.6f} | Optimal : 1\n'.format('Systematic deviation', SYSDEV)) 
-        f.write('{:<30} = {:9.6f} | Optimal : 1\n'.format('Gaussianity of residuals', Q_G)) 
+        f.write('{:<30} = {:=9.2e} | Optimal : 0\n'.format('Mean of residuals', m_R))
+        f.write('{:<30} = {:9.6f} | Optimal : 1\n'.format('Systematic deviation', SYSDEV))
+        f.write('{:<30} = {:9.6f} | Optimal : 1\n'.format('Gaussianity of residuals', Q_G))
     f.write('-' * 60)
     f.close()
 
@@ -3522,8 +3510,8 @@ def gaussian_fit(x, y, s_in=None):
     """
     Fit ``y`` with a gaussian function, built using ``x`` as independent variable
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : 1darray
         x-scale
     y : 1darray
@@ -3531,23 +3519,23 @@ def gaussian_fit(x, y, s_in=None):
     s_in : float or None
         initial guess for the standard deviation of the gaussian. If None, ``np.std(y)`` is used
 
-    Returns:
-    -----------
+    Returns
+    ----------
     u : float
-        mean 
+        mean
     s : float
         standard deviation
     A : float
         Integral
-        
+
     .. seealso::
-        
+
         :func:`klassez.sim.f_gaussian`
 
     """
 
     # Make parameter dictionary
-    param = l.Parameters()
+    param = lmfit.Parameters()
     param.add('u', value=np.mean(y), min=min(y), max=max(y))
     param.add('s', value=np.std(y), min=0, max=np.inf)
     if s_in:
@@ -3560,16 +3548,15 @@ def gaussian_fit(x, y, s_in=None):
         G = sim.f_gaussian(x, par['u'], par['s'], par['A'])
         return y - G
 
-    minner = l.Minimizer(f2min, param, fcn_args=(x, y))
+    minner = lmfit.Minimizer(f2min, param, fcn_args=(x, y))
     result = minner.minimize(method='leastsq', max_nfev=10000, xtol=1e-15, ftol=1e-15)
 
     # Return the result
     popt = result.params.valuesdict()
     return popt['u'], popt['s'], popt['A']
 
-
-
 # -------------------------------------------------------------------------------------------
+
 
 class Voigt_Fit:
     """
@@ -3590,7 +3577,7 @@ class Voigt_Fit:
     o1p : float
         Pulse carrier frequency
     filename : str
-        Root of the names of the files that will be saved 
+        Root of the names of the files that will be saved
     X_label : str
         Label for the chemical shift axis in the figures
     i_guess : list of dict
@@ -3603,8 +3590,8 @@ class Voigt_Fit:
         """
         Initialize the class with common values.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         ppm_scale : 1darray
             ppm scale of the spectrum
         S : 1darray
@@ -3624,22 +3611,22 @@ class Voigt_Fit:
         self.S = S
         self.t_AQ = processing.extend_taq(t_AQ, self.S.shape[-1])
         self.SFO1 = SFO1
-        self.SW = np.abs( (max(ppm_scale) - min(ppm_scale)) * SFO1 )
+        self.SW = np.abs((max(ppm_scale) - min(ppm_scale)) * SFO1)
         self.o1p = o1p
         self.filename = filename
         if nuc is None:
             self.X_label = r'$\delta\,$ /ppm'
         elif isinstance(nuc, str):
             fnuc = misc.nuc_format(nuc)
-            self.X_label = r'$\delta$ ' + fnuc +' /ppm'
+            self.X_label = r'$\delta$ ' + fnuc + ' /ppm'
 
     def iguess(self, filename=None, n=-1, ext='ivf', auto=False):
         """
         Reads, or computes, the initial guess for the fit.
         If the file is there already, it just reads it with ``fit.read_vf``. Otherwise, it calls ``fit.make_iguess`` to make it.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         filename: str or None
             Path to the input file. If None, `"<self.filename>.ivf"` is used
         n: int
@@ -3679,8 +3666,8 @@ class Voigt_Fit:
         """
         Reads a file with ``fit.read_vf`` and stores the result in ``self.result``.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         filename: str
             Path to the .fvf file to be read. If None, "<self.filename>.fvf" is used.
         n: int
@@ -3709,15 +3696,15 @@ class Voigt_Fit:
         self.result = regions
         print(f'{filename}.{ext} loaded as fit result file.')
 
-    def dofit(self, indep=True, u_lim=1, f_lim=10, k_lim=(0,3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None, method='leastsq', basl_fit='no'):
+    def dofit(self, indep=True, u_lim=1, f_lim=10, k_lim=(0, 3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None, method='leastsq', basl_fit='no'):
         """
         Perform a lineshape deconvolution fitting.
         The initial guess is read from the attribute ``self.i_guess``.
         The components can be considered to be all independent from one to another by setting ``indep=True``: this means that the fit will be done using ``fit.voigt_fit_indep``.
         The ``indep=False`` option has not been implemented yet.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         indep : bool
             True to consider all the components to be independent
         u_lim : float
@@ -3745,13 +3732,13 @@ class Voigt_Fit:
             * "fit"  : The baseline coefficients enter as fit parameters during the nonlinear optimization
             * "calc" : The baseline coefficients are calculated during the optimization via linear least-squares optimization
 
-        Returns:
-        -----------
+        Returns
+        ----------
         lmfit_results : list of lmfit.minimizer.MinimizerResult
             Sequence of the fit results, ordered as the regions dictionary
 
         .. seealso::
-            
+
             :func:`klassez.fit.voigt_fit_indep`
         """
 
@@ -3766,23 +3753,25 @@ class Voigt_Fit:
 
         # Do the fit
         if indep is True:
-            lmfit_results = fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p, u_lim=u_lim, f_lim=f_lim, k_lim=k_lim, vary_phase=vary_phase, vary_b=vary_b, itermax=itermax, fit_tol=fit_tol, filename=filename, method=method, basl_fit=basl_fit)
+            lmfit_results = fit.voigt_fit_indep(S, self.ppm_scale, self.i_guess, self.t_AQ, self.SFO1, self.o1p,
+                                                u_lim=u_lim, f_lim=f_lim, k_lim=k_lim, vary_phase=vary_phase, vary_b=vary_b,
+                                                itermax=itermax, fit_tol=fit_tol, filename=filename, method=method, basl_fit=basl_fit)
         else:
             raise NotImplementedError('More and more exciting adventures in the next release!')
         # Store
         self.result = fit.read_vf(f'{filename}.fvf')
         return lmfit_results
 
-
     def plot(self, what='result', show_total=True, show_res=False, res_offset=0, show_basl=False, labels=None, filename=None, ext='png', dpi=600, dim=None):
         """
         Plots either the initial guess or the result of the fit, and saves all the figures. Calls :func:`fit.plot_fit`.
-        The figure `<filename>_full` will show the whole model and the whole spectrum. 
+        The figure `<filename>_full` will show the whole model and the whole spectrum.
         The figures labelled with `_R<k>` will depict a detail of the fit in the k-th fitting region.
-        Optional labels for the components can be given: in this case, the structure of `labels` should match the structure of ``self.result`` (or ``self.i_guess``). This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
+        Optional labels for the components can be given: in this case, the structure of `labels` should match the structure of ``self.result`` (or ``self.i_guess``).
+        This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         what : str
             'iguess' to plot the initial guess, 'result' to plot the fitted data
         show_total : bool
@@ -3815,27 +3804,29 @@ class Voigt_Fit:
             regions = deepcopy(self.result)
         else:
             raise ValueError('Specify what you want to plot: "iguess" or "result"')
-               
+
         # Set the filename, if not given
         if filename is None:
             filename = f'{self.filename}'
 
         # Make the figures
         S = np.copy(self.S.real)
-        fit.plot_fit(S, self.ppm_scale, regions, self.t_AQ, self.SFO1, self.o1p, show_total=show_total, show_res=show_res, res_offset=res_offset, show_basl=show_basl, X_label=self.X_label, labels=labels, filename=filename, ext=ext, dpi=dpi, dim=dim)
+        fit.plot_fit(S, self.ppm_scale, regions, self.t_AQ, self.SFO1, self.o1p, show_total=show_total,
+                     show_res=show_res, res_offset=res_offset, show_basl=show_basl, X_label=self.X_label,
+                     labels=labels, filename=filename, ext=ext, dpi=dpi, dim=dim)
 
     def get_fit_lines(self, what='result'):
         """
         Calculates the components, and the total fit curve used as initial guess, or as fit results.
         The components will be returned as a list, not split by region.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         what : str
-            'iguess' or 'result' 
+            'iguess' or 'result'
 
-        Returns:
-        -----------
+        Returns
+        ----------
         signals : list of 1darray
             Components used for the fit
         total : 1darray
@@ -3854,7 +3845,7 @@ class Voigt_Fit:
             raise ValueError('Specify what you want to plot: "iguess" or "result"')
 
         # Make the acqus dictionary for the fit.Peak objects
-        acqus = { 't1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
+        acqus = {'t1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
         # Placeholders
         signals = []
         limits_list = []
@@ -3864,24 +3855,23 @@ class Voigt_Fit:
             # Remove the limits and the intensity from the region dictionary
             param = deepcopy(region)
             limits = param.pop('limits')
-            I = param.pop('I')
+            Int = param.pop('I')
             if 'bas_c' in region.keys():
-                bas_c = I * region['bas_c']
+                bas_c = Int * region['bas_c']
                 param.pop('bas_c')
             else:
                 bas_c = np.zeros(5)
             # Convert the limits from ppm to points and make the slice
             limits_pt = misc.ppmfind(self.ppm_scale, limits[0])[0], misc.ppmfind(self.ppm_scale, limits[1])[0]
-            lims = slice(min(limits_pt), max(limits_pt))
             # Baseline x-scale
-            x = np.linspace(0,1,int(np.abs(limits_pt[1]-limits_pt[0])))
+            x = np.linspace(0, 1, int(np.abs(limits_pt[1]-limits_pt[0])))
             # Compute baseline
             basl = misc.polyn(x, bas_c)
             whole_basl = misc.sum_overlay(whole_basl, basl, max(limits), self.ppm_scale)
             # Make the fit.Peak objects
-            peaks = {key : fit.Peak(acqus, N=self.S.shape[-1], **value) for key, value in param.items()}
+            peaks = {key: fit.Peak(acqus, N=self.S.shape[-1], **value) for key, value in param.items()}
             # Get the arrays from the dictionary and put them in the list
-            signals.extend([p(I) for _, p in peaks.items()])
+            signals.extend([p(Int) for _, p in peaks.items()])
             limits_list.append(limits)
         # Compute the total trace
         total = np.sum(signals, axis=0)
@@ -3891,11 +3881,11 @@ class Voigt_Fit:
         """
         Computes the histogram of the residuals and saves it.
         Employs :func:`klassez.fit.histogram` to make the figure.
-        
-        Parameters:
-        -----------
+
+        Parameters
+        ----------
         what : str
-            'iguess' or 'result' 
+            'iguess' or 'result'
         nbins  : int
             number of bins to be calculated
         density  : bool
@@ -3935,39 +3925,36 @@ class Voigt_Fit:
         else:
             raise ValueError('Specify what you want to plot: "iguess" or "result"')
 
-        # Make the acqus dictionary for the fit.Peak objects'
-        acqus = { 't1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
-
         # Get the total function and the limits
         _, total, limits_list, whole_basl = self.get_fit_lines(what)
         # Convert the limits in points according to the ppm scale
-        limits_pt_list = [ [misc.ppmfind(self.ppm_scale, w)[0] for w in lims] for lims in limits_list ]
+        limits_pt_list = [[misc.ppmfind(self.ppm_scale, w)[0] for w in lims]
+                          for lims in limits_list]
 
         # Placeholders
         exp_trim, total_trim = [], []
         for k, region in enumerate(regions):        # loop on the regions
             # Compute the slice
             lims = slice(min(limits_pt_list[k]), max(limits_pt_list[k]))
-            # Trim the experimental data and the total 
-            exp_trim.append(self.S[...,lims].real)
-            total_trim.append((total+whole_basl)[...,lims])
+            # Trim the experimental data and the total
+            exp_trim.append(self.S[..., lims].real)
+            total_trim.append((total + whole_basl)[..., lims])
         # Sum on different regions
         exp_trim = np.concatenate(exp_trim, axis=-1)
         total_trim = np.concatenate(total_trim, axis=-1)
 
-        # Compute the residuals 
+        # Compute the residuals
         residual_arr = exp_trim - total_trim
 
         fit.histogram(residual_arr, nbins=nbins, density=density, f_lims=f_lims, xlabel=xlabel, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize, name=filename, ext=ext, dpi=dpi)
-
 
     def to_tragico(self, which='iguess', filename=None):
         """
         Writes input 1 and input 2 for a TrAGICo run, on the basis of either the initial guess or the results of a fit.
         The files will be named `'<filename>_inp1'` and `'<filename>_inp2'`, respectively.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         which : str
             'iguess' or 'result'
         filename : str
@@ -3978,8 +3965,8 @@ class Voigt_Fit:
             Write the input 1 file for a tragico run, on the basis of ``regions``.
             The file name will be `<filename>_inp1`.
 
-            Parameters:
-            -----------
+            Parameters
+            ----------
             reg : list of dict
                 self.i_guess or self.result
             filename : str
@@ -4003,7 +3990,7 @@ class Voigt_Fit:
                 # Remove intensity and baseline coefficients, in inp1 they are not needed
                 region.pop('I')
                 region.pop('bas_c')
-                
+
                 # Sort the indices of the peaks
                 idxs = sorted(list(region.keys()))
 
@@ -4024,15 +4011,15 @@ class Voigt_Fit:
             Write the input 2 file for a tragico run, on the basis of ``regions``.
             The file name will be `<filename>_inp1`.
 
-            Parameters:
-            -----------
+            Parameters
+            ----------
             reg : list of dict
                 ``self.i_guess`` or ``self.result``
             filename : str
                 Name of the file that will be saved
             """
             def xbaslfact(ppm, lims, bas_c):
-                """ 
+                """
                 Conversion of the klassez baseline to the tragico baseline
                 """
                 # Make a shallow copy of the ppm scale
@@ -4042,15 +4029,15 @@ class Voigt_Fit:
                 # Tragico scale goes from w to 0
                 w = max(ppm_trimmed) - min(ppm_trimmed)
                 # In tragico, the baseline is computed on a scale that goes from 0 to w, and it is inverted
-                # with respect to the one used by klassez. To make the conversion, one must consider that 
+                # with respect to the one used by klassez. To make the conversion, one must consider that
                 #   x_k = 1 - (x_t / w)
                 # and the two polynomia should be equal. Solving this gives the given solution for new_coeff
                 new_coeff = np.array(
                         [
                             np.sum(bas_c),
                             np.sum([(j+1)*bas_c[j+1] for j in range(4)]) / w,
-                            (bas_c[2] + 3 * bas_c[3] + 6 * bas_c[4] ) / w**2,
-                            ( bas_c[3] + 4 * bas_c[4] ) / w**3,
+                            (bas_c[2] + 3 * bas_c[3] + 6 * bas_c[4]) / w**2,
+                            (bas_c[3] + 4 * bas_c[4]) / w**3,
                             bas_c[4] / w**4,
                         ])
                 return new_coeff
@@ -4073,12 +4060,12 @@ class Voigt_Fit:
                 # Get the region limits
                 ppm1, ppm2 = region.pop('limits')
                 # Get the intensity factor
-                I = region.pop('I')
+                Int = region.pop('I')
                 # Get the baseline coefficients and return them to their absolute value
-                bas_c = region.pop('bas_c') * I 
+                bas_c = region.pop('bas_c') * Int
                 # Convert the baseline coefficients to tragico
                 bas_c = xbaslfact(ppm, (ppm1, ppm2), bas_c) / maxr
-                
+
                 # At this point, only the peaks indices are left in region
                 # Sort the indices of the peaks
                 idxs = sorted(list(region.keys()))
@@ -4086,22 +4073,20 @@ class Voigt_Fit:
                 # Loop on the peaks
                 for idx in idxs:
                     # Convert the intensity
-                    k = region[idx]['k'] * I / maxr
+                    k = region[idx]['k'] * Int / maxr
                     # The fwhm in tragico is in ppm
                     fwhm = misc.freq2ppm(region[idx]['fwhm'], self.SFO1)
                     # The phase in tragico is in radians
                     phi = region[idx]['phi'] * np.pi / 180
                     # Get the fraction of gaussianity
                     xg = region[idx]['b']
-                    
+
                     # Compute the line to write and write it
-                    line = f'{idx}\t{ppm1:.1f}\t{ppm2:.1f}\t' + \
-                            '\t'.join([f'{w:.5e}' for w in [k, fwhm, phi, xg, *bas_c]]) + '\n'
+                    line = f'{idx}\t{ppm1:.1f}\t{ppm2:.1f}\t' + '\t'.join([f'{w:.5e}' for w in [k, fwhm, phi, xg, *bas_c]]) + '\n'
                     f.write(line)
             f.close()
 
             print(f'Input 2 for TrAGICo written in {fname}.')
-
 
         # Discriminate who do you want to save
         if which == 'result':
@@ -4113,7 +4098,7 @@ class Voigt_Fit:
 
         if filename is None:
             filename = deepcopy(self.filename)
-        
+
         write_inp1(regions, filename)
         write_inp2(regions, self.ppm_scale, self.S, filename)
         print()
@@ -4121,10 +4106,11 @@ class Voigt_Fit:
 
 def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
     """
-    GUI for the interactive setup of a Parameters object to be used in a fitting procedure. 
-    Once you initialized the Parameters object with the name of the parameters and a dummy value, you are allowed to set the value, minimum, maximum and vary status through the textboxes given in the right column, and see their effects in real time.
+    GUI for the interactive setup of a Parameters object to be used in a fitting procedure.
+    Once you initialized the Parameters object with the name of the parameters and a dummy value,
+    you are allowed to set the value, minimum, maximum and vary status through the textboxes given in the right column, and see their effects in real time.
     Upon closure of the figure, the Parameters object with the updated entries is returned.
-    
+
     Keybinding:
     * '>': increase sensitivity
     * '<': decrease sensitivity
@@ -4135,8 +4121,8 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
     * 'v': change "vary" status
     * '<': toggle automatic zoom adjustment
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : 1darray
         Independent variable
     experimental : 1darray
@@ -4150,8 +4136,8 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
     sens0 : float
         Default sensitivity for the change of the parameters with the mouse
 
-    Returns:
-    -----------
+    Returns
+    ----------
     param : lmfit.Parameters Object
         Updated Parameters Object
     """
@@ -4166,7 +4152,6 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
 
     nullevent = Event()         # Just a placeholder: event that does nothing
 
-    
     names = [key for key in param]          # Name of the parameters, from the param dictionary
     K = 0                                   # List index for the active parameter
     act = names[K]                          # Name of the active parameter
@@ -4178,8 +4163,8 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
     fig = plt.figure('Computation of General Initial Guess')
     fig.set_size_inches(figures.figsize_large)
     plt.subplots_adjust(top=0.95, bottom=0.05, left=0.05, right=0.8, hspace=0.6, wspace=0.2)
-    ax = fig.add_subplot(5,1,(1,4))
-    axr = fig.add_subplot(5,1,5)
+    ax = fig.add_subplot(5, 1, (1, 4))
+    axr = fig.add_subplot(5, 1, 5)
 
     # Boxes
     up_box = plt.axes([0.825, 0.875, 0.075, 0.075])             # increase sensitivity
@@ -4197,7 +4182,7 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
     vary_box = plt.axes([0.95, 0.80, 0.0425, 0.04])             # slider for "vary"
 
     # Widgets   -   as the boxes
-    up_button = Button(up_box, r'$\uparrow$', hovercolor='0.975')           
+    up_button = Button(up_box, r'$\uparrow$', hovercolor='0.975')
     down_button = Button(down_box, r'$\downarrow$', hovercolor='0.975')
 
     sens_text = ax.text(0.825, 0.825, f'Sens: {sens[act]:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
@@ -4211,26 +4196,24 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
     max_tb = TextBox(max_box, '', textalignment='center', initial=f'{param[act].max}')
     ax.text(0.925 + 0.05/2, 0.575+0.075, 'MAX', ha='center', va='bottom', transform=fig.transFigure, fontsize=16)
 
-    pup_button = Button(pup_box, '\n'.join(['CH. PAR.',r'$\uparrow$']), hovercolor='0.975')
-    pdown_button = Button(pdown_box, '\n'.join(['CH. PAR.',r'$\downarrow$']), hovercolor='0.975')
-    
+    pup_button = Button(pup_box, '\n'.join(['CH. PAR.', r'$\uparrow$']), hovercolor='0.975')
+    pdown_button = Button(pdown_box, '\n'.join(['CH. PAR.', r'$\downarrow$']), hovercolor='0.975')
+
     print_button = Button(print_box, 'PRINT PARAMETERS', hovercolor='0.975')
 
     valinit = [1 if param[act].vary else 0]
-    vary_sl= Slider(vary_box, 'Vary', valmin=0, valmax=1, valinit=valinit[0], valstep=1) 
+    vary_sl = Slider(vary_box, 'Vary', valmin=0, valmax=1, valinit=valinit[0], valstep=1)
 
     # ---------------------------------------------------------------------------------------
     # SLOTS
     def up_sens(event):
         """ Double sensitivity of the active parameter """
-        nonlocal sens
         sens[act] *= 2
         sens_text.set_text(f'Sens: {sens[act]:.5g}')
         plt.draw()
 
     def down_sens(event):
         """ Halves sensitivity of the active parameter """
-        nonlocal sens
         sens[act] /= 2
         sens_text.set_text(f'Sens: {sens[act]:.5g}')
         plt.draw()
@@ -4244,7 +4227,6 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
             else:
                 return eval(tb.text)
 
-        nonlocal param
         param[act].set(max=get_val(max_tb))
 
     def update_min(text):
@@ -4256,12 +4238,10 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
             else:
                 return eval(tb.text)
 
-        nonlocal param
         param[act].set(min=get_val(min_tb))
 
     def update_val(text):
         """ Update the 'value' of the active parameter """
-        nonlocal param
         param[act].set(value=eval(text))
         # Update the plots: we need nullevent to avoid raising errors
         on_scroll(nullevent)
@@ -4274,7 +4254,7 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
         val_tb.set_val(f'{param[act].value:.5g}')
         min_tb.set_val(f'{param[act].min:.5g}')
         max_tb.set_val(f'{param[act].max:.5g}')
-        if param[act].vary: # = True
+        if param[act].vary:  # = True
             vary_sl.set_val(1)
         else:               # = False
             vary_sl.set_val(0)
@@ -4296,8 +4276,7 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
 
     def on_scroll(event):
         """ Updates the value of the active parameter and draws the new model """
-        nonlocal param
-        if event.button == 'up': 
+        if event.button == 'up':
             param[act].value += sens[act]
         if event.button == 'down':
             param[act].value -= sens[act]
@@ -4314,7 +4293,6 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
 
     def update_vary(value):
         """ Set the 'vary' attribute according to the slider """
-        nonlocal param
         if value == 0:
             param[act].set(vary=False)
         elif value == 1:
@@ -4330,7 +4308,7 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
         misc.set_ylim(ax, [experimental, newmodel])
         misc.pretty_scale(ax, ax.get_ylim(), 'y')
         # Adjust scale of bottom subplot
-        misc.set_ylim(axr, [experimental-newmodel, np.zeros_like(newmodel)]) # concatenate with 0 to keep the horizontal line visible
+        misc.set_ylim(axr, [experimental-newmodel, np.zeros_like(newmodel)])     # concatenate with 0 to keep the horizontal line visible
         misc.pretty_scale(axr, axr.get_ylim(), 'y', 4)
         plt.draw()
 
@@ -4351,11 +4329,11 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
         if event.key == 'left':
             cycle_down(nullevent)
         if event.key == 'v':
-            param[act].set(vary=not(param[act].vary))
+            param[act].set(vary=not param[act].vary)
             cycle()
         if event.key == 'z':
             nonlocal zoom_toggle
-            zoom_toggle = not(zoom_toggle)
+            zoom_toggle = not zoom_toggle
 
     def print_param(event):
         """ Print the Parameters object to stdout """
@@ -4363,7 +4341,6 @@ def gen_iguess(x, experimental, param, model, model_args=[], sens0=1):
         print()
 
     # ---------------------------------------------------------------------------------------
-
 
     #   Plot the data and the model
     ax.plot(x, experimental, '.', markersize=2, c='tab:red', label='Observed data')
@@ -4414,8 +4391,8 @@ def peak_pick(ppm_f1, ppm_f2, data, coord_filename='coord.tmp'):
     If ``coord_filename`` already exists, the new signals are appended at its bottom: nothing is overwritten.
     Calls :func:`klassez.anal.select_traces` for the selection.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm_f1: 1darray
         ppm scale for the indirect dimension
     ppm_f2: 1darray
@@ -4425,8 +4402,8 @@ def peak_pick(ppm_f1, ppm_f2, data, coord_filename='coord.tmp'):
     coord_filename: str
         Path to the file where to save the peak coordinates
 
-    Returns:
-    -----------
+    Returns
+    ----------
     coord: list
         List of (u2, u1) for each peak
     """
@@ -4434,12 +4411,12 @@ def peak_pick(ppm_f1, ppm_f2, data, coord_filename='coord.tmp'):
     if os.path.exists(coord_filename):
         with open(coord_filename, 'r') as Q:
             # number of already present signals: last linei, first value before tab
-            n_C = eval(Q.readlines()[-1].split('\t')[0])   
-        C = open(coord_filename, 'a', buffering=1)  
+            n_C = eval(Q.readlines()[-1].split('\t')[0])
+        C = open(coord_filename, 'a', buffering=1)
     else:
         C = open(coord_filename, 'w', buffering=1)
         C.write(r'#'+'\t'+f'{"u2":^8s},{"u1":^8s}'+'\n')    # Header line
-        n_C = 0 
+        n_C = 0
 
     # Make peak_picking
     coord = anal.select_traces(ppm_f1, ppm_f2, data)
@@ -4451,12 +4428,13 @@ def peak_pick(ppm_f1, ppm_f2, data, coord_filename='coord.tmp'):
 
     return coord
 
+
 def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None):
     """
     Generate the initial guess for the fit of a 2D signal.
     The employes model is the one of a 2D Voigt signal, acquired with the States-TPPI scheme in the indirect dimension (i.e. :func:`klassez.sim.t_2DVoigt`).
     The program allows for the inclusion of up to 10 components for the signal, in order to improve the fit.
-    The acqus dictionary must contain the following keys: 
+    The acqus dictionary must contain the following keys:
 
         * t1: acquisition timescale in the indirect dimension (States)
         * t2: acquisition timescale in the direct dimension
@@ -4465,10 +4443,10 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         * o1p: carrier position in the indirect dimension /ppm
         * o2p: carrier position in the direct dimension /ppm
 
-    The signals will be processed according to the values in the ``procs`` dictionary, if given; otherwise, they will be just zero-filled up to the data size (i.e. ``(len(ppm_f1), len(ppm_f2))`` ). 
+    The signals will be processed according to the values in the ``procs`` dictionary, if given; otherwise, they will be just zero-filled up to the data size (i.e. ``(len(ppm_f1), len(ppm_f2))`` ).
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ppm_f1 : 1darray
         ppm scale for the indirect dimension
     ppm_f2 : 1darray
@@ -4487,62 +4465,60 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         Initial value for FWHM in both dimensions
     procs : dict
         Dictionary of processing parameters
-    
-    Returns:
-    -----------
+
+    Returns
+    ----------
     final_parameters : 2darray
         Matrix of dimension (# signals, 6) that contains, for each row: v1(Hz), v2(Hz), fwhm1(Hz), fwhm2(Hz), A, b
     fit_interval : tuple of tuple
         Fitting window. ( (left_f1, right_f1), (left_f2, right_f2) )
     """
 
-    ### FIRST OF ALL, THE FIGURE!
+    # FIRST OF ALL, THE FIGURE!
     fig = plt.figure('Manual Computation of Initial Guess - 2D')
     fig.set_size_inches(figures.figsize_large)
     plt.subplots_adjust(left=0.05, right=0.65, top=0.90, bottom=0.10, wspace=0.2)
     ax2, ax1 = [fig.add_subplot(1, 2, w+1) for w in range(2)]
 
-    ### INITIALIZE THE VALUES
+    # INITIALIZE THE VALUES
 
     # Values to be returned
     final_parameters = []
     fit_interval = None, None
 
-    #limits of the window
+    # limits of the window
     lim_f1 = u1 + 100/np.abs(acqus['SFO1']), u1 - 100/np.abs(acqus['SFO1'])
     lim_f2 = u2 + 100/np.abs(acqus['SFO2']), u2 - 100/np.abs(acqus['SFO2'])
 
     V = [{
         'u1': u1,   # ppm
         'u2': u2,   # ppm
-        'fwhm1': fwhm0, # Hz
-        'fwhm2': fwhm0, # Hz
+        'fwhm1': fwhm0,  # Hz
+        'fwhm2': fwhm0,  # Hz
         'k': 0.1,   # relative intensity
-        'b': 0.5, # fraction of gaussianity
+        'b': 0.5,   # fraction of gaussianity
         } for w in range(10)]
     I1 = processing.integrate(tr1, x=ppm_f1, lims=lim_f1)
     I2 = processing.integrate(tr2, x=ppm_f2, lims=lim_f2)
     A = (I1 + I2) / (2*np.pi*fwhm0)
 
-
     # Sensitivity for mouse
     sens = {
         'u1': 0.25,   # ppm
         'u2': 0.25,   # ppm
-        'fwhm1': 10, # Hz
-        'fwhm2': 10, # Hz
-        'k': 0.01,  # 1%
-        'b': 0.1, # 10%
+        'fwhm1': 10,     # Hz
+        'fwhm2': 10,    # Hz
+        'k': 0.01,      # 1%
+        'b': 0.1,   # 10%
         'A': np.floor(np.log10(A)) - 1      # This goes according to order of magnitudes
         }
-
 
     # Copy initial values for reset
     V_in = [dict(q) for q in V]
     A_in = np.copy(A)
     sens_in = dict(sens)
 
-    #conversion of the names from radio labels to dict keys
+    # conversion of the names from radio labels to dict keys
     conv_r2d = {
             r'$\delta$ /ppm': 'u',
             r'$\Gamma$ /Hz': 'fwhm',
@@ -4550,8 +4526,8 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
             r'$\beta$': 'b',
             }
 
-    #--------------------------------------------------------------------------
-    ### SETUP OF THE INTERACTIVE FIGURE PANEL
+    # --------------------------------------------------------------------------
+    # SETUP OF THE INTERACTIVE FIGURE PANEL
 
     # make boxes for widgets
     tb2_boxes = [   # limits for the direct dimension
@@ -4571,14 +4547,14 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     reset_box = plt.axes([0.7, 0.865, 0.085, 0.04])     # RESET button
     p_or_s_box = plt.axes([0.73, 0.78, 0.04, 0.03])     # F1 or F2 selector
     check_box = plt.axes([0.85, 0.1, 0.1, 0.7])         # Peak checker
-    
+
     # Make widgets
     #   Buttons
-    up_button = Button(su_box, r'$\uparrow$', hovercolor = '0.975')         # increase sensitivity button
-    down_button = Button(giu_box, r'\downarrow$', hovercolor = '0.975')    # decrease sensitivity button
-    save_button = Button(save_box, 'SAVE', hovercolor = '0.975')            # SAVE button
-    reset_button = Button(reset_box, 'RESET', hovercolor = '0.975')         # RESET button
-    
+    up_button = Button(su_box, r'$\uparrow$', hovercolor='0.975')         # increase sensitivity button
+    down_button = Button(giu_box, r'\downarrow$', hovercolor='0.975')    # decrease sensitivity button
+    save_button = Button(save_box, 'SAVE', hovercolor='0.975')            # SAVE button
+    reset_button = Button(reset_box, 'RESET', hovercolor='0.975')         # RESET button
+
     #   textboxes
     TB1 = [TextBox(box, '', initial=f'{value:.2f}', textalignment='center') for box, value in zip(tb1_boxes, lim_f1)]   # set limits for F1
     TB2 = [TextBox(box, '', initial=f'{value:.2f}', textalignment='center') for box, value in zip(tb2_boxes, lim_f2)]   # set limits for F2
@@ -4586,10 +4562,10 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     #   Radiobuttons for parameter selection
     peak_name = [r'$\delta$ /ppm', r'$\Gamma$ /Hz', r'$k$', r'$\beta$', r'$A$']         # Labels for the parameters
     peak_radio = RadioButtons(peak_box, peak_name, active=2, activecolor='tab:blue')      # Actual radiobuttons
-    
+
     #   Sliders
     #       Peak selector
-    slider = Slider(ax = slider_box, label = 'Active\nSignal', valmin = 1, valmax = 10, valinit = 1, valstep = 1, orientation='vertical', color='tab:blue')
+    slider = Slider(ax=slider_box, label='Active\nSignal', valmin=1, valmax=10, valinit=1, valstep=1, orientation='vertical', color='tab:blue')
     #       Ruler for slider
     for i, H in enumerate(np.linspace(0.10, 0.75, 10)):
         plt.text(0.685, H, '$-$', ha='center', va='center', fontsize=20, color=COLORS[i], transform=fig.transFigure)
@@ -4603,21 +4579,20 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
 
     #       Customize checkbox appearance
     #       ... make boxes more squared
-    HBOX = check_box.dataLim.bounds[-1]
     misc.edit_checkboxes(check, xadj=0, yadj=0.001, dim=100, color=COLORS)
 
     # Text that shows the current values of the parameters
     head_print = plt.text(0.725, 0.4,
-            '{:9s}:'.format(r'$\delta$ F2') + f'{V[0]["u2"]:-9.2f}\n'+
-            '{:9s}:'.format(r'$\delta$ F1') + f'{V[0]["u1"]:-9.2f}\n'+
-            '{:9s}:'.format(r'$\Gamma$ F2') + f'{V[0]["fwhm2"]:-9.2f}\n'+
-            '{:9s}:'.format(r'$\Gamma$ F1') + f'{V[0]["fwhm1"]:-9.2f}\n'+
-            '{:9s}:'.format(r'$k$') + f'{V[0]["k"]:-9.2f}\n'+
-            '{:9s}:'.format(r'$\beta$') + f'{V[0]["b"]:-9.2f}\n'+
-            '{:9s}:'.format(r'$A$') + f'{A:-9.2e}\n',
-            ha='left', va='top', transform=fig.transFigure, fontsize=12, color=COLORS[0])
+                          '{:9s}:'.format(r'$\delta$ F2') + f'{V[0]["u2"]:-9.2f}\n' +
+                          '{:9s}:'.format(r'$\delta$ F1') + f'{V[0]["u1"]:-9.2f}\n' +
+                          '{:9s}:'.format(r'$\Gamma$ F2') + f'{V[0]["fwhm2"]:-9.2f}\n' +
+                          '{:9s}:'.format(r'$\Gamma$ F1') + f'{V[0]["fwhm1"]:-9.2f}\n' +
+                          '{:9s}:'.format(r'$k$') + f'{V[0]["k"]:-9.2f}\n' +
+                          '{:9s}:'.format(r'$\beta$') + f'{V[0]["b"]:-9.2f}\n' +
+                          '{:9s}:'.format(r'$A$') + f'{A:-9.2e}\n',
+                          ha='left', va='top', transform=fig.transFigure, fontsize=12, color=COLORS[0])
 
-    #--------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     # SLOTS
     def reset(event):
         """ Bring all parameters and sens to the starting values """
@@ -4653,13 +4628,12 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         t2_plot.set_ydata(total_2)
         fig.canvas.draw()
 
-
     def make_sgn_2D(values, acqus, N=None, procs=None):
         """
         Create a 2D signal according to the final parameters returned by make_iguess_2D.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         final_parameters: list or 2darray
             sequence of the parameters: u1, u2, fwhm1, fwhm2, I, b
         acqus: dict
@@ -4669,8 +4643,8 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         procs: dict
             2D-like procs dictionary.
 
-        Returns:
-        -----------
+        Returns
+        ----------
         peaks: list of 2darray
             rr part of the generated signals
         """
@@ -4694,8 +4668,8 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
             peak, *_ = processing.xfb(signal, zf=N)     # Just zero-fill
 
         # Extract the traces
-        tr_f1 = anal.get_trace(peak, ppm_f2, ppm_f1, a=values[1], column=True)  # F2 @ u1 ppm
-        tr_f2 = anal.get_trace(peak, ppm_f2, ppm_f1, a=values[0], column=False) # F1 @ u2 ppm
+        tr_f1 = anal.get_trace(peak, ppm_f2, ppm_f1, a=values[1], column=True)   # F2 @ u1 ppm
+        tr_f2 = anal.get_trace(peak, ppm_f2, ppm_f1, a=values[0], column=False)  # F1 @ u2 ppm
 
         return tr_f1, tr_f2
 
@@ -4712,17 +4686,16 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         return key2edit
 
     def update(s_idx):
-        """ 
+        """
         Computes the s_idx-th 2D signal, extract the traces in F1 and F2, then redraws them.
         Updates the total functions with the sum of the active signals.
         """
-        nonlocal sgn_1, sgn_2
         # Organize the parameters
         values = [V[s_idx][f'{key}'] for key in ('u1', 'u2', 'fwhm1', 'fwhm2', 'k', 'b')]
         values[-2] *= A
         # Compute the 2D signal and extract the traces
-        sgn_1[s_idx], sgn_2[s_idx] = make_sgn_2D(values, acqus, N=(N1,N2), procs=procs)
-        
+        sgn_1[s_idx], sgn_2[s_idx] = make_sgn_2D(values, acqus, N=(N1, N2), procs=procs)
+
         # Update the plots:
         #   F1
         s1_plot[s_idx].set_ydata(sgn_1[s_idx])  # update plot
@@ -4738,8 +4711,8 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
 
     def roll(event):
         """ Slot for the mouse wheel """
-        nonlocal V, A
-        s_idx = slider.val - 1 # active signal
+        nonlocal A
+        s_idx = slider.val - 1  # active signal
         key2edit = get_key2edit()   # active parameter
         if key2edit == 'A':     # move A
             if event.button == 'up':
@@ -4765,16 +4738,14 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
 
     def up_sens(event):
         """ Slot for the up-arrow button"""
-        nonlocal sens
         key2edit = get_key2edit()
-        if key2edit == 'A': # increase it by one order of magnitude
+        if key2edit == 'A':  # increase it by one order of magnitude
             sens['A'] += 1
         else:    # double
             sens[key2edit] *= 2
 
     def down_sens(event):
         """ Slot for the down-arrow button"""
-        nonlocal sens
         key2edit = get_key2edit()
         if key2edit == 'A':
             sens['A'] -= 1  # decrease it by one order of magnitude
@@ -4784,9 +4755,18 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     def redraw_text(event):
         """ Updates the text according to the current values. Also changes its color. """
         s_idx = slider.val - 1  # python numbering
-        value_string = '{:9s}:'.format(r'$\delta$ F2') + f'{V[s_idx]["u2"]:-9.2f}\n'+ '{:9s}:'.format(r'$\delta$ F1') + f'{V[s_idx]["u1"]:-9.2f}\n'+ '{:9s}:'.format(r'$\Gamma$ F2') + f'{V[s_idx]["fwhm2"]:-9.2f}\n'+ '{:9s}:'.format(r'$\Gamma$ F1') + f'{V[s_idx]["fwhm1"]:-9.2f}\n'+ '{:9s}:'.format(r'$k$') + f'{V[s_idx]["k"]:-9.2f}\n'+ '{:9s}:'.format(r'$\beta$') + f'{V[s_idx]["b"]:-9.2f}\n'+ '{:9s}:'.format(r'$A$') + f'{A:-9.2e}\n'
+        value_string = '\n'.join([
+            '{:9s}:'.format(r'$\delta$ F2') + f'{V[s_idx]["u2"]:-9.2f}',
+            '{:9s}:'.format(r'$\delta$ F1') + f'{V[s_idx]["u1"]:-9.2f}',
+            '{:9s}:'.format(r'$\Gamma$ F2') + f'{V[s_idx]["fwhm2"]:-9.2f}',
+            '{:9s}:'.format(r'$\Gamma$ F1') + f'{V[s_idx]["fwhm1"]:-9.2f}',
+            '{:9s}:'.format(r'$k$') + f'{V[s_idx]["k"]:-9.2f}',
+            '{:9s}:'.format(r'$\beta$') + f'{V[s_idx]["b"]:-9.2f}',
+            '{:9s}:'.format(r'$A$') + f'{A:-9.2e}',
+            '',
+            ])
         head_print.set_text(value_string)
-        head_print.set_color(COLORS[s_idx]) # color of the active signal
+        head_print.set_color(COLORS[s_idx])  # color of the active signal
         fig.canvas.draw()
 
     def save(event):
@@ -4803,7 +4783,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         # ( (L_F1, R_F1), (L_F2, R_F2) )
         fit_interval = tuple([eval(x.text) for x in TB1]), tuple([eval(x.text) for x in TB2])
 
-    #--------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     N1, N2 = ppm_f1.shape[-1], ppm_f2.shape[-1]         # Zero-filling dimension
     if procs is None:   # I do not care
@@ -4814,7 +4794,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
     # Figure titles
     ax2.set_title(f'F2 trace @ {u1:.1f} ppm')
     ax1.set_title(f'F1 trace @ {u2:.1f} ppm')
-    
+
     # red dashed line as marker for the initially selected chemical shifts
     ax2.axvline(u2, c='r', lw=0.3, ls='--')
     ax1.axvline(u1, c='r', lw=0.3, ls='--')
@@ -4899,8 +4879,8 @@ def build_2D_sgn(parameters, acqus, N=None, procs=None):
     Create a 2D signal according to the final parameters returned by :func:`klassez.fit.make_iguess_2D`.
     Process it according to ``procs``.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     parameters : list or 2darray
         sequence of the parameters: u1, u2, fwhm1, fwhm2, I, b. Multiple components are allowed
     acqus : dict
@@ -4910,14 +4890,14 @@ def build_2D_sgn(parameters, acqus, N=None, procs=None):
     procs : dict
         2D-like procs dictionary.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     peak : 2darray
         rr part of the generated signal
     """
     parameters = np.array(parameters)
     if len(parameters.shape) == 1:
-        parameters = parameters.reshape(1,-1)
+        parameters = parameters.reshape(1, -1)
     # Get timescales from acqus
     t1 = np.copy(acqus['t1'])
     t2 = np.copy(acqus['t2'])
@@ -4931,13 +4911,14 @@ def build_2D_sgn(parameters, acqus, N=None, procs=None):
         signals.append(sgn)
     signal = np.sum(signals, axis=0)    # Sum the components
 
-    if procs is not None: # Process the data according to procs
+    if procs is not None:    # Process the data according to procs
         peak, *_ = processing.xfb(signal, wf=procs['wf'], zf=procs['zf'])
     else:
         peak, *_ = processing.xfb(signal, zf=N)     # Just zero-fill
 
     return peak
-#----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+
 
 class Voigt_Fit_2D:
     """
@@ -4951,8 +4932,8 @@ class Voigt_Fit_2D:
         """
         Initialize the class with ppm scales, experimental spectrum, acqus and procs dictionaries.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         ppm_f1 : 1darray
             ppm scale for the indirect dimension
         ppm_f2 : 1darray
@@ -4977,11 +4958,11 @@ class Voigt_Fit_2D:
         self.label_list = label_list
 
     def plot(self, name=None, show_exp=True, dpi=600, **kwargs):
-        """ 
+        """
         Draw a plot of the guessed/fitted peaks.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         name : str or None
             Filename for the figure. If it is None, the figure is shown.
         show_exp : bool
@@ -4998,10 +4979,10 @@ class Voigt_Fit_2D:
         # Make the figure
         fig = plt.figure('Fit')
         fig.set_size_inches(figures.figsize_large)
-        ax = fig.add_subplot(1,1,1)
+        ax = fig.add_subplot()
         if 'cmap' in kwargs.keys():
             kwargs.pop('cmap')
-            
+
         if show_exp:
             if 'lvl' in kwargs.keys():
                 l_E = kwargs['lvl']
@@ -5045,8 +5026,8 @@ class Voigt_Fit_2D:
         """
         Draw crossmarks and peak labels on a figure.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         ax : matplotlib.Subplot object
             Subplot where to plot the crossmarks and the labels.
         label_list : list
@@ -5075,8 +5056,8 @@ class Voigt_Fit_2D:
         Performs peak_picking by calling fit.peak_pick.
         Saves the list of peak positions in the attribute coord
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         coord_filename : str
             Path to the file where to save the peak coordinates
         """
@@ -5086,8 +5067,8 @@ class Voigt_Fit_2D:
         """
         Read the values from the coord filename and save them into the attribute "coord".
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         coord_filename : str
             Path to the file to be read
         """
@@ -5099,11 +5080,11 @@ class Voigt_Fit_2D:
         for k, line in enumerate(R):
             if line[0] == '#' or line.isspace():    # Skip comments and empty lines
                 continue
-            else:   
-                x, y = eval(line.split('\t',2)[1].strip('\n'))  # second and third column
+            else:
+                x, y = eval(line.split('\t', 2)[1].strip('\n'))  # second and third column
                 coord.append([x, y])
-                if len(line.split('\t',2)) > 2: # If there is the label
-                    label = line.split("\t",2)[-1].strip("\n")
+                if len(line.split('\t', 2)) > 2:  # If there is the label
+                    label = line.split("\t", 2)[-1].strip("\n")
                     if not label.isspace():
                         label_list.append(f'{label}')
         # Store coord into the attribute coord
@@ -5121,8 +5102,8 @@ class Voigt_Fit_2D:
         """
         Makes a figure with the experimental dataset and the peak-picked signals as crosshairs.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         filename : str or None
             Filename for the figure to be saved. If None, it is shown instead.
         labelsize : float
@@ -5137,20 +5118,19 @@ class Voigt_Fit_2D:
 
         fig = plt.figure('Picked Peaks')
         fig.set_size_inches(figures.figsize_large)
-        ax = fig.add_subplot(1,1,1)
+        ax = fig.add_subplot()
 
         figures.ax2D(ax, self.ppm_f2, self.ppm_f1, self.data, **kwargs)
         self.draw_crossmarks(self.coord, ax, label_list=self.label_list, markersize=5, labelsize=labelsize, markercolor='tab:blue', labelcolor='b')
-        
-        ax.set_xlabel(r'$\delta$ '+f'{misc.nuc_format(self.acqus["nuc2"])}'+ r' /ppm')
-        ax.set_ylabel(r'$\delta$ '+f'{misc.nuc_format(self.acqus["nuc1"])}'+ r' /ppm')
+
+        ax.set_xlabel(r'$\delta$ '+f'{misc.nuc_format(self.acqus["nuc2"])}' + r' /ppm')
+        ax.set_ylabel(r'$\delta$ '+f'{misc.nuc_format(self.acqus["nuc1"])}' + r' /ppm')
         misc.set_fontsizes(ax, 14)
         if filename is None:
             plt.show()
         else:
             plt.savefig(f'{filename}.{ext}', dpi=dpi)
         plt.close()
-
 
     @cron
     def make_peaks(self, idx, V):
@@ -5159,8 +5139,8 @@ class Voigt_Fit_2D:
         The array of indexes is required in order to recognize the different components that contribute to a single peak.
         The attribute peaks of the class will be cleared and updated.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         idx: 1darray
             Array of indexes of the peaks.
         V: list or 2darray
@@ -5177,34 +5157,33 @@ class Voigt_Fit_2D:
         print('Calculation of the peaks from the input file.\nThis might take a while...')
         for k in range(n_sgn):
             peak_index = k + 1  # Peak index
-            # Read the whole file, append only the parameters labelled with peak_index 
+            # Read the whole file, append only the parameters labelled with peak_index
             tmp_par = [V[k] for k in range(n_sgn) if idx[k] == peak_index]
             if len(tmp_par) == 0:   # No peaks found -> skip
                 del tmp_par
                 continue
             # Compute the signal and put it into peaks
             self.peaks.append(fit.build_2D_sgn(tmp_par, self.acqus, N=(len(self.ppm_f1), len(self.ppm_f2)), procs=self.procs))
-            del tmp_par # Clear memory
-        print('Done.', end=' ') # remove \n so that the runtime is shown in the same line
-
+            del tmp_par  # Clear memory
+        print('Done.', end=' ')  # remove \n so that the runtime is shown in the same line
 
     def load_iguess(self, filename='peaks.inp'):
         """
         Reads the initial guess file with the parameters of the peaks, separates the values and stores them into attributes.
-        In particular: 
+        In particular:
 
-            * idx will contain the peak index (first column of the file), 
+            * idx will contain the peak index (first column of the file),
             * Vi will contain [u1, u2, fwhm1, fwhm2, Im, b] for each peak,
             * Wi will contain the fitting interval as ( (L_f1, R_f1), (L_f2, R_f2) )
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         filename : str
             Path to the input file to be read
         """
 
         # Safety check: if filename does exist
-        if os.path.exists(filename): # open the file and reads the lines,
+        if os.path.exists(filename):    # open the file and reads the lines,
             f = open(filename, 'r')
             R = f.readlines()
         else:   # raises error
@@ -5218,7 +5197,7 @@ class Voigt_Fit_2D:
         for k, line in enumerate(R):    # Loop on the lines of the file
             if line[0] == r'#' or line.isspace():
                 continue    # Skip empty lines and comments
-            index, values, fit_interval = self._read_par_line(line)   
+            index, values, fit_interval = self._read_par_line(line)
             self.idx.append(index)
             self.Vi.append(values)
             self.Wi.append(fit_interval)
@@ -5229,20 +5208,20 @@ class Voigt_Fit_2D:
         """
         Reads the file with the parameters of the fitted peaks, separates the values and stores them into attributes.
         Then, uses these values to compute the peaks and save them into self.peaks.
-        In particular: 
+        In particular:
 
-            * idx will contain the peak index (first column of the file), 
+            * idx will contain the peak index (first column of the file),
             * Vf will contain [u1, u2, fwhm1, fwhm2, Im, b] for each peak,
             * Wf will contain the fitting interval as ( (L_f1, R_f1), (L_f2, R_f2) )
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         filename: str
             Path to the input file to be read
         """
 
         # Safety check: if filename does exist
-        if os.path.exists(filename): # open the file and reads the lines,
+        if os.path.exists(filename):     # open the file and reads the lines,
             f = open(filename, 'r')
             R = f.readlines()
         else:   # raises error
@@ -5256,7 +5235,7 @@ class Voigt_Fit_2D:
         for k, line in enumerate(R):    # Loop on the lines of the file
             if line[0] == r'#' or line.isspace():
                 continue    # Skip empty lines and comments
-            index, values, fit_interval = self._read_par_line(line)   
+            index, values, fit_interval = self._read_par_line(line)
             self.idx.append(index)
             self.Vf.append(values)
             self.Wf.append(fit_interval)
@@ -5267,12 +5246,12 @@ class Voigt_Fit_2D:
         """
         Make the initial guess for all the peaks.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         filename : str
             Path to the file where the peak parameters will be written
         start_index : int
-            Index of the first peak to be guessed. 
+            Index of the first peak to be guessed.
         only_edit : sequence of ints or None
             Index of the peak that have to be guessed interactively. The ones that do not appear here are guessed automatically.
         fwhm0 : float
@@ -5291,21 +5270,22 @@ class Voigt_Fit_2D:
             interval = lim_f1, lim_f2
             # Parameters
             parameters = [[   # u1, u2, fwhm1, fwhm2, k*A, b
-                misc.ppm2freq(u1, acqus['SFO1'], acqus['o1p']), # v1 /Hz
-                misc.ppm2freq(u2, acqus['SFO2'], acqus['o2p']), # v2 /Hz
+                misc.ppm2freq(u1, acqus['SFO1'], acqus['o1p']),  # v1 /Hz
+                misc.ppm2freq(u2, acqus['SFO2'], acqus['o2p']),  # v2 /Hz
                 fwhm0,  # fwhm1 /Hz
                 fwhm0,  # fwhm2 /Hz
                 1,     # I
                 0.5,    # b
-                ]] 
+                ]]
             # Integral
             A0 = np.max(self.data) / np.prod(self.data.shape)**0.5
             parameters[0][-2] = A0
-            
-            return parameters, interval
-        #-------------------------------------------------------------------------------
 
-        if os.path.exists(filename) and overwrite is False:    # append next peaks 
+            return parameters, interval
+
+        # -------------------------------------------------------------------------------
+
+        if os.path.exists(filename) and overwrite is False:    # append next peaks
             f = open(filename, 'a', buffering=1)
         else:   # create a new file
             f = open(filename, 'w', buffering=1)
@@ -5315,8 +5295,8 @@ class Voigt_Fit_2D:
         def extract(coord):
             """ Generator: yields the chemical shifts and the traces onto which to loop """
             for x, y in coord:   # u2, u1
-                tr1 = anal.get_trace(self.data, self.ppm_f2, self.ppm_f1, x, column=True)  # F1 @ u2 ppm
-                tr2 = anal.get_trace(self.data, self.ppm_f2, self.ppm_f1, y, column=False) # F2 @ u1 ppm
+                tr1 = anal.get_trace(self.data, self.ppm_f2, self.ppm_f1, x, column=True)   # F1 @ u2 ppm
+                tr2 = anal.get_trace(self.data, self.ppm_f2, self.ppm_f1, y, column=False)   # F2 @ u1 ppm
                 yield (y, tr1), (x, tr2)    # (u1, f1), (u2, f2)
         peaks_coord = extract(self.coord)   # Call the generator
 
@@ -5343,7 +5323,7 @@ class Voigt_Fit_2D:
 
             for values in parameters:   # Write the parameters
                 self._write_par_line(f, self.acqus, peak_index, values, interval_f1=interval[0], interval_f2=interval[1])
-            peak_index += 1 # Increment the peak index
+            peak_index += 1  # Increment the peak index
         print('')
 
     def fit(self, filename='fit.out', overwrite=False, start_index=1, **fit_kws):
@@ -5372,7 +5352,7 @@ class Voigt_Fit_2D:
                 yield peak_index, tmp_par
         looped_values = values_loop(self.Vi, self.idx)  # Call the generator
 
-        if os.path.exists(filename) and overwrite is False:    # append next peaks 
+        if os.path.exists(filename) and overwrite is False:    # append next peaks
             f = open(filename, 'a', buffering=1)
         else:   # create a new file
             f = open(filename, 'w', buffering=1)
@@ -5380,8 +5360,8 @@ class Voigt_Fit_2D:
 
         # Loop for the fit
         for peak_index, peak_values in looped_values:
-            if use_logfile: # Redirect the standard output to the logfile
-                sys.stdout = open(fit_kws['logfile'], 'a', buffering=1) 
+            if use_logfile:  # Redirect the standard output to the logfile
+                sys.stdout = open(fit_kws['logfile'], 'a', buffering=1)
             print(f'Fitting peak {peak_index:4.0f} / {max(self.idx):4.0f}')
             if peak_index < start_index:    # Skip
                 continue
@@ -5389,7 +5369,9 @@ class Voigt_Fit_2D:
                 continue
             lim_f1, lim_f2 = self.Wi[peak_index-1]  # Get the window for the fit
             # Call the fit
-            fit_parameters = voigt_fit_2D(self.ppm_f2, self.ppm_f1, self.data, peak_values, lim_f1, lim_f2, self.acqus, N=(len(self.ppm_f1),len(self.ppm_f2)), procs=self.procs, **fit_kws)
+            fit_parameters = voigt_fit_2D(self.ppm_f2, self.ppm_f1, self.data, peak_values,
+                                          lim_f1, lim_f2, self.acqus, N=(len(self.ppm_f1), len(self.ppm_f2)),
+                                          procs=self.procs, **fit_kws)
             # Write the output in the new file
             for fit_values in fit_parameters:
                 self._write_par_line(f, self.acqus, peak_index, fit_values, interval_f1=lim_f1, interval_f2=lim_f2, conv_u=False)
@@ -5398,24 +5380,24 @@ class Voigt_Fit_2D:
         if use_logfile:
             sys.stdout = sys.__stdout__
 
-    ### PRIVATE METHODS
+    # PRIVATE METHODS
     def _write_head_line(self, f):
-        """ 
+        """
         Writes the header of the output file.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         f : TextIOWrapper
             writable file generated by open(filename, 'w'/'a')
         """
         f.write(f'{"#":<4s}\t{"clu":>4s}\t{"u1":>8s}\t{"u2":>8s}\t{"fwhm1":>8s}\t{"fwhm2":>8s}\t{"I":>8s}\t{"b":>8s}\t{"Fit. interv.":>20s}\n')
 
     def _write_par_line(self, f, acqus, index, clu, values, interval_f1=None, interval_f2=None, conv_u=True):
-        """ 
+        """
         Writes a line of parameters to the output file.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         f : TextIOWrapper
             writable file generated by open(filename, 'w'/'a')
         acqus : dict
@@ -5463,12 +5445,13 @@ class Voigt_Fit_2D:
         return index, clu, values, fit_interval
 
 
-#-------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------
 
 
 class CostFunc:
     r"""
-    Class that groups several ways to compute the target of the minimization in a fitting procedure. It includes the classic squared sum of the residuals, as well as some other non-quadratic cost functions.
+    Class that groups several ways to compute the target of the minimization in a fitting procedure.
+    It includes the classic squared sum of the residuals, as well as some other non-quadratic cost functions.
     Let `x` be the residuals and `s` the chosen threshold value. Then the objective value `R` is computed as:
 
     .. math::
@@ -5480,7 +5463,7 @@ class CostFunc:
     * Quadratic:
 
         .. math::
-            
+
             f(x) = x^2
 
     * Truncated Quadratic:
@@ -5537,8 +5520,8 @@ class CostFunc:
         * "atq": Asymmetric Truncated Quadratic
         * "ahuber": Asymmetric Huber function
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         method : str
             Label for the method selection
         s : float
@@ -5551,13 +5534,13 @@ class CostFunc:
         """
         Performs the selection of the method according to the identifier string.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         method : str
             Method label
 
-        Returns:
-        -----------
+        Returns
+        ----------
         f : function
             Selected model
         """
@@ -5578,13 +5561,13 @@ class CostFunc:
         """
         Computes the objective value according to the chosen method and the residuals array ``x``.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         x: 1darray
             Array of the residuals
 
-        Returns:
-        -----------
+        Returns
+        ----------
         R: 1darray
             Computed objective function to be given to a least-squares solver
         """
@@ -5593,7 +5576,7 @@ class CostFunc:
     @staticmethod
     def squared_sum(r, s=0):
         """ Quadratic everywhere """
-        return r 
+        return r
 
     @staticmethod
     def truncated_quadratic(r, s):
@@ -5614,7 +5597,7 @@ class CostFunc:
             if np.abs(x_i) < s:
                 pass
             else:
-                x[i] = np.sign(x_i) * ( 2*s*np.abs(x_i) - s**2 )**0.5
+                x[i] = np.sign(x_i) * (2*s*np.abs(x_i) - s**2)**0.5
         return x
 
     @staticmethod
@@ -5625,7 +5608,7 @@ class CostFunc:
             if x_i < s:
                 pass
             else:
-                x[i] = ( 2*s*x_i - s**2 )**0.5
+                x[i] = (2*s*x_i - s**2)**0.5
         return x
 
     @staticmethod
@@ -5645,15 +5628,15 @@ def lsp(y, x, n=5, w=None):
     Linear-System Polynomion
     Make a polynomial fit on the experimental data `y` by solving the linear system
 
-    .. math:: 
+    .. math::
 
         y = T c
 
     where `T` is the Vandermonde matrix of the x-scale and `c` is the set of coefficients that minimize the problem in the least-squares sense.
     It is also possible to make it weighted by using an array of weights ``w``.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     y : 1darray
         Experimental data
     x : 1darray
@@ -5663,8 +5646,8 @@ def lsp(y, x, n=5, w=None):
     w : 1darray
         Array of weights for the data. If None, the nonweighted approach is used
 
-    Returns:
-    -----------
+    Returns
+    ----------
     c : 1darray
         Set of minimized coefficients
     """
@@ -5676,7 +5659,7 @@ def lsp(y, x, n=5, w=None):
         # Pseudo-invert it
         Tpinv = np.linalg.pinv(T)
     else:
-        #Equivalent implementation to Tw = np.diag(w) @ T, but faster
+        # Equivalent implementation to Tw = np.diag(w) @ T, but faster
         Tw = T * w[:, None]
         Tpinv = np.linalg.pinv(Tw)
 
@@ -5685,19 +5668,17 @@ def lsp(y, x, n=5, w=None):
     return c
 
 
-
-
-
 def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
     """
     Fit the baseline of a spectrum with a low-order polynomion using a non-quadratic objective function.
 
-    Let ``y`` be an array of ``N`` points. The polynomion is generated on a normalized scale that goes from -1 to 1 in ``N`` steps, and the coefficients are initialized either from outside through the parameter ``c_i`` or with the ordinary least squares fit.
+    Let ``y`` be an array of ``N`` points. The polynomion is generated on a normalized scale that goes from -1 to 1 in ``N`` steps,
+    and the coefficients are initialized either from outside through the parameter ``c_i`` or with the ordinary least squares fit.
     Then, the guess is refined using the objective function of choice employing the trust-region reflective least-squares algorithm.
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     y : 1darray
         Experimental data
     n : int
@@ -5711,8 +5692,8 @@ def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
     itermax : int
         Number of maximum iterations
 
-    Returns:
-    -----------
+    Returns
+    ----------
     px : 1darray
         Fitted polynomion
     c : list
@@ -5722,8 +5703,8 @@ def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
         """
         Minimizer function.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         param : lmfit.Parameters object
             Parameters to be optimized
         y : 1darray
@@ -5749,8 +5730,8 @@ def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
         """
         Minimizer function.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         param : lmfit.Parameters object
             Parameters to be optimized
         y : 1darray
@@ -5789,13 +5770,13 @@ def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
     print('Done.')
 
     # Compute an intensity factor to decrease the weight on the fit procedure
-    I = fit.fit_int(np.abs(y), np.abs(px_iguess))[0]
-    s *= I      # Set absolute threshold values
-    c /= I      # Normalize the coefficients to I
-    
+    Int = fit.fit_int(np.abs(y), np.abs(px_iguess))[0]
+    s *= Int      # Set absolute threshold values
+    c /= Int      # Normalize the coefficients to I
+
     # Generate the parameters for the fit
-    param = l.Parameters()
-    param.add('I', value=I, vary=False) # Just to keep track of it
+    param = lmfit.Parameters()
+    param.add('I', value=Int, vary=False)    # Just to keep track of it
 
     for k in range(n):
         param.add(f'c_{k}', value=c[k].real)
@@ -5809,7 +5790,7 @@ def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
         f2min = f2min_cplx
     else:
         f2min = f2min_real
-    minner = l.Minimizer(f2min, param, fcn_args=(y, x, n, R))
+    minner = lmfit.Minimizer(f2min, param, fcn_args=(y, x, n, R))
     result = minner.minimize(method='least_squares', max_nfev=int(itermax), gtol=1e-15)
     print(f'The fit has ended. {result.message}.\nNumber of function evaluations: {result.nfev}')
 
@@ -5818,7 +5799,7 @@ def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
 
     # Make a list of the fitted coefficients from the dictionary
     if cplx:
-        c_opt = [popt['I'] * ( popt[f'c_{k}'] + 1j*popt[f'c_{k}'] ) for k in range(n)]
+        c_opt = [popt['I'] * (popt[f'c_{k}'] + 1j*popt[f'c_{k}']) for k in range(n)]
     else:
         c_opt = [popt['I'] * popt[f'c_{k}'] for k in range(n)]
     # Build the polynomion with them
@@ -5855,8 +5836,8 @@ class SINC_ObjFunc:
         """
         Initialize the coefficients used to weigh the objective function.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         gamma1 : float
             Weighting factor for function g1
         gamma2 : float
@@ -5887,14 +5868,13 @@ class SINC_ObjFunc:
         f = self.gamma1 * g1 + self.gamma2 * g2 + self.gamma3 * g3
         return f
 
-
     @staticmethod
     def g1(d, e1=0):
-        """ 
+        """
         Penalty function for negative entries of the spectrum
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         d : 1darray
             Spectrum
         e1 : float
@@ -5911,8 +5891,8 @@ class SINC_ObjFunc:
         """
         Regularization function that favours the smallest integral.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         d : 1darray
             Spectrum
         e2 : float
@@ -5929,8 +5909,8 @@ class SINC_ObjFunc:
         """
         Regularization function for the smoothing.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         d : 1darray
             Spectrum
         """
@@ -5944,8 +5924,8 @@ def sinc_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
     Perform automatic phase correction according to the SINC algorithm, as described in M. Sawall et. al., Journal of Magnetic Resonance 289 (2018), 132–141.
     The fitting method defaults to "least_squares".
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : 1darray
         Spectrum to phase-correct
     gamma1 : float
@@ -5961,8 +5941,8 @@ def sinc_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
     fit_kws : keyworded arguments
         additional parameters for the fit function. See :func:`lmfit.Minimizer.minimize` for details. Do not use "leastsq" because the cost function returns a scalar value!
 
-    Returns:
-    -----------
+    Returns
+    ----------
     p0 : float
         Fitted zero-order phase correction angle, in degrees
     p1 : float
@@ -5993,7 +5973,7 @@ def sinc_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
     d = np.copy(data)
 
     # Create the Parameters object
-    param = l.Parameters()
+    param = lmfit.Parameters()
     param.add('p0', value=0, min=-180, max=180)
     param.add('p1', value=0, min=-720, max=720)
 
@@ -6002,7 +5982,7 @@ def sinc_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
 
     # Minimize using the method of choice. "leastsq" not accepted!
     print('Starting phase correction...')
-    minner = l.Minimizer(f2min, param, fcn_args=(d, R))
+    minner = lmfit.Minimizer(f2min, param, fcn_args=(d, R))
     result = minner.minimize(**fit_kws)
     print(f'The fit has ended. {result.message}.\nNumber of function evaluations: {result.nfev}')
     popt = result.params.valuesdict()
@@ -6010,13 +5990,12 @@ def sinc_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
     return popt['p0'], popt['p1']
 
 
-
 def write_vf_P2D(filename, peaks, lims, prev=0):
     """
     Write a section in a fit report file, which shows the fitting region and the parameters of the peaks to feed into a Voigt lineshape model.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     filename : str
         Path to the file to be written
     peaks : list of dict
@@ -6066,20 +6045,22 @@ def write_vf_P2D(filename, peaks, lims, prev=0):
     f.write('='*96+'\n\n')
     f.close()
 
+
 def read_vf_P2D(filename, n=-1):
     """
     Reads a .ivf (initial guess) or .fvf (final fit) file, containing the parameters for a lineshape deconvolution fitting procedure.
-    The file is separated and unpacked into a list of list of dictionaries, each of which contains the limits of the fitting window, and a dictionary for each peak with the characteristic values to compute it with a Voigt line.
+    The file is separated and unpacked into a list of list of dictionaries, each of which contains the limits of the fitting window,
+    and a dictionary for each peak with the characteristic values to compute it with a Voigt line.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     filename : str
         Path to the filename to be read
     n : int
         Number of performed fit to be read. Default: last one. The breakpoints are lines that start with "!". For this reason, n=0 returns an empty dictionary, hence the first fit is n=1.
 
-    Returns:
-    -----------
+    Returns
+    ----------
     regions : list of list of dict
         List of dictionaries for running the fit.
     """
@@ -6090,7 +6071,7 @@ def read_vf_P2D(filename, n=-1):
         # Separate the lines and remove the empty ones
         R = R.split('\n')
         for k, r in enumerate(R):
-            if len(r)==0 or r.isspace():
+            if len(r) == 0 or r.isspace():
                 _ = R.pop(k)
 
         n_bp = 0        # Number of breaking points (----)
@@ -6103,11 +6084,11 @@ def read_vf_P2D(filename, n=-1):
                 continue
 
             if n_bp == 1 and k_bp == k-1:   # First section: region limits and total intensity
-                line = r.split(';') # Separate the values
-                dic_r['limits'] = eval(line[0].replace(':',', '))   # Get the limits
+                line = r.split(';')  # Separate the values
+                dic_r['limits'] = eval(line[0].replace(':', ', '))   # Get the limits
 
             if n_bp == 2:       # Second section: peak parameters
-                line = r.split(';') # Separate the values
+                line = r.split(';')  # Separate the values
                 # Unpack the line
                 idx, u, fwhm, phi, b, group = [eval(w) for w in line]
                 # Put the values in a dictionary
@@ -6125,7 +6106,7 @@ def read_vf_P2D(filename, n=-1):
             # Skip n_bp == 3 because it is the end of section 2
 
             if n_bp == 4:       # Third section: intensity values for all the peaks for each experiment
-                line = r.split(';') # Separate the values
+                line = r.split(';')  # Separate the values
                 if flag:    # Create the final dictionary to be returned and turn off the flag
                     dic_rr = [deepcopy(dic_r) for q in range(len(line)-1)]
                     flag = False
@@ -6135,7 +6116,7 @@ def read_vf_P2D(filename, n=-1):
                 idx = int(eval_line[0])     # index of the peak
                 Ks = eval_line[1:]          # Intensity, each for each experiment
                 for q, K in enumerate(Ks):
-                    dic_rr[q][idx]['k'] = K # Overwrite the intensities
+                    dic_rr[q][idx]['k'] = K  # Overwrite the intensities
 
             if n_bp == 5:   # End of file: stop reading
                 break
@@ -6155,10 +6136,9 @@ def read_vf_P2D(filename, n=-1):
             _ = R.pop(k)
 
     regions = []    # Placeholder for return values
-    for r in R: # Loop on the big sections to read them
+    for r in R:  # Loop on the big sections to read them
         regions.append(read_region(r))
     return regions
-
 
 
 def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
@@ -6170,10 +6150,12 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     Then, use the "+" button to add components to the spectrum. The black column of text under the textbox will be colored with the same color of the active peak.
     Use the mouse scroll to adjust the parameters of the active peak. Write a number in the "Group" textbox to mark the components of the same multiplet.
     Group 0 identifies independent peaks, not part of a multiplet (default).
-    The sensitivity of the mouse scroll can be regulated using the "up arrow" and "down arrow" buttons. 
+    The sensitivity of the mouse scroll can be regulated using the "up arrow" and "down arrow" buttons.
     The active peak can be changed in any moment using the slider.
 
-    When you are satisfied with your fit, press "SAVE" to write the information in the output file. Then, the GUI is brought back to the initial situation, and the region you were working on will be marked with a green rectangle. You can repeat the procedure as many times as you wish, to prepare the guess on multiple spectral windows.
+    When you are satisfied with your fit, press "SAVE" to write the information in the output file.
+    Then, the GUI is brought back to the initial situation, and the region you were working on will be marked with a green rectangle.
+    You can repeat the procedure as many times as you wish, to prepare the guess on multiple spectral windows.
 
     Keyboard shortcuts:
 
@@ -6187,8 +6169,8 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     * "change component, backward": 'page down'
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     S_in : 1darray
         Experimental spectrum
     ppm_scale : 1darray
@@ -6205,21 +6187,21 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
         Path to the filename where to save the information. The '.ivf' extension is added automatically.
     """
 
-    #-----------------------------------------------------------------------
-    ## USEFUL STRUCTURES
+    # -----------------------------------------------------------------------
+    # USEFUL STRUCTURES
     def rename_dic(dic, Np):
         """
         Change the keys of a dictionary with a sequence of increasing numbers, starting from 1.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         dic : dict
             Dictionary to edit
         Np : int
             Number of peaks, i.e. the sequence goes from 1 to Np
 
-        Returns:
-        -----------
+        Returns
+        ----------
         new_dic : dict
             Dictionary with the changed keys
         """
@@ -6237,13 +6219,13 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
         Calculate the sum trace from a collection of peaks stored in a dictionary.
         If the dictionary is empty, returns an array of zeros.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         peaks : dict
             Components
 
-        Returns:
-        -----------
+        Returns
+        ----------
         total : 1darray
             Sum spectrum
         """
@@ -6255,13 +6237,13 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
         else:
             return np.zeros_like(ppm_scale)
 
-    #-------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------
 
     # Initial figure
     fig = plt.figure('Manual Computation of Initial Guess - Pseudo2D')
-    fig.set_size_inches(15,8)
+    fig.set_size_inches(15, 8)
     plt.subplots_adjust(bottom=0.10, top=0.90, left=0.05, right=0.65)
-    ax = fig.add_subplot(1,1,1)
+    ax = fig.add_subplot()
 
     # Write the info on the file
     with open(f'{filename}.ivf', 'a', buffering=1) as f:
@@ -6286,7 +6268,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
 
     # Set limits
     limits = [max(ppm_scale), min(ppm_scale)]
-    
+
     # Get point indices for the limits
     lim1 = misc.ppmfind(ppm_scale, limits[0])[0]
     lim2 = misc.ppmfind(ppm_scale, limits[1])[0]
@@ -6316,29 +6298,28 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     group_box = plt.axes([0.76, 0.40, 0.06, 0.04])      # Textbox for the group selection
     plus_box = plt.axes([0.894, 0.65, 0.08, 0.075])     # Add button
     minus_box = plt.axes([0.894, 0.55, 0.08, 0.075])    # Minus button
-    
+
     # Make widgets
     #   Buttons
-    up_button = Button(up_box, r'$\uparrow$', hovercolor = '0.975')    
-    down_button = Button(down_box, r'$\downarrow$', hovercolor = '0.975')
-    save_button = Button(save_box, 'SAVE', hovercolor = '0.975')
-    reset_button = Button(reset_box, 'RESET', hovercolor = '0.975')
+    up_button = Button(up_box, r'$\uparrow$', hovercolor='0.975')
+    down_button = Button(down_box, r'$\downarrow$', hovercolor='0.975')
+    save_button = Button(save_box, 'SAVE', hovercolor='0.975')
+    reset_button = Button(reset_box, 'RESET', hovercolor='0.975')
     plus_button = Button(plus_box, '$+$', hovercolor='0.975')
     minus_button = Button(minus_box, '$-$', hovercolor='0.975')
 
     #   Textbox
     group_tb = TextBox(group_box, 'Group', textalignment='center')
-    
+
     #   Radiobuttons
     peak_name = [r'$\delta$ /ppm', r'$\Gamma$ /Hz', '$k$', '$x_{g}$', r'$\phi$', '$A$']
     peak_radio = RadioButtons(peak_box, peak_name, activecolor='tab:blue')      # Signal parameters
-    
+
     #   Slider
     slider = Slider(ax=slider_box, label='Active\nSignal', valmin=0, valmax=1-1e-3, valinit=0, valstep=1e-10, orientation='vertical', color='tab:blue')
 
-
-    #-------------------------------------------------------------------------------
-    ## SLOTS
+    # -------------------------------------------------------------------------------
+    # SLOTS
 
     def redraw():
         misc.pretty_scale(ax, ax.get_xlim(), 'x')
@@ -6352,7 +6333,6 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
 
     def up_sens(event):
         """ Doubles sensitivity of active parameter """
-        nonlocal sens
         active = peak_name.index(peak_radio.value_selected)
         param = list(sens.keys())[active]
         sens[param] *= 2
@@ -6360,7 +6340,6 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
 
     def down_sens(event):
         """ Halves sensitivity of active parameter """
-        nonlocal sens
         active = peak_name.index(peak_radio.value_selected)
         param = list(sens.keys())[active]
         sens[param] /= 2
@@ -6372,7 +6351,6 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
             nonlocal A
             A += sens['A']
         else:
-            nonlocal peaks
             peaks[idx].__dict__[param] += sens[param]
             # Make safety check for b
             if peaks[idx].b > 1:
@@ -6384,7 +6362,6 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
             nonlocal A
             A -= sens['A']
         else:
-            nonlocal peaks
             peaks[idx].__dict__[param] -= sens[param]
             # Safety check for fwhm
             if peaks[idx].fwhm < 0:
@@ -6395,7 +6372,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
 
     def scroll(event):
         """ Connection to mouse scroll """
-        if Np == 0: # No peaks!
+        if Np == 0:  # No peaks!
             return
         # Get the active parameter and convert it into Peak's attribute
         active = peak_name.index(peak_radio.value_selected)
@@ -6444,7 +6421,6 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
 
     def set_group(text):
         """ Set the attribute 'group' of the active signal according to the textbox """
-        nonlocal peaks
         if not Np:  # Clear the textbox and do nothing more
             group_tb.text_disp.set_text('')
             plt.draw()
@@ -6453,7 +6429,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
         idx = int(np.floor(slider.val * Np) + 1)
         try:
             group = int(eval(text))
-        except:
+        except Exception:
             group = peaks[idx].group
         group_tb.text_disp.set_text('')
         peaks[idx].group = group
@@ -6492,7 +6468,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
 
     def reset(event):
         """ Return everything to default """
-        nonlocal Np, peaks, p_sgn, A, sens
+        nonlocal A, sens
         Q = Np
         for k in range(Q):
             remove_peak(event)
@@ -6504,15 +6480,15 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
 
     def add_peak(event):
         """ Add a component """
-        nonlocal Np, peaks, p_sgn
+        nonlocal Np
         # Increase the number of peaks
-        Np += 1 
+        Np += 1
         # Add an entry to the dictionary labelled as last
         peaks[Np] = fit.Peak(acqus, u=np.mean(ax.get_xlim()), N=N, group=lastgroup)
         # Plot it and add the trace to the plot dictionary
         p_sgn[Np] = ax.plot(ppm_scale[lim1:lim2], peaks[Np](A)[lim1:lim2], lw=0.8)[-1]
         # Move the slider to the position of the new peak
-        slider.set_val( (Np - 1) / Np )
+        slider.set_val((Np - 1) / Np)
         # Recompute the step of the slider
         slider.valstep = 1 / Np
         # Calculate the total trace with the new peak
@@ -6547,7 +6523,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
         # Update the total trace plot
         p_fit.set_ydata(total[lim1:lim2])
         # Change the slider position
-        if Np == 0: # to zero and do not make it move
+        if Np == 0:  # to zero and do not make it move
             slider.set_val(0)
             slider.valstep = 1e-10
             write_par(0)
@@ -6559,7 +6535,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
             if idx == 1:
                 slider.set_val(0)
             else:
-                slider.set_val( (idx - 2) / Np)     # (idx - 1) -1
+                slider.set_val((idx - 2) / Np)     # (idx - 1) -1
             slider.valstep = 1 / Np
             write_par(int(np.floor(slider.val * Np) + 1))
         redraw()
@@ -6572,37 +6548,36 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
             peak.k *= A
         write_vf_P2D(f'{filename}.ivf', [peaks for w in range(n_exp)], ax.get_xlim(), prev)
         prev += len(peaks)
-        
+
         # Mark a region as "fitted" with a green box
         ax.axvspan(*ax.get_xlim(), color='tab:green', alpha=0.1)
         # Call reset to return at the initial situation
         reset(event)
 
-    #-------------------------------------------------------------------------------
-
+    # -------------------------------------------------------------------------------
 
     ax.plot(ppm_scale[lim1:lim2], S[lim1:lim2], label='Experimental', lw=1.0, c='k')  # experimental
     p_fit = ax.plot(ppm_scale[lim1:lim2], np.zeros_like(S)[lim1:lim2], label='Fit', lw=0.9, c='b')[-1]  # Total trace
     p_sgn = {}  # Components
-    
+
     # Header for current values print
-    head_print = ax.text(0.75, 0.35, 
-            '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}\n{:>7}'.format(
-                r'$\delta$', r'$\Gamma$', '$k$', r'$\beta$', 'Phase', '$A$', 'Group'),
-            ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5)
+    head_print = ax.text(0.75, 0.35,
+                         '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}\n{:>7}'.format(
+                             r'$\delta$', r'$\Gamma$', '$k$', r'$\beta$', 'Phase', '$A$', 'Group'),
+                         ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5)
     # Text placeholder for the values - linspacing is different to align with the header
     values_print = ax.text(0.85, 0.35, '',
-            ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.55)
+                           ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.55)
     # Text to display the active sensitivity values
     sens_print = ax.text(0.875, 0.775, f'Sensitivity: $\\pm${sens["u"]:10.4g}',
-            ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
+                         ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
     # Text to remind keyboard shortcuts
     t_uparrow = r'$\uparrow$'
     t_downarrow = r'$\downarrow$'
     keyboard_text = '\n'.join([
         f'{"KEYBOARD SHORTCUTS":^50s}',
         f'{"Key":>5s}: Action',
-        f'-'*50,
+        '-'*50,
         f'{"<":>5s}: Decrease sens.',
         f'{">":>5s}: Increase sens.',
         f'{"+":>5s}: Add component',
@@ -6611,13 +6586,13 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
         f'{"Pg"+t_downarrow:>5s}: Change component, down',
         f'{t_uparrow:>5s}: Increase value',
         f'{t_downarrow:>5s}: Decrease value',
-        f'-'*50,
+        '-'*50,
         ])
-    keyboard_print = ax.text(0.86, 0.025, keyboard_text, 
+    ax.text(0.86, 0.025, keyboard_text,
             ha='left', va='bottom', transform=fig.transFigure, fontsize=8, linespacing=1.55)
 
     # make pretty scales
-    ax.set_xlim(max(limits[0],limits[1]),min(limits[0],limits[1]))
+    ax.set_xlim(max(limits[0], limits[1]), min(limits[0], limits[1]))
     misc.pretty_scale(ax, ax.get_xlim(), axis='x', n_major_ticks=10)
     misc.pretty_scale(ax, ax.get_ylim(), axis='y', n_major_ticks=10)
     misc.mathformat(ax)
@@ -6645,14 +6620,15 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
 
 def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='png', dpi=600):
     """
-    Plots either the initial guess or the result of the fit, and saves all the figures. 
+    Plots either the initial guess or the result of the fit, and saves all the figures.
     A new folder named <filename>_fit will be created.
-    The figure `<filename>_full` will show the whole model and the whole spectrum. 
+    The figure `<filename>_full` will show the whole model and the whole spectrum.
     The figures labelled with `_R<k>` will depict a detail of the fit in the k-th fitting region.
-    Optional labels for the components can be given: in this case, the structure of ``labels`` should match the structure of ``regions``. This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
+    Optional labels for the components can be given: in this case, the structure of ``labels`` should match the structure of ``regions``.
+    This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     S : 2darray
         Spectrum to be fitted
     ppm_scale : 1darray
@@ -6690,15 +6666,15 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
         Calculates the sum trace from a collection of peaks stored in a dictionary.
         If the dictionary is empty, returns an array of zeros.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         peaks: dict
             Components
         A: float
             Absolute intensity
 
-        Returns:
-        -----------
+        Returns
+        ----------
         total: 1darray
             Sum spectrum
         """
@@ -6714,20 +6690,18 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
     # Try to create the new directory for the figures
     try:
         os.mkdir(f'{filename}_fit')
-    except:
+    except Exception:
         pass
     finally:
         # Update the filename for the figures by including the new directory
-        filename = os.path.join(filename+f'_fit', filename)
+        filename = os.path.join(filename+'_fit', filename)
     print('Saving figures...')
     # Shallow copy of the real part of the experimental spectrum
     S_r = np.copy(S.real)
-    N = S_r.shape[-1]       # For (eventual) zero-filling
     # Make the acqus dictionary to be fed into the fit.Peak objects
-    acqus = { 't1': t_AQ, 'SFO1': SFO1, 'o1p': o1p, }
+    acqus = {'t1': t_AQ, 'SFO1': SFO1, 'o1p': o1p, }
 
-
-    ## Single regions
+    # Single regions
     # Loop on the regions
     for k, region in enumerate(regions):
         # Get limits from the dictionary
@@ -6750,10 +6724,10 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
                 fit_peaks[j][key] = fit.Peak(acqus, N=S.shape[-1], **peakval)
             # Get the arrays from the dictionary and put them in the list
             list_signals.append([p() for _, p in fit_peaks[j].items()])
-        signals.extend(list_signals) # Dimensions (n. experiments, n.peaks per experiment, n.points per experiment)
+        signals.extend(list_signals)     # Dimensions (n. experiments, n.peaks per experiment, n.points per experiment)
 
         # Compute the total trace
-        total = np.sum(signals, axis=1) # sum the peaks 
+        total = np.sum(signals, axis=1)  # sum the peaks
 
         # Trim the ppm scale according to the fitting region
         t_ppm = ppm_scale[lims]
@@ -6772,15 +6746,15 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
             if show_total is True:  # Plot the total trace in blue
                 ax.plot(t_ppm, total[i, lims], c='b', lw=0.5, label='Fit')
 
-            for key, peak in zip(fit_peaks[i].keys(), signals[i]): # Plot the components
+            for key, peak in zip(fit_peaks[i].keys(), signals[i]):  # Plot the components
                 p_sgn, = ax.plot(t_ppm, peak[lims], lw=0.6, label=f'{key}')
                 if labels is not None:  # Set the custom label
                     p_sgn.set_label(labels[k][key-1])
 
             if show_res is True:    # Plot the residuals
                 # Compute the absolute value of the offset
-                r_off = min(S_r[i,lims]) + res_offset * (max(S_r[i,lims])-min(S_r[i,lims]))
-                ax.plot(t_ppm, (S_r - total)[i,lims] - r_off, c='g', ls=':', lw=0.6, label='Residuals')
+                r_off = min(S_r[i, lims]) + res_offset * (max(S_r[i, lims])-min(S_r[i, lims]))
+                ax.plot(t_ppm, (S_r - total)[i, lims] - r_off, c='g', ls=':', lw=0.6, label='Residuals')
 
             # Visual adjustments
             ax.set_xlabel(X_label)
@@ -6795,7 +6769,7 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
             plt.close()
             continue
 
-    ## Total
+    # Total
     # One figure per experiment
     for i, _ in enumerate(S):
         # Make the figure
@@ -6803,15 +6777,13 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
         fig.set_size_inches(figures.figsize_large)
         ax = fig.add_subplot()
         plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)
-        # Residuals
-        R = S_r - total
         # Plot the experimental dataset
         ax.plot(ppm_scale, S_r[i], c='k', lw=1, label='Experimental')
-        
+
         if show_total is True:  # Plot the total trace
             ax.plot(ppm_scale, total[i], c='b', lw=0.5, label='Fit', zorder=2)
 
-        for key, peak in zip(fit_peaks[i].keys(), signals[i]): # Plot the components
+        for key, peak in zip(fit_peaks[i].keys(), signals[i]):   # Plot the components
             p_sgn, = ax.plot(ppm_scale, peak, lw=0.6, label=f'{key}')
             if labels is not None:  # Set the custom label
                 p_sgn.set_label(labels[k][key-1])
@@ -6830,10 +6802,6 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
     print('Done.')
 
 
-
-
-
-
 def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_b=False, itermax=10000, filename='fit'):
     """
     Performs a lineshape deconvolution fit on a pseudo-2D experiment using a Voigt model.
@@ -6841,8 +6809,8 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
     The fitting procedure operates iteratively one window at the time.
     During the fit routine, the peak positions and lineshapes will be varied consistently on all the experiments; only the intensities are allowed to change in a different way.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     S: 2darray
         Experimental spectrum
     ppm_scale: 1darray
@@ -6869,22 +6837,22 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
         Name of the file where the fitted values will be saved. The .fvf extension is added automatically
     """
 
-    ## USED FUNCTIONS
+    # USED FUNCTIONS
 
     def calc_total(list_peaks, A=1):
         """
         Calculates the sum trace from a collection of peaks stored in a dictionary.
         If the dictionary is empty, returns an array of zeros.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         peaks : dict
             Components
         A : float
             Absolute intensity
 
-        Returns:
-        -----------
+        Returns
+        ----------
         total : 1darray
             Sum spectrum
         """
@@ -6905,8 +6873,8 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
         The par dictionary keys must have keys of the form <parameter>_<idx>, where <parameter> is in [u, fwhm, k, 'b', 'phi'], and <idx> are the keys of the peaks dictionary.
         The intensity values of the peaks are stored as k_<idx>_<experiment>, where <experiment> is the associated trace of the pseudo-2D, starting from 1.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         peaks : dict
             Collection of fit.Peak objects
         par : dict
@@ -6914,8 +6882,8 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
         e_idx : int
             Number of experiment of which to change the intensity of the peak
 
-        Returns:
-        -----------
+        Returns
+        ----------
         peaks : dict
             Updated peaks dictionary with the new values
         """
@@ -6927,13 +6895,16 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
             peak.phi = par[f'phi_{idx}']
         return peaks
 
-    def f2min(param, S, fit_peaks, I, lims):
+    def f2min(param, S, fit_peaks, Int, lims):
         """
         Function that calculates the residual to be minimized in the least squares sense.
-        This function requires a set of pre-built fit.Peak objects, stored in a dictionary. The parameters of the peaks are replaced on this dictionary according to the values in the lmfit.Parameter object. At this point, the total trace is computed and the residual is returned as the difference between the experimental spectrum and the total trace, only in the region delimited by the "lims" tuple.
+        This function requires a set of pre-built fit.Peak objects, stored in a dictionary.
+        The parameters of the peaks are replaced on this dictionary according to the values in the lmfit.Parameter object.
+        At this point, the total trace is computed and the residual is returned as the difference between the experimental spectrum and the total trace,
+        only in the region delimited by the "lims" tuple.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         param : lmfit.Parameters object
             Usual lmfit stuff
         S : 2darray
@@ -6945,8 +6916,8 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
         lims : slice
             Trimming region corresponding to the fitting window, in points
 
-        Returns:
-        -----------
+        Returns
+        ----------
         residual : 1darray
             Experimental - calculated, in the fitting window, concatenated through all the experiments
         """
@@ -6962,7 +6933,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
             fit_peaks_up.append(peaks_up)
         # Compute the total trace and the residuals
         total = calc_total(fit_peaks_up, 1)
-        residual = np.concatenate([S[j,lims] / I[j] - total[j,lims] for j, _ in enumerate(fit_peaks_in)])
+        residual = np.concatenate([S[j, lims] / Int[j] - total[j, lims] for j, _ in enumerate(fit_peaks_in)])
 
         print(f'Step: {par["count"]:6.0f} | Target: {np.sum(residual**2):10.5e}', end='\r')
         return residual
@@ -6983,10 +6954,9 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
                     peaks.pop('limits')
             yield limits, peaklist
 
-
     # -----------------------------------------------------------------------------
     # Make the acqus dictionary to be fed into the fit.Peak objects
-    acqus = { 't1': t_AQ, 'SFO1': SFO1, 'o1p': o1p, }
+    acqus = {'t1': t_AQ, 'SFO1': SFO1, 'o1p': o1p, }
 
     N = S.shape[-1]     # Number of points of the spectrum
     Nr = len(regions)   # Number of regions to be fitted
@@ -7030,12 +7000,11 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
         # Compute the matching-intensity factors
         I_arr = []
         for j in range(S.shape[0]):
-            I_arr.append(fit.fit_int(S[j,lims], i_guess[j,lims])[0])
+            I_arr.append(fit.fit_int(S[j, lims], i_guess[j, lims])[0])
         I_arr = np.array(I_arr)
 
-
         # Make the lmfit.Parameters object
-        param = l.Parameters()
+        param = lmfit.Parameters()
         # Add the peaks' parameters to a lmfit Parameters object
         peak_keys = ['u', 'fwhm', 'k', 'b', 'phi']
 
@@ -7047,7 +7016,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
                 # Fill the Parameters object
                 for key in peak_keys:
                     if 'k' in key:  # add also the experiment index
-                        par_key = f'{key}{p_key}_{j+1}' 
+                        par_key = f'{key}{p_key}_{j+1}'
                     else:           # add only the parameter
                         par_key = f'{key}{p_key}'   # Add the parameter to the label
                     val = peak.par()[key]       # Get the value from the input dictionary
@@ -7056,7 +7025,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
                     # Set the limits for each parameter, and fix the ones that have not to be varied during the fit
                     if 'u' in key:  # u: [u-u_tol, u+u_tol]
                         param[par_key].set(min=val-u_tol, max=val+u_tol)
-                    elif 'fwhm' in key: # fwhm: [max(0, fwhm-f_tol), fwhm+f_tol] (avoid negative fwhm)
+                    elif 'fwhm' in key:  # fwhm: [max(0, fwhm-f_tol), fwhm+f_tol] (avoid negative fwhm)
                         param[par_key].set(min=max(0, val-f_tol), max=val+f_tol)
                     elif 'k' in key:    # k: [0, 2]
                         param[par_key].set(min=0, max=2)
@@ -7069,7 +7038,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
         @cron
         def start_fit():
             param.add('count', value=0, vary=False)
-            minner = l.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I_arr, lims))
+            minner = lmfit.Minimizer(f2min, param, fcn_args=(S, fit_peaks, I_arr, lims))
             result = minner.minimize(method='leastsq', max_nfev=int(itermax), xtol=1e-8, ftol=1e-8)
             print(f'{result.message} Number of function evaluations: {result.nfev}.')
             return result
@@ -7093,7 +7062,6 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
         prev += Np
 
 
-
 class Voigt_Fit_P2D:
     """
     This class offers an "interface" to fit a pseudo 2D NMR spectrum.
@@ -7111,7 +7079,7 @@ class Voigt_Fit_P2D:
     o1p  : float
         Pulse carrier frequency
     filename : str
-        Root of the names of the files that will be saved 
+        Root of the names of the files that will be saved
     X_label : str
         Label for the chemical shift axis in the figures
     i_guess : list
@@ -7124,8 +7092,8 @@ class Voigt_Fit_P2D:
         """
         Initialize the class with common values.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         ppm_scale : 1darray
             ppm scale of the spectrum
         S : 2darray
@@ -7151,15 +7119,15 @@ class Voigt_Fit_P2D:
             self.X_label = r'$\delta\,$ /ppm'
         elif isinstance(nuc, str):
             fnuc = misc.nuc_format(nuc)
-            self.X_label = r'$\delta$ ' + fnuc +' /ppm'
+            self.X_label = r'$\delta$ ' + fnuc + ' /ppm'
 
     def iguess(self, input_file=None, expno=0, n=-1,):
         """
         Reads, or computes, the initial guess for the fit.
         If the file is there already, it just reads it with fit.read_vf. Otherwise, it calls fit.make_iguess to make it.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         input_file : str or None
             Path to the input file. If None, "<self.filename>.ivf" is used
         expno : int
@@ -7186,8 +7154,8 @@ class Voigt_Fit_P2D:
         """
         Reads a file with fit.read_vf_P2D and stores the result in self.result.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         output_file : str
             Path to the .fvf file to be read. If None, "<self.filename>.fvf" is used.
         n : int
@@ -7211,8 +7179,8 @@ class Voigt_Fit_P2D:
         Perform a lineshape deconvolution fitting by calling ``fit.voigt_fit_P2D``.
         The initial guess is read from the attribute ``self.i_guess``.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         u_tol : float
             Determines the displacement of the chemical shift (in ppm) from the starting value.
         f_tol : float
@@ -7241,16 +7209,17 @@ class Voigt_Fit_P2D:
         # Store
         self.result = fit.read_vf_P2D(f'{filename}.fvf')
 
-
     def plot(self, what='result', show_total=True, show_res=False, res_offset=0, labels=None, filename=None, ext='png', dpi=600):
         """
         Plots either the initial guess or the result of the fit, and saves all the figures. Calls fit.plot_fit_P2D.
-        The figures <filename>_full will show the whole model and the whole spectrum. 
+        The figures <filename>_full will show the whole model and the whole spectrum.
         The figures labelled with _R<k> will depict a detail of the fit in the k-th fitting region.
-        Optional labels for the components can be given: in this case, the structure of 'labels' should match the structure of self.result (or self.i_guess). This means that the length of the outer list must be equal to the number of fitting region, and the length of the inner lists must be equal to the number of peaks in that region.
+        Optional labels for the components can be given: in this case, the structure of 'labels' should match the structure of self.result (or self.i_guess).
+        This means that the length of the outer list must be equal to the number of fitting region,
+        and the length of the inner lists must be equal to the number of peaks in that region.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         what : str
             'iguess' to plot the initial guess, 'result' to plot the fitted data
         show_total : bool
@@ -7275,27 +7244,29 @@ class Voigt_Fit_P2D:
             regions = deepcopy(self.result)
         else:
             raise ValueError('Specify what you want to plot: "iguess" or "result"')
-               
+
         # Set the filename, if not given
         if filename is None:
             filename = f'{self.filename}'
 
         # Make the figures
         S = np.copy(self.S.real)
-        fit.plot_fit_P2D(S, self.ppm_scale, regions, self.t_AQ, self.SFO1, self.o1p, show_total=show_total, show_res=show_res, res_offset=res_offset, X_label=self.X_label, labels=labels, filename=filename, ext=ext, dpi=dpi)
+        fit.plot_fit_P2D(S, self.ppm_scale, regions, self.t_AQ, self.SFO1, self.o1p, show_total=show_total,
+                         show_res=show_res, res_offset=res_offset, X_label=self.X_label, labels=labels,
+                         filename=filename, ext=ext, dpi=dpi)
 
     def get_fit_lines(self, what='result'):
         """
         Calculates the components, and the total fit curve used as initial guess, or as fit results..
         The components will be returned as a list, not split by region.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         what : str
-            'iguess' or 'result' 
+            'iguess' or 'result'
 
-        Returns:
-        -----------
+        Returns
+        ----------
         signals : list of list of 1darray
             Components used for the fit
         total : 2darray
@@ -7312,7 +7283,7 @@ class Voigt_Fit_P2D:
             raise ValueError('Specify what you want to plot: "iguess" or "result"')
 
         # Make the acqus dictionary for the fit.Peak objects
-        acqus = { 't1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
+        acqus = {'t1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
         # Placeholder
         signals = []
         limits_list = []
@@ -7335,22 +7306,21 @@ class Voigt_Fit_P2D:
                     fit_peaks[j][key] = fit.Peak(acqus, N=self.S.shape[-1], **peakval)
                 # Get the arrays from the dictionary and put them in the list
                 list_signals.append([p() for _, p in fit_peaks[j].items()])
-            signals.extend(list_signals) # Dimensions (n. experiments, n.peaks per experiment, n.points per experiment)
+            signals.extend(list_signals)     # Dimensions (n. experiments, n.peaks per experiment, n.points per experiment)
 
         # Compute the total trace
-        total = np.sum(signals, axis=1) # sum the peaks 
+        total = np.sum(signals, axis=1)  # sum the peaks
         return signals, total, limits_list
-
 
     def res_histogram(self, what='result', nbins=500, density=True, f_lims=None, xlabel='Residuals', x_symm=True, barcolor='tab:green', fontsize=20, filename=None, ext='png', dpi=300):
         """
         Computes the histogram of the residuals and saves it in the same folder of the fit figures.
         Employs fit.histogram to make the figure.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         what : str
-            'iguess' or 'result' 
+            'iguess' or 'result'
         nbins  : int
             number of bins to be calculated
         density  : bool
@@ -7377,11 +7347,11 @@ class Voigt_Fit_P2D:
             filename = f'{self.filename}'
         try:
             os.mkdir(f'{filename}_fit')
-        except:
+        except Exception:
             pass
         finally:
             # Update the filename for the figures by including the new directory
-            filename = os.path.join(filename+f'_fit', f'{filename}_rhist')
+            filename = os.path.join(filename+'_fit', f'{filename}_rhist')
 
         # Select the correct object
         if what == 'iguess':
@@ -7391,22 +7361,20 @@ class Voigt_Fit_P2D:
         else:
             raise ValueError('Specify what you want to plot: "iguess" or "result"')
 
-        # Make the acqus dictionary for the fit.Peak objects'
-        acqus = { 't1': self.t_AQ, 'SFO1': self.SFO1, 'o1p': self.o1p, }
-
         # Get the total function and the limits
         _, total, limits_list = self.get_fit_lines(what)
         # Convert the limits in points according to the ppm scale
-        limits_pt_list = [ [misc.ppmfind(self.ppm_scale, w)[0] for w in lims] for lims in limits_list ]
+        limits_pt_list = [[misc.ppmfind(self.ppm_scale, w)[0] for w in lims]
+                          for lims in limits_list]
 
         # Placeholders
         exp_trim, total_trim = [], []
         for k, region in enumerate(regions):        # loop on the regions
             # Compute the slice
             lims = slice(min(limits_pt_list[k]), max(limits_pt_list[k]))
-            # Trim the experimental data and the total 
-            exp_trim.append(self.S[...,lims].real)
-            total_trim.append(total[...,lims])
+            # Trim the experimental data and the total
+            exp_trim.append(self.S[..., lims].real)
+            total_trim.append(total[..., lims])
         # Sum on different regions
         exp_trim = np.sum(exp_trim, axis=0)
         total_trim = np.sum(total_trim, axis=0)
@@ -7416,6 +7384,3 @@ class Voigt_Fit_P2D:
         residual_arr = np.concatenate([r for r in residual], axis=-1)
 
         fit.histogram(residual_arr, nbins=nbins, density=density, f_lims=f_lims, xlabel=xlabel, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize, name=filename, ext=ext, dpi=dpi)
-
-
-

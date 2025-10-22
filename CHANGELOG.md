@@ -2,6 +2,7 @@
 
 Changed all the docstrings for configuration with sphinx.
 Replaced *pkg_resources* for reading the text files from the *tables* subdirectory with the builtin *importlib.resources.open_text*.
+Code cleanup and check with *flake8*.
 Minor bug fixes.
 Moved functions in a new module for analysis **anal**. All the calls of those functions were updated.
 
