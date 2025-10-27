@@ -1,3 +1,10 @@
+# Version 0.5a.2
+
+27/10/2025
+Modified *processing.hilbert* by adding the **axis** parameter.
+Modified *processing.hilbert2* to use the new *processing.hilbert*.
+Hotfix for *processing.abca*
+
 # Version 0.5a.1
 
 Changed all the docstrings for configuration with sphinx.
