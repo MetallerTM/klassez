@@ -14,7 +14,7 @@ Another option is to clone the `GitHub repository`_ and install the package with
 
 ::
 
-   git clone git@github.com:Metallertm/klassez.git
+   git clone git@github.com:MetallerTM/klassez.git
 
    cd klassez
    pip install .
