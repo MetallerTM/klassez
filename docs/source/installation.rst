@@ -1,7 +1,7 @@
 Installation
 ============
 
-KLASSEZ can be installed from PyPI through:
+*KLASSEZ* can be installed from PyPI through:
 
 ::
 
@@ -20,6 +20,54 @@ Another option is to clone the `GitHub repository`_ and install the package with
    pip install .
 
 The required dependencies are sorted out automatically in either case.
+
+
+A note on `matplotlib` backends
+-------------------------------
+
+*KLASSEZ* employs :mod:`matplotlib` for the GUIs needed to plot the spectra, adjust the phases, etc.
+In order for this functionality to work properly, it is required to set an appropriate backend able to render such interactive figures.
+
+It is recommended to use either ``qtagg`` (faster) or ``tkagg``. Although ``gtk4agg`` is a viable option, it is now deprecated and has some problems in the installation.
+``qtagg`` requires either the package :mod:`pyqt5` (or better, :mod:`pyqt6`) to work properly. 
+These requirements **are not set as mandatory** for the installation of *KLASSEZ*! The user must provide to the installation and to the set of the appropriate backend by themself.
+
+Here follows the instructions on how to set ``qtagg`` as backend for rendering figures in :mod:`matplotlib`.
+The requirements are accessible on PyPI and installable through ``pip`` as follows:
+
+::
+
+        pip install pyqt5
+
+or
+
+::
+
+        pip install pyqt6
+
+Then, in a script or in the interactive interpreter, execute the following code:
+
+::
+
+        import matplotlib as mpl
+
+        mpl.use('qtagg')
+
+You can check if the backend was successfully loaded with:
+
+::
+
+        >>> print(mpl.rcParams['backend'])
+        qtagg
+
+As the backend is permanently stored in ``matplotlib.rcParams['backend']``, there is no need to repeat the configuration more than once.
+
+Additional information can be found `here`_.
+
+.. _here: https://matplotlib.org/stable/users/explain/figure/backends.html
+
+
+
 
 
 Import instructions

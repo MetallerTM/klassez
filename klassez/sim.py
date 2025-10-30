@@ -1,17 +1,24 @@
 #! /usr/bin/env python3
 
+import sys
 import os
 import numpy as np
 
-from importlib.resources import open_text
+from importlib.resources import open_text, files
 
 from . import misc, sim
 
 # gyromagnetic ratio of all NMR active nuclei in MHz/T
-with open_text(__name__, os.path.join('tables', 'gamma.dic')) as f:
-    gamma = eval(f.read())
-with open_text(__name__, os.path.join('tables', 'nuclei_jeol.dic')) as f:
-    jeol_nuclei = eval(f.read())
+if sys.version_info < (3, 13):      # python 3.9 - 3.12
+    with files(__package__).joinpath('tables', 'gamma.dic').open('r', encoding='utf-8') as f:
+        gamma = eval(f.read())
+    with files(__package__).joinpath('tables', 'nuclei_jeol.dic').open('r', encoding='utf-8') as f:
+        jeol_nuclei = eval(f.read())
+else:                               # python 3.13 and above
+    with open_text(__name__, os.path.join('tables', 'gamma.dic')) as f:
+        gamma = eval(f.read())
+    with open_text(__name__, os.path.join('tables', 'nuclei_jeol.dic')) as f:
+        jeol_nuclei = eval(f.read())
 
 
 def calc_splitting(u0, I0, m=1, J=0):

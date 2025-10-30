@@ -4,6 +4,9 @@
 Modified *processing.hilbert* by adding the **axis** parameter.
 Modified *processing.hilbert2* to use the new *processing.hilbert*.
 Hotfix for *processing.abca*
+30/10/2025
+Fix for the behavior of **importlib** in python versions before 3.13.
+Added documentation on how to set **matplotlib** backends appropriately.
 
 # Version 0.5a.1
 
