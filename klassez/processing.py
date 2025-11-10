@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 
-import os
 import numpy as np
 from numpy import linalg
 import scipy
@@ -10,7 +9,6 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.widgets import Button, RadioButtons, TextBox, Cursor, LassoSelector
 from matplotlib.path import Path
-import nmrglue as ng
 import lmfit
 from datetime import datetime
 import warnings
@@ -3609,7 +3607,6 @@ def mcr(input_data, nc, f=10, tol=1e-3, itermax=1e4, P='H', oncols=True):
 # ---------------------------------------------------------------------------------------- #
 
 
-
 def lrd(data, nc):
     """
     Denoising method based on Low-Rank Decomposition.
@@ -4133,7 +4130,6 @@ def make_polynomion_baseline(ppm, data, limits):
     plt.close()
 
     return mode, C_f
-
 
 
 def qfil(ppm, data, u, s, SFO1):
@@ -4855,11 +4851,10 @@ def stack_fids(*fids, filename=None):
     return p2d
 
 
-def hilbert(f):
+def hilbert(f, axis=-1):
     """
     Computes the Hilbert transform of real vector ``f`` in order to retrieve its imaginary part.
     The algorithm computes the convolution by means of FT, as follows:
-
     #. make IFT of ``f``: ``a``
     #. compute ``h = [1j for x in range(N) if x < N/2 else -1j]``
     #. Compute ``b = h * a``
@@ -4867,44 +4862,57 @@ def hilbert(f):
     #. make FT of ``d``: ``F``
     #. replace the real part of ``F`` with ``f``
 
-    Suitable for both 1D and 2D *non-hypercomplex* data.
-
     .. important::
-
         Make sure that the original spectrum was zero-filled to at least twice the original size of the FID.
 
     Parameters
     ----------
     f : ndarray
         Array of which you want to compute the imaginary part
+    axis : int
+        Axis along which to compute the Hilbert transform. Default is -1 (last axis).
 
     Returns
-    ----------
+    -------
     f_cplx : ndarray
         Complex version of ``f``
 
     .. seealso::
         :func:`klassez.processing.hilbert2`
-
     """
+    # Get the number of dimensions
+    ndim = f.ndim
+    # Normalize axis to positive index
+    if axis < 0:
+        axis += ndim
+    # Get the number of points along the specified axis
+    N = f.shape[axis]
+    # Create axes list and move the specified axis to the end
+    axes = list(range(ndim))
+    axes.append(axes.pop(axis))
+    # Transpose f to make the specified axis the last one
+    f_trans = np.transpose(f, axes)
     # Suppress warnings for ft of real data
     warnings.simplefilter("ignore")
-    # Get the number of points of f
-    N = f.shape[-1]
-    # Apply Hilbert transform:
-    #   make ift of the data
-    a = np.fft.ifft(f.real)
-    #   compute vector h: i for the first half, -i for the other half
+    # Apply Hilbert transform on transposed data
+    # Make ift of the data
+    a = np.fft.ifft(f_trans.real)
+    # Compute vector h: 1j for the first half, -1j for the other half
     h = 1j * np.ones_like(a)
     h[..., N//2:] *= -1
-    #   retrieve imaginary part
+    # Retrieve imaginary part
     b = a * h
-    #   make the full, complex signal
+    # Make the full, complex signal
     d = a + 1j * b
-    #   do ft
+    # Do ft
     f_i = np.fft.fft(d)
-    #   replace real part of the data with the original one
-    f_cplx = f.real + 1j*f_i.imag
+    # Replace real part of the data with the original one
+    f_cplx_trans = f_trans.real + 1j * f_i.imag
+    # Create inverse axes to move the last axis back to original position
+    inv_axes = list(range(ndim))
+    inv_axes.insert(axis, inv_axes.pop(-1))
+    # Transpose back to original order
+    f_cplx = np.transpose(f_cplx_trans, inv_axes)
     # Re-enable warnings
     warnings.simplefilter("default")
     return f_cplx
@@ -4946,11 +4954,11 @@ def hilbert2(data):
         :func:`klassez.processing.repack_2D`
     """
     # ir: Ht on F2
-    S_rr_ir = processing.hilbert(data)
+    S_rr_ir = processing.hilbert(data, axis=1)
     rr = S_rr_ir.real
     ir = S_rr_ir.imag
     # ri: Ht on F1. The - is because of NMR conventions
-    ri = - processing.hilbert(data.T).imag.T
+    ri = - processing.hilbert(data, axis=0).imag
     # ii: Ht on both F2 and F1
     ii = processing.hilbert(ri).imag
 
@@ -5399,7 +5407,7 @@ def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
             d = deepcopy(data)
 
         # Initialize w all equal to 1
-        w = np.zeros_like(x, dtype=int)
+        w = np.zeros_like(x, dtype=float)
 
         _, basl_slices = mask_sgn_basl(ppm, d, SFO1, alpha=alpha, winsize=winsize)
 
