@@ -845,7 +845,7 @@ def ax1D(ax, ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.
         panel where to put the figure
     ppm : 1darray
         ppm scale of the spectrum
-    data : 1darray
+    datax : 1darray
         spectrum to be plotted
     norm : bool
         if True, normalizes the intensity to 1.
