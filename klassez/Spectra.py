@@ -1169,7 +1169,9 @@ class pSpectrum_1D(Spectrum_1D):
                 if os.path.isdir('/'.join([self.datadir, self.filename])):
                     self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
                 # Read the dictionary
-                dic, _ = ng.bruker.read_pdata(in_file)
+                dic, _ = ng.bruker.read_pdata(in_file)  # this might not contain acqus
+                base_dic, _ = ng.bruker.read(in_file.rsplit('pdata', 1)[0])     # this for sure does
+                dic = misc.merge_dict(dic, base_dic)
                 # Read the real and imaginary part, separately
                 _, self.r = ng.bruker.read_pdata(in_file, bin_files=['1r'])
                 _, self.i = ng.bruker.read_pdata(in_file, bin_files=['1i'])
