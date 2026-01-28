@@ -1838,7 +1838,7 @@ class Spectrum_2D:
         else:
             self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
 
-    def qfil(self, which=None, u=None, s=None):
+    def qfil(self, which=None, u=None, s=None, *, SFO=None):
         """
         Gaussian filter to suppress signals.
         Tries to read ``self.procs['qfil']``, which is ``{ 'u': u, 's': s }``
@@ -1852,6 +1852,8 @@ class Spectrum_2D:
             Position /ppm
         s : float
             Width (standard deviation) /Hz
+        SFO : float
+            Nucleus Larmor frequency to use for the conversion to Hz. If None, ``self.acqus['SFO2']`` is used by default.
 
         .. seealso::
 
@@ -1860,6 +1862,8 @@ class Spectrum_2D:
             :func:`klassez.anal.select_traces`
 
         """
+        if SFO is None:
+            SFO = self.acqus['SFO2']
         if 'qfil' not in self.procs.keys():  # Then add it
             self.procs['qfil'] = {'u': u, 's': s}
 
@@ -1869,11 +1873,11 @@ class Spectrum_2D:
                     which_list = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
                     which, _ = misc.ppmfind(self.ppm_f1, which_list[0][1])
                 # Now get the values
-                self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm_f2, self.rr[which], self.acqus['SFO2'])
+                self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm_f2, self.rr[which], SFO)
                 break
 
         # Apply the filter
-        self.rr = processing.qfil(self.ppm_f2, self.rr, self.procs['qfil']['u'], self.procs['qfil']['s'], self.acqus['SFO2'])
+        self.rr = processing.qfil(self.ppm_f2, self.rr, self.procs['qfil']['u'], self.procs['qfil']['s'], SFO)
         # Unpack according to procs
         if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:
             self.S = processing.hilbert(self.rr)
@@ -3067,12 +3071,15 @@ class Pseudo_2D(Spectrum_2D):
             self.procs['p1'] += round(values[1], 2)
             if values[2] is not None:
                 self.procs['pv'] = round(values[2], 5)
-        # Update the .procs file
-        self.write_procs()
+            # Update the .procs file
+            self.write_procs()
 
         # Update the F attribute
-        self.F.S = self.S
-        self.F.ppm_scale = self.ppm_f2
+        if hasattr(self, 'F'):
+            self.F.S = self.S
+            self.F.ppm_scale = self.ppm_f2
+
+        return values
 
     def pknl(self):
         """
@@ -3292,7 +3299,7 @@ class Pseudo_2D(Spectrum_2D):
             ppm, _ = misc.trim_data(ppm, s, *lims)
 
         # Make the figure
-        figures.dotmd(ppm, S, labels=[f'{w}' for w in which_exp])
+        figures.dotmd(ppm, S, labels=[f'{self.ppm_f1[w]:.3g}' for w in which_exp])
 
     def plot_stacked(self, which=None, lims=None):
         """
@@ -3435,6 +3442,30 @@ class Pseudo_2D(Spectrum_2D):
                 f.write('\n')
         f.close()
 
+    def qfil(self, which=None, u=None, s=None):
+        """
+        Gaussian filter to suppress signals.
+        Tries to read ``self.procs['qfil']``, which is ``{ 'u': u, 's': s }``
+        Otherwise, these are set interactively by :func:`klassez.processing.interactive_qfil` and then added to ``self.procs``.
+
+        Parameters
+        ----------
+        which : int or None
+            Index of the F2 trace to be used for :func:`klassez.processing.interactive_qfil`. If None, a suitable trace can be selected using :func:`klassez.anal.select_traces`.
+        u : float
+            Position /ppm
+        s : float
+            Width (standard deviation) /Hz
+
+        .. seealso::
+
+            :func:`klassez.processing.interactive_qfil`
+
+            :func:`klassez.anal.select_traces`
+
+        """
+        super().qfil(which=which, u=u, s=s, SFO=self.acqus['SFO1'])
+
     def align(self, lims=None, u_off=0.5, ref_idx=0):
         """
         Aligns the spectrum to a reference signal in the reference spectrum (default: first one).
@@ -3559,3 +3590,89 @@ class Pseudo_2D(Spectrum_2D):
         # Make a shallow copy of the FID
         data = np.copy(self.fid)
         misc.data2wav(data, filename, cutoff, rate)
+
+    def abs(self, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's': 10}):
+        """
+        Correct the baseline automatically on the real part of the spectrum, then retrieve
+        the imaginary part through Hilbert transform.
+
+        Parameters
+        ----------
+        n : int
+            Number of coefficients of the polynomial baseline
+        lims : tuple or None
+            Limits for the region on which to compute the baseline, in ppm
+        alpha : float
+            The threshold will be set as ``thr = alpha * np.std(np.gradient(data))``
+        qfil : bool
+            Choose whether to apply a filter on the solvent region (True) or not (False)
+        qfilp : dict
+            Parameters to be used to compute the filter if ``qfil=True``. Keys:
+
+            * 'u' = center of the filter in ppm
+            * 's' = width of the filter in Hz
+
+        Returns
+        ----------
+        baseline : 1darray
+            Employed baseline for correction
+
+        .. seealso::
+
+            :func:`klassez.processing.abs`
+
+            :func:`klassez.processing.hilbert`
+        """
+        original = deepcopy(self.S)
+        # Correct the baseline
+        datap = np.empty_like(self.S)
+        for k, data in enumerate(self.rr):
+            datap[k] = processing.abs(self.ppm_f2, data, n=n, lims=lims, alpha=alpha, qfil=qfil, qfilp=qfilp)
+        # Retrieve imaginary part
+        self.S = deepcopy(datap)
+        # Overwrite it
+        self.rr = self.S.real
+        self.ii = self.S.imag
+        return original - datap
+
+    def absa(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
+        """
+        Correct the baseline automatically on the real part of the spectrum, then retrieve
+        the imaginary part through Hilbert transform.
+
+        Parameters
+        ----------
+        n : int
+            Number of coefficients of the polynomial baseline
+        lims : tuple or None
+            Limits for the region on which to compute the baseline, in ppm
+        alpha : float
+            The threshold will be set as ``thr = alpha * np.std(np.gradient(data))``
+        qfil : bool
+            Choose whether to apply a filter on the solvent region (True) or not (False)
+        qfilp : dict
+            Parameters to be used to compute the filter if ``qfil=True``. Keys:
+            * 'u' = center of the filter in ppm
+            * 's' = width of the filter in Hz
+
+        Returns
+        ----------
+        baseline : 1darray
+            Employed baseline for correction
+
+        .. seealso::
+
+            :func:`klassez.processing.absa`
+
+            :func:`klassez.processing.hilbert`
+        """
+        original = deepcopy(self.S)
+        # Correct the baseline
+        datap = processing.absa(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
+        # Retrieve imaginary part
+        self.S = processing.hilbert(datap)
+        # Overwrite it
+        self.r = self.S.real
+        self.i = self.S.imag
+        return original - datap
+

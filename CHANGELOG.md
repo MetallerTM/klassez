@@ -1,3 +1,24 @@
+# Version 0.5a.3
+
+21/01/26
+Improved compatibility between classes *Spectrum_2D* and *Pseudo_2D*.
+Better warnings handling.
+Added a warning if you do not zero-fill enough to do a Hilbert transform.
+
+## New functions:
+21/01/26
+- *Pseudo_2D.abs*
+- *Pseudo_2D.absa*
+28/01/26
+- *anal.write_igrl*
+- *anal.read_igrl*
+
+## Modified functions:
+21/01/26
+- *Spectrum_2D.qfil*: the SFO is generic and not SFO2 by default anymore
+- *Pseudo_2D.plot_md*: the labels are passed on the basis of **ppm_f1**
+- *figures.dotmd*: new buttons "Select ALL" and "Select NONE"
+
 # Version 0.5a.2
 
 27/10/2025

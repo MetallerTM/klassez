@@ -1346,11 +1346,16 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     normheight_box = plt.axes([0.87, 0.10, 0.12, 0.06])
     reset_box = plt.axes([0.87, 0.025, 0.12, 0.06])
 
+    all_box = plt.axes([0.87, 0.165, 0.06, 0.03])
+    none_box = plt.axes([0.93, 0.165, 0.06, 0.03])
+
     # Create buttons
     iz_button = Button(iz_box, label=r'$\uparrow$')  # !!!
     dz_button = Button(dz_box, label=r'$\downarrow$')    # !!!
     normheight_button = Button(normheight_box, label=r'NORM. HEIGHTS')   # !!!
     reset_button = Button(reset_box, label=r'RESET')    # !!!
+    all_button = Button(all_box, label='Select ALL')
+    none_button = Button(none_box, label='Select NONE')
 
     # Functions connected to the sliders
 
@@ -1399,6 +1404,18 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
         for k, stat in enumerate(status):
             flags[k] = stat
 
+    def select_all(event):
+        for k in range(len(flags)):
+            flags[k] = 1
+            radio.set_active(k, True)
+        fig.canvas.draw()
+
+    def select_none(event):
+        for k in range(len(flags)):
+            flags[k] = 0
+            radio.set_active(k, False)
+        fig.canvas.draw()
+
     # Auto-adjusts the limits for the y-axis
     misc.set_ylim(ax, np.concatenate(S))
     # Make pretty scales
@@ -1443,6 +1460,8 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     reset_button.on_clicked(reset)
     iz_button.on_clicked(increase_zoom)
     dz_button.on_clicked(decrease_zoom)
+    all_button.on_clicked(select_all)
+    none_button.on_clicked(select_none)
     Cursor(ax, useblit=True, color='red', horizOn=False, linewidth=0.4)
 
     plt.show()

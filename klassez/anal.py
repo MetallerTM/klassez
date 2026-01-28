@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button, TextBox, Cursor, SpanSelector, RectangleSelector
 import lmfit
+from datetime import datetime
+import os
 
 from . import fit, misc, sim, figures, processing, anal
 from .config import CM
@@ -860,3 +862,176 @@ def integrate_2D(ppm_f1, ppm_f2, data, SFO1, SFO2, fwhm_1=200, fwhm_2=200, utol_
         # Store the integral in the dictionary
         Int[f'{P["f2"]["u"]:.2f}:{P["f1"]["u"]:.2f}'] = I_p
     return Int
+
+
+def write_igrl(filename, dic, indirect_scale=None, header=False):
+    """
+    Write a section in a integral report file, which shows the integrated regions and the values of the peaks. It allows
+
+    Parameters
+    ----------
+    filename : str
+        Path to the file to be written
+    dic : dict
+        Dictionary of integral values. The keys are 'ppm1:ppm2' and the
+        associated values are the integrals, as floats or as sequences.
+    indirect_scale : 1darray
+        Scale of the indirect dimension. To be used in the future for fitting
+    header : bool
+        If True, adds a "!" starting line to separate fit trials
+
+    .. seealso::
+
+        :func:`klassez.anal.read_igrl`
+
+        :func:`klassez.anal.integrate`
+
+    """
+    # Understand how many integrals per window we have to write
+    for key, value in dic.items():
+        if isinstance(value, (int, float)):
+            # Integrals of only one spectrum
+            n_spectra = 1
+        else:
+            # Pseudo 2D
+            n_spectra = len(value)
+        # Information achieved, exit from this useless loop
+        break
+
+    # Header line of the table
+    spectra_idx = [f'I {w+1}' for w in range(n_spectra)]
+    firstline = '; '.join([
+        f'{"#":4s}', f'{"Window /ppm":>18s}', *[f'{w:>12s}' for w in spectra_idx]
+        ])
+
+    # 4 [#] + 18 [Window] + 12*n_spectra [I] + 2*n_spectra [; ] + 2 [first ;] + 1 [extra]
+    n_dashes = 25 + 14 * n_spectra
+
+    # Open the file
+    f = open(f'{filename}.igrl', 'a', buffering=1)
+
+    # Info on the region to be fitted
+    if header:
+        now = datetime.now()
+        date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
+        f.write('! Integrals computed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+
+    # Write the indirect scale
+    if indirect_scale is not None and n_spectra > 1:
+        f.write('x = [')
+        for x in indirect_scale:
+            f.write(f'{x:.5g}, ')
+        f.write(']\n\n')
+
+    # Start writing the table
+    f.write(firstline+'\n')
+    f.write('-' * n_dashes + '\n')
+
+    # Write the lines of the table
+    for k, (key, value) in enumerate(dic.items()):
+        # First two entries: number of the window and ppm extremes
+        things_to_write = [f'{k+1:4.0f}', f'{key:>18s}']
+        # Fork if value is a number or a sequence
+        if isinstance(value, (int, float)):     # number
+            things_to_write.append(f'{value:12.5e}')
+        else:                                   # sequence
+            things_to_write.extend([f'{x:12.5e}' for x in value])
+        # Make a single line to write
+        line = '; '.join(things_to_write)
+        # Write it
+        f.write(line + '\n')
+    # \bottomrule
+    f.write('-' * n_dashes + '\n\n')
+
+    # End the section
+    f.write('=' * 96 + '\n\n')
+    # Close the file
+    f.close()
+
+
+def read_igrl(filename, n=-1):
+    """
+    Reads a `.igrl` file, containing the integrals of either one or a series of spectra.
+    The file is separated and unpacked into a dictionary, each of which contains the integration windows with three decimal figures as keys
+    and the integrals as their associated value.
+    If present, the indirect timescale is also read and returned.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the filename to be read
+    n : int
+        Number of performed integrating procedure to be read. Default: last one. The breakpoints are lines that start with "!".
+        For this reason, ``n=0`` returns an empty dictionary, hence the first attempt is ``n=1``.
+
+    Returns
+    ----------
+    dic : dict
+        Integrals
+    indirect_scale : 1darray or None
+        If there is a line that starts with ``'x = '``, it is interpreted as the scale for the indirect dimension.
+        If there is not, ``None`` is returned.
+
+
+    .. seealso::
+
+        :func:`klassez.fit.write_igrl`
+
+    """
+    def read_region(R):
+        """ Creates a dictionary of parameters from a section of the input file.  """
+        # Placeholders
+        indirect_scale = None
+        dic_r = {}
+        # Separate the lines and remove the empty ones
+        R = R.split('\n')
+        for k, r in enumerate(R):
+            if len(r) == 0 or r.isspace():
+                _ = R.pop(k)
+
+        n_bp = 0        # Number of breaking points (----)
+        for k, r in enumerate(R):
+            if '------' in r:   # Increase breakpoint and store the line number
+                n_bp += 1
+                continue
+
+            if n_bp == 0:
+                # Before the table, seek for the indirect timescale
+                if 'x = ' in r:
+                    indirect_scale = np.array(eval(r.split('=')[-1]))
+
+            if n_bp == 1:       # Second section: integrals
+                line = r.split(';')  # Separate the values
+                # Get the key from the second column
+                key = line[1].replace(' ', '')
+                # Unpack the rest of the line
+                values = [eval(w) for w in line[2:]]
+                # Substitute a float if there is only one value, otherwise convert to array
+                if len(values) > 1:
+                    values = np.asarray(values)
+                else:
+                    values = values[-1]
+
+                # Put the values in the dictionary
+                dic_r[key] = values
+
+            if n_bp == 2:   # End of file: stop reading
+                break
+
+        return dic_r, indirect_scale
+
+    # Read the file
+    with open(filename, 'r') as J:
+        ff = J.read()
+    # Get the actual section from an output file
+    f = ff.split('!')[n]
+    # Separate the bigger sections
+    R = f.split('='*96)
+    # Remove the empty lines
+    for k, r in enumerate(R):
+        if r.isspace():
+            _ = R.pop(k)
+
+    # Get the values. R has only one entry!
+    dic, indirect_scale = read_region(R[0])
+    return dic, indirect_scale

@@ -576,16 +576,13 @@ def ft(data0, alt=False, fcor=0.5):
         Transformed data
     """
     data = np.copy(data0)
-    if not np.iscomplexobj(data):
-        # Suppress "casting complex to real" warning
-        warnings.simplefilter("ignore")
     data[..., 0] = data[..., 0] * fcor
     if alt:
         data[..., 1::2] = data[..., 1::2] * -1
         data.imag = data.imag * -1
-    dataft = np.fft.fftshift(np.fft.fft(data, axis=-1).astype(data.dtype), -1)[..., ::-1]
-    # Restore the normal warnings behavior
-    warnings.simplefilter("default")
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', UserWarning)
+        dataft = np.fft.fftshift(np.fft.fft(data, axis=-1).astype(data.dtype), -1)[..., ::-1]
     return dataft
 
 
@@ -609,16 +606,13 @@ def ift(data0, alt=False, fcor=0.5):
         Transformed data
     """
     data = np.copy(data0)[..., ::-1]
-    if not np.iscomplexobj(data):
-        # Suppress "casting complex to real" warning
-        warnings.simplefilter("ignore")
-    dataft = np.fft.ifft(np.fft.ifftshift(data, -1), axis=-1).astype(data.dtype)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', UserWarning)
+        dataft = np.fft.ifft(np.fft.ifftshift(data, -1), axis=-1).astype(data.dtype)
     if alt:
         dataft[..., 1::2] = dataft[..., 1::2] * -1
         dataft.imag = dataft.imag * -1
     dataft[..., 0] = dataft[..., 0] / fcor
-    # Restore the normal warnings behavior
-    warnings.simplefilter("default")
     return dataft
 
 
@@ -908,6 +902,11 @@ def fp(data, wf=None, zf=None, fcor=0.5, tdeff=0):
     # Zero-filling
     if zf is not None:
         datap = processing.zf(datap, zf)
+    else:
+        datap = processing.zf(datap, 0)
+    if datap.shape[-1] < 2 * data.shape[-1]:
+        warnings.warn('Not enough zerofilling for Hilbert Transform', stacklevel=2)
+
     # FT
     datap = processing.ft(datap, fcor=fcor)
     return datap
@@ -1334,12 +1333,18 @@ def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5, 0.5], tdeff=[0, 0], u
     # First of all, cut the data
     data = processing.td_eff(data, tdeff)
 
+    original_size = data.shape
+
     # Processing the direct dimension
     # Window function
     data *= processing.apodf(data.shape, wf[1])
     # Zero-filling
     if zf[1] is not None:
         data = processing.zf(data, zf[1])
+    else:
+        data = processing.zf(data, 0)
+    if data.shape[-1] < 2 * original_size[-1]:
+        warnings.warn('Not enough zerofilling for Hilbert Transform in F2', stacklevel=2)
     # FT
     data = processing.ft(data, fcor=fcor[1])
 
@@ -1358,6 +1363,10 @@ def xfb(data, wf=[None, None], zf=[None, None], fcor=[0.5, 0.5], tdeff=[0, 0], u
         # Zero-filling
         if zf[0] is not None:
             data = processing.zf(data, zf[0])
+        else:
+            data = processing.zf(data, 0)
+        if data.shape[-1] < 2 * original_size[0]:
+            warnings.warn('Not enough zerofilling for Hilbert Transform in F1', stacklevel=2)
 
         # FT
         # Discriminate between F1 acquisition modes
@@ -4893,19 +4902,20 @@ def hilbert(f, axis=-1):
     # Transpose f to make the specified axis the last one
     f_trans = np.transpose(f, axes)
     # Suppress warnings for ft of real data
-    warnings.simplefilter("ignore")
-    # Apply Hilbert transform on transposed data
-    # Make ift of the data
-    a = np.fft.ifft(f_trans.real)
-    # Compute vector h: 1j for the first half, -1j for the other half
-    h = 1j * np.ones_like(a)
-    h[..., N//2:] *= -1
-    # Retrieve imaginary part
-    b = a * h
-    # Make the full, complex signal
-    d = a + 1j * b
-    # Do ft
-    f_i = np.fft.fft(d)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', UserWarning)
+        # Apply Hilbert transform on transposed data
+        # Make ift of the data
+        a = np.fft.ifft(f_trans.real)
+        # Compute vector h: 1j for the first half, -1j for the other half
+        h = 1j * np.ones_like(a)
+        h[..., N//2:] *= -1
+        # Retrieve imaginary part
+        b = a * h
+        # Make the full, complex signal
+        d = a + 1j * b
+        # Do ft
+        f_i = np.fft.fft(d)
     # Replace real part of the data with the original one
     f_cplx_trans = f_trans.real + 1j * f_i.imag
     # Create inverse axes to move the last axis back to original position
@@ -4913,8 +4923,6 @@ def hilbert(f, axis=-1):
     inv_axes.insert(axis, inv_axes.pop(-1))
     # Transpose back to original order
     f_cplx = np.transpose(f_cplx_trans, inv_axes)
-    # Re-enable warnings
-    warnings.simplefilter("default")
     return f_cplx
 
 
