@@ -4,6 +4,8 @@
 Improved compatibility between classes *Spectrum_2D* and *Pseudo_2D*.
 Better warnings handling.
 Added a warning if you do not zero-fill enough to do a Hilbert transform.
+29/01/26
+New GUIs for integration. Called by the *integrate* methods of *Spectrum_1D* and *Pseudo_2D*.
 
 ## New functions:
 21/01/26
@@ -18,6 +20,9 @@ Added a warning if you do not zero-fill enough to do a Hilbert transform.
 - *Spectrum_2D.qfil*: the SFO is generic and not SFO2 by default anymore
 - *Pseudo_2D.plot_md*: the labels are passed on the basis of **ppm_f1**
 - *figures.dotmd*: new buttons "Select ALL" and "Select NONE"
+29/01/26
+- *anal.integrate*: completely remade from scratch. New options!
+- *anal.integrate_p2D*: completely remade from scratch. New options!
 
 # Version 0.5a.2
 

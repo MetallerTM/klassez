@@ -128,7 +128,7 @@ class Spectrum_1D:
             self.datadir = os.path.abspath(in_file)  # Get the file position
             if not os.path.isdir(self.datadir):
                 self.datadir = os.path.dirname(self.datadir)
-            self.filename = os.path.basename(in_file).rsplit('.', 1)[0]  # Get the filename
+            self.filename = os.path.basename(self.datadir).strip(os.sep).rsplit('.', 1)[0]  # Get the filename
             # If filename is a directory, write things inside it
             if os.path.isdir(f'{os.sep}'.join([self.datadir, self.filename])) and isexp:
                 self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
@@ -860,58 +860,73 @@ class Spectrum_1D:
         self.r = self.S.real
         self.i = self.S.imag
 
-    def integrate(self, lims=None):
+    def integrate(self, filename=None):
         """
         Integrate the spectrum with a dedicated GUI.
         Calls :func:`klassez.anal.integrate` and writes in ``self.integrals`` with keys ``[ppm1:ppm2]``
+        The values are saved in ``<filename>.igrl``.
 
         Parameters
         ----------
-        lims : tuple
-            Integrates from ``lims[0]`` to ``lims[1]``. If it is None, calls for interactive integration.
+        filename : str
+            The integral values will be saved in ``<filename>.igrl``.
+            If ``None``, ``<self.filename>`` will be used instead.
 
         .. seealso::
 
             :func:`klassez.anal.integrate`
+
+            :func:`klassez.anal.write_igrl`
         """
+        if filename is None:
+            filename = self.filename
         X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
-        if lims is None:
-            integrals = anal.integrate(self.ppm, self.r, X_label=X_label)
-            for key, value in integrals.items():
-                self.integrals[key] = value
-        else:
-            self.integrals[f'{lims[0]:.2f}:{lims[1]:.2f}'] = processing.integrate(self.r, self.ppm, lims)
+        self.integrals = anal.integrate(self.ppm, self.r, self.acqus['SFO1'],
+                                        filename=filename,
+                                        X_label=X_label, dx=2*self.acqus['dw'])
 
     def write_integrals(self, other_dir=None):
         """
-        Write the integrals in a file named ``{self.filename}.int``.
+        Write the integrals in a file named ``{self.filename}.igrl``.
+        The default path is ``self.datadir``.
 
         Parameters
         ----------
         other_dir : str or None
             Different location for the integrals file to write into. If None, ``self.datadir`` is used instead.
 
+        .. seealso ::
+
+            :func:`klassez.anal.write_igrl`
+
         """
         # Detect the file position
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}.int')
+            path = os.path.join(other_dir, f'{self.filename}')
         else:
-            path = os.path.join(self.datadir, f'{self.filename}.int')
+            path = os.path.join(self.datadir, f'{self.filename}')
 
-        f = open(path, 'w')
-        for key, value in self.integrals.items():
-            if 'total' in key:  # first entry
-                f.write('{:12}\t\t{:.4e}\n'.format(key, value))
-            elif 'ref' in key:  # second entry
-                if 'pos' in key:
-                    f.write('{:12}\t\t{}\n'.format(key, value))
-                elif 'int' in key:
-                    f.write('{:12}\t\t{:.4e}\n'.format(key, value))
-                elif 'val' in key:
-                    f.write('{:12}\t\t{:.3f}\n'.format(key, value))
-            else:   # All the rest
-                f.write('{:12}\t{:.8f}\n'.format(key, value))
-        f.close()
+        anal.write_igrl(path, self.integrals, header=True)
+
+    def read_integrals(self, filename, n=-1):
+        """
+        Reads the integrals in the `.igrl` file named ``filename``, and stores the result in ``self.integrals`
+
+        Parameters
+        ----------
+        filename : str
+            Path to the filename to be read
+        n : int
+            Number of performed integrating procedure to be read. Default: last one. The breakpoints are lines that start with "!".
+            For this reason, ``n=0`` returns an empty dictionary, hence the first attempt is ``n=1``.
+
+        .. seealso ::
+
+            :func:`klassez.anal.read_igrl`
+
+        """
+        self.integrals = anal.read_igrl(filename, n)
+        print(f'{filename} read.')
 
     def to_vf(self, filename=None, Hs=None, fvf=True):
         """
@@ -1164,7 +1179,7 @@ class pSpectrum_1D(Spectrum_1D):
                 self.datadir = os.path.abspath(in_file)  # Get the file position
                 if not os.path.isdir(self.datadir):
                     self.datadir = os.path.dirname(self.datadir)
-                self.filename = os.path.basename(in_file).rsplit('.', 1)[0]  # Get the filename
+                self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]  # Get the filename
                 # If filename is a directory, write things inside it
                 if os.path.isdir('/'.join([self.datadir, self.filename])):
                     self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
@@ -1314,7 +1329,7 @@ class Spectrum_2D:
             self.datadir = os.path.abspath(in_file)  # Get the file position
             if not os.path.isdir(self.datadir):
                 self.datadir = os.path.dirname(self.datadir)
-            self.filename = os.path.basename(in_file).rsplit('.', 1)[0]  # Get the filename
+            self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]  # Get the filename
             # If filename is a directory, write things inside it
             if os.path.isdir('/'.join([self.datadir, self.filename])) and isexp:
                 self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
@@ -2583,7 +2598,7 @@ class pSpectrum_2D(Spectrum_2D):
         self.datadir = os.path.abspath(in_file)  # Get the file position
         if not os.path.isdir(self.datadir):
             self.datadir = os.path.dirname(self.datadir)
-        self.filename = os.path.basename(in_file).rsplit('.', 1)[0]  # Get the filename
+        self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]  # Get the filename
         # If filename is a directory, write things inside it
         if os.path.isdir('/'.join([self.datadir, self.filename])):
             self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
@@ -2750,7 +2765,7 @@ class Pseudo_2D(Spectrum_2D):
             self.datadir = os.path.abspath(in_file)  # Get the file position
             if not os.path.isdir(self.datadir):
                 self.datadir = os.path.dirname(self.datadir)
-            self.filename = os.path.basename(in_file).rsplit('.', 1)[0]     # Get the filename
+            self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]     # Get the filename
             # If filename is a directory, write things inside it
             if os.path.isdir(os.path.join(self.datadir, self.filename)) and isexp:
                 self.datadir = os.path.join(self.datadir, self.filename)    # i.e. add filename to datadir
@@ -3370,77 +3385,76 @@ class Pseudo_2D(Spectrum_2D):
         # Update the pivot points to fix them in the center of the stripped part
         self.procs['pv'] = round(np.mean(self.ppm_f2), 5)
 
-    def integrate(self, which=0, lims=None):
+    def integrate(self, ref=0, filename=None):
         """
         Integrate the spectrum with a dedicated GUI.
-        Calls :func:`klassez.processing.integral` on each experiment, then saves the results in ``self.integrals``.
-        Therefore, the entries of ``self.integrals`` are sequences!
-        If ``lims`` is not given, calls :func:`klassez.anal.integrate` on the trace to select the regions to integrate.
+        Calls :func:`klassez.anal.integrate_p2D` and writes in ``self.integrals`` with keys ``[ppm1:ppm2]``
+        The values are saved in ``<filename>.igrl``.
 
         Parameters
         ----------
-        which : int
-            Experiment index to show in interactive panel
-        lims : tuple
-            Region of the spectrum to integrate (ppm1, ppm2)
+        ref : int
+            Index of the transient to be used as reference for the integration.
+        filename : str
+            The integral values will be saved in ``<filename>.igrl``.
+            If ``None``, ``<self.filename>`` will be used instead.
 
         .. seealso::
 
-            :func:`klassez.anal.integrate`
-        """
-        # Select the integration region
-        if lims is None:
-            X_label = r'$\delta\,$'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
-            integrals = anal.integrate(self.ppm_f2, self.rr[which], X_label=X_label)
-            for key, _ in integrals.items():
-                if ':' in key:
-                    lims = [eval(q) for q in key.split(':')]    # transform string to float!!!
-                    self.integrals[key] = [processing.integral(self.rr[k], self.ppm_f2, lims)[-1] for k in range(self.rr.shape[0])]
-                else:
-                    self.integrals[key] = np.array(integrals[key])
+            :func:`klassez.anal.integrate_p2D`
 
+            :func:`klassez.anal.write_igrl`
+        """
+        if filename is None:
+            filename = self.filename
+
+        X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
+        self.integrals = anal.integrate_p2D(self.ppm_f2, self.rr, self.acqus['SFO1'],
+                                            ref=ref, indirect_scale=self.ppm_f1, filename=filename,
+                                            X_label=X_label, dx=2*self.acqus['dw'])
+
+    def write_integrals(self, other_dir=None):
+        """
+        Write the integrals in a file named ``{self.filename}.igrl``.
+        The default path is ``self.datadir``.
+
+        Parameters
+        ----------
+        other_dir : str or None
+            Different location for the integrals file to write into. If None, ``self.datadir`` is used instead.
+
+        .. seealso ::
+
+            :func:`klassez.anal.write_igrl`
+
+        """
+        # Detect the file position
+        if other_dir:
+            path = os.path.join(other_dir, f'{self.filename}')
         else:
-            self.integrals[f'{lims[0]:.2f}:{lims[1]:.2f}'] = np.array(processing.integral(self.rr, self.ppm_f2, lims)[..., -1])
+            path = os.path.join(self.datadir, f'{self.filename}')
 
-    def write_integrals(self, filename='integrals.dat'):
+        anal.write_igrl(path, self.integrals, header=True)
+
+    def read_integrals(self, filename, n=-1):
         """
-        Write the integrals in a file named ``filename``.
+        Reads the integrals in the `.igrl` file named ``filename``, and stores the result in ``self.integrals`
 
         Parameters
         ----------
         filename : str
-            name of the file where to write the integrals.
+            Path to the filename to be read
+        n : int
+            Number of performed integrating procedure to be read. Default: last one. The breakpoints are lines that start with "!".
+            For this reason, ``n=0`` returns an empty dictionary, hence the first attempt is ``n=1``.
+
+        .. seealso ::
+
+            :func:`klassez.anal.read_igrl`
+
         """
-        @staticmethod
-        def arr2string(array):
-            if isinstance(array, (np.ndarray, list, tuple)):
-                string = [f'{w:.4e}' for w in array]
-            else:
-                string = [f'{array:.4e}']
-            return string
-
-        @staticmethod
-        def write_arr(f, string):
-            for w in string:
-                f.write(f'{w}, ')
-
-        f = open(filename, 'w')
-        for key, value in self.integrals.items():
-            f.write('{:12}\t'.format(key))
-            if 'total' in key:
-                write_arr(f, [value])
-                f.write('\n')
-            elif 'ref' in key:
-                if 'pos' in key:
-                    f.write('{}\n'.format(value))
-                elif 'int' in key:
-                    f.write('{:.4e}\n'.format(value))
-                elif 'val' in key:
-                    f.write('{:.3f}\n'.format(value))
-            else:
-                write_arr(f, arr2string(value))
-                f.write('\n')
-        f.close()
+        self.integrals = anal.read_igrl(filename, n)
+        print(f'{filename} read.')
 
     def qfil(self, which=None, u=None, s=None):
         """
@@ -3675,4 +3689,3 @@ class Pseudo_2D(Spectrum_2D):
         self.r = self.S.real
         self.i = self.S.imag
         return original - datap
-

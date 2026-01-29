@@ -1,14 +1,15 @@
 #! /usr/bin/env python3
 
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button, TextBox, Cursor, SpanSelector, RectangleSelector
+from matplotlib.widgets import Button, Cursor, SpanSelector, RectangleSelector, CheckButtons
 import lmfit
 from datetime import datetime
 import os
 
 from . import fit, misc, sim, figures, processing, anal
-from .config import CM
+from .config import CM, COLORS
 
 
 def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
@@ -611,18 +612,24 @@ def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, ut
     return I_tot
 
 
-def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
+def integrate(ppm0, data0, SFO1, filename='integrals', X_label=r'$\delta\,$F1 /ppm', dx=1):
     r"""
-    Allows interactive integration of a NMR spectrum through a dedicated GUI. Returns the values as a dictionary, where the keys are the selected regions truncated to the 2nd decimal figure.
-    The returned dictionary contains pre-defined keys, as follows:
+    Allows interactive integration of a NMR spectrum through a dedicated GUI. Returns the values as a dictionary,
+    where the keys are the selected regions truncated to the 3nd decimal figure.
+    The values are saved in the ``<filename>.igrl`` file.
 
-    * total:    total integrated area
-    * ref_pos:  location of the reference peak /ppm1:ppm2
-    * ref_int:  absolute integral of the reference peak
-    * ref_val:  for how many nuclei the reference peak integrates
+    In the GUI, draw the integration region around the peak.
+    The shape of the integral function appears in red in that region, and the value of the integral
+    is reported under the "current integral" label on the right side.
+    The integral can be corrected with a baseline, that is the straight line that connects the border of
+    the integration window. It can be activated and deactivated using the checkbox on the right side.
+    Press "ADD" to save the integral value. Upon pressing, the integral function becomes green and the
+    value appears on top of the figure.
+    To remove an integral from the list, first click on the corresponding value on the top to select it: the number
+    and the integral function should become purple. Then, click on the "REMOVE" button. Use the right click to reset
+    the selection.
 
-    The absolute integral of the x-th peak must be calculated by multiplying the relative value times ``ref_int / ref_val``.
-
+    At the end of the procedure, click on the "SAVE" button to write the `.igrl` file.
 
     Parameters
     ----------
@@ -630,136 +637,233 @@ def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
         PPM scale of the spectrum
     data : 1darray
         Spectrum to be integrated.
+    SFO1 : float
+        Larmor frequency of the observed nucleus.
+        For conversion to the correct integration scale.
+    filename : str
+        Name for the `.igrl` file to be written. Without extension!
     X_label : str
         Label of the x-axis
+    dx : float
+        Correction for the integral values. It should be ``dx = 2 * dw``
 
     Returns
     ----------
-    f_vals : dict
+    abs_vals : dict
         Dictionary containing the values of the integrated peaks.
+
+
+    .. seealso ::
+
+        :func:`klassez.anal.write_igrl`
+
     """
 
     # Copy to prevent overwriting
     ppm = np.copy(ppm0)
     data = np.copy(data0)
 
+    # Create the frequency scale to use for integration. The offset is not important
+    x = misc.ppm2freq(ppm, SFO1)
+
     # Calculate the total integral function
-    int_f = processing.integral(data, ppm)
+    int_f = processing.integral(data, x)
 
     # Make the figure
     fig = plt.figure('Spectrum Integration')
     fig.set_size_inches(figures.figsize_large)
-    plt.subplots_adjust(left=0.10, bottom=0.15, top=0.90, right=0.80)
+    plt.subplots_adjust(left=0.05, bottom=0.10, top=0.90, right=0.88)
     ax = fig.add_subplot()
 
-    # Make boxes for buttons
-    add_box = plt.axes([0.875, 0.80, 0.05, 0.06])
-    setref_box = plt.axes([0.825, 0.72, 0.075, 0.06])
-    save_box = plt.axes([0.875, 0.20, 0.05, 0.06])
-    # Make box for tbox
-    reftb_box = plt.axes([0.925, 0.72, 0.05, 0.06])
+    # Transform for text coordinates for integral: x is in ax reference frame, y is in fig reference frame
+    mixed_transform = mpl.transforms.blended_transform_factory(ax.transData, fig.transFigure)
+
+    # Declare variables
+    abs_vals = {}               # dictionary: integrals of the peaks, absolute values
+    text_integrals = {}         # dictionary: text that appears at the top
+    perm_integrals = {}         # dictionary: green functions
+    sel_key = None              # selected integral to be removed with the REMOVE button
+
+    # Make boxes for widgets
+    add_box = plt.axes([0.915, 0.80, 0.05, 0.06])
+    remove_box = plt.axes([0.915, 0.72, 0.05, 0.06])
+    save_box = plt.axes([0.915, 0.20, 0.05, 0.06])
+    check_box = plt.axes([0.89, 0.35, 0.10, 0.06])
     # Make buttons
     add_button = Button(add_box, 'ADD', hovercolor='0.875')
     save_button = Button(save_box, 'SAVE', hovercolor='0.875')
-    setref_button = Button(setref_box, 'SET REF', hovercolor='0.875')
-    # Make tbox
-    ref_tbox = TextBox(ax=reftb_box, label='', initial='{}'.format(1), textalignment='center')
+    remove_button = Button(remove_box, 'REMOVE', hovercolor='0.875')
 
-    # Declare variables
-    f_vals = {      # Initialize output variable
-            'total': float(0),              # Total integrated area
-            'ref_pos': '{:.2f}:{:.2f}'.format(ppm[0], ppm[-1]),  # Position of the reference signal /ppm1:ppm2
-            'ref_val': float(1),            # For how many nuclei the reference peak integrates
-            'ref_int': int_f[-1]-int_f[0],            # Reference peak integral, absolute value
-            }
-    abs_vals = {}                           # dictionary: integrals of the peaks, absolute values
-    text_integrals = {}                       # dictionary: labels to keep record of the integrals
+    # Make the checkbox
+    checkbox = CheckButtons(check_box, ['Use baseline'], actives=[False])
+    #   Adjust the position and the dimension of the tick box
+    misc.edit_checkboxes(checkbox, xadj=0, yadj=0.05, dim=100, color='violet')
 
     # ---------------------------------------------------------------------------------------
     # Functions connected to the widgets
-    def redraw_labels(f_vals):
-        """ Computes the relative integrals and updates the texts on the plot """
-        corr_func = f_vals['ref_val'] / f_vals['ref_int']   # Correction
 
-        # Update all the integral texts according to the new total_integral value
-        tmp_text.set_text('{:.5f}'.format(tmp_plot.get_ydata()[-1] * corr_func))      # Relative value of the integral: under the red label on the right
-        for key, value in abs_vals.items():
-            text_integrals[key].set_text('{:.4f}'.format(abs_vals[key] * corr_func))
+    def check_clicked(label):
+        """ Slot for the checkbox """
+        # Get the region of the red curve
+        x_values = tmp_plot.get_xdata()
+        # Draw it again with/without baseline and correct the value
+        onselect(x_values[0], x_values[-1])
 
-        fig.canvas.draw()
-
-    def set_ref_val(xxx):
-        """ Function of the textbox """
-        f_vals['ref_val'] = eval(xxx)
-        redraw_labels(f_vals)
-
-    def set_ref_int(event):
-        tmp_plot.set_visible(False)                     # Set the integral function as invisible so that it does not overlay with the permanent one
-        xdata, ydata = tmp_plot.get_data()              # Get the data from the red curve
-
-        f_vals['ref_int'] = ydata[-1]                   # Calculate the integral and cast it to the correct entry in f_vals
-        f_vals['ref_pos'] = '{:.2f}:{:.2f}'.format(xdata[0], xdata[-1])  # Get reference peak position from the plot and save it in f_vals
-
-        # Update the plot
-        ref_plot.set_data(xdata, ydata)     # Draw permanent integral function, in blue
-        ref_plot.set_visible(True)      # Because at the beginning it is invisible
-
-        ref_text.set_text('{:.4e}'.format(f_vals['ref_int']))   # Update label under the blue label on the right
-        redraw_labels(f_vals)
+    def calc_bas(isx, idx):
+        """ Compute straight line baseline """
+        # Two points
+        bas_points = np.array([data[isx], data[idx]])
+        # Use the linear regression to connect them, employ the point scale
+        _, (bas_m, bas_q) = fit.lr(bas_points, x=np.asarray([isx, idx]))
+        # full-length x-scale for baseline
+        xb = np.arange(isx, idx+1, 1)
+        # baseline = mx + q
+        bas = xb * bas_m + bas_q
+        return bas
 
     def onselect(vsx, vdx):
         """ When you drag and release """
-        tmp_total_integral = np.copy(f_vals['total'])   # Copy total_integral inside
-
-        corr_func = f_vals['ref_val'] / f_vals['ref_int']   # Correction function
-
-        sx, dx = max(vsx, vdx), min(vsx, vdx)           # Sort the borders of the selected window
         # Take indexes of the borders of the selected window and sort them
-        isx = misc.ppmfind(ppm, sx)[0]
-        idx = misc.ppmfind(ppm, dx)[0]
+        isx = misc.ppmfind(ppm, vsx)[0]
+        idx = misc.ppmfind(ppm, vdx)[0]
         isx, idx = min(isx, idx), max(isx, idx)
+        # Make a slice
+        sl = slice(isx, idx+1)
+        # If you select less than three points you are not integrating anything
+        if idx - isx < 3:
+            return
+
+        # Compute the baseline according to the checkbox status
+        if checkbox.get_status()[0]:        # do
+            bas = calc_bas(isx, idx)
+            # and make it visible
+            bas_plot.set_visible(True)
+        else:                               # don't
+            bas = np.zeros_like(ppm[sl])
+            # and make it disappear
+            bas_plot.set_visible(False)
+        # Update baseline plot
+        bas_plot.set_data(ppm[sl], bas)
 
         # Compute the integral
-        int_fun = processing.integral(data, ppm, (sx, dx))  # Integral function
-        int_val = int_fun[-1] - int_fun[0]                                  # Value of the integral
-        tmp_total_integral += int_val                                       # Update the total integral, but only inside
+        int_fun = processing.integral(data[sl] - bas, x[sl])    # Integral function ( primitive )
+        int_val = (int_fun[-1] - int_fun[0]) * dx               # Value of the integral
 
         # Update the plot
-        tmp_plot.set_data(ppm[isx:idx], int_fun)                            # Plot the integral function on the peak, normalized
-        tmp_plot.set_visible(True)                                          # Set this plot as visible, if it is not
-
-        tmp_text.set_text('{:.5f}'.format(int_val * corr_func))             # Relative value of the integral: under the red label on the right
-        tot_text.set_text('{:.4e}'.format(tmp_total_integral))              # Total integrated area: under the green label on the right
+        #   compute correction factor to make the curve actually visible
+        yscale = (max(data[sl]) - min(data[sl])) / (max(int_fun) - min(int_fun))
+        #   Plot the red curve
+        tmp_plot.set_data(ppm[sl], yscale * int_fun)
+        #   and set it visible
+        tmp_plot.set_visible(True)
+        #   update text under the red label
+        tmp_text.set_text(f'{int_val:12.5g}')
         fig.canvas.draw()
 
     def f_add(event):
         """ When you click 'ADD' """
-
-        tmp_plot.set_visible(False)                     # Set the integral function as invisible so that it does not overlay with the permanent one
-        xdata, ydata = tmp_plot.get_data()              # Get the data from the red curve
-
-        # Update the variables
-        f_vals['total'] += ydata[-1]
-        abs_vals['{:.2f}:{:.2f}'.format(xdata[0], xdata[-1])] = ydata[-1]
+        # Set the integral function as invisible so that it does not overlay with the permanent one
+        tmp_plot.set_visible(False)
+        # Get the data from the red curve
+        xdata, ydata = tmp_plot.get_data()
+        # Get the number from under the red label
+        int_val = eval(tmp_text.get_text())
+        # Key comes from xdata, value comes from the red label
+        abs_vals['{:.3f}:{:.3f}'.format(xdata[0], xdata[-1])] = int_val
 
         # Update the plot
-        ax.plot(xdata, ydata, c='tab:green', lw=0.8)    # Draw permanent integral function
-        tot_text.set_text('{:.4e}'.format(f_vals['total']))  # Text under green label on the right
+        #   draw the green curve in place of the red one and store the artist in a dictionary
+        perm_integrals['{:.3f}:{:.3f}'.format(xdata[0], xdata[-1])] = ax.plot(xdata, ydata, c='tab:green', lw=2.2)[-1]
+        #   draw the text at the top
+        text_integrals['{:.3f}:{:.3f}'.format(xdata[0], xdata[-1])] = ax.text(
+                np.mean(xdata), 0.90, '{:12.5g}'.format(int_val),       # in the center of the window, at the top panel
+                ha='center', va='bottom', transform=mixed_transform, fontsize=10, rotation=60)
+        fig.canvas.draw()
 
-        xtext = (xdata[0] + xdata[-1]) / 2      # x coordinate of the text: centre of the selected window
-        text_integrals['{:.2f}:{:.2f}'.format(xdata[0], xdata[-1])] = ax.text(
-                xtext, ax.get_ylim()[-1], '{:.5f}'.format(ydata[-1]),
-                ha='center', va='bottom', fontsize=10, rotation=60)     # Add whatever to the label
+    def update_selkey(event):
+        """ For the selection. There are a ton of early returns! """
+        nonlocal sel_key
+        # Right click resets the selection
+        if event.button == 3:
+            sel_key = None
+            return
 
-        # Update all the integral texts according to the new total_integral value
-        redraw_labels(f_vals)
+        # MouseButtonEvent gives the position in pixels -> conversion needed
+        figw_px, figh_px = fig.get_figwidth() * fig.dpi, fig.get_figheight() * fig.dpi
+        if event.y / figh_px < 0.9:     # y coordinate below the top border of the subplot
+            return
+
+        # You made until here. Nice!
+
+        # Placeholders for the selection
+        keys, locs = [], []
+        # Loop over all the texts
+        for key, text_obj in text_integrals.items():
+            # find the center position of the text in fig frame
+            bbox_display = text_obj.get_window_extent(fig.canvas.get_renderer())
+            bbox_fig = bbox_display.transformed(fig.transFigure.inverted())
+            # Save the keys of the dictionary and the positions in the lists
+            keys.append(key)
+            locs.append((bbox_fig.x0 + bbox_fig.x1) / 2)
+
+        # Mouse click position in fig frame
+        relp = event.x / figw_px
+        # Find the closest text from where you clicked
+        nearest = misc.find_nearest(locs, relp)
+        # You need to click sufficiently close!
+        if abs(relp - nearest) > 0.005:
+            return
+        # Selection worked! Find the index and put the selection
+        i_nearest = locs.index(nearest)
+        sel_key = keys[i_nearest]
+
+    def on_mouse_click(event):
+        """ Click to select a certain integral """
+        # DO NOT GO FURTHER if there are not integrals
+        if len(text_integrals.keys()) == 0:
+            return
+        # Select the integral
+        update_selkey(event)
+
+        if sel_key is not None:
+            # Highlight in blue
+            text_integrals[sel_key].set_color('indigo')
+            perm_integrals[sel_key].set_color('indigo')
+        else:
+            # Reset: text in black, function in green
+            for key in text_integrals.keys():
+                text_integrals[key].set_color('k')
+                perm_integrals[key].set_color('tab:green')
+        fig.canvas.draw()
+
+    def f_remove(event):
+        """ Remove the selected integral """
+        nonlocal sel_key
+        # DO NOT GO FURTHER if an integral is not selected
+        if sel_key is None:
+            return
+        # Kill the artists
+        text_integrals[sel_key].remove()
+        perm_integrals[sel_key].remove()
+        # Remove the things from the dictionaries
+        abs_vals.pop(sel_key)
+        text_integrals.pop(sel_key)
+        perm_integrals.pop(sel_key)
+        # Update the plot
+        fig.canvas.draw()
+        # Reset the selection
+        sel_key = None
 
     def f_save(event):
         """ When you click 'SAVE' """
-        # Append in the dictionary the relative values of the integrals
-        for key, value in abs_vals.items():
-            f_vals[key] = value * f_vals['ref_val'] / f_vals['ref_int']
+        # Do NOT close the panel if there were not integrals computed
+        if len(abs_vals.keys()) == 0:
+            print('No integrals taken yet!')
+            return
+        # Write the .igrl file and close
+        anal.write_igrl(filename, abs_vals, indirect_scale=None, header=True)
         plt.close()
+        print(f'Integrals saved in {filename}.igrl.')
 
     # ---------------------------------------------------------------------------------------
 
@@ -767,20 +871,15 @@ def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
 
     ax.plot(ppm, data, c='tab:blue', lw=0.8)        # Spectrum
     # Draw the total integral function but set to invisible because it is useless, needed as placeholder for the red curve
-    tmp_plot, = ax.plot(ppm, int_f/max(int_f)*max(data), c='tab:red', lw=0.8, visible=False)
-    # Draw the total integral function but set to invisible because it is useless, needed as placeholder for the blue curve
-    ref_plot, = ax.plot(ppm, int_f/max(int_f)*max(data), c='b', lw=0.8, visible=False)
+    tmp_plot, = ax.plot(ppm, int_f/max(int_f)*max(data), c='tab:red', lw=2.2, visible=False)
+    bas_plot, = ax.plot(ppm, np.zeros_like(data), c='violet', lw=1.8, visible=False)
 
     # Draw text labels in the figure, on the right
-    ax.text(0.90, 0.68, 'Current integral (normalized)', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14, color='tab:red')
-    tmp_text = ax.text(0.90, 0.65, '0', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14)
-    ax.text(0.90, 0.60, 'Total integral', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14, color='tab:green')
-    tot_text = ax.text(0.90, 0.55, '0', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14)
-    ax.text(0.90, 0.50, 'Reference integral', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14, color='b')
-    ref_text = ax.text(0.90, 0.45, '{:.4e}'.format(f_vals['ref_int']), horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14)
+    ax.text(0.94, 0.68, 'Current integral', ha='center', va='center', transform=fig.transFigure, fontsize=14, color='tab:red')
+    tmp_text = ax.text(0.94, 0.65, '0', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14)
 
     # Fancy shit
-    ax.set_xlim(ppm[0], ppm[-1])
+    ax.set_xlim(max(ppm), min(ppm))
     ax.set_xlabel(X_label)
     ax.set_ylabel('Intensity /a.u.')
     misc.pretty_scale(ax, ax.get_xlim(), 'x')
@@ -789,17 +888,390 @@ def integrate(ppm0, data0, X_label=r'$\delta\,$F1 /ppm'):
     misc.set_fontsizes(ax, 14)
 
     # Add more widgets and connect the buttons to their functions
-    Cursor(ax, c='tab:red', lw=0.8, horizOn=False)                                     # Vertical line that follows the cursor
-    SpanSelector(ax, onselect, 'horizontal', props=dict(facecolor='tab:red', alpha=0.5))     # Draggable window
     add_button.on_clicked(f_add)
+    remove_button.on_clicked(f_remove)
     save_button.on_clicked(f_save)
-    setref_button.on_clicked(set_ref_int)
-    ref_tbox.on_submit(set_ref_val)
+    checkbox.on_clicked(check_clicked)
+    fig.canvas.mpl_connect('button_press_event', on_mouse_click)
+    # Here I need to keep a reference to it otherwise the span selector and the cursor do not show
+    cursor = Cursor(ax, c='tab:red', lw=0.8, horizOn=False)
+    span = SpanSelector(ax, onselect, 'horizontal', props=dict(facecolor='tab:red', alpha=0.5))
+    # Useless but used to avoid flake to become angry
+    span.set_visible(True)
+    cursor.vertOn = True
 
     # Show the figure
     plt.show()
 
-    return f_vals
+    return abs_vals
+
+
+def integrate_p2D(ppm0, data0, SFO1, ref=0, indirect_scale=None, filename='integrals', X_label=r'$\delta\,$F1 /ppm', dx=1):
+    r"""
+    Allows interactive integration of a (series of) NMR spectrum through a dedicated GUI. Returns the values as a dictionary,
+    where the keys are the selected regions truncated to the 3nd decimal figure.
+    The values are saved in the ``<filename>.igrl`` file.
+
+    In the GUI, draw the integration region around the peak.
+    The shape of the integral function appears in red in that region, and the value of the integral
+    is reported under the "current integral" label on the right side.
+    Both are referred to the ``ref``-th row of ``data``.
+    The trend of the integrals appear in the inset plot at the bottom left corner.
+    The integral can be corrected with a baseline, that is the straight line that connects the border of
+    the integration window. It can be activated and deactivated using the checkbox on the right side.
+    Press "ADD" to save the integral values. Upon pressing, the integral function becomes green and the
+    value appears on top of the figure.
+    To remove an integral from the list, first click on the corresponding value on the top to select it: the number
+    and the integral function should become purple. Then, click on the "REMOVE" button. Use the right click to reset
+    the selection.
+
+    At the end of the procedure, click on the "SAVE" button to write the `.igrl` file.
+
+    Parameters
+    ----------
+    ppm : 1darray
+        PPM scale of the spectrum
+    data : 1darray
+        Spectrum to be integrated.
+    SFO1 : float
+        Larmor frequency of the observed nucleus.
+        For conversion to the correct integration scale.
+    ref : int
+        Index of the transient to be used as reference when drawing the functions
+    indirect_scale : 1darray
+        Scale of the indirect dimension, if any. If ``None``, 1, 2, 3 ... are used.
+    filename : str
+        Name for the `.igrl` file to be written. Without extension!
+    X_label : str
+        Label of the x-axis
+    dx : float
+        Correction for the integral values. It should be ``dx = 2 * dw``
+
+    Returns
+    ----------
+    abs_vals : dict
+        Dictionary containing the values of the integrated peaks.
+
+
+    .. seealso ::
+
+        :func:`klassez.anal.write_igrl`
+
+    """
+
+    # Copy to prevent overwriting
+    ppm = np.copy(ppm0)
+    all_data = np.copy(data0)
+    data = np.copy(all_data[ref])
+
+    # Create the frequency scale to use for integration. The offset is not important
+    x = misc.ppm2freq(ppm, SFO1)
+    if indirect_scale is None:
+        indirect_scale = np.arange(all_data.shape[0]) + 1
+    labels = [f'{label:>12.5g}' for label in indirect_scale]
+
+    # Calculate the total integral function
+    int_f = processing.integral(data, x)
+
+    # Make the figure
+    fig = plt.figure('Spectrum Integration')
+    fig.set_size_inches(figures.figsize_large)
+    plt.subplots_adjust(left=0.205, bottom=0.10, top=0.90, right=0.88)
+    ax = fig.add_subplot()
+    axy = fig.add_axes([0.020, 0.10, 0.15, 0.25])
+
+    # Transform for text coordinates for integral: x is in ax reference frame, y is in fig reference frame
+    mixed_transform = mpl.transforms.blended_transform_factory(ax.transData, fig.transFigure)
+
+    # Declare variables
+    abs_vals = {}               # dictionary: integrals of the peaks, absolute values
+    text_integrals = {}         # dictionary: text that appears at the top
+    perm_integrals = {}         # dictionary: green functions
+    sel_key = None              # selected integral to be removed with the REMOVE button
+
+    # Make boxes for widgets
+    add_box = plt.axes([0.915, 0.80, 0.05, 0.06])
+    remove_box = plt.axes([0.915, 0.72, 0.05, 0.06])
+    save_box = plt.axes([0.915, 0.20, 0.05, 0.06])
+    check_box = plt.axes([0.89, 0.35, 0.10, 0.06])
+    # Make buttons
+    add_button = Button(add_box, 'ADD', hovercolor='0.875')
+    save_button = Button(save_box, 'SAVE', hovercolor='0.875')
+    remove_button = Button(remove_box, 'REMOVE', hovercolor='0.875')
+
+    # Make the checkbox
+    checkbox = CheckButtons(check_box, ['Use baseline'], actives=[False])
+    #   Adjust the position and the dimension of the tick box
+    misc.edit_checkboxes(checkbox, xadj=0, yadj=0.05, dim=100, color='violet')
+
+    # ---------------------------------------------------------------------------------------
+    # Functions connected to the widgets
+
+    def check_clicked(label):
+        """ Slot for the checkbox """
+        # Get the region of the red curve
+        x_values = tmp_plot.get_xdata()
+        # Draw it again with/without baseline and correct the value
+        onselect(x_values[0], x_values[-1])
+
+    def calc_bas(y, isx, idx):
+        """ Compute straight line baseline """
+        # Two points
+        bas_points = np.array([y[isx], y[idx]])
+        # Use the linear regression to connect them, employ the point scale
+        _, (bas_m, bas_q) = fit.lr(bas_points, x=np.asarray([isx, idx]))
+        # full-length x-scale for baseline
+        xb = np.arange(isx, idx+1, 1)
+        # baseline = mx + q
+        bas = xb * bas_m + bas_q
+        return bas
+
+    def calc_all_bas(isx, idx):
+        """ Compute the straight line baseline for all the experiments """
+        all_bas = np.array([
+            calc_bas(y, isx, idx)
+            for y in all_data])
+        return all_bas
+
+    def axy_plot(y):
+        """ Draw a series in the miniplot """
+        # Set the data and make it visible
+        int_plot.set_ydata(y)
+        int_plot.set_visible(True)
+        # Update the limits
+        misc.set_ylim(axy, y)
+        fig.canvas.draw()
+
+    def axy_reset():
+        """ Turn off the miniplot """
+        # Draw zeros and make it invisible
+        int_plot.set_ydata(np.zeros_like(indirect_scale))
+        int_plot.set_visible(False)
+        # Update the limits
+        misc.set_ylim(axy, np.zeros_like(indirect_scale))
+        fig.canvas.draw()
+
+    def onselect(vsx, vdx):
+        """ When you drag and release """
+        # Take indexes of the borders of the selected window and sort them
+        isx = misc.ppmfind(ppm, vsx)[0]
+        idx = misc.ppmfind(ppm, vdx)[0]
+        isx, idx = min(isx, idx), max(isx, idx)
+        # Make a slice
+        sl = slice(isx, idx+1)
+        # If you select less than three points you are not integrating anything
+        if idx - isx < 3:
+            return
+
+        # Compute the baseline according to the checkbox status
+        if checkbox.get_status()[0]:        # do
+            bas = calc_bas(data, isx, idx)
+            # and make it visible
+            bas_plot.set_visible(True)
+        else:                               # don't
+            bas = np.zeros_like(ppm[sl])
+            # and make it disappear
+            bas_plot.set_visible(False)
+        # Update baseline plot
+        bas_plot.set_data(ppm[sl], bas)
+
+        # Compute the integral
+        int_fun = processing.integral(data[sl] - bas, x[sl])    # Integral function ( primitive )
+        int_val = (int_fun[-1] - int_fun[0]) * dx               # Value of the integral
+
+        # Compute all integrals
+        if checkbox.get_status()[0]:        # do
+            all_bas = calc_all_bas(isx, idx)
+        else:                               # don't
+            all_bas = np.zeros_like(all_data[..., sl])
+        all_int = processing.integrate(all_data[..., sl] - all_bas, x[sl]) * dx
+
+        # Update the plot
+        #   compute correction factor to make the curve actually visible
+        yscale = (max(data[sl]) - min(data[sl])) / (max(int_fun) - min(int_fun))
+        #   Plot the red curve
+        tmp_plot.set_data(ppm[sl], yscale * int_fun)
+        #   and set it visible
+        tmp_plot.set_visible(True)
+        #   update text under the red label
+        tmp_text.set_text(f'{int_val:12.5g}')
+
+        # Update the minipanel
+        axy_plot(all_int)
+        fig.canvas.draw()
+
+    def f_add(event):
+        """ When you click 'ADD' """
+        # Set the integral function as invisible so that it does not overlay with the permanent one
+        tmp_plot.set_visible(False)
+        # Get the data from the red curve
+        xdata, ydata = tmp_plot.get_data()
+        int_val = eval(tmp_text.get_text())
+
+        # Compute all the integrals of the series
+        #   Get the window limits from the red curve
+        isx = misc.ppmfind(ppm, min(xdata))[0]
+        idx = misc.ppmfind(ppm, max(xdata))[0]
+        isx, idx = min(isx, idx), max(isx, idx)
+        #   Make a slice
+        sl = slice(isx, idx+1)
+
+        #   Baseline
+        if checkbox.get_status()[0]:        # do
+            all_bas = calc_all_bas(isx, idx)
+        else:                               # don't
+            all_bas = np.zeros_like(all_data[..., sl])
+        # Compute the integrals
+        all_int = processing.integrate(all_data[..., sl] - all_bas, x[sl]) * dx
+
+        # Key comes from xdata, value comes from the red label
+        abs_vals['{:.3f}:{:.3f}'.format(xdata[0], xdata[-1])] = all_int
+
+        # Update the plot
+        #   draw the green curve in place of the red one and store the artist in a dictionary
+        perm_integrals['{:.3f}:{:.3f}'.format(xdata[0], xdata[-1])] = ax.plot(xdata, ydata, c='tab:green', lw=2.2)[-1]
+        #   draw the text at the top
+        text_integrals['{:.3f}:{:.3f}'.format(xdata[0], xdata[-1])] = ax.text(
+                np.mean(xdata), 0.90, '{:12.5g}'.format(int_val),       # in the center of the window, at the top panel
+                ha='center', va='bottom', transform=mixed_transform, fontsize=10, rotation=60)
+        #   make the miniplot invisible
+        axy_reset()
+        fig.canvas.draw()
+
+    def update_selkey(event):
+        """ For the selection. There are a ton of early returns! """
+        nonlocal sel_key
+        # Right click resets the selection
+        if event.button == 3:
+            sel_key = None
+            return
+
+        # MouseButtonEvent gives the position in pixels -> conversion needed
+        figw_px, figh_px = fig.get_figwidth() * fig.dpi, fig.get_figheight() * fig.dpi
+        if event.y / figh_px < 0.9:     # y coordinate below the top border of the subplot
+            return
+
+        # You made until here. Nice!
+
+        # Placeholders for the selection
+        keys, locs = [], []
+        # Loop over all the texts
+        for key, text_obj in text_integrals.items():
+            # find the center position of the text in fig frame
+            bbox_display = text_obj.get_window_extent(fig.canvas.get_renderer())
+            bbox_fig = bbox_display.transformed(fig.transFigure.inverted())
+            # Save the keys of the dictionary and the positions in the lists
+            keys.append(key)
+            locs.append((bbox_fig.x0 + bbox_fig.x1) / 2)
+
+        # Mouse click position in fig frame
+        relp = event.x / figw_px
+        # Find the closest text from where you clicked
+        nearest = misc.find_nearest(locs, relp)
+        # You need to click sufficiently close!
+        if abs(relp - nearest) > 0.005:
+            return
+        # Selection worked! Find the index and put the selection
+        i_nearest = locs.index(nearest)
+        sel_key = keys[i_nearest]
+
+    def on_mouse_click(event):
+        """ Click to select a certain integral """
+        # DO NOT GO FURTHER if there are not integrals
+        if len(text_integrals.keys()) == 0:
+            return
+        # Select the integral
+        update_selkey(event)
+
+        if sel_key is not None:
+            # Highlight in blue
+            text_integrals[sel_key].set_color('indigo')
+            perm_integrals[sel_key].set_color('indigo')
+            axy_plot(abs_vals[sel_key])
+        else:
+            # Reset: text in black, function in green
+            for key in text_integrals.keys():
+                text_integrals[key].set_color('k')
+                perm_integrals[key].set_color('tab:green')
+        fig.canvas.draw()
+
+    def f_remove(event):
+        """ Remove the selected integral """
+        nonlocal sel_key
+        # DO NOT GO FURTHER if an integral is not selected
+        if sel_key is None:
+            return
+        # Kill the artists
+        text_integrals[sel_key].remove()
+        perm_integrals[sel_key].remove()
+        axy_reset()
+        # Remove the things from the dictionaries
+        abs_vals.pop(sel_key)
+        text_integrals.pop(sel_key)
+        perm_integrals.pop(sel_key)
+        # Update the plot
+        fig.canvas.draw()
+        # Reset the selection
+        sel_key = None
+
+    def f_save(event):
+        """ When you click 'SAVE' """
+        # Do NOT close the panel if there were not integrals computed
+        if len(abs_vals.keys()) == 0:
+            print('No integrals taken yet!')
+            return
+        # Write the .igrl file and close
+        anal.write_igrl(filename, abs_vals, indirect_scale=indirect_scale, header=True)
+        plt.close()
+        print(f'Integrals saved in {filename}.igrl.')
+
+    # ---------------------------------------------------------------------------------------
+
+    # Add things to the figure panel
+
+    for k, (y, c, label) in enumerate(zip(all_data, COLORS, labels)):
+        ax.plot(ppm, y, c=c, lw=0.8, label=label)        # Spectrum
+    # Draw the total integral function but set to invisible because it is useless, needed as placeholder for the red curve
+    tmp_plot, = ax.plot(ppm, int_f/max(int_f)*max(data), c='tab:red', lw=2.2, visible=False)
+    bas_plot, = ax.plot(ppm, np.zeros_like(data), c='violet', lw=1.8, visible=False)
+    int_plot, = axy.plot(indirect_scale, np.zeros_like(indirect_scale), '.-', ms=5, c='tab:red', visible=False)
+
+    # Draw text labels in the figure, on the right
+    ax.text(0.94, 0.68, 'Current integral', ha='center', va='center', transform=fig.transFigure, fontsize=14, color='tab:red')
+    tmp_text = ax.text(0.94, 0.65, '0', horizontalalignment='center', verticalalignment='center', transform=fig.transFigure, fontsize=14)
+
+    # Fancy shit
+    ax.set_xlim(max(ppm), min(ppm))
+    ax.set_xlabel(X_label)
+    ax.set_ylabel('Intensity /a.u.')
+    misc.pretty_scale(ax, ax.get_xlim(), 'x')
+    misc.pretty_scale(ax, ax.get_ylim(), 'y')
+    misc.mathformat(ax, 'y')
+    misc.set_fontsizes(ax, 14)
+    ax.legend(loc='upper left', bbox_to_anchor=(0.0125, 0.975), bbox_transform=fig.transFigure, fontsize=9, ncols=2)
+    axy.set_xlabel('Indirect dimension')
+    misc.pretty_scale(axy, axy.get_xlim(), 'x', 4)
+    misc.pretty_scale(axy, axy.get_ylim(), 'y', 4)
+    misc.mathformat(axy, 'y')
+    misc.set_fontsizes(axy, 14)
+
+    # Add more widgets and connect the buttons to their functions
+    add_button.on_clicked(f_add)
+    remove_button.on_clicked(f_remove)
+    save_button.on_clicked(f_save)
+    checkbox.on_clicked(check_clicked)
+    fig.canvas.mpl_connect('button_press_event', on_mouse_click)
+    # Here I need to keep a reference to it otherwise the span selector and the cursor do not show
+    cursor = Cursor(ax, c='tab:red', lw=0.8, horizOn=False)
+    span = SpanSelector(ax, onselect, 'horizontal', props=dict(facecolor='tab:red', alpha=0.5))
+    # Useless but used to avoid flake to become angry
+    span.set_visible(True)
+    cursor.vertOn = True
+
+    # Show the figure
+    plt.show()
+
+    return abs_vals
 
 
 def integrate_2D(ppm_f1, ppm_f2, data, SFO1, SFO2, fwhm_1=200, fwhm_2=200, utol_1=0.5, utol_2=0.5, plot_result=False):
