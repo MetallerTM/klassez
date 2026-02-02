@@ -2904,6 +2904,153 @@ def read_vf(filename, n=-1):
     return regions
 
 
+def write_dy(filename, diff_c, diff_f, diff_e, label, intensity, offset, header=False):
+    """
+    Write a section in a fit report file, which shows the fitting region identifier and the parameters to feed into the DOSY model fitting.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the file to be written
+    diff_c : list of float
+        Diffusion coefficients in m^2/s
+    diff_f : list of float
+        Fractions of the various components
+    diff_e : list of float or list of None
+        Fit errors. Initial guess will have ``None`` for each entry
+    label : str
+        Region identifier for the fit
+    intensity : float
+        Intensity factor to match the model to the experimental data
+    offset : float
+        Offset factor to match the model to the experimental data
+
+    .. seealso::
+
+        :func:`klassez.fit.read_dy`
+
+        :func:`klassez.fit.make_dosy_iguess`
+
+    """
+    # Adjust the intensities
+    diff_f, I_corr = misc.molfrac(diff_f)
+
+    # Open the file in append mode
+    f = open(f'{filename}', 'a', buffering=1)
+    # Info on the region to be fitted
+    if header:
+        now = datetime.now()
+        date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
+        f.write('! DOSY fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+    #   Header
+    f.write('{:>24}; {:>14}; {:>14}\n'.format('Region', 'Intensity', 'Offset'))
+    f.write('-'*96+'\n')
+    #   Values
+    f.write(f'{label:>24}; {intensity*I_corr:14.8e}; {offset*I_corr:14.8e}\n\n')
+
+    # Info on the components
+    #   Header
+    f.write('{:>16}; {:>16}; {:>16}\n'.format(
+        'Dosy coeff.', 'Fraction', 'Error'))
+    f.write('-'*96+'\n')
+    #   Values
+    for diffc, difff, diffe in zip(diff_c, diff_f, diff_e):
+        f.write('{:=16.8e}; {:16.8f}; '.format(diffc, difff))
+        if diffe is None:
+            f.write(f'{"None":>16s}\n')
+        else:
+            f.write(f'{diffe:16.8e}\n')
+    f.write('-'*96+'\n\n')
+
+    # Add region separator and close the file
+    f.write('='*96+'\n\n')
+    f.close()
+
+
+def read_dy(filename, n=-1):
+    """
+    Reads a `.idy` (initial guess) or `.fdy` (final fit) file, containing the parameters for a DOSY fitting procedure.
+    The file is separated and unpacked into a list of dictionaries, each of which contains the region identifier,
+    the total intensity value and the offset, the diffusion coefficients, relative weight of the components, and the fit errors.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the filename to be read
+    n : int
+        Number of performed fit to be read. Default: last one. The breakpoints are lines that start with "!". For this reason, ``n=0`` returns an empty dictionary, hence the first fit is ``n=1``.
+
+    Returns
+    ----------
+    regions: list
+        List of dictionaries for running the fit.
+
+
+    .. seealso::
+
+        :func:`klassez.fit.write_dy`
+
+    """
+    def read_region(R):
+        """ Creates a dictionary of parameters from a section of the input file.  """
+        # Placeholder
+        dic_r = {}
+        # Separate the lines and remove the empty ones
+        R = R.split('\n')
+        for k, r in enumerate(R):
+            if len(r) == 0 or r.isspace():
+                _ = R.pop(k)
+
+        n_bp = 0        # Number of breaking points (----)
+        k_bp = 0        # Line of the last breaking point detected
+        for k, r in enumerate(R):
+            if '------' in r:   # Increase breakpoint and store the line number
+                n_bp += 1
+                k_bp = k
+                continue
+
+            if n_bp == 1 and k_bp == k-1:   # First section: region identifiere, intensity and offset
+                line = r.split(';')  # Separate the values
+                dic_r['label'] = line[0].replace(' ', '')   # Get the label
+                dic_r['I'] = eval(line[1])     # Get the intensity
+                dic_r['q'] = eval(line[2])     # Get the offset
+                # Create placeholders for the values
+                dic_r['diff_c'] = []
+                dic_r['diff_f'] = []
+                dic_r['diff_e'] = []
+
+            if n_bp == 2:       # Second section: peak parameters
+                line = r.split(';')  # Separate the values
+                # Unpack the line
+                diffc, difff, diffe = [eval(w) for w in line]
+                # Put the values in the dictionary
+                dic_r['diff_c'].append(diffc)
+                dic_r['diff_f'].append(difff)
+                dic_r['diff_e'].append(diffe)
+
+            if n_bp == 3:   # End of file: stop reading
+                break
+
+        return dic_r
+
+    # Read the file
+    with open(filename, 'r') as J:
+        ff = J.read()
+    # Get the actual section from an output file
+    f = ff.split('!')[n]
+    # Separate the bigger sections
+    R = f.split('='*96)
+    # Remove the empty lines
+    for k, r in enumerate(R):
+        if r.isspace():
+            _ = R.pop(k)
+
+    regions = []    # Placeholder for return values
+    for r in R:  # Loop on the big sections to read them
+        regions.append(read_region(r))
+    return regions
+
+
 def read_par(filename):
     """
     Reads the input file of the fit and returns the values.

@@ -1310,6 +1310,8 @@ def edit_checkboxes(checkbox, xadj=0, yadj=0, dim=100, color=None):
             if len(color) < n_labels:
                 raise ValueError('Not enough colors for all the checkboxes!')
             props['facecolors'] = [color[w] for w in range(n_labels)]
+    else:
+        props['facecolors'] = [checkbox.labels[w].get_color() for w in range(n_labels)]
     # Set the new properties of the checks
     # They are the same of the frame to keep the fitting
     checkbox.set_check_props(props)

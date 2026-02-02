@@ -925,7 +925,7 @@ class Spectrum_1D:
             :func:`klassez.anal.read_igrl`
 
         """
-        self.integrals = anal.read_igrl(filename, n)
+        self.integrals, _ = anal.read_igrl(filename, n)
         print(f'{filename} read.')
 
     def to_vf(self, filename=None, Hs=None, fvf=True):
@@ -3453,7 +3453,7 @@ class Pseudo_2D(Spectrum_2D):
             :func:`klassez.anal.read_igrl`
 
         """
-        self.integrals = anal.read_igrl(filename, n)
+        self.integrals, self.ppm_f1 = anal.read_igrl(filename, n)
         print(f'{filename} read.')
 
     def qfil(self, which=None, u=None, s=None):
