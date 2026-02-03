@@ -789,7 +789,6 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
         :func:`lmfit.Minimizer.minimize`
 
         :class:`lmfit.Minimizer.MinimizerResult`
-
     """
 
     # USED FUNCTIONS
@@ -2775,7 +2774,6 @@ def write_vf(filename, peaks, lims, Int, prev=0, header=False, bas_c=None):
         :func:`klassez.fit.read_vf`
 
         :func:`klassez.fit.make_iguess`
-
     """
     # Adjust the intensities
     r_i, I_corr = misc.molfrac([peak.k for _, peak in peaks.items()])
@@ -2832,11 +2830,9 @@ def read_vf(filename, n=-1):
     regions: list
         List of dictionaries for running the fit.
 
-
     .. seealso::
 
         :func:`klassez.fit.write_vf`
-
     """
     def read_region(R):
         """ Creates a dictionary of parameters from a section of the input file.  """
@@ -2930,7 +2926,6 @@ def write_dy(filename, diff_c, diff_f, diff_e, label, intensity, offset, header=
         :func:`klassez.fit.read_dy`
 
         :func:`klassez.fit.make_dosy_iguess`
-
     """
     # Adjust the intensities
     diff_f, I_corr = misc.molfrac(diff_f)
@@ -2985,11 +2980,9 @@ def read_dy(filename, n=-1):
     regions: list
         List of dictionaries for running the fit.
 
-
     .. seealso::
 
         :func:`klassez.fit.write_dy`
-
     """
     def read_region(R):
         """ Creates a dictionary of parameters from a section of the input file.  """
@@ -3378,7 +3371,6 @@ def test_residuals(res, alpha=0.05):
         :func:`klassez.fit.test_correl`
 
         :func:`klassez.fit.test_ks`
-
     """
     from scipy.stats import norm
 
@@ -3499,7 +3491,6 @@ def gaussian_fit(x, y, s_in=None):
     .. seealso::
 
         :func:`klassez.sim.f_gaussian`
-
     """
 
     # Make parameter dictionary
@@ -3878,7 +3869,6 @@ class Voigt_Fit:
         .. seealso::
 
             :func:`klassez.fit.histogram`
-
         """
         # Filename check
         if filename is None:
@@ -6584,6 +6574,418 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
 
     plt.show()  # Start event loop
     plt.close()
+
+
+def make_iguess_dosy_panel(x, label, y, model, model_args, diff_c_0=1e-10, filename='dosy_fit'):
+    """
+    Make the initial guess for the fit of a DOSY profile by using a GUI to visually adjust the value of
+    the diffusion coefficient and the number of components to use.
+
+    The goal is to try to match the thin solid blue line to the trend of the black dots.
+
+    Use the mouse scroll to modify the values and redraw the figure.
+    The radio buttons at the bottom will make you choose if to edit the diffusion coefficient or the fraction
+    of the given component.
+    The sensitivity can be modified by using the radiobutton as well (coarse/fine) or using the up/down buttons.
+
+    Use the + button to add a component. Use the - button to remove a the currently selected component.
+    You can use the slider to change the active component. The headers above the current values of diffusion
+    coefficient and fraction will appear of the same color as the active component.
+
+    The intensity to match the model with the experimental data is computed and applied automatically.
+    Disabling this option will allow you to play with the values more freely.
+    There is also the option to include an offset, however **this should be used only in case of severe systematic errors**
+    during the integration procedure.
+
+    Upon pressing the "SAVE" button, a section of the ``<filename>.idy`` file will be written and the GUI will close.
+
+
+    Parameters
+    ----------
+    x : 1darray
+        Independent variable for the model (usually the gradient list)
+    label : str
+        Identifier for the region, typically the integration window or peak number
+    y : 1darray
+        Integrated dosy profile
+    model : callable
+        Functional model for the DOSY profile. Signature:
+
+        ::
+
+            def model(x, diffc, **model_args):
+                return 1darray
+
+    model_args : dict of keyworded arguments
+        Additional parameters for ``model``.
+    diff_c_0 : float
+        Default initial value for the diffusion coefficient, in m^2/s
+    filename : str
+        The output file of the procedure will be ``<filename>.idy``
+
+
+    .. seealso::
+
+        :func:`klassez.fit.make_iguess_dosy`
+
+        :func:`klassez.fit.write_dy`
+    """
+    # Initialize variables
+    diff_c = [diff_c_0]         # Initial diffusion coefficient
+    diff_f = [1]                # Fraction is obviously 1
+
+    A, q = 0, 0                 # Intensity and offset
+    Np = 1                      # Number of components
+
+    # "_" version are the originals for the "reset" function
+    #   Multiplier for the diffc [coarse, fine]
+    lvl_step = [1.6, 1.05]
+    _lvl_step = deepcopy(lvl_step)
+    #   Added factor for the sensitivity
+    lvl_step_incr = [0.05, 0.005]
+    _lvl_step_incr = deepcopy(lvl_step_incr)
+    #   Adding factor for the difff [coarse, fine]
+    frc_step = [0.1, 0.01]
+    _frc_step = deepcopy(frc_step)
+
+    # ---------------------------------------------------------------
+    # Make the figure panel
+    fig = plt.figure('Initialization of diffusion coefficient')
+    fig.set_size_inches(figures.figsize_large)
+    plt.subplots_adjust(left=0.10, bottom=0.10, right=0.80, top=0.90)
+    ax = fig.add_subplot()
+
+    # Make boxes for widgets
+    check_box = plt.axes([0.825, 0.80, 0.15, 0.10])         # Toggle intensity and offset
+    up_box = plt.axes([0.825, 0.15, 0.04, 0.05])            # Increase sensitivity
+    down_box = plt.axes([0.825, 0.10, 0.04, 0.05])          # Decrease sensitivity
+    plus_box = plt.axes([0.88, 0.675, 0.045, 0.075])        # Add component
+    minus_box = plt.axes([0.93, 0.675, 0.045, 0.075])       # Remove component
+    save_box = plt.axes([0.905, 0.015, 0.07, 0.06])         # Save button
+    reset_box = plt.axes([0.825, 0.015, 0.07, 0.06])        # Reset button
+    radio_box = plt.axes([0.88, 0.10, 0.095, 0.10])         # Coarse/fine
+    dorf_box = plt.axes([0.88, 0.225, 0.095, 0.10])         # Move diffc or difff
+    slider_box = plt.axes([0.84, 0.25, 0.01, 0.50])         # Selector slider
+
+    # Widgets
+    #   Only factor is toggled at the beginning
+    checkbox = CheckButtons(check_box, labels=['Calc. factor', 'Use offset'], actives=[True, False])
+    misc.edit_checkboxes(checkbox, xadj=0, yadj=0.05, dim=100)
+    #   Buttons to increase and decrease sensitivity
+    up_button = Button(up_box, r'$\uparrow$', hovercolor='0.895')
+    down_button = Button(down_box, r'$\downarrow$', hovercolor='0.895')
+    #   Add/remove component
+    plus_button = Button(plus_box, '$+$', hovercolor='0.975')
+    minus_button = Button(minus_box, '$-$', hovercolor='0.975')
+    #   Save and reset
+    save_button = Button(save_box, 'SAVE', hovercolor='0.975')
+    reset_button = Button(reset_box, 'RESET', hovercolor='0.975')
+    #   Radiobuttons
+    radio = RadioButtons(radio_box, ['Coarse', 'Fine'], active=0)
+    dorf = RadioButtons(dorf_box, ['Diff. Coeff.', 'Fraction'], active=0)
+    #   Selector slider, these are just random number inside.
+    #   The actual slider will go from 0 to slightly less than 1 in Np step
+    slider = Slider(ax=slider_box, label='# Component',
+                    valmin=0, valmax=1-1e-3, valinit=0, valstep=1e-10,
+                    orientation='vertical', color='tab:blue')
+
+    # -----------------------------------------------------------------------------------------
+    # USEFUL FUNCTIONS
+    def calc_f(x, y, diffc, difff=1):
+        """ Model for a single component """
+        # Compute the model and multiply it by its fraction
+        f = difff * model(x, diffc, **model_args)
+        return f
+
+    def calc_t(x, y, diff_c, diff_f):
+        """ Compute all the components """
+        # Loop over calc_f using all the values
+        yc = [calc_f(x, y, diffc, difff) for diffc, difff in zip(diff_c, diff_f)]
+        # The total trace is the sum of all the components
+        t = np.sum(yc, axis=0)
+        # Update I and q only if the option is toggled in the checkbox
+        if checkbox.get_status()[0]:
+            nonlocal A, q
+            A, q = fit.fit_int(y, t, q=checkbox.get_status()[1])
+        # Apply A and q to the total. If the option is unactive, it uses the previous one
+        t = A * t + q
+        # Update all the components as well
+        for k, y_c in enumerate(yc):
+            yc[k] = A * y_c + q
+
+        return t, yc
+
+    # SLOTS
+    def selector(event):
+        """ When you move the slider """
+        # Get the index of the selected component
+        idx = int(np.floor(slider.val * Np))
+
+        for k, line in enumerate(fit_plot):
+            # Set the linewidth of the active plot to 3 and the rest to 1
+            if k == idx:
+                line.set_lw(3)
+            else:
+                line.set_lw(1.5)
+        # Update the values
+        update_text(idx)
+
+    def update_frac_increment(w):
+        """ Update the sensitivity value for the fraction. w = +/-1 """
+        # radio -> coarse / fine
+        # increase -> w = +1 -> *2
+        # decrease -> w = -1 -> /2
+        frc_step[radio.index_selected] *= 2**w
+
+    def update_diff_increment(w):
+        """ Update the sensitivity value for the diffusion coefficient. w = +/-1 """
+        # radio -> coarse / fine
+        # increase -> w = +1 -> + lvl_step_incr[radio]
+        # decrease -> w = -1 -> - lvl_step_incr[radio]
+        lvl_step[radio.index_selected] += w * lvl_step_incr[radio.index_selected]
+
+        # make sure these do not reach 1 otherwise the plot will not update anymore
+        for k in range(2):
+            if lvl_step[k] <= 1:
+                lvl_step[k] = 1.01
+
+    def up_sens(event):
+        """ Fork for the UP button """
+        if dorf.index_selected == 0:    # diff_c
+            update_diff_increment(+1)
+        else:       # diff_f
+            update_frac_increment(+1)
+
+    def down_sens(event):
+        """ Fork for the DOWN button """
+        if dorf.index_selected == 0:    # diff_c
+            update_diff_increment(-1)
+        else:       # diff_f
+            update_frac_increment(-1)
+
+    def update_diff(event):
+        """ Main function to redraw the plot and update the values """
+        # event can be None to not update the values, or ScrollEvent
+        # Get active component from the slider
+        idx = int(np.floor(slider.val * Np))
+
+        if event is not None:       # Fork -> direction of the scroll
+            if event.button == 'up':
+                w = +1
+            elif event.button == 'down':
+                w = -1
+
+            if dorf.index_selected == 0:    # Update diffc
+                # w = +1 => * // w = -1 => /
+                diff_c[idx] *= lvl_step[radio.index_selected]**w
+            else:                           # Update fraction
+                # w = +1 => + // w = -1 => -
+                diff_f[idx] += frc_step[radio.index_selected] * w
+
+        # Recompute the total trace and the components using the current values
+        t, yc = calc_t(x, y, diff_c, diff_f)
+
+        # Update the plots
+        tot_plot.set_ydata(t)
+        for k, y_c in enumerate(yc):
+            fit_plot[k].set_ydata(y_c)
+        # Update the texts and redraw the artists
+        update_text(idx)
+        fig.canvas.draw()
+
+    def toggle_check(label):
+        """ Redraw everything knowing that either I or q behavior changed """
+        update_diff(None)
+
+    def add_comp(event):
+        """ Add a component """
+        nonlocal Np
+        # Increase the number of components
+        Np += 1
+        # add a default entry to the values lists
+        diff_c.append(diff_c_0)
+        diff_f.append(1)
+
+        # Add a placeholder in the component plot lists
+        fit_plot.append(ax.plot(x, np.zeros_like(x), '--', lw=1)[-1])
+        # Redraw everything taking also the new component into account
+        update_diff(None)
+
+        # Move the slider to the position of the new component
+        slider.set_val((Np - 1) / Np)
+        # Recompute the step of the slider
+        slider.valstep = 1 / Np
+        # Update linewidths
+        selector(None)
+
+    def remove_comp(event):
+        """ Remove the active component """
+        nonlocal Np
+        if Np == 1:     # At least one must remain!
+            return
+
+        # Get the active peak
+        idx = int(np.floor(slider.val * Np))
+        # Decrease Np by 1
+        Np -= 1
+        # Remove the current values from the values lists
+        _ = diff_c.pop(idx)
+        _ = diff_f.pop(idx)
+        # Remove the correspondant line from the plot list
+        del_p = fit_plot.pop(idx)
+        del_p.remove()      # Erase the artist
+
+        if Np == 1:   # To zero and that's it
+            slider.set_val(0)
+            slider.valstep = 1 / Np
+        else:   # To the previous point
+            if idx == 1:
+                slider.set_val(0)
+            else:
+                slider.set_val((idx - 1) / Np)
+            slider.valstep = 1 / Np
+
+        # Redraw everything and adjust linewidths
+        update_diff(None)
+        selector(None)
+
+    def update_text(idx):
+        """ Change colors to the headers and update the values """
+        legend_text.set_color(fit_plot[idx].get_color())
+        value_text.set_text(f'\n{diff_c[idx]:.5g}\n\n\n{diff_f[idx]:.5g}\n\n')
+        fig.canvas.draw()
+
+    def reset(event):
+        """ Restore all values to the default """
+        nonlocal diff_c, diff_f, lvl_step, lvl_step_incr, frc_step
+
+        # Remove the curves one by one
+        for _ in range(Np):
+            remove_comp(None)
+
+        # Reset the values
+        diff_c = [diff_c_0]
+        diff_f = [1]
+
+        # Reset the increments
+        lvl_step = deepcopy(_lvl_step)
+        lvl_step_incr = deepcopy(_lvl_step_incr)
+        frc_step = deepcopy(_frc_step)
+
+        # Redraw everything
+        update_diff(None)
+        selector(None)
+        fig.canvas.draw()
+
+    def save(event):
+        """ Write a section in the output file """
+        # Placeholder for the errors: initial guess is errorless by definition :)
+        diff_e = [None for w in range(Np)]
+        fit.write_dy(f'{filename}.idy', diff_c, diff_f, diff_e, label, A, q)
+        # Close everything
+        plt.close()
+
+    # -------------------------------------------------------------------------------
+    # Get the initial total trace and the components (it is only one but I like consistency)
+    t, yc = calc_t(x, y, diff_c, diff_f)
+
+    # Plots
+    ax.plot(x, y, '.', ms=10, c='k', label='Experimental')
+    # The total is thinner hence it can appear on top
+    tot_plot, = ax.plot(x, t, '-', lw=1, label='Total Fit', zorder=1000)
+    # Components as a list
+    fit_plot = [ax.plot(x, y_c, '--', lw=3)[-1] for y_c in yc]
+
+    # Text on the right
+    # Same position for header and value, the text itself is interleaved
+    legend_text = fig.text(0.925, 0.60,     # here 1st and 4th line
+                           'Diff. C.\n\n\nFraction\n\n\n',
+                           ha='center', va='top', transform=fig.transFigure,
+                           fontsize=16)
+    # Here just a placeholder because...
+    value_text = fig.text(0.925, 0.60, '',  # here 2nd and 5th line
+                          ha='center', va='top', transform=fig.transFigure,
+                          fontsize=16)
+    # ... this is the function that applies color to header and correct text in value
+    update_text(0)
+
+    # Fancy shit
+    #   title and axes labels
+    ax.set_title(f'{label}')
+    ax.set_xlabel(r'Gradient /T m$^{-1}$')
+    ax.set_ylabel('Intensity /a.u.')
+
+    #   ticks and co.
+    misc.pretty_scale(ax, ax.get_xlim(), 'x')
+    misc.pretty_scale(ax, ax.get_ylim(), 'y')
+    misc.mathformat(ax)
+
+    #   legend
+    ax.legend()
+    misc.set_fontsizes(ax, 14)
+
+    # Connect widgets to slots
+    up_button.on_clicked(up_sens)
+    down_button.on_clicked(down_sens)
+    plus_button.on_clicked(add_comp)
+    minus_button.on_clicked(remove_comp)
+    slider.on_changed(selector)
+    reset_button.on_clicked(reset)
+    save_button.on_clicked(save)
+    checkbox.on_clicked(toggle_check)
+    fig.canvas.mpl_connect('scroll_event', update_diff)
+
+    # Start event loop
+    plt.show()
+
+
+def make_iguess_dosy(x, labels, data, model, model_args, diff_c_0=1e-10, filename='dosy_fit'):
+    """
+    Make the initial guess for the fit of a DOSY spectrum by using a GUI to visually adjust the value of
+    the diffusion coefficient and the number of components to use.
+    Calls :func:`fit.make_iguess_dosy_panel` in a loop. A section of the output file is written at the end
+    of each loop.
+
+    Parameters
+    ----------
+    x : 1darray
+        Independent variable for the model (usually the gradient list)
+    labels : list of str
+        Identifier for the region, typically the integration window or peak number
+    data : list of 1darray or 2darray
+        Integrated profiles to fit
+    model : callable
+        Functional model for the DOSY profile. Signature:
+
+        ::
+
+            def model(x, diffc, **model_args):
+                return 1darray
+
+    model_args : dict of keyworded arguments
+        Additional parameters for ``model``.
+    diff_c_0 : float
+        Default initial value for the diffusion coefficient, in m^2/s
+    filename : str
+        The output file of the procedure will be ``<filename>.idy``
+
+    .. seealso::
+
+        :func:`klassez.fit.make_iguess_dosy_panel`
+
+        :func:`klassez.write_dy`
+    """
+    # Write the header of the idy file as it would in write_dy with header=True
+    with open(f'{filename}.idy', 'a', buffering=1) as f:
+        now = datetime.now()
+        date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
+        f.write('! DOSY fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+
+    # Make a loop: call the GUI for each set of integrals
+    for k, (label, y) in enumerate(zip(labels, data)):
+        print(f'Region {label} [ # {k+1} of {len(labels)}]', end='\r')
+        fit.make_iguess_dosy_panel(x, label, y, model, model_args, diff_c_0, filename)
+    print(f'\n{filename}.idy saved.')
 
 
 def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='png', dpi=600):

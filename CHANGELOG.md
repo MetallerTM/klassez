@@ -8,6 +8,7 @@ Added a warning if you do not zero-fill enough to do a Hilbert transform.
 New GUIs for integration. Called by the *integrate* methods of *Spectrum_1D* and *Pseudo_2D*.
 02/02/26
 Reading and writing dosy input/output files
+Initial guess with gui
 
 ## New functions:
 21/01/26
@@ -19,6 +20,8 @@ Reading and writing dosy input/output files
 02/02/26
 - *fit.write_dy*
 - *fit.read_dy*
+- *fit.make_iguess_dosy*
+- *fit.make_iguess_dosy_panel*
 
 ## Modified functions:
 21/01/26
