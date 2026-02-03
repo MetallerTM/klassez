@@ -22,6 +22,9 @@ Initial guess with gui
 - *fit.read_dy*
 - *fit.make_iguess_dosy*
 - *fit.make_iguess_dosy_panel*
+03/02/26
+- *fit.fit_dosy*
+- *fit.fit_plot_dosy*
 
 ## Modified functions:
 21/01/26
@@ -31,6 +34,10 @@ Initial guess with gui
 29/01/26
 - *anal.integrate*: completely remade from scratch. New options!
 - *anal.integrate_p2D*: completely remade from scratch. New options!
+
+## New classes:
+03/02/26
+- *fit.DosyFit*
 
 # Version 0.5a.2
 
