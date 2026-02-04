@@ -50,6 +50,11 @@ def heatmap(data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, 
     name: str or None
         Filename for the figure. Set to None to show the figure.
 
+    Returns
+    -------
+    None
+
+
     .. seealso::
 
         :func:`klassez.figures.ax_heatmap`
@@ -457,9 +462,15 @@ def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
     dpi : int
         Resolution of the image in dots per inches
 
+    Returns
+    -------
+    None
+
+
     .. seealso::
 
         :func:`klassez.figures.ax2D`
+
     """
 
     # Check if the scales matches the dimensions of datax
@@ -667,6 +678,10 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
     dpi : int
         Resolution of the image in dots per inches
 
+
+    Returns
+    -------
+    None
 
     .. seealso::
 
@@ -1219,6 +1234,10 @@ def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm',
         Format of the image
     dpi : int
         Resolution of the image in dots per inches
+
+    Returns
+    -------
+    None
 
     .. seealso::
 

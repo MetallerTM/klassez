@@ -72,6 +72,10 @@ class Spectrum_1D:
     integrals : dict
         Dictionary where to save the regions and values of the integrals.
 
+    Returns
+    -------
+    None
+
     .. seealso::
 
         :class:`klassez.fit.Voigt_Fit`
@@ -113,6 +117,10 @@ class Spectrum_1D:
             True if this is an experimental dataset, False if it is simulated
         spect : str
             Data file format. Allowed: ``'bruker'``, ``'varian'``, ``'magritek'``, ``'oxford'``, ``'jeol'``
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -242,6 +250,10 @@ class Spectrum_1D:
             Standard deviation of the noise
 
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.sim.noisegen`
@@ -260,6 +272,10 @@ class Spectrum_1D:
             Number of scans to accumulate
         s_n : float
             Standard deviation of the noise for each scan
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -317,6 +333,10 @@ class Spectrum_1D:
         N : int
             Number of FID points to be used for calculation; used to decrease computation time
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.blp`
@@ -335,6 +355,10 @@ class Spectrum_1D:
         ----------
         interactive : bool
             True if you want to open the interactive panel, False to read the parameters from ``self.procs``.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -427,6 +451,10 @@ class Spectrum_1D:
         update : bool
             Update the procs dictionary
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.apk`
@@ -500,6 +528,10 @@ class Spectrum_1D:
         method_kws : keyworded arguments
             Additional parameters for the chosen method.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.acme`
@@ -518,6 +550,10 @@ class Spectrum_1D:
         ----------
         rpbc_kws : keyworded arguments
             See :func:`klassez.processing.rpbc` for details.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -553,6 +589,10 @@ class Spectrum_1D:
             Read the parameters from the procs dictionary
         ref  : list of 1darray or Spectrum_1D object
             Reference spectrum to be used for calibration. If list, ``[ppm scale, spectrum]``
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -614,6 +654,10 @@ class Spectrum_1D:
         ----------
         other_dir : str or None
             Different location for the acqus dictionary to write into. If None, ``self.datadir`` is used instead.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -690,6 +734,10 @@ class Spectrum_1D:
             Dictionary of acquisition parameters. It must contain BYTORDA and DTYPA.
         path : str
             Path where to save the binary file.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -818,6 +866,10 @@ class Spectrum_1D:
         from_procs : bool
             Tries to read the values from ``self.procs``
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.interactive_qfil`
@@ -872,6 +924,10 @@ class Spectrum_1D:
             The integral values will be saved in ``<filename>.igrl``.
             If ``None``, ``<self.filename>`` will be used instead.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.anal.integrate`
@@ -894,6 +950,10 @@ class Spectrum_1D:
         ----------
         other_dir : str or None
             Different location for the integrals file to write into. If None, ``self.datadir`` is used instead.
+
+        Returns
+        -------
+        None
 
         .. seealso ::
 
@@ -919,6 +979,10 @@ class Spectrum_1D:
         n : int
             Number of performed integrating procedure to be read. Default: last one. The breakpoints are lines that start with "!".
             For this reason, ``n=0`` returns an empty dictionary, hence the first attempt is ``n=1``.
+
+        Returns
+        -------
+        None
 
         .. seealso ::
 
@@ -1034,6 +1098,10 @@ class Spectrum_1D:
             Clipping limits for the FID
         rate : int
             Sampling rate in samples/sec
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -1456,6 +1524,10 @@ class Spectrum_2D:
         s_n : float
             Standard deviation of the noise for each scan
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.sim.noisegen`
@@ -1513,6 +1585,10 @@ class Spectrum_2D:
         ----------
         J : float
             Scalar coupling constant, in Hz, of the coupling to be suppressed.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -1582,6 +1658,10 @@ class Spectrum_2D:
             True if you want to open the interactive panel, False to read the parameters from ``self.procs``.
         int_kwargs : keyworded arguments
             Additional parameters for :func:`klassez.processing.interactive_xfb`, if ``interactive=True``.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -1708,6 +1788,10 @@ class Spectrum_2D:
         ylim : tuple or None
             Limits in F1 in ppm
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.misc.trim_data_2D`
@@ -1760,6 +1844,10 @@ class Spectrum_2D:
             1-st order pivot /ppm of the direct dimension
         update : bool
             Choose if to update the procs dictionary or not
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -1870,6 +1958,10 @@ class Spectrum_2D:
         SFO : float
             Nucleus Larmor frequency to use for the conversion to Hz. If None, ``self.acqus['SFO2']`` is used by default.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.interactive_qfil`
@@ -1922,6 +2014,10 @@ class Spectrum_2D:
             Reference ppm scale and spectrum to be used as reference for calibration of F1 ``[ppm, spectrum]``
         ref2 : list of 1darray
             Reference ppm scale and spectrum to be used as reference for calibration of F2 ``[ppm, spectrum]``
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2023,6 +2119,10 @@ class Spectrum_2D:
         ref : list of 1darray
             Reference ppm scale and spectrum to be used as reference for calibration ``[ppm, spectrum]``
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.Spectra.Spectrum_2D.cal`
@@ -2048,6 +2148,10 @@ class Spectrum_2D:
         ref : list of 1darray
             Reference ppm scale and spectrum to be used as reference for calibration ``[ppm, spectrum]``
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.Spectra.Spectrum_2D.cal`
@@ -2064,6 +2168,10 @@ class Spectrum_2D:
         ----------
         other_dir: str or None
             Different location for the ``acqus`` dictionary to write into. If None, ``self.datadir`` is used instead.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2141,6 +2249,10 @@ class Spectrum_2D:
         path : str
             Path where to save the binary file.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.misc.write_ser`
@@ -2161,6 +2273,10 @@ class Spectrum_2D:
             Directory where to save the files. If None, ``self.datadir`` is used.
         procno: int or str
             Folder
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2189,6 +2305,10 @@ class Spectrum_2D:
             ppm F2 value where to extract the trace.
         b : float or None.
             If it is None, extract the trace in ``a``. Else, sum from ``a`` to ``b`` in F2.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2220,6 +2340,10 @@ class Spectrum_2D:
         b : float or None.
             If it is None, extract the trace in ``a``. Else, sum from ``a`` to ``b`` in F1.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.anal.get_trace`
@@ -2245,6 +2369,10 @@ class Spectrum_2D:
         ----------
         kwargs: keyworded arguments
             Additional parameters for :func:`klassez.anal.integrate_2D`
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2525,6 +2653,10 @@ class Spectrum_2D:
             Clipping limits for the FID
         rate : int
             Sampling rate in samples/sec
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2841,6 +2973,10 @@ class Pseudo_2D(Spectrum_2D):
         s_n : float
             Standard deviation of the noise
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.sim.noisegen`
@@ -2859,6 +2995,10 @@ class Pseudo_2D(Spectrum_2D):
             Number of scans to accumulate
         s_n : float
             Standard deviation of the noise for each scan
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2943,6 +3083,10 @@ class Pseudo_2D(Spectrum_2D):
         newacqus : dict
             New acqus dictionary that replaces the actual one. If it is not a dictionary, no actions are performed.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.stack_fids`
@@ -2986,6 +3130,10 @@ class Pseudo_2D(Spectrum_2D):
             Read the parameters from the procs dictionary
         ref : list of 1darray
             Reference ppm scale and spectrum to be used as reference for calibration [ppm, spectrum]
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -3064,6 +3212,10 @@ class Pseudo_2D(Spectrum_2D):
         update: bool
             Choose if to upload the procs dictionary or not
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.ps`
@@ -3124,6 +3276,10 @@ class Pseudo_2D(Spectrum_2D):
         b : float or None.
             If it is None, extract the trace in ``a``. Else, sum from ``a`` to ``b`` in F2.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.anal.get_trace`
@@ -3156,6 +3312,10 @@ class Pseudo_2D(Spectrum_2D):
             ppm F1 value where to extract the trace.
         b : float or None.
             If it is None, extract the trace in ``a``. Else, sum from ``a`` to ``b`` in F1.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -3363,6 +3523,10 @@ class Pseudo_2D(Spectrum_2D):
         xlim : tuple or None
             Limits in F2 in ppm
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.misc.trim_data_2D`
@@ -3399,6 +3563,10 @@ class Pseudo_2D(Spectrum_2D):
             The integral values will be saved in ``<filename>.igrl``.
             If ``None``, ``<self.filename>`` will be used instead.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.anal.integrate_p2D`
@@ -3422,6 +3590,10 @@ class Pseudo_2D(Spectrum_2D):
         ----------
         other_dir : str or None
             Different location for the integrals file to write into. If None, ``self.datadir`` is used instead.
+
+        Returns
+        -------
+        None
 
         .. seealso ::
 
@@ -3448,6 +3620,10 @@ class Pseudo_2D(Spectrum_2D):
             Number of performed integrating procedure to be read. Default: last one. The breakpoints are lines that start with "!".
             For this reason, ``n=0`` returns an empty dictionary, hence the first attempt is ``n=1``.
 
+        Returns
+        -------
+        None
+
         .. seealso ::
 
             :func:`klassez.anal.read_igrl`
@@ -3471,6 +3647,10 @@ class Pseudo_2D(Spectrum_2D):
         s : float
             Width (standard deviation) /Hz
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.interactive_qfil`
@@ -3492,6 +3672,10 @@ class Pseudo_2D(Spectrum_2D):
             Maximum displacement allowed, in ppm
         ref_idx: int
             Index of the spectrum to be used as a reference (python numbering)
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -3562,6 +3746,10 @@ class Pseudo_2D(Spectrum_2D):
         rpbc_kws : keyworded arguments
             See :func:`klassez.processing.rpbc` for details.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.rpbc`
@@ -3593,6 +3781,10 @@ class Pseudo_2D(Spectrum_2D):
             Clipping limits for the FID
         rate : int
             Sampling rate in samples/sec
+
+        Returns
+        -------
+        None
 
         .. seealso::
 

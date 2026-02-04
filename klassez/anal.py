@@ -1352,6 +1352,10 @@ def write_igrl(filename, dic, indirect_scale=None, header=False):
     header : bool
         If True, adds a "!" starting line to separate fit trials
 
+    Returns
+    -------
+    None
+
     .. seealso::
 
         :func:`klassez.anal.read_igrl`
