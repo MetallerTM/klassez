@@ -7755,6 +7755,7 @@ class Voigt_Fit_P2D:
 
         fit.histogram(residual_arr, nbins=nbins, density=density, f_lims=f_lims, xlabel=xlabel, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize, name=filename, ext=ext, dpi=dpi)
 
+
 def fit_dosy(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_q=False):
     """
     Perform a fit of a DOSY profile using the specified ``model``.
@@ -7775,7 +7776,7 @@ def fit_dosy(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_q=Fals
     d_bds : float or list
         Bounds for the diffusion coefficient.
         If it is a single ``float``, the bounds will be set to ``-d_bds`` and ``+d_bds``
-        orders of magnitude with respect to the initial guess. E.g.: if ``diffc = 1e-10`` and 
+        orders of magnitude with respect to the initial guess. E.g.: if ``diffc = 1e-10`` and
         ``d_bds = 2``, the bounds will be ``[1e-12, 1e-8]``.
         If it is a list of two ``float``s, the bounds will be set to ``-d_bds[0]` and ``+d_bds[1]``
         orders of magnitude with respect to the initial guess. E.g.: if ``diffc = 1e-10`` and
@@ -7783,7 +7784,7 @@ def fit_dosy(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_q=Fals
     f_bds : float or list
         Bounds for the fraction of component.
         If it is a single ``float``, the bounds will be set to ``-f_bds`` and ``+f_bds``
-        with respect to the initial fraction. E.g.: if ``difff = 0.5`` and ``f_bds = 0.3``, 
+        with respect to the initial fraction. E.g.: if ``difff = 0.5`` and ``f_bds = 0.3``,
         the bounds will be ``[0.2, 0.8]``
         If it is a list of two ``float``s, the bounds will be set to ``f_bds[0]` and ``f_bds[1]``,
         regardless of what the initial fraction is.
@@ -7823,7 +7824,6 @@ def fit_dosy(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_q=Fals
         print(f'Step: {par["count"]:6.0f} | Target: {np.sum(residual**2)/first_residual:10.5e}', end='\r')
         return residual
 
-
     # Number of components
     Np = len(iguess['diff_c'])
     # If bounds are single numbers, make them lists in order to do
@@ -7852,11 +7852,11 @@ def fit_dosy(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_q=Fals
         maxD = diffc + 10**(oom+d_bds[1])
         # Add diffusion coefficient
         param.add(f'D_{k+1}', value=diffc, min=minD, max=maxD)
-        
+
         # Bounds for f
         if rel_f:
-            minf = diff - f_bds
-            maxf = diff + f_bds
+            minf = difff - f_bds
+            maxf = difff + f_bds
         else:
             minf = min(f_bds)
             maxf = max(f_bds)
@@ -7887,11 +7887,11 @@ def fit_dosy(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_q=Fals
     diff_f_norm, I_corr = misc.molfrac(diff_f_opt)
     # Make the output dictionary
     dic_result = {
-            'diff_c' : [popt[f'D_{k+1}'].value for k in range(Np)],
-            'diff_e' : [popt[f'D_{k+1}'].stderr for k in range(Np)],
-            'diff_f' : [float(difff) for difff in diff_f_norm],
-            'I' : float(popt['I'].value * I_corr),      # ofc it must take the correction by the fractions into account
-            'q' : popt['q'].value,
+            'diff_c': [popt[f'D_{k+1}'].value for k in range(Np)],
+            'diff_e': [popt[f'D_{k+1}'].stderr for k in range(Np)],
+            'diff_f': [float(difff) for difff in diff_f_norm],
+            'I': float(popt['I'].value * I_corr),      # ofc it must take the correction by the fractions into account
+            'q': popt['q'].value,
             }
     return dic_result
 
@@ -7943,7 +7943,7 @@ def plot_fit_dosy(x, label, y, total, yc, region, show_total=True, show_res=Fals
         if region['diff_e'][k] is None:
             error = ''
         else:
-            error = r'$\pm$' + f'{region["diff_e"][k]:.5e}' 
+            error = r'$\pm$' + f'{region["diff_e"][k]:.5e}'
         legend_entry = '\n'.join([
             f'Component {k+1} ({region["diff_f"][k]*100:.2f}%)',
             f'D = {region["diff_c"][k]:.5e}' + error + r' m$^2$/s',
@@ -7981,3 +7981,417 @@ def plot_fit_dosy(x, label, y, total, yc, region, show_total=True, show_res=Fals
     plt.close()
 
 
+class DosyFit:
+    """
+    Class to fit a DOSY spectrum.
+
+    Attributes
+    ----------
+    filename : str
+        Name for files, figures, and so on
+    g : 1darray
+        Gradient strength in T/m
+    dosy_par : dict
+        Dictionary of dosy parameters.
+        ::
+
+            dosy_par = {
+                    'gamma' : gyromagnetic ratio in MHz/T,
+                    'D'     : big delta in seconds,
+                    'd'     : little delta in seconds,
+                    'tau'   : tau in seconds,
+                    }
+
+    keys : list of str
+        Identifiers for the profiles to fit
+    data : dict of 1darray
+        ``data = {key : profile (1darray)  for key in self.keys}``
+    i_guess : list of dict
+        Dictionary of the initial guess, generated by ``self.iguess``.
+        ::
+
+            i_guess = {
+                'I' : intensity factor (float),
+                'q' : offset (float),
+                'diff_c' : diffusion coefficients (1darray),
+                'diff_f' : fractions (1darray)
+                'diff_e' : fit errors for the diffusion coefficients (2darray),
+                }
+
+    result : list of dict
+        Dictionary of fit results, generated by either ``self.dofit`` or ``self.read_fit``.
+        Same structure and shape of ``self.i_guess``
+    """
+    def __init__(self, s, difflist=None, input_data=None, filename=None):
+        """
+        Initialize the fitting interface using the DOSY spectrum as input.
+
+        Parameters
+        ----------
+        s : klassez.DOSY object
+            DOSY spectrum. You must have either integrated or fitted it to get the profiles.
+        difflist : 1darray or None
+            List of the gradients strength, in Gauss/cm (as the instrument gives them).
+            If ``None``, it reads the `difflist` file that should be in ``s.datadir``
+        input_data : dict or None
+            Dictionary returned by :func:`klassez.anal.integrate_p2D`. If ``None``,
+            it will try to read ``s.integrals``.
+            The reading from a fit (i.e. Voigt_Fit_p2D) has not been implemented yet.
+        filename : str or None
+            root filename for all the figures and files that will be generated.
+            If ``None``, ``s.filename`` is used.
+        """
+        # Filename
+        if filename is None:
+            self.filename = s.filename
+
+        # Reads the parameters from the original spectrum,
+        # instances the attributes g and dosy_par
+        self.fetch_dosy_par(s, difflist)
+
+        # Get the data
+        if input_data is not None:
+            # Will store self.keys as well
+            self.data = input_data
+        else:
+            # Try to read the integrals from s
+            if hasattr(s, 'integrals'):
+                if len(s.integrals.keys()) == 0:
+                    raise ValueError('No integrals detected')
+                self.data = s.integrals
+            # Try to read the fit TODO NOTIMPLEMENTED
+            elif hasattr(s.F, 'result'):
+                self.data = s.F.result
+            else:
+                raise ValueError('Neither integrals nor fit were detected in the input DOSY spectrum.')
+
+    def iguess(self, filename=None, ext='idy', diff_c_0=1e-10):
+        """
+        Either makes or reads an initial guess file for the fit.
+        The resulting dictionary will be saved in ``self.i_guess``
+
+        Parameters
+        ----------
+        filename : str
+            Will try to read ``<filename>.<ext>``. If it does not exist, will write in ``<filename>.idy``
+        ext : str
+            Extension for the file, either `idy` or `fdy`
+        diff_c_0 : float
+            Initial default value for the diffusion coefficient.
+
+        .. seealso ::
+
+            :func:`klassez.fit.make_iguess_dosy`
+
+            :func:`klassez.fit.write_dy`
+
+            :func:`klassez.fit.read_dy`
+        """
+        if filename is None:
+            filename = f'{self.filename}'
+        # Check if the file exists
+        in_file_exist = os.path.exists(f'{filename}.{ext}')
+
+        if in_file_exist is True:       # Read everything you need from the file
+            regions = fit.read_dy(f'{filename}.{ext}')
+        else:                           # Make the initial guess interactively and save the file.
+            ext = 'idy'
+            fit.make_iguess_dosy(self.g, labels=self.keys, data=self._data,
+                                 model=self.model, model_args=self.dosy_par,
+                                 diff_c_0=diff_c_0, filename=filename)
+            regions = fit.read_dy(f'{filename}.{ext}')
+        # Store it
+        self.i_guess = regions
+        print(f'{filename}.{ext} loaded as input file.\n')
+
+    def dofit(self, filename=None, d_bds=3, f_bds=[0, 3], vary_q=False):
+        """
+        Performs the fit of the profiles. Saves a `.fdy` file and stores the results
+        in the attribute ``self.result``.
+
+        Parameters
+        ----------
+        filename : str or None
+            File where to save the results of the fit: ``<filename>.fdy``
+        d_bds : float or list
+            See :func:`klassez.fit.fit_dosy`
+        f_bds : float or list
+            See :func:`klassez.fit.fit_dosy`
+        vary_q : bool
+            Include the offset in the fit **strongly discouraged**
+
+        .. seealso::
+
+            :func:`klassez.fit.fit_dosy`
+
+            :func:`klassez.fit.write_dy`
+        """
+
+        if filename is None:
+            filename = f'{self.filename}.fdy'
+        else:
+            filename += '.fdy'
+        # Check if the file exists
+        self.result = []
+
+        f = open(f'{filename}', 'a', buffering=1)
+        # Info on the region to be fitted
+        now = datetime.now()
+        date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
+        f.write('! DOSY fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+
+        for k, label in enumerate(self.keys):
+            print(f'Fitting region {label} [ # {k+1} of {len(self.keys)}]')
+            dic_result = fit.fit_dosy(self.g, self._data[k], self.i_guess[k],
+                                      self.model, self.dosy_par,
+                                      d_bds=d_bds, f_bds=f_bds, vary_q=vary_q)
+            fit.write_dy(filename, dic_result['diff_c'], dic_result['diff_f'], dic_result['diff_e'],
+                         label, dic_result['I'], dic_result['q'])
+            dic_result['label'] = label
+            self.result.append(dic_result)
+        print(f'{filename} saved.\n')
+
+    def load_fit(self, filename=None, n=-1, ext='fdy'):
+        """
+        Reads a file with ``fit.read_dy`` and stores the result in ``self.result``.
+
+        Parameters
+        ----------
+        filename: str
+            Path to the .fdy file to be read. If None, "<self.filename>.fdy" is used.
+        n: int
+            Index of the fit to be read (default: last one)
+        ext: str
+            Extension of the file to be used
+
+        .. seealso::
+
+            :func:`klassez.fit.make_iguess_dosy`
+
+            :func:`klassez.fit.make_iguess_dosy_panel`
+
+            :func:`klassez.fit.fit_dosy`
+
+            :func:`klassez.fit.read_dy`
+        """
+        # Set the default filename, if not given
+        if filename is None:
+            filename = f'{self.filename}'
+        # Check if the file exists
+        out_file_exist = os.path.exists(f'{filename}.{ext}')
+        if out_file_exist is True:       # Read everything you need from the file
+            regions = fit.read_dy(f'{filename}.{ext}', n=n)
+        else:
+            raise NameError(f'{filename}.{ext} does not exist.')
+        # Store
+        self.result = regions
+        print(f'{filename}.{ext} loaded as fit result file.\n')
+
+    def plot(self, what='result', show_res=False, res_offset=0, filename=None, ext='png', dpi=600, dim=None):
+        """
+        Plots either the initial guess or the result of the fit, and saves all the figures. Calls :func:`fit.plot_fit_dosy`.
+        The figures will be saved in the directory `Figures_<filename>/<what>/<label>.png`.
+
+        Parameters
+        ----------
+        what : str
+            'iguess' to plot the initial guess, 'result' to plot the fitted data
+        show_res : bool
+            Show the plot of the residuals
+        res_offset : float
+            Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental data.
+            ``res_offset`` > 0 will move the residuals BELOW the zero-line!
+        filename : str
+            Determines the name of the directory where the figures will be saved. If None, `<self.filename>` is used
+        ext : str
+            Format of the saved figures
+        dpi : int
+            Resolution of the figures, in dots per inches
+        dim : tuple
+            Dimension of the figure in inches
+
+        .. seealso::
+
+            :func:`klassez.fit.plot_fit_dosy`
+        """
+        # select the correct object to plot
+        if what == 'iguess':
+            regions = deepcopy(self.i_guess)
+        elif what == 'result':
+            regions = deepcopy(self.result)
+        else:
+            raise ValueError('Specify what you want to plot: "iguess" or "result"')
+
+        # Set the filename, if not given
+        if filename is None:
+            filename = f'{self.filename}'
+
+        # Make the directories
+        if not os.path.exists(f'Figures_{filename}'):
+            os.makedirs(f'Figures_{filename}')
+        figure_path = os.path.join(f'Figures_{filename}', f'{what}')
+        if not os.path.exists(figure_path):
+            os.makedirs(figure_path)
+
+        # Make the figures
+        totals, components = self.get_fit_lines(what)
+        print(f'Saving figures in {figure_path}...')
+        for k, (y, total, yc, region) in enumerate(zip(self._data, totals, components, regions)):
+            print(f'{k+1}/{len(totals)}', end='\r')
+            label = region['label']
+            # Figures will be "Figures_{filename}/{what}/{label}.{ext}
+            figure_name = os.path.join(figure_path, label)
+            fit.plot_fit_dosy(self.g, label, y, total, yc, region,
+                              show_res=show_res, res_offset=res_offset,
+                              filename=figure_name, ext=ext, dpi=dpi, dim=dim)
+        print('Done.\n')
+
+    def get_fit_lines(self, what='result'):
+        """
+        Calculates the components, and the total fit curve used as initial guess, or as fit results.
+
+        Parameters
+        ----------
+        what : str
+            ``'iguess'`` or ``'result'``
+
+        Returns
+        ----------
+        totals : list of 1darray
+            Sum of all the signals, per region
+        components : list of 2darray
+            Components fitted for each region.
+            Note that regions with only one component will be 2darrays anyways.
+        """
+        def calc_f(x, diffc, difff, A, q):
+            """ Model for a single component """
+            # Compute the model and multiply it by its fraction
+            f = A * difff * self.model(x, diffc, **self.dosy_par) + q
+            return f
+
+        def calc_t(x, diff_c, diff_f, A, q):
+            """ Compute all the components """
+            # Loop over calc_f using all the values
+            yc = [calc_f(x, diffc, difff, A, q) for diffc, difff in zip(diff_c, diff_f)]
+            # The total trace is the sum of all the components
+            t = np.sum(yc, axis=0)
+            return t, yc
+
+        # Discriminate if you want to calculate the initial guess or the result
+        if what == 'iguess':
+            regions = deepcopy(self.i_guess)
+        elif what == 'result':
+            regions = deepcopy(self.result)
+        else:
+            raise ValueError('Specify what you want to plot: "iguess" or "result"')
+
+        # placeholders
+        totals, components = [], []
+        # Loop inside either iguess or result
+        for region in regions:
+            # Compute the totals and the components
+            t, yc = calc_t(self.g, region['diff_c'], region['diff_f'], region['I'], region['q'])
+            # Update the placeholders
+            totals.append(t)
+            components.append(np.array(yc))
+
+        return totals, components
+
+    @property
+    def data(self) -> dict:
+        """ Each time you call for it you will get a dictionary with the labels for each profile """
+        return {key: self._data[k] for k, key in enumerate(self.keys)}
+
+    @data.setter
+    def data(self, input_data: (list, dict)):
+        """ Get the data from the integrals (dict) or from the fit (list). ``_data`` is the 2darray! """
+        if isinstance(input_data, dict):
+            self.keys, self._data = self.data_from_integrals(input_data)
+        else:
+            self.keys, self._data = self.data_from_vf(input_data)
+
+    @staticmethod
+    def data_from_integrals(input_data):
+        """ Fetch data from the integrals dictionary """
+        keys = list(input_data.keys())
+        data = np.array([input_data[key] for key in keys])
+        return keys, data
+
+    @staticmethod
+    def data_from_vf(input_data):
+        """ Fetch data from the fit list """
+        raise NotImplementedError('WIP')
+
+    def fetch_dosy_par(self, s, difflist=None):
+        """
+        Reads the acquisition parameters to get the DOSY parameters.
+        The sequence is `stebpgp1s19`, where:
+        - bigdelta = d20
+        - littledelta = 2 * p30
+        - tau = p2 + d16
+
+        Creates the ``self.dosy_par`` attribute.
+
+        Parameters
+        ----------
+        s : DOSY object
+            Input spectrum that contains the ``ngdic`` attribute
+        difflist : 1darray or None
+            Gradient list in Gauss/cm, if existing. If ``None``, it will
+            be read as well from ``<s.datadir>/difflist``
+        """
+        #   Gradient list
+        if difflist is None:
+            difflist = np.loadtxt(os.path.join(s.datadir, 'difflist'))
+        # difflist is in G/cm -> we need T/m
+        self.g = difflist * 1e-2
+
+        # Reading the parameter from acqus
+        d20 = s.ngdic['acqus']['D'][20]
+        d16 = s.ngdic['acqus']['D'][16]
+        p30 = s.ngdic['acqus']['P'][30]
+        p2 = s.ngdic['acqus']['P'][2]
+
+        self.dosy_par = {
+                'gamma': sim.gamma[f'{s.acqus["nuc"]}'],    # MHz/T
+                'D': d20,                       # big delta /s
+                'd': p30 * 2 * 1e-6,            # little delta /s
+                'tau': (p2 + d16) * 1e-6,       # tau /s
+                }
+
+    @staticmethod
+    def model(g, diff_c, gamma, D, d, tau):
+        r"""
+        Model for stepped gradient (at least I think it is)
+
+        .. math::
+
+            y(g) = \exp \{ - D (2 \pi \gamma g \delta)^2 \, (\Delta - \delta / 3 - \tau ) \}
+
+
+        Parameters
+        ----------
+        g : 1darray
+            Gradient strength T/m
+        diff_c : float
+            Diffusion coefficient m^2/s
+        gamma : float
+            Gyromagnetic ratio MHz/T
+        D : float
+            Big delta seconds
+        d : float
+            Little delta seconds
+        tau : float
+            Tau seconds
+
+        Returns
+        -------
+        y : 1darray
+            Computed model
+        """
+        # 1e6 is to convert MHz -> Hz for the gamma
+        A = 2 * np.pi * gamma * d * 1e6
+        B = (D - d/3 - tau/2)
+        arg = - diff_c * g**2 * A**2 * B
+        y = np.exp(arg)
+        return y
