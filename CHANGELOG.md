@@ -9,6 +9,8 @@ New GUIs for integration. Called by the *integrate* methods of *Spectrum_1D* and
 02/02/26
 Reading and writing dosy input/output files
 Initial guess with gui
+04/02/26
+DOSY class for spectrum and DosyFIT for multiple
 
 ## New functions:
 21/01/26
@@ -38,6 +40,8 @@ Initial guess with gui
 ## New classes:
 03/02/26
 - *fit.DosyFit*
+04/02/26
+- *Spectra.DOSY*
 
 # Version 0.5a.2
 

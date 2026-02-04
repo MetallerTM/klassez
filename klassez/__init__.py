@@ -10,7 +10,7 @@ from pprint import pprint
 
 from . import fit, misc, sim, figures, processing, anal
 
-from .Spectra import Spectrum_1D, pSpectrum_1D, Spectrum_2D, pSpectrum_2D, Pseudo_2D
+from .Spectra import Spectrum_1D, pSpectrum_1D, Spectrum_2D, pSpectrum_2D, Pseudo_2D, DOSY
 
 from .config import CM, CM_2D, COLORS, cron
 

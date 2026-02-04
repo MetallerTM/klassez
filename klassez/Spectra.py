@@ -3881,3 +3881,86 @@ class Pseudo_2D(Spectrum_2D):
         self.r = self.S.real
         self.i = self.S.imag
         return original - datap
+
+
+class DOSY(Pseudo_2D):
+    """
+    Class: DOSY spectrum
+
+    It has the same structure of a :class:`klassez.Spectra.Pseudo_2D`,
+    with added functionalities and dedicated fitting.
+
+    Attributes:
+    -----------
+    D : fit.DosyFit object
+        Fitting object created when integrals are read or instanced.
+
+    .. seealso::
+
+        :class:`klassez.fit.DosyFit`
+
+    """
+    def __init__(self, *args, **kws):
+        """
+        Initialize the class as it is a normal :class:`klassez.Spectra.Pseudo_2D` object.
+        Then, reads the `difflist` file and stores it in the ``self.difflist`` attribute.
+        """
+        super().__init__(*args, **kws)
+        self.difflist = np.loadtxt(os.path.join(self.datadir, 'difflist'))
+
+    def process(self):
+        """
+        Process the data as in a normal :class:`klassez.Spectra.Pseudo_2D` object.
+        Then, replaces ``self.ppm_f1`` with the ``self.difflist``.
+
+        .. seealso::
+
+            :func:`klassez.Spectra.Pseudo_2D.process`
+
+        """
+        super().process()
+        self.ppm_f1 = self.difflist
+
+    def integrate(self, *args, **kws):
+        """
+        Performs the same integration procedure of the parent class,
+        which sets the ``self.integrals`` attribute.
+        Then, uses it to either create or update the ``self.D`` ``DosyFit object``.
+
+        .. seealso::
+
+            :func:`klassez.Spectra.Pseudo_2D.integrate`
+
+            :class:`klassez.fit.DosyFit`
+
+        """
+        super().integrate(*args, **kws)
+        self._instance_D(self.integrals)
+
+    def read_integrals(self, *args, **kws):
+        """
+        Reads a `.igrl` file as well as its father class, which sets the ``self.integrals`` attribute.
+        Then, uses it to either create or update the ``self.D`` ``DosyFit object``.
+
+        .. seealso::
+
+            :func:`klassez.Spectra.Pseudo_2D.read_integrals`
+
+            :class:`klassez.fit.DosyFit`
+
+        """
+        super().read_integrals(*args, **kws)
+        self._instance_D(self.integrals)
+
+    def _instance_D(self, input_data):
+        """
+        If there is not a ``self.D`` attribute already existing, creates it
+        with the parameters read from the spectrum itself.
+        Otherwise, just updates the data with ``self.integrals``
+        """
+        if hasattr(self, 'D'):
+            self.D.data = input_data
+        else:
+            self.D = fit.DosyFit(self, difflist=self.ppm_f1,
+                                 input_data=input_data,
+                                 filename=self.filename)

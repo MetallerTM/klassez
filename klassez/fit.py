@@ -7983,7 +7983,7 @@ def plot_fit_dosy(x, label, y, total, yc, region, show_total=True, show_res=Fals
         if region['diff_e'][k] is None:
             error = ''
         else:
-            error = r'$\pm$' + f'{region["diff_e"][k]:.5e}'
+            error = r' $\pm$ ' + f'{region["diff_e"][k]:.5e}'
         legend_entry = '\n'.join([
             f'Component {k+1} ({region["diff_f"][k]*100:.2f}%)',
             f'D = {region["diff_c"][k]:.5e}' + error + r' m$^2$/s',
