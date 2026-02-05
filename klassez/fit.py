@@ -2332,7 +2332,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         for k, u in enumerate(xj):
             lims = (freq[u] - IW * fwhms[k]/2, freq[u] + IW * fwhms[k]/2)
             try:
-                As.append(processing.integrate(s, freq, lims=lims) / (0.5 * SW))
+                As.append(processing.integrate(s, freq, dx=(0.5 * SW), lims=lims))
             except Exception:
                 As.append(1)
                 print(lims)
@@ -4488,8 +4488,8 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         'k': 0.1,   # relative intensity
         'b': 0.5,   # fraction of gaussianity
         } for w in range(10)]
-    I1 = processing.integrate(tr1, x=ppm_f1, lims=lim_f1)
-    I2 = processing.integrate(tr2, x=ppm_f2, lims=lim_f2)
+    I1 = processing.integrate(tr1, x=ppm_f1, dx=(2 * acqus['dw']), lims=lim_f1)
+    I2 = processing.integrate(tr2, x=ppm_f2, dx=(2 * acqus['dw']), lims=lim_f2)
     A = (I1 + I2) / (2*np.pi*fwhm0)
 
     # Sensitivity for mouse
@@ -6263,7 +6263,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     lim1 = misc.ppmfind(ppm_scale, limits[0])[0]
     lim2 = misc.ppmfind(ppm_scale, limits[1])[0]
     # Calculate the absolute intensity (or something that resembles it)
-    A = processing.integrate(S, x=ppm_scale*SFO1, lims=[w*SFO1 for w in limits])*2*misc.calcres(acqus['t1'])
+    A = processing.integrate(S, x=ppm_scale*SFO1, dx=(2 * misc.calcres(acqus['t1'])), lims=[w*SFO1 for w in limits])
     _A = 1 * A
     # Make a sensitivity dictionary
     sens = {

@@ -1867,3 +1867,128 @@ def ongoing_fit(exp, calc, residual, ylims=None, filename=None, dpi=100):
     else:
         plt.show()
     plt.close()
+
+
+def diffplot(ppm, spectrum, dic, xlims=None, X_label=r'$\delta\,$ F1 /ppm', filename=None, ext='png', dpi=300, dim=None):
+    """
+    Makes a plot of the diffusion coefficients, with error bars, as a function of the integrated regions.
+
+    Parameters
+    ----------
+    ppm : 1darray
+        ppm scale of the fitted DOSY spectrum
+    spectrum : 2darray
+        DOSY spectrum
+    dic : list of dict
+        Dictionary that comes from the :class:`klassez.fit.DosyFit` class, i.e. from reading a `.dy` file.
+    xlims : sequence of float or False or None
+        Limits for the chemical shift axis.
+        If ``False``, the whole spectrum is plotted.
+        If ``None``, a restricted portion of the spectrum which includes all the
+        fitted regions is shown instead
+    X_label : str
+        Label for the chemical shift axis
+    filename : str or None
+        Filename for the figure to save. If None, the plot is shown instead
+    ext : str
+        Format for the figure to save
+    dpi : int
+        Resolution of the figure in dots per inches
+    dim : tuple of int
+        Dimension of the figure in inches
+
+    Returns
+    -------
+    None
+
+    .. seealso::
+
+        :func:`klassez.fit.read_dy`
+
+        :class:`klassez.fit.DosyFit`
+    """
+
+    # Adjust the x limits
+    if xlims is None:
+        # Furthest extremes of the integrated regions
+        all_limits = misc.key_to_limits([region['label'] for region in dic])
+        xmax = np.max(all_limits)
+        xmin = np.min(all_limits)
+        # Final xlimits are them +/- 5% of the covered area
+        extent = xmax - xmin
+        xlims = xmax + 0.05 * extent, xmin - 0.05 * extent
+    elif xlims is False:
+        xlims = max(ppm), min(ppm)
+
+    # Default dimension
+    if dim is None:
+        dim = figures.figsize_large
+
+    # Make figure panel
+    fig = plt.figure('Diffplot')
+    fig.set_size_inches(dim)
+    plt.subplots_adjust(left=0.075, top=0.65, right=0.975, bottom=0.10)
+
+    # Subplots
+    #   diffusion coefficients
+    axd = fig.add_subplot()
+    #   spectrum
+    axy = fig.add_axes([0.075, 0.725, 0.900, 0.225], sharex=axd)
+
+    # SLOT
+    def onmove(event):
+        """ Writes the diffusion coefficient of the cursor in realtime """
+        # Don't write if you are out of the correct subplot
+        if event.inaxes != axd:
+            diffc_text.set_text(12*'#')
+        else:
+            diffc_text.set_text(f'{event.ydata:12.5e}')
+        fig.canvas.draw()
+
+    # Plot the spectrum in md fashion
+    for y in spectrum:
+        axy.plot(ppm, y, lw=0.8)
+
+    # Plot the diffusion coefficients
+    for region in dic:
+        # Get the center of the fitted region
+        lims = misc.key_to_limits(region['label'])
+        x_center = np.mean(lims)
+
+        # Highlight the fitted regions
+        for ax in [axd, axy]:
+            ax.axvspan(min(lims), max(lims), color='tab:blue', alpha=0.05)
+
+        # Draw the diffusion coefficients with their error bars
+        for k, (diffc, diffe) in enumerate(zip(region['diff_c'], region['diff_e'])):
+            axd.errorbar(x_center, diffc, diffe, fmt='o',
+                         elinewidth=0.5, ecolor='k', capsize=2, ms=8, c='tab:blue')
+
+    # Fancy stuff
+    axd.set_xlabel(X_label)
+    axd.set_ylabel(r'Diffusion coefficient /m$^2$ s$^{-1}$')
+    axd.grid(axis='y', lw=0.4)
+
+    misc.pretty_scale(axd, xlims, 'x')
+    misc.pretty_scale(axy, axy.get_ylim(), 'y', 3)
+
+    for ax in [axd, axy]:
+        misc.mathformat(ax)
+        misc.set_fontsizes(ax, 16)
+
+    # Show/save the figure
+    if filename is None:        # To show
+        # Create a placeholder for the text
+        diffc_text = fig.text(0.85, 0.05, '', ha='center', va='center', transform=fig.transFigure, c='tab:red', fontsize=18)
+        # Make the cursor
+        cursor = Cursor(axd, useblit=False, lw=0.6, c='tab:red')
+        # Hard reference to make it active + not making flake angry
+        cursor.vertOn = False
+        # Make the cursor responding
+        fig.canvas.mpl_connect('motion_notify_event', onmove)
+        plt.show()
+    else:
+        # Save the figure
+        plt.savefig(f'{filename}.{ext}', dpi=dpi)
+        print(f'Diffplot {filename}.{ext} saved.\n')
+    plt.close()

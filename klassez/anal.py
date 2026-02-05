@@ -667,7 +667,7 @@ def integrate(ppm0, data0, SFO1, filename='integrals', X_label=r'$\delta\,$F1 /p
     x = misc.ppm2freq(ppm, SFO1)
 
     # Calculate the total integral function
-    int_f = processing.integral(data, x)
+    int_f = processing.integral(data, x) * dx
 
     # Make the figure
     fig = plt.figure('Spectrum Integration')
@@ -1084,7 +1084,7 @@ def integrate_p2D(ppm0, data0, SFO1, ref=0, indirect_scale=None, filename='integ
             all_bas = calc_all_bas(isx, idx)
         else:                               # don't
             all_bas = np.zeros_like(all_data[..., sl])
-        all_int = processing.integrate(all_data[..., sl] - all_bas, x[sl]) * dx
+        all_int = processing.integrate(all_data[..., sl] - all_bas, x[sl], dx=dx)
 
         # Update the plot
         #   compute correction factor to make the curve actually visible
@@ -1122,7 +1122,7 @@ def integrate_p2D(ppm0, data0, SFO1, ref=0, indirect_scale=None, filename='integ
         else:                               # don't
             all_bas = np.zeros_like(all_data[..., sl])
         # Compute the integrals
-        all_int = processing.integrate(all_data[..., sl] - all_bas, x[sl]) * dx
+        all_int = dx * processing.integrate(all_data[..., sl] - all_bas, x[sl])
 
         # Key comes from xdata, value comes from the red label
         abs_vals['{:.3f}:{:.3f}'.format(xdata[0], xdata[-1])] = all_int

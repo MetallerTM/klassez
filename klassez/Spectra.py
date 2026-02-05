@@ -912,7 +912,7 @@ class Spectrum_1D:
         self.r = self.S.real
         self.i = self.S.imag
 
-    def integrate(self, filename=None):
+    def integrate(self, filename=None, lims=None, use_bas=False):
         """
         Integrate the spectrum with a dedicated GUI.
         Calls :func:`klassez.anal.integrate` and writes in ``self.integrals`` with keys ``[ppm1:ppm2]``
@@ -936,10 +936,26 @@ class Spectrum_1D:
         """
         if filename is None:
             filename = self.filename
-        X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
-        self.integrals = anal.integrate(self.ppm, self.r, self.acqus['SFO1'],
-                                        filename=filename,
-                                        X_label=X_label, dx=2*self.acqus['dw'])
+
+        if lims is None:
+            X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
+            self.integrals = anal.integrate(self.ppm, self.r, self.acqus['SFO1'],
+                                            filename=filename,
+                                            X_label=X_label, dx=2*self.acqus['dw'])
+        else:
+            if len(np.asarray(lims).shape) == 1:
+                lims = [lims]
+            keys = misc.limits_to_key(lims)
+            if isinstance(keys, str):
+                keys = [keys]
+
+            self.integrals = {
+                    key: 2 * self.acqus['dw'] * processing.integrate(self.r, x=self.ppm,
+                                                                     dx=misc.calcres(self.freq),
+                                                                     lims=lim, use_bas=use_bas)
+                    for key, lim in zip(keys, lims)
+                    }
+            anal.write_igrl(filename, self.integrals, header=True)
 
     def write_integrals(self, other_dir=None):
         """
@@ -3549,7 +3565,7 @@ class Pseudo_2D(Spectrum_2D):
         # Update the pivot points to fix them in the center of the stripped part
         self.procs['pv'] = round(np.mean(self.ppm_f2), 5)
 
-    def integrate(self, ref=0, filename=None):
+    def integrate(self, ref=0, filename=None, lims=None, use_bas=False):
         """
         Integrate the spectrum with a dedicated GUI.
         Calls :func:`klassez.anal.integrate_p2D` and writes in ``self.integrals`` with keys ``[ppm1:ppm2]``
@@ -3576,10 +3592,25 @@ class Pseudo_2D(Spectrum_2D):
         if filename is None:
             filename = self.filename
 
-        X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
-        self.integrals = anal.integrate_p2D(self.ppm_f2, self.rr, self.acqus['SFO1'],
-                                            ref=ref, indirect_scale=self.ppm_f1, filename=filename,
-                                            X_label=X_label, dx=2*self.acqus['dw'])
+        if lims is None:
+            X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
+            self.integrals = anal.integrate_p2D(self.ppm_f2, self.rr, self.acqus['SFO1'],
+                                                ref=ref, indirect_scale=self.ppm_f1, filename=filename,
+                                                X_label=X_label, dx=2*self.acqus['dw'])
+        else:
+            if len(np.asarray(lims).shape) == 1:
+                lims = [lims]
+            keys = misc.limits_to_key(lims)
+            if isinstance(keys, str):
+                keys = [keys]
+
+            self.integrals = {
+                    key: 2 * self.acqus['dw'] * processing.integrate(self.rr, x=self.ppm_f2,
+                                                                     dx=misc.calcres(self.freq_f2),
+                                                                     lims=lim, use_bas=use_bas)
+                    for key, lim in zip(keys, lims)
+                    }
+            anal.write_igrl(filename, self.integrals, indirect_scale=self.ppm_f1, header=True)
 
     def write_integrals(self, other_dir=None):
         """
@@ -3964,3 +3995,51 @@ class DOSY(Pseudo_2D):
             self.D = fit.DosyFit(self, difflist=self.ppm_f1,
                                  input_data=input_data,
                                  filename=self.filename)
+
+    def diffplot(self, what='result', xlims=None, filename=None, ext='png', dpi=300, dim=None):
+        """
+        Makes a plot of the diffusion coefficients, with error bars, as a function of the integrated regions.
+
+        Parameters
+        ----------
+        what : str
+            ``'iguess'`` or ``'result'``
+        xlims : sequence of float or False or None
+            Limits for the chemical shift axis.
+            If ``False``, the whole spectrum is plotted.
+            If ``None``, a restricted portion of the spectrum which includes all the
+            fitted regions is shown instead
+        filename : str or None
+            Filename for the figure to save. If None, the plot is shown instead
+        ext : str
+            Format for the figure to save
+        dpi : int
+            Resolution of the figure in dots per inches
+        dim : tuple of int
+            Dimension of the figure in inches
+
+        Returns
+        -------
+        None
+
+        .. seealso::
+
+            :func:`klassez.figures.diffplot`
+
+        """
+
+        # Choose what to plot
+        if what == 'iguess':
+            assert hasattr(self.D, 'i_guess'), '"i_guess" attribute not found in the DosyFit object'
+            dic = self.D.i_guess
+        elif what == 'result':
+            assert hasattr(self.D, 'result'), '"result" attribute not found in the DosyFit object'
+            dic = self.D.result
+        else:
+            raise ValueError('"what" must be either "iguess" or "result"')
+
+        # Customize the x label
+        X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + r' /ppm'
+        # Make the plot
+        figures.diffplot(self.ppm_f2, self.rr, dic, xlims=xlims, X_label=X_label,
+                         filename=filename, ext=ext, dpi=dpi, dim=dim)

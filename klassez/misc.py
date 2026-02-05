@@ -1532,3 +1532,52 @@ def detect_jumps(a):
     if not (len(starts)) and not (len(ends)):
         starts, ends = [0], [len(a)]
     return starts, ends
+
+def key_to_limits(keys):
+    """
+    Converts the key of a dictionary that identifies for a ppm range to the actual limits to be used.
+
+    Parameters
+    ----------
+    keys : str or list of str
+        Format of the string to process: ``'ppm1:ppm2'``
+
+    Returns
+    -------
+    limits : ndarray
+        Limits of the form ``[[ppm1, ppm2] for _ in len(keys)]``
+
+    """
+    if isinstance(keys, str):
+        keys = [keys]
+    lims = np.array([
+        [eval(value) for value in key.split(':', 1)]
+        for key in keys
+        ])
+    return np.squeeze(lims)
+
+
+def limits_to_key(limits):
+    """
+    Converts the key of a dictionary that identifies for a ppm range to the actual limits to be used.
+
+    Parameters
+    ----------
+    limits : ndarray
+        Limits of the form ``[[ppm1, ppm2] for _ in len(keys)]``
+
+    Returns
+    -------
+    keys : str or list of str
+        Format of the string to process: ``'ppm1:ppm2'``
+
+    """
+    if len(np.asarray(limits).shape) == 1:
+        limits = [limits]
+    keys = [
+        ':'.join([f'{w:.3f}' for w in lims])
+        for lims in limits
+        ]
+    if len(keys) == 1:
+        keys = keys[0]
+    return keys

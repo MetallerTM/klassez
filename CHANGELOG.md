@@ -10,7 +10,10 @@ New GUIs for integration. Called by the *integrate* methods of *Spectrum_1D* and
 Reading and writing dosy input/output files
 Initial guess with gui
 04/02/26
-DOSY class for spectrum and DosyFIT for multiple
+DOSY class for spectrum and DosyFIT for fitting them
+05/02/26
+Changed implementation of *processing.integral* to make it more intuitive, all the calls to it were adjusted consequently.
+New functions for the display of the diffusion coefficients after fitting them.
 
 ## New functions:
 21/01/26
@@ -27,6 +30,10 @@ DOSY class for spectrum and DosyFIT for multiple
 03/02/26
 - *fit.fit_dosy*
 - *fit.fit_plot_dosy*
+05/02/26
+- *misc.key_to_limits*
+- *misc.limits_to_key*
+- *figures.diffplot*
 
 ## Modified functions:
 21/01/26
@@ -36,6 +43,8 @@ DOSY class for spectrum and DosyFIT for multiple
 29/01/26
 - *anal.integrate*: completely remade from scratch. New options!
 - *anal.integrate_p2D*: completely remade from scratch. New options!
+05/02/26
+- *processing.integral*: Now **x** and **dx** are two different parameters. Included options to subtract the straight baseline.
 
 ## New classes:
 03/02/26

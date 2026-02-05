@@ -2703,7 +2703,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     return S, final_values_f1, final_values_f2
 
 
-def integral(fx, x=None, lims=None):
+def integral(fx, x=None, dx=None, lims=None, use_bas=False):
     """
     Calculates the primitive of ``fx``. If ``fx`` is a multidimensional array, the integrals are computed along the last dimension.
 
@@ -2713,14 +2713,35 @@ def integral(fx, x=None, lims=None):
         Function (array) to integrate
     x : 1darray or None
         Independent variable. Determines the integration step. If None, it is the point scale
+    dx : float or None
+        Integration step. If ``None``, computes it from the resolution of ``x``
     lims : tuple or None
-        Integration range. If None, the whole function is integrated.
+        Integration range in the ``x`` scale. If None, the whole function is integrated.
+    use_bas : bool
+        Subtracts the straight line that connects the limit window before the integration (``True``) or not (``False``)
 
     Returns
     ----------
     Fx : ndarray
         Integrated function.
+
+    .. seealso::
+
+        :func:`klassez.misc.trim_data`
     """
+    def calc_bas(y, isx, idx):
+        """ Compute straight line baseline """
+        # Two points
+        bas_points = np.array([y[..., isx], y[..., idx]])
+        # Use the linear regression to connect them, employ the point scale
+        bas = []
+        for k, tr in enumerate(bas_points):
+            _, (bas_m, bas_q) = fit.lr(bas_points, x=np.asarray([isx, idx]))
+            # full-length x-scale for baseline
+            xb = np.arange(isx, idx+1, 1)
+            # baseline = mx + q
+            bas.append(xb * bas_m + bas_q)
+        return np.array(bas)
 
     # Copy variables for check
     fx_in = np.copy(fx)
@@ -2729,7 +2750,8 @@ def integral(fx, x=None, lims=None):
     else:
         x_in = np.copy(x)
     # Integration step
-    dx = misc.calcres(x_in)
+    if dx is None:
+        dx = misc.calcres(x_in)
 
     if lims is None:    # whole range
         x_tr, fx_tr = np.copy(x_in), np.copy(fx_in)
@@ -2737,12 +2759,17 @@ def integral(fx, x=None, lims=None):
         # Trim data according to lims
         x_tr, fx_tr = misc.trim_data(x_in, fx_in, lims)
 
+    if use_bas:
+        bas = calc_bas(fx_tr, 0, len(x_tr))
+    else:
+        bas = np.zeros_like(x_tr)
+
     # Integrate
-    Fx = np.cumsum(fx_tr, axis=-1) * dx
+    Fx = np.cumsum(fx_tr - bas, axis=-1) * dx
     return Fx
 
 
-def integrate(fx, x=None, lims=None):
+def integrate(fx, x=None, dx=None, lims=None, use_bas=False):
     """
     Calculates the definite integral of ``fx`` as ``I = F[-1] - F[0]`` (basically it applies the fundamental theorem of calculus).
     If ``fx`` is a multidimensional array, the integrals are computed along the last dimension.
@@ -2756,6 +2783,8 @@ def integrate(fx, x=None, lims=None):
     lims : tuple or None
         Integration range. If None, the whole function is integrated.
 
+    TODO
+
     Returns
     ----------
     integ : float
@@ -2765,7 +2794,7 @@ def integrate(fx, x=None, lims=None):
 
         :func:`klassez.processing.integral`
     """
-    Fx = processing.integral(fx, x, lims)
+    Fx = processing.integral(fx, x, dx, lims, use_bas)
     # Calculus fundamental theorem
     integ = Fx[..., -1] - Fx[..., 0]
     return integ
