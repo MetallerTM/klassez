@@ -34,6 +34,9 @@ New functions for the display of the diffusion coefficients after fitting them.
 - *misc.key_to_limits*
 - *misc.limits_to_key*
 - *figures.diffplot*
+- *figures.ax_diffplot*
+10/02/26
+- *misc.expformat*
 
 ## Modified functions:
 21/01/26

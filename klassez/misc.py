@@ -1533,6 +1533,7 @@ def detect_jumps(a):
         starts, ends = [0], [len(a)]
     return starts, ends
 
+
 def key_to_limits(keys):
     """
     Converts the key of a dictionary that identifies for a ppm range to the actual limits to be used.
@@ -1581,3 +1582,26 @@ def limits_to_key(limits):
     if len(keys) == 1:
         keys = keys[0]
     return keys
+
+
+def expformat(num, df=3):
+    r"""
+    Converts numbers like ``2e-5`` to ``$2 \times 10^{-5}$``, i.e.
+    that will be displayed as :math:`2 \times 10^{-5}` in elements that can render
+    latex text.
+
+    Parameters
+    ----------
+    num : float
+        Number to convert
+    df : int
+        Number of decimal figures to consider
+
+    Returns
+    -------
+    str_num : str
+        Processed string
+    """
+    str_num = f'{num:.{df}e}'
+    str_num = r'$' + str_num.replace('e', r'\times 10^{') + r'}$'
+    return str_num
