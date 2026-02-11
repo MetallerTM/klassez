@@ -1,69 +1,52 @@
 # Version 0.5a.3
 
-21/01/26
 Improved compatibility between classes *Spectrum_2D* and *Pseudo_2D*.
+Changed implementation of *processing.integral* to make it more intuitive, all the calls to it were adjusted consequently.
+New GUIs for integration. Called by the *integrate* methods of *Spectrum_1D* and *Pseudo_2D*.
+
+
+DOSY class for spectrum and DosyFIT for fitting them.
+New functions for the display of the diffusion coefficients after fitting them.
+
 Better warnings handling.
 Added a warning if you do not zero-fill enough to do a Hilbert transform.
-29/01/26
-New GUIs for integration. Called by the *integrate* methods of *Spectrum_1D* and *Pseudo_2D*.
-02/02/26
-Reading and writing dosy input/output files
-Initial guess with gui
-04/02/26
-DOSY class for spectrum and DosyFIT for fitting them
-05/02/26
-Changed implementation of *processing.integral* to make it more intuitive, all the calls to it were adjusted consequently.
-New functions for the display of the diffusion coefficients after fitting them.
-11/02/26
 Changed *os.getlogin* to *getpass.getuser* because it raised an error on virtual machines.
+Bug fixes.
 
 ## New functions:
-21/01/26
-- *Pseudo_2D.abs*
-- *Pseudo_2D.absa*
-28/01/26
-- *anal.write_igrl*
-- *anal.read_igrl*
-02/02/26
-- *fit.write_dy*
-- *fit.read_dy*
-- *fit.make_iguess_dosy*
-- *fit.make_iguess_dosy_panel*
-03/02/26
-- *fit.fit_dosy*
-- *fit.fit_plot_dosy*
-05/02/26
+- *misc.expformat*
 - *misc.key_to_limits*
 - *misc.limits_to_key*
 - *figures.diffplot*
 - *figures.ax_diffplot*
-10/02/26
-- *misc.expformat*
+- *fit.write_dy*
+- *fit.read_dy*
+- *fit.make_iguess_dosy*
+- *fit.make_iguess_dosy_panel*
+- *fit.fit_dosy*
+- *fit.fit_plot_dosy*
+- *anal.write_igrl*
+- *anal.read_igrl*
+- *Pseudo_2D.abs*
+- *Pseudo_2D.absa*
 
 ## Modified functions:
-21/01/26
-- *Spectrum_2D.qfil*: the SFO is generic and not SFO2 by default anymore
-- *Pseudo_2D.plot_md*: the labels are passed on the basis of **ppm_f1**
+- *processing.integral*: Now **x** and **dx** are two different parameters. Included options to subtract the straight baseline.
 - *figures.dotmd*: new buttons "Select ALL" and "Select NONE"
-29/01/26
 - *anal.integrate*: completely remade from scratch. New options!
 - *anal.integrate_p2D*: completely remade from scratch. New options!
-05/02/26
-- *processing.integral*: Now **x** and **dx** are two different parameters. Included options to subtract the straight baseline.
+- *Spectrum_2D.qfil*: the SFO is generic and not SFO2 by default anymore
+- *Pseudo_2D.plot_md*: the labels are passed on the basis of **ppm_f1**
 
 ## New classes:
-03/02/26
 - *fit.DosyFit*
-04/02/26
 - *Spectra.DOSY*
 
 # Version 0.5a.2
 
-27/10/2025
 Modified *processing.hilbert* by adding the **axis** parameter.
 Modified *processing.hilbert2* to use the new *processing.hilbert*.
 Hotfix for *processing.abca*
-30/10/2025
 Fix for the behavior of **importlib** in python versions before 3.13.
 Added documentation on how to set **matplotlib** backends appropriately.
 
