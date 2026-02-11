@@ -1310,6 +1310,8 @@ def edit_checkboxes(checkbox, xadj=0, yadj=0, dim=100, color=None):
             if len(color) < n_labels:
                 raise ValueError('Not enough colors for all the checkboxes!')
             props['facecolors'] = [color[w] for w in range(n_labels)]
+    else:
+        props['facecolors'] = [checkbox.labels[w].get_color() for w in range(n_labels)]
     # Set the new properties of the checks
     # They are the same of the frame to keep the fitting
     checkbox.set_check_props(props)
@@ -1530,3 +1532,76 @@ def detect_jumps(a):
     if not (len(starts)) and not (len(ends)):
         starts, ends = [0], [len(a)]
     return starts, ends
+
+
+def key_to_limits(keys):
+    """
+    Converts the key of a dictionary that identifies for a ppm range to the actual limits to be used.
+
+    Parameters
+    ----------
+    keys : str or list of str
+        Format of the string to process: ``'ppm1:ppm2'``
+
+    Returns
+    -------
+    limits : ndarray
+        Limits of the form ``[[ppm1, ppm2] for _ in len(keys)]``
+
+    """
+    if isinstance(keys, str):
+        keys = [keys]
+    lims = np.array([
+        [eval(value) for value in key.split(':', 1)]
+        for key in keys
+        ])
+    return np.squeeze(lims)
+
+
+def limits_to_key(limits):
+    """
+    Converts the key of a dictionary that identifies for a ppm range to the actual limits to be used.
+
+    Parameters
+    ----------
+    limits : ndarray
+        Limits of the form ``[[ppm1, ppm2] for _ in len(keys)]``
+
+    Returns
+    -------
+    keys : str or list of str
+        Format of the string to process: ``'ppm1:ppm2'``
+
+    """
+    if len(np.asarray(limits).shape) == 1:
+        limits = [limits]
+    keys = [
+        ':'.join([f'{w:.3f}' for w in lims])
+        for lims in limits
+        ]
+    if len(keys) == 1:
+        keys = keys[0]
+    return keys
+
+
+def expformat(num, df=3):
+    r"""
+    Converts numbers like ``2e-5`` to ``$2 \times 10^{-5}$``, i.e.
+    that will be displayed as :math:`2 \times 10^{-5}` in elements that can render
+    latex text.
+
+    Parameters
+    ----------
+    num : float
+        Number to convert
+    df : int
+        Number of decimal figures to consider
+
+    Returns
+    -------
+    str_num : str
+        Processed string
+    """
+    str_num = f'{num:.{df}e}'
+    str_num = r'$' + str_num.replace('e', r'\times 10^{') + r'}$'
+    return str_num

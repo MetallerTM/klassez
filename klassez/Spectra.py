@@ -72,6 +72,10 @@ class Spectrum_1D:
     integrals : dict
         Dictionary where to save the regions and values of the integrals.
 
+    Returns
+    -------
+    None
+
     .. seealso::
 
         :class:`klassez.fit.Voigt_Fit`
@@ -114,6 +118,10 @@ class Spectrum_1D:
         spect : str
             Data file format. Allowed: ``'bruker'``, ``'varian'``, ``'magritek'``, ``'oxford'``, ``'jeol'``
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.sim.load_sim_1D`
@@ -128,7 +136,7 @@ class Spectrum_1D:
             self.datadir = os.path.abspath(in_file)  # Get the file position
             if not os.path.isdir(self.datadir):
                 self.datadir = os.path.dirname(self.datadir)
-            self.filename = os.path.basename(in_file).rsplit('.', 1)[0]  # Get the filename
+            self.filename = os.path.basename(self.datadir).strip(os.sep).rsplit('.', 1)[0]  # Get the filename
             # If filename is a directory, write things inside it
             if os.path.isdir(f'{os.sep}'.join([self.datadir, self.filename])) and isexp:
                 self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
@@ -242,6 +250,10 @@ class Spectrum_1D:
             Standard deviation of the noise
 
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.sim.noisegen`
@@ -260,6 +272,10 @@ class Spectrum_1D:
             Number of scans to accumulate
         s_n : float
             Standard deviation of the noise for each scan
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -317,6 +333,10 @@ class Spectrum_1D:
         N : int
             Number of FID points to be used for calculation; used to decrease computation time
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.blp`
@@ -335,6 +355,10 @@ class Spectrum_1D:
         ----------
         interactive : bool
             True if you want to open the interactive panel, False to read the parameters from ``self.procs``.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -427,6 +451,10 @@ class Spectrum_1D:
         update : bool
             Update the procs dictionary
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.apk`
@@ -500,6 +528,10 @@ class Spectrum_1D:
         method_kws : keyworded arguments
             Additional parameters for the chosen method.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.acme`
@@ -518,6 +550,10 @@ class Spectrum_1D:
         ----------
         rpbc_kws : keyworded arguments
             See :func:`klassez.processing.rpbc` for details.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -553,6 +589,10 @@ class Spectrum_1D:
             Read the parameters from the procs dictionary
         ref  : list of 1darray or Spectrum_1D object
             Reference spectrum to be used for calibration. If list, ``[ppm scale, spectrum]``
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -614,6 +654,10 @@ class Spectrum_1D:
         ----------
         other_dir : str or None
             Different location for the acqus dictionary to write into. If None, ``self.datadir`` is used instead.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -690,6 +734,10 @@ class Spectrum_1D:
             Dictionary of acquisition parameters. It must contain BYTORDA and DTYPA.
         path : str
             Path where to save the binary file.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -818,6 +866,10 @@ class Spectrum_1D:
         from_procs : bool
             Tries to read the values from ``self.procs``
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.interactive_qfil`
@@ -860,58 +912,101 @@ class Spectrum_1D:
         self.r = self.S.real
         self.i = self.S.imag
 
-    def integrate(self, lims=None):
+    def integrate(self, filename=None, lims=None, use_bas=False):
         """
         Integrate the spectrum with a dedicated GUI.
         Calls :func:`klassez.anal.integrate` and writes in ``self.integrals`` with keys ``[ppm1:ppm2]``
+        The values are saved in ``<filename>.igrl``.
 
         Parameters
         ----------
-        lims : tuple
-            Integrates from ``lims[0]`` to ``lims[1]``. If it is None, calls for interactive integration.
+        filename : str
+            The integral values will be saved in ``<filename>.igrl``.
+            If ``None``, ``<self.filename>`` will be used instead.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
             :func:`klassez.anal.integrate`
+
+            :func:`klassez.anal.write_igrl`
         """
-        X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
+        if filename is None:
+            filename = self.filename
+
         if lims is None:
-            integrals = anal.integrate(self.ppm, self.r, X_label=X_label)
-            for key, value in integrals.items():
-                self.integrals[key] = value
+            X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
+            self.integrals = anal.integrate(self.ppm, self.r, self.acqus['SFO1'],
+                                            filename=filename,
+                                            X_label=X_label, dx=2*self.acqus['dw'])
         else:
-            self.integrals[f'{lims[0]:.2f}:{lims[1]:.2f}'] = processing.integrate(self.r, self.ppm, lims)
+            if len(np.asarray(lims).shape) == 1:
+                lims = [lims]
+            keys = misc.limits_to_key(lims)
+            if isinstance(keys, str):
+                keys = [keys]
+
+            self.integrals = {
+                    key: 2 * self.acqus['dw'] * processing.integrate(self.r, x=self.ppm,
+                                                                     dx=misc.calcres(self.freq),
+                                                                     lims=lim, use_bas=use_bas)
+                    for key, lim in zip(keys, lims)
+                    }
+            anal.write_igrl(filename, self.integrals, header=True)
 
     def write_integrals(self, other_dir=None):
         """
-        Write the integrals in a file named ``{self.filename}.int``.
+        Write the integrals in a file named ``{self.filename}.igrl``.
+        The default path is ``self.datadir``.
 
         Parameters
         ----------
         other_dir : str or None
             Different location for the integrals file to write into. If None, ``self.datadir`` is used instead.
 
+        Returns
+        -------
+        None
+
+        .. seealso ::
+
+            :func:`klassez.anal.write_igrl`
+
         """
         # Detect the file position
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}.int')
+            path = os.path.join(other_dir, f'{self.filename}')
         else:
-            path = os.path.join(self.datadir, f'{self.filename}.int')
+            path = os.path.join(self.datadir, f'{self.filename}')
 
-        f = open(path, 'w')
-        for key, value in self.integrals.items():
-            if 'total' in key:  # first entry
-                f.write('{:12}\t\t{:.4e}\n'.format(key, value))
-            elif 'ref' in key:  # second entry
-                if 'pos' in key:
-                    f.write('{:12}\t\t{}\n'.format(key, value))
-                elif 'int' in key:
-                    f.write('{:12}\t\t{:.4e}\n'.format(key, value))
-                elif 'val' in key:
-                    f.write('{:12}\t\t{:.3f}\n'.format(key, value))
-            else:   # All the rest
-                f.write('{:12}\t{:.8f}\n'.format(key, value))
-        f.close()
+        anal.write_igrl(path, self.integrals, header=True)
+
+    def read_integrals(self, filename, n=-1):
+        """
+        Reads the integrals in the `.igrl` file named ``filename``, and stores the result in ``self.integrals`
+
+        Parameters
+        ----------
+        filename : str
+            Path to the filename to be read
+        n : int
+            Number of performed integrating procedure to be read. Default: last one. The breakpoints are lines that start with "!".
+            For this reason, ``n=0`` returns an empty dictionary, hence the first attempt is ``n=1``.
+
+        Returns
+        -------
+        None
+
+        .. seealso ::
+
+            :func:`klassez.anal.read_igrl`
+
+        """
+        self.integrals, _ = anal.read_igrl(filename, n)
+        print(f'{filename} read.')
 
     def to_vf(self, filename=None, Hs=None, fvf=True):
         """
@@ -1019,6 +1114,10 @@ class Spectrum_1D:
             Clipping limits for the FID
         rate : int
             Sampling rate in samples/sec
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -1164,7 +1263,7 @@ class pSpectrum_1D(Spectrum_1D):
                 self.datadir = os.path.abspath(in_file)  # Get the file position
                 if not os.path.isdir(self.datadir):
                     self.datadir = os.path.dirname(self.datadir)
-                self.filename = os.path.basename(in_file).rsplit('.', 1)[0]  # Get the filename
+                self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]  # Get the filename
                 # If filename is a directory, write things inside it
                 if os.path.isdir('/'.join([self.datadir, self.filename])):
                     self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
@@ -1316,7 +1415,7 @@ class Spectrum_2D:
             self.datadir = os.path.abspath(in_file)  # Get the file position
             if not os.path.isdir(self.datadir):
                 self.datadir = os.path.dirname(self.datadir)
-            self.filename = os.path.basename(in_file).rsplit('.', 1)[0]  # Get the filename
+            self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]  # Get the filename
             # If filename is a directory, write things inside it
             if os.path.isdir('/'.join([self.datadir, self.filename])) and isexp:
                 self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
@@ -1443,6 +1542,10 @@ class Spectrum_2D:
         s_n : float
             Standard deviation of the noise for each scan
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.sim.noisegen`
@@ -1500,6 +1603,10 @@ class Spectrum_2D:
         ----------
         J : float
             Scalar coupling constant, in Hz, of the coupling to be suppressed.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -1569,6 +1676,10 @@ class Spectrum_2D:
             True if you want to open the interactive panel, False to read the parameters from ``self.procs``.
         int_kwargs : keyworded arguments
             Additional parameters for :func:`klassez.processing.interactive_xfb`, if ``interactive=True``.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -1695,6 +1806,10 @@ class Spectrum_2D:
         ylim : tuple or None
             Limits in F1 in ppm
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.misc.trim_data_2D`
@@ -1747,6 +1862,10 @@ class Spectrum_2D:
             1-st order pivot /ppm of the direct dimension
         update : bool
             Choose if to update the procs dictionary or not
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -1840,7 +1959,7 @@ class Spectrum_2D:
         else:
             self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
 
-    def qfil(self, which=None, u=None, s=None):
+    def qfil(self, which=None, u=None, s=None, *, SFO=None):
         """
         Gaussian filter to suppress signals.
         Tries to read ``self.procs['qfil']``, which is ``{ 'u': u, 's': s }``
@@ -1854,6 +1973,12 @@ class Spectrum_2D:
             Position /ppm
         s : float
             Width (standard deviation) /Hz
+        SFO : float
+            Nucleus Larmor frequency to use for the conversion to Hz. If None, ``self.acqus['SFO2']`` is used by default.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -1862,6 +1987,8 @@ class Spectrum_2D:
             :func:`klassez.anal.select_traces`
 
         """
+        if SFO is None:
+            SFO = self.acqus['SFO2']
         if 'qfil' not in self.procs.keys():  # Then add it
             self.procs['qfil'] = {'u': u, 's': s}
 
@@ -1871,11 +1998,11 @@ class Spectrum_2D:
                     which_list = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
                     which, _ = misc.ppmfind(self.ppm_f1, which_list[0][1])
                 # Now get the values
-                self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm_f2, self.rr[which], self.acqus['SFO2'])
+                self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm_f2, self.rr[which], SFO)
                 break
 
         # Apply the filter
-        self.rr = processing.qfil(self.ppm_f2, self.rr, self.procs['qfil']['u'], self.procs['qfil']['s'], self.acqus['SFO2'])
+        self.rr = processing.qfil(self.ppm_f2, self.rr, self.procs['qfil']['u'], self.procs['qfil']['s'], SFO)
         # Unpack according to procs
         if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:
             self.S = processing.hilbert(self.rr)
@@ -1905,6 +2032,10 @@ class Spectrum_2D:
             Reference ppm scale and spectrum to be used as reference for calibration of F1 ``[ppm, spectrum]``
         ref2 : list of 1darray
             Reference ppm scale and spectrum to be used as reference for calibration of F2 ``[ppm, spectrum]``
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2006,6 +2137,10 @@ class Spectrum_2D:
         ref : list of 1darray
             Reference ppm scale and spectrum to be used as reference for calibration ``[ppm, spectrum]``
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.Spectra.Spectrum_2D.cal`
@@ -2031,6 +2166,10 @@ class Spectrum_2D:
         ref : list of 1darray
             Reference ppm scale and spectrum to be used as reference for calibration ``[ppm, spectrum]``
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.Spectra.Spectrum_2D.cal`
@@ -2047,6 +2186,10 @@ class Spectrum_2D:
         ----------
         other_dir: str or None
             Different location for the ``acqus`` dictionary to write into. If None, ``self.datadir`` is used instead.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2124,6 +2267,10 @@ class Spectrum_2D:
         path : str
             Path where to save the binary file.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.misc.write_ser`
@@ -2144,6 +2291,10 @@ class Spectrum_2D:
             Directory where to save the files. If None, ``self.datadir`` is used.
         procno: int or str
             Folder
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2172,6 +2323,10 @@ class Spectrum_2D:
             ppm F2 value where to extract the trace.
         b : float or None.
             If it is None, extract the trace in ``a``. Else, sum from ``a`` to ``b`` in F2.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2203,6 +2358,10 @@ class Spectrum_2D:
         b : float or None.
             If it is None, extract the trace in ``a``. Else, sum from ``a`` to ``b`` in F1.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.anal.get_trace`
@@ -2228,6 +2387,10 @@ class Spectrum_2D:
         ----------
         kwargs: keyworded arguments
             Additional parameters for :func:`klassez.anal.integrate_2D`
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2509,6 +2672,10 @@ class Spectrum_2D:
         rate : int
             Sampling rate in samples/sec
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.misc.data2wav`
@@ -2581,7 +2748,7 @@ class pSpectrum_2D(Spectrum_2D):
         self.datadir = os.path.abspath(in_file)  # Get the file position
         if not os.path.isdir(self.datadir):
             self.datadir = os.path.dirname(self.datadir)
-        self.filename = os.path.basename(in_file).rsplit('.', 1)[0]  # Get the filename
+        self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]  # Get the filename
         # If filename is a directory, write things inside it
         if os.path.isdir('/'.join([self.datadir, self.filename])):
             self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
@@ -2748,7 +2915,7 @@ class Pseudo_2D(Spectrum_2D):
             self.datadir = os.path.abspath(in_file)  # Get the file position
             if not os.path.isdir(self.datadir):
                 self.datadir = os.path.dirname(self.datadir)
-            self.filename = os.path.basename(in_file).rsplit('.', 1)[0]     # Get the filename
+            self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]     # Get the filename
             # If filename is a directory, write things inside it
             if os.path.isdir(os.path.join(self.datadir, self.filename)) and isexp:
                 self.datadir = os.path.join(self.datadir, self.filename)    # i.e. add filename to datadir
@@ -2824,6 +2991,10 @@ class Pseudo_2D(Spectrum_2D):
         s_n : float
             Standard deviation of the noise
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.sim.noisegen`
@@ -2842,6 +3013,10 @@ class Pseudo_2D(Spectrum_2D):
             Number of scans to accumulate
         s_n : float
             Standard deviation of the noise for each scan
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -2926,6 +3101,10 @@ class Pseudo_2D(Spectrum_2D):
         newacqus : dict
             New acqus dictionary that replaces the actual one. If it is not a dictionary, no actions are performed.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.stack_fids`
@@ -2969,6 +3148,10 @@ class Pseudo_2D(Spectrum_2D):
             Read the parameters from the procs dictionary
         ref : list of 1darray
             Reference ppm scale and spectrum to be used as reference for calibration [ppm, spectrum]
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -3047,6 +3230,10 @@ class Pseudo_2D(Spectrum_2D):
         update: bool
             Choose if to upload the procs dictionary or not
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.ps`
@@ -3069,12 +3256,15 @@ class Pseudo_2D(Spectrum_2D):
             self.procs['p1'] += round(values[1], 2)
             if values[2] is not None:
                 self.procs['pv'] = round(values[2], 5)
-        # Update the .procs file
-        self.write_procs()
+            # Update the .procs file
+            self.write_procs()
 
         # Update the F attribute
-        self.F.S = self.S
-        self.F.ppm_scale = self.ppm_f2
+        if hasattr(self, 'F'):
+            self.F.S = self.S
+            self.F.ppm_scale = self.ppm_f2
+
+        return values
 
     def pknl(self):
         """
@@ -3103,6 +3293,10 @@ class Pseudo_2D(Spectrum_2D):
             ppm F2 value where to extract the trace.
         b : float or None.
             If it is None, extract the trace in ``a``. Else, sum from ``a`` to ``b`` in F2.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -3136,6 +3330,10 @@ class Pseudo_2D(Spectrum_2D):
             ppm F1 value where to extract the trace.
         b : float or None.
             If it is None, extract the trace in ``a``. Else, sum from ``a`` to ``b`` in F1.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -3294,7 +3492,7 @@ class Pseudo_2D(Spectrum_2D):
             ppm, _ = misc.trim_data(ppm, s, *lims)
 
         # Make the figure
-        figures.dotmd(ppm, S, labels=[f'{w}' for w in which_exp])
+        figures.dotmd(ppm, S, labels=[f'{self.ppm_f1[w]:.3g}' for w in which_exp])
 
     def plot_stacked(self, which=None, lims=None):
         """
@@ -3343,6 +3541,10 @@ class Pseudo_2D(Spectrum_2D):
         xlim : tuple or None
             Limits in F2 in ppm
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.misc.trim_data_2D`
@@ -3365,77 +3567,131 @@ class Pseudo_2D(Spectrum_2D):
         # Update the pivot points to fix them in the center of the stripped part
         self.procs['pv'] = round(np.mean(self.ppm_f2), 5)
 
-    def integrate(self, which=0, lims=None):
+    def integrate(self, ref=0, filename=None, lims=None, use_bas=False):
         """
         Integrate the spectrum with a dedicated GUI.
-        Calls :func:`klassez.processing.integral` on each experiment, then saves the results in ``self.integrals``.
-        Therefore, the entries of ``self.integrals`` are sequences!
-        If ``lims`` is not given, calls :func:`klassez.anal.integrate` on the trace to select the regions to integrate.
+        Calls :func:`klassez.anal.integrate_p2D` and writes in ``self.integrals`` with keys ``[ppm1:ppm2]``
+        The values are saved in ``<filename>.igrl``.
 
         Parameters
         ----------
-        which : int
-            Experiment index to show in interactive panel
-        lims : tuple
-            Region of the spectrum to integrate (ppm1, ppm2)
+        ref : int
+            Index of the transient to be used as reference for the integration.
+        filename : str
+            The integral values will be saved in ``<filename>.igrl``.
+            If ``None``, ``<self.filename>`` will be used instead.
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
-            :func:`klassez.anal.integrate`
+            :func:`klassez.anal.integrate_p2D`
+
+            :func:`klassez.anal.write_igrl`
         """
-        # Select the integration region
+        if filename is None:
+            filename = self.filename
+
         if lims is None:
-            X_label = r'$\delta\,$'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
-            integrals = anal.integrate(self.ppm_f2, self.rr[which], X_label=X_label)
-            for key, _ in integrals.items():
-                if ':' in key:
-                    lims = [eval(q) for q in key.split(':')]    # transform string to float!!!
-                    self.integrals[key] = [processing.integral(self.rr[k], self.ppm_f2, lims)[-1] for k in range(self.rr.shape[0])]
-                else:
-                    self.integrals[key] = np.array(integrals[key])
-
+            X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
+            self.integrals = anal.integrate_p2D(self.ppm_f2, self.rr, self.acqus['SFO1'],
+                                                ref=ref, indirect_scale=self.ppm_f1, filename=filename,
+                                                X_label=X_label, dx=2*self.acqus['dw'])
         else:
-            self.integrals[f'{lims[0]:.2f}:{lims[1]:.2f}'] = np.array(processing.integral(self.rr, self.ppm_f2, lims)[..., -1])
+            if len(np.asarray(lims).shape) == 1:
+                lims = [lims]
+            keys = misc.limits_to_key(lims)
+            if isinstance(keys, str):
+                keys = [keys]
 
-    def write_integrals(self, filename='integrals.dat'):
+            self.integrals = {
+                    key: 2 * self.acqus['dw'] * processing.integrate(self.rr, x=self.ppm_f2,
+                                                                     dx=misc.calcres(self.freq_f2),
+                                                                     lims=lim, use_bas=use_bas)
+                    for key, lim in zip(keys, lims)
+                    }
+            anal.write_igrl(filename, self.integrals, indirect_scale=self.ppm_f1, header=True)
+
+    def write_integrals(self, other_dir=None):
         """
-        Write the integrals in a file named ``filename``.
+        Write the integrals in a file named ``{self.filename}.igrl``.
+        The default path is ``self.datadir``.
+
+        Parameters
+        ----------
+        other_dir : str or None
+            Different location for the integrals file to write into. If None, ``self.datadir`` is used instead.
+
+        Returns
+        -------
+        None
+
+        .. seealso ::
+
+            :func:`klassez.anal.write_igrl`
+
+        """
+        # Detect the file position
+        if other_dir:
+            path = os.path.join(other_dir, f'{self.filename}')
+        else:
+            path = os.path.join(self.datadir, f'{self.filename}')
+
+        anal.write_igrl(path, self.integrals, header=True)
+
+    def read_integrals(self, filename, n=-1):
+        """
+        Reads the integrals in the `.igrl` file named ``filename``, and stores the result in ``self.integrals`
 
         Parameters
         ----------
         filename : str
-            name of the file where to write the integrals.
+            Path to the filename to be read
+        n : int
+            Number of performed integrating procedure to be read. Default: last one. The breakpoints are lines that start with "!".
+            For this reason, ``n=0`` returns an empty dictionary, hence the first attempt is ``n=1``.
+
+        Returns
+        -------
+        None
+
+        .. seealso ::
+
+            :func:`klassez.anal.read_igrl`
+
         """
-        @staticmethod
-        def arr2string(array):
-            if isinstance(array, (np.ndarray, list, tuple)):
-                string = [f'{w:.4e}' for w in array]
-            else:
-                string = [f'{array:.4e}']
-            return string
+        self.integrals, self.ppm_f1 = anal.read_igrl(filename, n)
+        print(f'{filename} read.')
 
-        @staticmethod
-        def write_arr(f, string):
-            for w in string:
-                f.write(f'{w}, ')
+    def qfil(self, which=None, u=None, s=None):
+        """
+        Gaussian filter to suppress signals.
+        Tries to read ``self.procs['qfil']``, which is ``{ 'u': u, 's': s }``
+        Otherwise, these are set interactively by :func:`klassez.processing.interactive_qfil` and then added to ``self.procs``.
 
-        f = open(filename, 'w')
-        for key, value in self.integrals.items():
-            f.write('{:12}\t'.format(key))
-            if 'total' in key:
-                write_arr(f, [value])
-                f.write('\n')
-            elif 'ref' in key:
-                if 'pos' in key:
-                    f.write('{}\n'.format(value))
-                elif 'int' in key:
-                    f.write('{:.4e}\n'.format(value))
-                elif 'val' in key:
-                    f.write('{:.3f}\n'.format(value))
-            else:
-                write_arr(f, arr2string(value))
-                f.write('\n')
-        f.close()
+        Parameters
+        ----------
+        which : int or None
+            Index of the F2 trace to be used for :func:`klassez.processing.interactive_qfil`. If None, a suitable trace can be selected using :func:`klassez.anal.select_traces`.
+        u : float
+            Position /ppm
+        s : float
+            Width (standard deviation) /Hz
+
+        Returns
+        -------
+        None
+
+        .. seealso::
+
+            :func:`klassez.processing.interactive_qfil`
+
+            :func:`klassez.anal.select_traces`
+
+        """
+        super().qfil(which=which, u=u, s=s, SFO=self.acqus['SFO1'])
 
     def align(self, lims=None, u_off=0.5, ref_idx=0):
         """
@@ -3449,6 +3705,10 @@ class Pseudo_2D(Spectrum_2D):
             Maximum displacement allowed, in ppm
         ref_idx: int
             Index of the spectrum to be used as a reference (python numbering)
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -3519,6 +3779,10 @@ class Pseudo_2D(Spectrum_2D):
         rpbc_kws : keyworded arguments
             See :func:`klassez.processing.rpbc` for details.
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.processing.rpbc`
@@ -3551,6 +3815,10 @@ class Pseudo_2D(Spectrum_2D):
         rate : int
             Sampling rate in samples/sec
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.misc.data2wav`
@@ -3561,3 +3829,219 @@ class Pseudo_2D(Spectrum_2D):
         # Make a shallow copy of the FID
         data = np.copy(self.fid)
         misc.data2wav(data, filename, cutoff, rate)
+
+    def abs(self, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's': 10}):
+        """
+        Correct the baseline automatically on the real part of the spectrum, then retrieve
+        the imaginary part through Hilbert transform.
+
+        Parameters
+        ----------
+        n : int
+            Number of coefficients of the polynomial baseline
+        lims : tuple or None
+            Limits for the region on which to compute the baseline, in ppm
+        alpha : float
+            The threshold will be set as ``thr = alpha * np.std(np.gradient(data))``
+        qfil : bool
+            Choose whether to apply a filter on the solvent region (True) or not (False)
+        qfilp : dict
+            Parameters to be used to compute the filter if ``qfil=True``. Keys:
+
+            * 'u' = center of the filter in ppm
+            * 's' = width of the filter in Hz
+
+        Returns
+        ----------
+        baseline : 1darray
+            Employed baseline for correction
+
+        .. seealso::
+
+            :func:`klassez.processing.abs`
+
+            :func:`klassez.processing.hilbert`
+        """
+        original = deepcopy(self.S)
+        # Correct the baseline
+        datap = np.empty_like(self.S)
+        for k, data in enumerate(self.rr):
+            datap[k] = processing.abs(self.ppm_f2, data, n=n, lims=lims, alpha=alpha, qfil=qfil, qfilp=qfilp)
+        # Retrieve imaginary part
+        self.S = deepcopy(datap)
+        # Overwrite it
+        self.rr = self.S.real
+        self.ii = self.S.imag
+        return original - datap
+
+    def absa(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
+        """
+        Correct the baseline automatically on the real part of the spectrum, then retrieve
+        the imaginary part through Hilbert transform.
+
+        Parameters
+        ----------
+        n : int
+            Number of coefficients of the polynomial baseline
+        lims : tuple or None
+            Limits for the region on which to compute the baseline, in ppm
+        alpha : float
+            The threshold will be set as ``thr = alpha * np.std(np.gradient(data))``
+        qfil : bool
+            Choose whether to apply a filter on the solvent region (True) or not (False)
+        qfilp : dict
+            Parameters to be used to compute the filter if ``qfil=True``. Keys:
+            * 'u' = center of the filter in ppm
+            * 's' = width of the filter in Hz
+
+        Returns
+        ----------
+        baseline : 1darray
+            Employed baseline for correction
+
+        .. seealso::
+
+            :func:`klassez.processing.absa`
+
+            :func:`klassez.processing.hilbert`
+        """
+        original = deepcopy(self.S)
+        # Correct the baseline
+        datap = processing.absa(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
+        # Retrieve imaginary part
+        self.S = processing.hilbert(datap)
+        # Overwrite it
+        self.r = self.S.real
+        self.i = self.S.imag
+        return original - datap
+
+
+class DOSY(Pseudo_2D):
+    """
+    Class: DOSY spectrum
+
+    It has the same structure of a :class:`klassez.Spectra.Pseudo_2D`,
+    with added functionalities and dedicated fitting.
+
+    Attributes:
+    -----------
+    D : fit.DosyFit object
+        Fitting object created when integrals are read or instanced.
+
+    .. seealso::
+
+        :class:`klassez.fit.DosyFit`
+
+    """
+    def __init__(self, *args, **kws):
+        """
+        Initialize the class as it is a normal :class:`klassez.Spectra.Pseudo_2D` object.
+        Then, reads the `difflist` file and stores it in the ``self.difflist`` attribute.
+        """
+        super().__init__(*args, **kws)
+        self.difflist = np.loadtxt(os.path.join(self.datadir, 'difflist'))
+
+    def process(self):
+        """
+        Process the data as in a normal :class:`klassez.Spectra.Pseudo_2D` object.
+        Then, replaces ``self.ppm_f1`` with the ``self.difflist``.
+
+        .. seealso::
+
+            :func:`klassez.Spectra.Pseudo_2D.process`
+
+        """
+        super().process()
+        self.ppm_f1 = self.difflist
+
+    def integrate(self, *args, **kws):
+        """
+        Performs the same integration procedure of the parent class,
+        which sets the ``self.integrals`` attribute.
+        Then, uses it to either create or update the ``self.D`` ``DosyFit object``.
+
+        .. seealso::
+
+            :func:`klassez.Spectra.Pseudo_2D.integrate`
+
+            :class:`klassez.fit.DosyFit`
+
+        """
+        super().integrate(*args, **kws)
+        self._instance_D(self.integrals)
+
+    def read_integrals(self, *args, **kws):
+        """
+        Reads a `.igrl` file as well as its father class, which sets the ``self.integrals`` attribute.
+        Then, uses it to either create or update the ``self.D`` ``DosyFit object``.
+
+        .. seealso::
+
+            :func:`klassez.Spectra.Pseudo_2D.read_integrals`
+
+            :class:`klassez.fit.DosyFit`
+
+        """
+        super().read_integrals(*args, **kws)
+        self._instance_D(self.integrals)
+
+    def _instance_D(self, input_data):
+        """
+        If there is not a ``self.D`` attribute already existing, creates it
+        with the parameters read from the spectrum itself.
+        Otherwise, just updates the data with ``self.integrals``
+        """
+        if hasattr(self, 'D'):
+            self.D.data = input_data
+        else:
+            self.D = fit.DosyFit(self, difflist=self.ppm_f1,
+                                 input_data=input_data,
+                                 filename=self.filename)
+
+    def diffplot(self, what='result', xlims=None, filename=None, ext='png', dpi=300, dim=None):
+        """
+        Makes a plot of the diffusion coefficients, with error bars, as a function of the integrated regions.
+
+        Parameters
+        ----------
+        what : str
+            ``'iguess'`` or ``'result'``
+        xlims : sequence of float or False or None
+            Limits for the chemical shift axis.
+            If ``False``, the whole spectrum is plotted.
+            If ``None``, a restricted portion of the spectrum which includes all the
+            fitted regions is shown instead
+        filename : str or None
+            Filename for the figure to save. If None, the plot is shown instead
+        ext : str
+            Format for the figure to save
+        dpi : int
+            Resolution of the figure in dots per inches
+        dim : tuple of int
+            Dimension of the figure in inches
+
+        Returns
+        -------
+        None
+
+        .. seealso::
+
+            :func:`klassez.figures.diffplot`
+
+        """
+
+        # Choose what to plot
+        if what == 'iguess':
+            assert hasattr(self.D, 'i_guess'), '"i_guess" attribute not found in the DosyFit object'
+            dic = self.D.i_guess
+        elif what == 'result':
+            assert hasattr(self.D, 'result'), '"result" attribute not found in the DosyFit object'
+            dic = self.D.result
+        else:
+            raise ValueError('"what" must be either "iguess" or "result"')
+
+        # Customize the x label
+        X_label = r'$\delta\,$' + misc.nuc_format(self.acqus['nuc']) + r' /ppm'
+        # Make the plot
+        figures.diffplot(self.ppm_f2, self.rr, dic, xlims=xlims, X_label=X_label,
+                         filename=filename, ext=ext, dpi=dpi, dim=dim)

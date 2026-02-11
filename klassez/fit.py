@@ -13,6 +13,7 @@ import lmfit
 from datetime import datetime
 import warnings
 from copy import deepcopy
+import getpass
 
 from . import fit, misc, sim, figures, processing, anal
 from .config import CM, COLORS, cron
@@ -789,7 +790,6 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
         :func:`lmfit.Minimizer.minimize`
 
         :class:`lmfit.Minimizer.MinimizerResult`
-
     """
 
     # USED FUNCTIONS
@@ -939,7 +939,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
     with open(f'{filename}.fvf', 'a', buffering=1) as f:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
     # Generate the values from the regions dictionary with the gen_reg generator
     Q = gen_reg(regions)
@@ -1694,6 +1694,10 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
         Path to the filename where to save the information. The '.ivf' extension is added automatically.
 
 
+    Returns
+    -------
+    None
+
     .. seealso::
 
         :func:`klassez.fit.make_iguess_auto`
@@ -1754,7 +1758,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     with open(f'{filename}.ivf', 'a', buffering=1) as f:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Initial guess computed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Initial guess computed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
     # Remove the imaginary part from the experimental data and make a shallow copy
     if np.iscomplexobj(S_in):
@@ -2252,6 +2256,10 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     filename : str
         Path to the file where to save the initial guess. The .ivf extension is added automatically.
 
+    Returns
+    -------
+    None
+
     .. seealso::
 
         :func:`klassez.fit.make_iguess`
@@ -2325,7 +2333,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
         for k, u in enumerate(xj):
             lims = (freq[u] - IW * fwhms[k]/2, freq[u] + IW * fwhms[k]/2)
             try:
-                As.append(processing.integrate(s, freq, lims=lims) / (0.5 * SW))
+                As.append(processing.integrate(s, freq, dx=(0.5 * SW), lims=lims))
             except Exception:
                 As.append(1)
                 print(lims)
@@ -2354,7 +2362,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     with open(f'{filename}.ivf', 'a', buffering=1) as f:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Initial guess computed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Initial guess computed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
     prev = 0
     # Dwell time
@@ -2770,12 +2778,15 @@ def write_vf(filename, peaks, lims, Int, prev=0, header=False, bas_c=None):
     bas_c : None or 1darray
         Baseline coefficients
 
+    Returns
+    -------
+    None
+
     .. seealso::
 
         :func:`klassez.fit.read_vf`
 
         :func:`klassez.fit.make_iguess`
-
     """
     # Adjust the intensities
     r_i, I_corr = misc.molfrac([peak.k for _, peak in peaks.items()])
@@ -2786,7 +2797,7 @@ def write_vf(filename, peaks, lims, Int, prev=0, header=False, bas_c=None):
     if header:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
     #   Header
     f.write('{:>16};\t{:>12}\n'.format('Region', 'Intensity'))
     f.write('-'*96+'\n')
@@ -2832,11 +2843,9 @@ def read_vf(filename, n=-1):
     regions: list
         List of dictionaries for running the fit.
 
-
     .. seealso::
 
         :func:`klassez.fit.write_vf`
-
     """
     def read_region(R):
         """ Creates a dictionary of parameters from a section of the input file.  """
@@ -2882,6 +2891,154 @@ def read_vf(filename, n=-1):
                     line = r.split(':', 1)[-1]
                     bas_c = np.array(eval(line.replace(';', ',')))
                     dic_r['bas_c'] = bas_c
+                break
+
+        return dic_r
+
+    # Read the file
+    with open(filename, 'r') as J:
+        ff = J.read()
+    # Get the actual section from an output file
+    f = ff.split('!')[n]
+    # Separate the bigger sections
+    R = f.split('='*96)
+    # Remove the empty lines
+    for k, r in enumerate(R):
+        if r.isspace():
+            _ = R.pop(k)
+
+    regions = []    # Placeholder for return values
+    for r in R:  # Loop on the big sections to read them
+        regions.append(read_region(r))
+    return regions
+
+
+def write_dy(filename, diff_c, diff_f, diff_e, label, intensity, offset, header=False):
+    """
+    Write a section in a fit report file, which shows the fitting region identifier and the parameters to feed into the DOSY model fitting.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the file to be written
+    diff_c : list of float
+        Diffusion coefficients in m^2/s
+    diff_f : list of float
+        Fractions of the various components
+    diff_e : list of float or list of None
+        Fit errors. Initial guess will have ``None`` for each entry
+    label : str
+        Region identifier for the fit
+    intensity : float
+        Intensity factor to match the model to the experimental data
+    offset : float
+        Offset factor to match the model to the experimental data
+
+    Returns
+    -------
+    None
+
+    .. seealso::
+
+        :func:`klassez.fit.read_dy`
+
+        :func:`klassez.fit.make_dosy_iguess`
+    """
+    # Adjust the intensities
+    diff_f, I_corr = misc.molfrac(diff_f)
+
+    # Open the file in append mode
+    f = open(f'{filename}', 'a', buffering=1)
+    # Info on the region to be fitted
+    if header:
+        now = datetime.now()
+        date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
+        f.write('! DOSY fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
+    #   Header
+    f.write('{:>24}; {:>14}; {:>14}\n'.format('Region', 'Intensity', 'Offset'))
+    f.write('-'*96+'\n')
+    #   Values
+    f.write(f'{label:>24}; {intensity*I_corr:14.8e}; {offset*I_corr:14.8e}\n\n')
+
+    # Info on the components
+    #   Header
+    f.write('{:>16}; {:>16}; {:>16}\n'.format(
+        'Dosy coeff.', 'Fraction', 'Error'))
+    f.write('-'*96+'\n')
+    #   Values
+    for diffc, difff, diffe in zip(diff_c, diff_f, diff_e):
+        f.write('{:=16.8e}; {:16.8f}; '.format(diffc, difff))
+        if diffe is None:
+            f.write(f'{"None":>16s}\n')
+        else:
+            f.write(f'{diffe:16.8e}\n')
+    f.write('-'*96+'\n\n')
+
+    # Add region separator and close the file
+    f.write('='*96+'\n\n')
+    f.close()
+
+
+def read_dy(filename, n=-1):
+    """
+    Reads a `.idy` (initial guess) or `.fdy` (final fit) file, containing the parameters for a DOSY fitting procedure.
+    The file is separated and unpacked into a list of dictionaries, each of which contains the region identifier,
+    the total intensity value and the offset, the diffusion coefficients, relative weight of the components, and the fit errors.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the filename to be read
+    n : int
+        Number of performed fit to be read. Default: last one. The breakpoints are lines that start with "!". For this reason, ``n=0`` returns an empty dictionary, hence the first fit is ``n=1``.
+
+    Returns
+    ----------
+    regions: list
+        List of dictionaries for running the fit.
+
+    .. seealso::
+
+        :func:`klassez.fit.write_dy`
+    """
+    def read_region(R):
+        """ Creates a dictionary of parameters from a section of the input file.  """
+        # Placeholder
+        dic_r = {}
+        # Separate the lines and remove the empty ones
+        R = R.split('\n')
+        for k, r in enumerate(R):
+            if len(r) == 0 or r.isspace():
+                _ = R.pop(k)
+
+        n_bp = 0        # Number of breaking points (----)
+        k_bp = 0        # Line of the last breaking point detected
+        for k, r in enumerate(R):
+            if '------' in r:   # Increase breakpoint and store the line number
+                n_bp += 1
+                k_bp = k
+                continue
+
+            if n_bp == 1 and k_bp == k-1:   # First section: region identifiere, intensity and offset
+                line = r.split(';')  # Separate the values
+                dic_r['label'] = line[0].replace(' ', '')   # Get the label
+                dic_r['I'] = eval(line[1])     # Get the intensity
+                dic_r['q'] = eval(line[2])     # Get the offset
+                # Create placeholders for the values
+                dic_r['diff_c'] = []
+                dic_r['diff_f'] = []
+                dic_r['diff_e'] = []
+
+            if n_bp == 2:       # Second section: peak parameters
+                line = r.split(';')  # Separate the values
+                # Unpack the line
+                diffc, difff, diffe = [eval(w) for w in line]
+                # Put the values in the dictionary
+                dic_r['diff_c'].append(diffc)
+                dic_r['diff_f'].append(difff)
+                dic_r['diff_e'].append(diffe)
+
+            if n_bp == 3:   # End of file: stop reading
                 break
 
         return dic_r
@@ -3231,7 +3388,6 @@ def test_residuals(res, alpha=0.05):
         :func:`klassez.fit.test_correl`
 
         :func:`klassez.fit.test_ks`
-
     """
     from scipy.stats import norm
 
@@ -3296,7 +3452,7 @@ def write_log(input_file, output_file, limits, V_i, C_i, V_f, C_f, result, runti
     f = open(log_file, 'w')
 
     f.write('***{:^60}***\n\n'.format('FIT LOG'))
-    f.write('Fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+    f.write('Fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
     f.write('-'*60)
     f.write('\n\n')
 
@@ -3352,7 +3508,6 @@ def gaussian_fit(x, y, s_in=None):
     .. seealso::
 
         :func:`klassez.sim.f_gaussian`
-
     """
 
     # Make parameter dictionary
@@ -3457,6 +3612,10 @@ class Voigt_Fit:
         auto: bool
             If True, uses the GUI for automatic peak picking, if False, the manual one
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.fit.make_iguess`
@@ -3495,6 +3654,10 @@ class Voigt_Fit:
             Index of the fit to be read (default: last one)
         ext: str
             Extension of the file to be used
+
+        Returns
+        -------
+        None
 
         .. seealso::
 
@@ -3614,6 +3777,10 @@ class Voigt_Fit:
         dim : tuple
             Dimension of the figure in inches
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.fit.plot_fit`
@@ -3728,10 +3895,13 @@ class Voigt_Fit:
         dpi : int
             Resolution of the image in dots per inches
 
+        Returns
+        -------
+        None
+
         .. seealso::
 
             :func:`klassez.fit.histogram`
-
         """
         # Filename check
         if filename is None:
@@ -4319,8 +4489,8 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         'k': 0.1,   # relative intensity
         'b': 0.5,   # fraction of gaussianity
         } for w in range(10)]
-    I1 = processing.integrate(tr1, x=ppm_f1, lims=lim_f1)
-    I2 = processing.integrate(tr2, x=ppm_f2, lims=lim_f2)
+    I1 = processing.integrate(tr1, x=ppm_f1, dx=(2 * acqus['dw']), lims=lim_f1)
+    I2 = processing.integrate(tr2, x=ppm_f2, dx=(2 * acqus['dw']), lims=lim_f2)
     A = (I1 + I2) / (2*np.pi*fwhm0)
 
     # Sensitivity for mouse
@@ -6070,7 +6240,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     with open(f'{filename}.ivf', 'a', buffering=1) as f:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Initial guess computed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Initial guess computed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
     # Remove the imaginary part from the experimental data and make a shallow copy
     if np.iscomplexobj(S_in):
@@ -6094,7 +6264,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     lim1 = misc.ppmfind(ppm_scale, limits[0])[0]
     lim2 = misc.ppmfind(ppm_scale, limits[1])[0]
     # Calculate the absolute intensity (or something that resembles it)
-    A = processing.integrate(S, x=ppm_scale*SFO1, lims=[w*SFO1 for w in limits])*2*misc.calcres(acqus['t1'])
+    A = processing.integrate(S, x=ppm_scale*SFO1, dx=(2 * misc.calcres(acqus['t1'])), lims=[w*SFO1 for w in limits])
     _A = 1 * A
     # Make a sensitivity dictionary
     sens = {
@@ -6437,6 +6607,426 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
 
     plt.show()  # Start event loop
     plt.close()
+
+
+def make_iguess_dosy_panel(x, label, y, model, model_args, diff_c_0=1e-10, filename='dosy_fit'):
+    """
+    Make the initial guess for the fit of a DOSY profile by using a GUI to visually adjust the value of
+    the diffusion coefficient and the number of components to use.
+
+    The goal is to try to match the thin solid blue line to the trend of the black dots.
+
+    Use the mouse scroll to modify the values and redraw the figure.
+    The radio buttons at the bottom will make you choose if to edit the diffusion coefficient or the fraction
+    of the given component.
+    The sensitivity can be modified by using the radiobutton as well (coarse/fine) or using the up/down buttons.
+
+    Use the + button to add a component. Use the - button to remove a the currently selected component.
+    You can use the slider to change the active component. The headers above the current values of diffusion
+    coefficient and fraction will appear of the same color as the active component.
+
+    The intensity to match the model with the experimental data is computed and applied automatically.
+    Disabling this option will allow you to play with the values more freely.
+    There is also the option to include an offset, however **this should be used only in case of severe systematic errors**
+    during the integration procedure.
+
+    Upon pressing the "SAVE" button, a section of the ``<filename>.idy`` file will be written and the GUI will close.
+
+
+    Parameters
+    ----------
+    x : 1darray
+        Independent variable for the model (usually the gradient list)
+    label : str
+        Identifier for the region, typically the integration window or peak number
+    y : 1darray
+        Integrated dosy profile
+    model : callable
+        Functional model for the DOSY profile. Signature:
+
+        ::
+
+            def model(x, diffc, **model_args):
+                return 1darray
+
+    model_args : dict of keyworded arguments
+        Additional parameters for ``model``.
+    diff_c_0 : float
+        Default initial value for the diffusion coefficient, in m^2/s
+    filename : str
+        The output file of the procedure will be ``<filename>.idy``
+
+
+    Returns
+    -------
+    None
+
+    .. seealso::
+
+        :func:`klassez.fit.make_iguess_dosy`
+
+        :func:`klassez.fit.write_dy`
+    """
+    # Initialize variables
+    diff_c = [diff_c_0]         # Initial diffusion coefficient
+    diff_f = [1]                # Fraction is obviously 1
+
+    A, q = 0, 0                 # Intensity and offset
+    Np = 1                      # Number of components
+
+    # "_" version are the originals for the "reset" function
+    #   Multiplier for the diffc [coarse, fine]
+    lvl_step = [1.6, 1.05]
+    _lvl_step = deepcopy(lvl_step)
+    #   Added factor for the sensitivity
+    lvl_step_incr = [0.05, 0.005]
+    _lvl_step_incr = deepcopy(lvl_step_incr)
+    #   Adding factor for the difff [coarse, fine]
+    frc_step = [0.1, 0.01]
+    _frc_step = deepcopy(frc_step)
+
+    # ---------------------------------------------------------------
+    # Make the figure panel
+    fig = plt.figure('Initialization of diffusion coefficient')
+    fig.set_size_inches(figures.figsize_large)
+    plt.subplots_adjust(left=0.10, bottom=0.10, right=0.80, top=0.90)
+    ax = fig.add_subplot()
+
+    # Make boxes for widgets
+    check_box = plt.axes([0.825, 0.80, 0.15, 0.10])         # Toggle intensity and offset
+    up_box = plt.axes([0.825, 0.15, 0.04, 0.05])            # Increase sensitivity
+    down_box = plt.axes([0.825, 0.10, 0.04, 0.05])          # Decrease sensitivity
+    plus_box = plt.axes([0.88, 0.675, 0.045, 0.075])        # Add component
+    minus_box = plt.axes([0.93, 0.675, 0.045, 0.075])       # Remove component
+    save_box = plt.axes([0.905, 0.015, 0.07, 0.06])         # Save button
+    reset_box = plt.axes([0.825, 0.015, 0.07, 0.06])        # Reset button
+    radio_box = plt.axes([0.88, 0.10, 0.095, 0.10])         # Coarse/fine
+    dorf_box = plt.axes([0.88, 0.225, 0.095, 0.10])         # Move diffc or difff
+    slider_box = plt.axes([0.84, 0.25, 0.01, 0.50])         # Selector slider
+
+    # Widgets
+    #   Only factor is toggled at the beginning
+    checkbox = CheckButtons(check_box, labels=['Calc. factor', 'Use offset'], actives=[True, False])
+    misc.edit_checkboxes(checkbox, xadj=0, yadj=0.05, dim=100)
+    #   Buttons to increase and decrease sensitivity
+    up_button = Button(up_box, r'$\uparrow$', hovercolor='0.895')
+    down_button = Button(down_box, r'$\downarrow$', hovercolor='0.895')
+    #   Add/remove component
+    plus_button = Button(plus_box, '$+$', hovercolor='0.975')
+    minus_button = Button(minus_box, '$-$', hovercolor='0.975')
+    #   Save and reset
+    save_button = Button(save_box, 'SAVE', hovercolor='0.975')
+    reset_button = Button(reset_box, 'RESET', hovercolor='0.975')
+    #   Radiobuttons
+    radio = RadioButtons(radio_box, ['Coarse', 'Fine'], active=0)
+    dorf = RadioButtons(dorf_box, ['Diff. Coeff.', 'Fraction'], active=0)
+    #   Selector slider, these are just random number inside.
+    #   The actual slider will go from 0 to slightly less than 1 in Np step
+    slider = Slider(ax=slider_box, label='# Component',
+                    valmin=0, valmax=1-1e-3, valinit=0, valstep=1e-10,
+                    orientation='vertical', color='tab:blue')
+
+    # -----------------------------------------------------------------------------------------
+    # USEFUL FUNCTIONS
+    def calc_f(x, y, diffc, difff=1):
+        """ Model for a single component """
+        # Compute the model and multiply it by its fraction
+        f = difff * model(x, diffc, **model_args)
+        return f
+
+    def calc_t(x, y, diff_c, diff_f):
+        """ Compute all the components """
+        # Loop over calc_f using all the values
+        yc = [calc_f(x, y, diffc, difff) for diffc, difff in zip(diff_c, diff_f)]
+        # The total trace is the sum of all the components
+        t = np.sum(yc, axis=0)
+        # Update I and q only if the option is toggled in the checkbox
+        if checkbox.get_status()[0]:
+            nonlocal A, q
+            A, q = fit.fit_int(y, t, q=checkbox.get_status()[1])
+        # Apply A and q to the total. If the option is unactive, it uses the previous one
+        t = A * t + q
+        # Update all the components as well
+        for k, y_c in enumerate(yc):
+            yc[k] = A * y_c + q
+
+        return t, yc
+
+    # SLOTS
+    def selector(event):
+        """ When you move the slider """
+        # Get the index of the selected component
+        idx = int(np.floor(slider.val * Np))
+
+        for k, line in enumerate(fit_plot):
+            # Set the linewidth of the active plot to 3 and the rest to 1
+            if k == idx:
+                line.set_lw(3)
+            else:
+                line.set_lw(1.5)
+        # Update the values
+        update_text(idx)
+
+    def update_frac_increment(w):
+        """ Update the sensitivity value for the fraction. w = +/-1 """
+        # radio -> coarse / fine
+        # increase -> w = +1 -> *2
+        # decrease -> w = -1 -> /2
+        frc_step[radio.index_selected] *= 2**w
+
+    def update_diff_increment(w):
+        """ Update the sensitivity value for the diffusion coefficient. w = +/-1 """
+        # radio -> coarse / fine
+        # increase -> w = +1 -> + lvl_step_incr[radio]
+        # decrease -> w = -1 -> - lvl_step_incr[radio]
+        lvl_step[radio.index_selected] += w * lvl_step_incr[radio.index_selected]
+
+        # make sure these do not reach 1 otherwise the plot will not update anymore
+        for k in range(2):
+            if lvl_step[k] <= 1:
+                lvl_step[k] = 1.01
+
+    def up_sens(event):
+        """ Fork for the UP button """
+        if dorf.index_selected == 0:    # diff_c
+            update_diff_increment(+1)
+        else:       # diff_f
+            update_frac_increment(+1)
+
+    def down_sens(event):
+        """ Fork for the DOWN button """
+        if dorf.index_selected == 0:    # diff_c
+            update_diff_increment(-1)
+        else:       # diff_f
+            update_frac_increment(-1)
+
+    def update_diff(event):
+        """ Main function to redraw the plot and update the values """
+        # event can be None to not update the values, or ScrollEvent
+        # Get active component from the slider
+        idx = int(np.floor(slider.val * Np))
+
+        if event is not None:       # Fork -> direction of the scroll
+            if event.button == 'up':
+                w = +1
+            elif event.button == 'down':
+                w = -1
+
+            if dorf.index_selected == 0:    # Update diffc
+                # w = +1 => * // w = -1 => /
+                diff_c[idx] *= lvl_step[radio.index_selected]**w
+            else:                           # Update fraction
+                # w = +1 => + // w = -1 => -
+                diff_f[idx] += frc_step[radio.index_selected] * w
+
+        # Recompute the total trace and the components using the current values
+        t, yc = calc_t(x, y, diff_c, diff_f)
+
+        # Update the plots
+        tot_plot.set_ydata(t)
+        for k, y_c in enumerate(yc):
+            fit_plot[k].set_ydata(y_c)
+        # Update the texts and redraw the artists
+        update_text(idx)
+        fig.canvas.draw()
+
+    def toggle_check(label):
+        """ Redraw everything knowing that either I or q behavior changed """
+        update_diff(None)
+
+    def add_comp(event):
+        """ Add a component """
+        nonlocal Np
+        # Increase the number of components
+        Np += 1
+        # add a default entry to the values lists
+        diff_c.append(diff_c_0)
+        diff_f.append(1)
+
+        # Add a placeholder in the component plot lists
+        fit_plot.append(ax.plot(x, np.zeros_like(x), '--', lw=1)[-1])
+        # Redraw everything taking also the new component into account
+        update_diff(None)
+
+        # Move the slider to the position of the new component
+        slider.set_val((Np - 1) / Np)
+        # Recompute the step of the slider
+        slider.valstep = 1 / Np
+        # Update linewidths
+        selector(None)
+
+    def remove_comp(event):
+        """ Remove the active component """
+        nonlocal Np
+        if Np == 1:     # At least one must remain!
+            return
+
+        # Get the active peak
+        idx = int(np.floor(slider.val * Np))
+        # Decrease Np by 1
+        Np -= 1
+        # Remove the current values from the values lists
+        _ = diff_c.pop(idx)
+        _ = diff_f.pop(idx)
+        # Remove the correspondant line from the plot list
+        del_p = fit_plot.pop(idx)
+        del_p.remove()      # Erase the artist
+
+        if Np == 1:   # To zero and that's it
+            slider.set_val(0)
+            slider.valstep = 1 / Np
+        else:   # To the previous point
+            if idx == 1:
+                slider.set_val(0)
+            else:
+                slider.set_val((idx - 1) / Np)
+            slider.valstep = 1 / Np
+
+        # Redraw everything and adjust linewidths
+        update_diff(None)
+        selector(None)
+
+    def update_text(idx):
+        """ Change colors to the headers and update the values """
+        legend_text.set_color(fit_plot[idx].get_color())
+        value_text.set_text(f'\n{diff_c[idx]:.5g}\n\n\n{diff_f[idx]:.5g}\n\n')
+        fig.canvas.draw()
+
+    def reset(event):
+        """ Restore all values to the default """
+        nonlocal diff_c, diff_f, lvl_step, lvl_step_incr, frc_step
+
+        # Remove the curves one by one
+        for _ in range(Np):
+            remove_comp(None)
+
+        # Reset the values
+        diff_c = [diff_c_0]
+        diff_f = [1]
+
+        # Reset the increments
+        lvl_step = deepcopy(_lvl_step)
+        lvl_step_incr = deepcopy(_lvl_step_incr)
+        frc_step = deepcopy(_frc_step)
+
+        # Redraw everything
+        update_diff(None)
+        selector(None)
+        fig.canvas.draw()
+
+    def save(event):
+        """ Write a section in the output file """
+        # Placeholder for the errors: initial guess is errorless by definition :)
+        diff_e = [None for w in range(Np)]
+        fit.write_dy(f'{filename}.idy', diff_c, diff_f, diff_e, label, A, q)
+        # Close everything
+        plt.close()
+
+    # -------------------------------------------------------------------------------
+    # Get the initial total trace and the components (it is only one but I like consistency)
+    t, yc = calc_t(x, y, diff_c, diff_f)
+
+    # Plots
+    ax.plot(x, y, '.', ms=10, c='k', label='Experimental')
+    # The total is thinner hence it can appear on top
+    tot_plot, = ax.plot(x, t, '-', lw=1, label='Total Fit', zorder=1000)
+    # Components as a list
+    fit_plot = [ax.plot(x, y_c, '--', lw=3)[-1] for y_c in yc]
+
+    # Text on the right
+    # Same position for header and value, the text itself is interleaved
+    legend_text = fig.text(0.925, 0.60,     # here 1st and 4th line
+                           'Diff. C.\n\n\nFraction\n\n\n',
+                           ha='center', va='top', transform=fig.transFigure,
+                           fontsize=16)
+    # Here just a placeholder because...
+    value_text = fig.text(0.925, 0.60, '',  # here 2nd and 5th line
+                          ha='center', va='top', transform=fig.transFigure,
+                          fontsize=16)
+    # ... this is the function that applies color to header and correct text in value
+    update_text(0)
+
+    # Fancy shit
+    #   title and axes labels
+    ax.set_title(f'{label}')
+    ax.set_xlabel(r'Gradient /T m$^{-1}$')
+    ax.set_ylabel('Intensity /a.u.')
+
+    #   ticks and co.
+    misc.pretty_scale(ax, ax.get_xlim(), 'x')
+    misc.pretty_scale(ax, ax.get_ylim(), 'y')
+    misc.mathformat(ax)
+
+    #   legend
+    ax.legend()
+    misc.set_fontsizes(ax, 14)
+
+    # Connect widgets to slots
+    up_button.on_clicked(up_sens)
+    down_button.on_clicked(down_sens)
+    plus_button.on_clicked(add_comp)
+    minus_button.on_clicked(remove_comp)
+    slider.on_changed(selector)
+    reset_button.on_clicked(reset)
+    save_button.on_clicked(save)
+    checkbox.on_clicked(toggle_check)
+    fig.canvas.mpl_connect('scroll_event', update_diff)
+
+    # Start event loop
+    plt.show()
+
+
+def make_iguess_dosy(x, labels, data, model, model_args, diff_c_0=1e-10, filename='dosy_fit'):
+    """
+    Make the initial guess for the fit of a DOSY spectrum by using a GUI to visually adjust the value of
+    the diffusion coefficient and the number of components to use.
+    Calls :func:`fit.make_iguess_dosy_panel` in a loop. A section of the output file is written at the end
+    of each loop.
+
+    Parameters
+    ----------
+    x : 1darray
+        Independent variable for the model (usually the gradient list)
+    labels : list of str
+        Identifier for the region, typically the integration window or peak number
+    data : list of 1darray or 2darray
+        Integrated profiles to fit
+    model : callable
+        Functional model for the DOSY profile. Signature:
+
+        ::
+
+            def model(x, diffc, **model_args):
+                return 1darray
+
+    model_args : dict of keyworded arguments
+        Additional parameters for ``model``.
+    diff_c_0 : float
+        Default initial value for the diffusion coefficient, in m^2/s
+    filename : str
+        The output file of the procedure will be ``<filename>.idy``
+
+    Returns
+    -------
+    None
+
+    .. seealso::
+
+        :func:`klassez.fit.make_iguess_dosy_panel`
+
+        :func:`klassez.write_dy`
+    """
+    # Write the header of the idy file as it would in write_dy with header=True
+    with open(f'{filename}.idy', 'a', buffering=1) as f:
+        now = datetime.now()
+        date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
+        f.write('! DOSY fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
+
+    # Make a loop: call the GUI for each set of integrals
+    for k, (label, y) in enumerate(zip(labels, data)):
+        print(f'Region {label} [ # {k+1} of {len(labels)}]', end='\r')
+        fit.make_iguess_dosy_panel(x, label, y, model, model_args, diff_c_0, filename)
+    print(f'\n{filename}.idy saved.')
 
 
 def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='png', dpi=600):
@@ -6786,7 +7376,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
     with open(f'{filename}.fvf', 'a', buffering=1) as f:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
     # Generate the values from the regions dictionary with the gen_reg generator
     Q = gen_reg(regions)
@@ -7205,3 +7795,661 @@ class Voigt_Fit_P2D:
         residual_arr = np.concatenate([r for r in residual], axis=-1)
 
         fit.histogram(residual_arr, nbins=nbins, density=density, f_lims=f_lims, xlabel=xlabel, x_symm=x_symm, barcolor=barcolor, fontsize=fontsize, name=filename, ext=ext, dpi=dpi)
+
+
+def fit_dosy(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_q=False):
+    """
+    Perform a fit of a DOSY profile using the specified ``model``.
+
+    Parameters
+    ----------
+    x : 1darray
+        Independent variable, typically the gradient strength in T/m
+    y : 1darray
+        Experimental data
+    iguess : dict
+        Initial guess for the fit, as generated by :func:`klassez.fit.make_iguess_dosy_panel`
+    model : callable
+        Model function. Signature:
+
+    model_args : dict of kwargs
+        Additional arguments to model
+    d_bds : float or list
+        Bounds for the diffusion coefficient.
+        If it is a single ``float``, the bounds will be set to ``-d_bds`` and ``+d_bds``
+        orders of magnitude with respect to the initial guess. E.g.: if ``diffc = 1e-10`` and
+        ``d_bds = 2``, the bounds will be ``[1e-12, 1e-8]``.
+        If it is a list of two ``float``s, the bounds will be set to ``-d_bds[0]` and ``+d_bds[1]``
+        orders of magnitude with respect to the initial guess. E.g.: if ``diffc = 1e-10`` and
+        ``d_bds = [1, 3]``, the bounds will be ``[1e-11, 1e-7]``
+    f_bds : float or list
+        Bounds for the fraction of component.
+        If it is a single ``float``, the bounds will be set to ``-f_bds`` and ``+f_bds``
+        with respect to the initial fraction. E.g.: if ``difff = 0.5`` and ``f_bds = 0.3``,
+        the bounds will be ``[0.2, 0.8]``
+        If it is a list of two ``float``s, the bounds will be set to ``f_bds[0]` and ``f_bds[1]``,
+        regardless of what the initial fraction is.
+    vary_q : bool
+        Include the computation of the offset in the parameters. **Strongly discouraged!**
+
+    Returns
+    -------
+    dic_result : dict
+        Dictionary of optimized parameters, with the same format and shape of ``iguess``.
+
+    .. seealso::
+
+        :func:`klassez.fit.make_iguess_dosy`
+
+        :func:`klassez.fit.make_iguess_dosy_panel`
+
+    """
+
+    def f2min(param, x, y, model, model_args, first_residual=1):
+        """ Cost function for the fit """
+        # Increase the iteration counter
+        param['count'].value += 1
+        # Unpack the Parameters object into a normal dictionary
+        par = param.valuesdict()
+
+        # Make diffusion coefficient and fractions as lists
+        diff_c = [par[key] for key in par.keys() if 'D' in key]
+        diff_f = [par[key] for key in par.keys() if 'f' in key]
+
+        # Compute the models
+        yc = [difff * model(x, diffc, **model_args) for diffc, difff in zip(diff_c, diff_f)]
+        # Sum them to get the total trace
+        total = np.sum(yc, axis=0)
+        # Compute the residuals
+        residual = (y - par['q']) / par['I'] - total
+        print(f'Step: {par["count"]:6.0f} | Target: {np.sum(residual**2)/first_residual:10.5e}', end='\r')
+        return residual
+
+    # Number of components
+    Np = len(iguess['diff_c'])
+    # If bounds are single numbers, make them lists in order to do
+    # what the docstring tells they do
+    if isinstance(d_bds, (int, float)):
+        d_bds = [d_bds, d_bds]
+    if isinstance(f_bds, (int, float)):
+        rel_f = True    # f_bds are relative to the value of f
+    else:
+        rel_f = False   # or not
+
+    # Initialize the Parameters object
+    param = lmfit.Parameters()
+    # Common parameters to all components
+    #   Intensity factor - adjusted by the single fractions
+    param.add('I', value=iguess['I'], vary=False)
+    #   Offset (normally 0 and do not move it)
+    param.add('q', value=iguess['q'], vary=vary_q)
+    #   Iteration counter
+    param.add('count', value=0, vary=False)
+    # Component-dependent parameters
+    for k, (diffc, difff) in enumerate(zip(iguess['diff_c'], iguess['diff_f'])):
+        # Bounds for D
+        oom = np.log10(diffc)       # order of magnitude of D
+        minD = diffc - 10**(oom-d_bds[0])
+        maxD = diffc + 10**(oom+d_bds[1])
+        # Add diffusion coefficient
+        param.add(f'D_{k+1}', value=diffc, min=minD, max=maxD)
+
+        # Bounds for f
+        if rel_f:
+            minf = difff - f_bds
+            maxf = difff + f_bds
+        else:
+            minf = min(f_bds)
+            maxf = max(f_bds)
+        # Add fraction
+        param.add(f'f_{k+1}', value=difff, min=minf, max=maxf)
+
+    @cron
+    def start_fit():
+        # We need the first residual to match what lmfit thinks f_tol is
+        with open(os.devnull, 'w') as sys.stdout:
+            first_residual = np.sum(f2min(param, x, y, model, model_args)**2)
+            # Reset the iteration counter
+            param['count'].set(value=0)
+        # Redirect output to stdout
+        sys.stdout = sys.__stdout__
+
+        # Use nelder because normally the guess is very good, hence leastsq might go crazy
+        minner = lmfit.Minimizer(f2min, param, fcn_args=(x, y, model, model_args, first_residual))
+        result = minner.minimize(method='nelder', max_nfev=10000)
+        print(f'\n{result.message}\nNumber of function evaluations: {result.nfev}')
+        return result
+    result = start_fit()
+
+    # Get the fitted parameters
+    popt = result.params
+    # Normalize the fractions to make them add up to 1
+    diff_f_opt = [popt[f'f_{k+1}'].value for k in range(Np)]
+    diff_f_norm, I_corr = misc.molfrac(diff_f_opt)
+    # Make the output dictionary
+    dic_result = {
+            'diff_c': [popt[f'D_{k+1}'].value for k in range(Np)],
+            'diff_e': [popt[f'D_{k+1}'].stderr for k in range(Np)],
+            'diff_f': [float(difff) for difff in diff_f_norm],
+            'I': float(popt['I'].value * I_corr),      # ofc it must take the correction by the fractions into account
+            'q': popt['q'].value,
+            }
+    return dic_result
+
+
+def plot_fit_dosy(x, label, y, total, yc, region, show_total=True, show_res=False, res_offset=0, filename=None, ext='png', dpi=600, dim=None):
+    """
+    Make a plot of a DOSY fit.
+
+    Parameters
+    ----------
+    x : 1darray
+        Independent variable, normally the gradient strength in T/m
+    label : str
+        This will appear as figure title
+    show_total : bool
+        Show the total trace (i.e. sum of all the components) or not
+    show_res : bool
+        Show the plot of the residuals
+    res_offset : float
+        Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental data.
+        ``res_offset`` > 0 will move the residuals BELOW the zero-line!
+    filename : str
+        Filename of the figure that will be saved.
+    ext : str
+        Format of the saved figures
+    dpi : int
+        Resolution of the figures, in dots per inches
+    dim : tuple
+        Size of the figure in inches (length, height)
+    """
+
+    # Make the figure panel
+    fig = plt.figure()
+    if dim is None:
+        fig.set_size_inches(figures.figsize_large)
+    else:
+        fig.set_size_inches(dim)
+    plt.subplots_adjust(left=0.10, bottom=0.10, top=0.90, right=0.95)
+    ax = fig.add_subplot()
+
+    # Plots
+    #   Experimental data
+    ax.plot(x, y, '.', ms=10, c='k', label='Experimental')
+    #   Total trace
+    if show_total is True:
+        ax.plot(x, total, c='b', lw=1.5, label='Total Fit')
+    #   Components
+    for k, y_c in enumerate(yc):
+        if region['diff_e'][k] is None:
+            error = ''
+        else:
+            error = r' $\pm$ ' + f'{region["diff_e"][k]:.5e}'
+        legend_entry = '\n'.join([
+            f'Component {k+1} ({region["diff_f"][k]*100:.2f}%)',
+            f'D = {region["diff_c"][k]:.5e}' + error + r' m$^2$/s',
+            ])
+        ax.plot(x, y_c, '--', lw=1.0, label=legend_entry)
+    #   Residuals
+    if show_res is True:    # Plot the residuals
+        # Compute the absolute value of the offset
+        maxy = np.max(np.concatenate([y, total], axis=0))
+        miny = np.min(np.concatenate([y, total], axis=0))
+        r_off = res_offset * (maxy - miny)
+        # actual plot
+        ax.plot(x, y - total - r_off, c='g', ls=':', lw=0.8, label='Residuals')
+
+    # Fancy shit
+    #   title and axes labels
+    ax.set_title(f'{label}')
+    ax.set_xlabel(r'Gradient /T m$^{-1}$')
+    ax.set_ylabel('Intensity /a.u.')
+
+    #   ticks and co.
+    misc.pretty_scale(ax, ax.get_xlim(), 'x')
+    misc.pretty_scale(ax, ax.get_ylim(), 'y')
+    misc.mathformat(ax)
+
+    #   legend
+    ax.legend()
+    misc.set_fontsizes(ax, 20)
+
+    # Show/save the figure
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(f'{filename}.{ext}', dpi=dpi)
+    plt.close()
+
+
+class DosyFit:
+    """
+    Class to fit a DOSY spectrum.
+
+    Attributes
+    ----------
+    filename : str
+        Name for files, figures, and so on
+    g : 1darray
+        Gradient strength in T/m
+    dosy_par : dict
+        Dictionary of dosy parameters.
+        ::
+
+            dosy_par = {
+                    'gamma' : # gyromagnetic ratio in MHz/T,
+                    'D'     : # big delta in seconds,
+                    'd'     : # little delta in seconds,
+                    'tau'   : # tau in seconds,
+                    }
+
+    keys : list of str
+        Identifiers for the profiles to fit
+    data : dict of 1darray
+        ``data = {key : profile (1darray)  for key in self.keys}``
+    i_guess : list of dict
+        Dictionary of the initial guess, generated by ``self.iguess``.
+        ::
+
+            i_guess = [{
+                'I' : # intensity factor (float),
+                'q' : # offset (float),
+                'diff_c' : # diffusion coefficients (1darray),
+                'diff_f' : # fractions (1darray)
+                'diff_e' : # fit errors for the diffusion coefficients (2darray),
+                } for _ in self.keys]
+
+    result : list of dict
+        Dictionary of fit results, generated by either ``self.dofit`` or ``self.read_fit``.
+        Same structure and shape of ``self.i_guess``
+    """
+    def __init__(self, s, difflist=None, input_data=None, filename=None):
+        """
+        Initialize the fitting interface using the DOSY spectrum as input.
+
+        Parameters
+        ----------
+        s : klassez.DOSY object
+            DOSY spectrum. You must have either integrated or fitted it to get the profiles.
+        difflist : 1darray or None
+            List of the gradients strength, in Gauss/cm (as the instrument gives them).
+            If ``None``, it reads the `difflist` file that should be in ``s.datadir``
+        input_data : dict or None
+            Dictionary returned by :func:`klassez.anal.integrate_p2D`. If ``None``,
+            it will try to read ``s.integrals``.
+            The reading from a fit (i.e. Voigt_Fit_p2D) has not been implemented yet.
+        filename : str or None
+            root filename for all the figures and files that will be generated.
+            If ``None``, ``s.filename`` is used.
+        """
+        # Filename
+        if filename is None:
+            self.filename = s.filename
+
+        # Reads the parameters from the original spectrum,
+        # instances the attributes g and dosy_par
+        self.fetch_dosy_par(s, difflist)
+
+        # Get the data
+        if input_data is not None:
+            # Will store self.keys as well
+            self.data = input_data
+        else:
+            # Try to read the integrals from s
+            if hasattr(s, 'integrals'):
+                if len(s.integrals.keys()) == 0:
+                    raise ValueError('No integrals detected')
+                self.data = s.integrals
+            # Try to read the fit TODO NOTIMPLEMENTED
+            elif hasattr(s.F, 'result'):
+                self.data = s.F.result
+            else:
+                raise ValueError('Neither integrals nor fit were detected in the input DOSY spectrum.')
+
+    def iguess(self, filename=None, ext='idy', diff_c_0=1e-10):
+        """
+        Either makes or reads an initial guess file for the fit.
+        The resulting dictionary will be saved in ``self.i_guess``
+
+        Parameters
+        ----------
+        filename : str
+            Will try to read ``<filename>.<ext>``. If it does not exist, will write in ``<filename>.idy``
+        ext : str
+            Extension for the file, either `idy` or `fdy`
+        diff_c_0 : float
+            Initial default value for the diffusion coefficient.
+
+        Returns
+        -------
+        None
+
+        .. seealso ::
+
+            :func:`klassez.fit.make_iguess_dosy`
+
+            :func:`klassez.fit.write_dy`
+
+            :func:`klassez.fit.read_dy`
+        """
+        if filename is None:
+            filename = f'{self.filename}'
+        # Check if the file exists
+        in_file_exist = os.path.exists(f'{filename}.{ext}')
+
+        if in_file_exist is True:       # Read everything you need from the file
+            regions = fit.read_dy(f'{filename}.{ext}')
+        else:                           # Make the initial guess interactively and save the file.
+            ext = 'idy'
+            fit.make_iguess_dosy(self.g, labels=self.keys, data=self._data,
+                                 model=self.model, model_args=self.dosy_par,
+                                 diff_c_0=diff_c_0, filename=filename)
+            regions = fit.read_dy(f'{filename}.{ext}')
+        # Store it
+        self.i_guess = regions
+        print(f'{filename}.{ext} loaded as input file.\n')
+
+    def dofit(self, filename=None, d_bds=3, f_bds=[0, 3], vary_q=False):
+        """
+        Performs the fit of the profiles. Saves a `.fdy` file and stores the results
+        in the attribute ``self.result``.
+
+        Parameters
+        ----------
+        filename : str or None
+            File where to save the results of the fit: ``<filename>.fdy``
+        d_bds : float or list
+            See :func:`klassez.fit.fit_dosy`
+        f_bds : float or list
+            See :func:`klassez.fit.fit_dosy`
+        vary_q : bool
+            Include the offset in the fit **strongly discouraged**
+
+        Returns
+        -------
+        None
+
+        .. seealso::
+
+            :func:`klassez.fit.fit_dosy`
+
+            :func:`klassez.fit.write_dy`
+        """
+
+        if filename is None:
+            filename = f'{self.filename}.fdy'
+        else:
+            filename += '.fdy'
+        # Check if the file exists
+        self.result = []
+
+        f = open(f'{filename}', 'a', buffering=1)
+        # Info on the region to be fitted
+        now = datetime.now()
+        date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
+        f.write('! DOSY fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
+
+        for k, label in enumerate(self.keys):
+            print(f'Fitting region {label} [ # {k+1} of {len(self.keys)}]')
+            dic_result = fit.fit_dosy(self.g, self._data[k], self.i_guess[k],
+                                      self.model, self.dosy_par,
+                                      d_bds=d_bds, f_bds=f_bds, vary_q=vary_q)
+            fit.write_dy(filename, dic_result['diff_c'], dic_result['diff_f'], dic_result['diff_e'],
+                         label, dic_result['I'], dic_result['q'])
+            dic_result['label'] = label
+            self.result.append(dic_result)
+        print(f'{filename} saved.\n')
+
+    def load_fit(self, filename=None, n=-1, ext='fdy'):
+        """
+        Reads a file with ``fit.read_dy`` and stores the result in ``self.result``.
+
+        Parameters
+        ----------
+        filename: str
+            Path to the .fdy file to be read. If None, "<self.filename>.fdy" is used.
+        n: int
+            Index of the fit to be read (default: last one)
+        ext: str
+            Extension of the file to be used
+
+        Returns
+        -------
+        None
+
+        .. seealso::
+
+            :func:`klassez.fit.make_iguess_dosy`
+
+            :func:`klassez.fit.make_iguess_dosy_panel`
+
+            :func:`klassez.fit.fit_dosy`
+
+            :func:`klassez.fit.read_dy`
+        """
+        # Set the default filename, if not given
+        if filename is None:
+            filename = f'{self.filename}'
+        # Check if the file exists
+        out_file_exist = os.path.exists(f'{filename}.{ext}')
+        if out_file_exist is True:       # Read everything you need from the file
+            regions = fit.read_dy(f'{filename}.{ext}', n=n)
+        else:
+            raise NameError(f'{filename}.{ext} does not exist.')
+        # Store
+        self.result = regions
+        print(f'{filename}.{ext} loaded as fit result file.\n')
+
+    def plot(self, what='result', show_res=False, res_offset=0, filename=None, ext='png', dpi=600, dim=None):
+        """
+        Plots either the initial guess or the result of the fit, and saves all the figures. Calls :func:`fit.plot_fit_dosy`.
+        The figures will be saved in the directory `Figures_<filename>/<what>/<label>.png`.
+
+        Parameters
+        ----------
+        what : str
+            'iguess' to plot the initial guess, 'result' to plot the fitted data
+        show_res : bool
+            Show the plot of the residuals
+        res_offset : float
+            Displacement of the residuals plot from 0, to be given as a fraction of the height of the experimental data.
+            ``res_offset`` > 0 will move the residuals BELOW the zero-line!
+        filename : str
+            Determines the name of the directory where the figures will be saved. If None, `<self.filename>` is used
+        ext : str
+            Format of the saved figures
+        dpi : int
+            Resolution of the figures, in dots per inches
+        dim : tuple
+            Dimension of the figure in inches
+
+        Returns
+        -------
+        None
+
+        .. seealso::
+
+            :func:`klassez.fit.plot_fit_dosy`
+        """
+        # select the correct object to plot
+        if what == 'iguess':
+            regions = deepcopy(self.i_guess)
+        elif what == 'result':
+            regions = deepcopy(self.result)
+        else:
+            raise ValueError('Specify what you want to plot: "iguess" or "result"')
+
+        # Set the filename, if not given
+        if filename is None:
+            filename = f'{self.filename}'
+
+        # Make the directories
+        if not os.path.exists(f'Figures_{filename}'):
+            os.makedirs(f'Figures_{filename}')
+        figure_path = os.path.join(f'Figures_{filename}', f'{what}')
+        if not os.path.exists(figure_path):
+            os.makedirs(figure_path)
+
+        # Make the figures
+        totals, components = self.get_fit_lines(what)
+        print(f'Saving figures in {figure_path}...')
+        for k, (y, total, yc, region) in enumerate(zip(self._data, totals, components, regions)):
+            print(f'{k+1}/{len(totals)}', end='\r')
+            label = region['label']
+            # Figures will be "Figures_{filename}/{what}/{label}.{ext}
+            figure_name = os.path.join(figure_path, label)
+            fit.plot_fit_dosy(self.g, label, y, total, yc, region,
+                              show_res=show_res, res_offset=res_offset,
+                              filename=figure_name, ext=ext, dpi=dpi, dim=dim)
+        print('Done.\n')
+
+    def get_fit_lines(self, what='result'):
+        """
+        Calculates the components, and the total fit curve used as initial guess, or as fit results.
+
+        Parameters
+        ----------
+        what : str
+            ``'iguess'`` or ``'result'``
+
+        Returns
+        ----------
+        totals : list of 1darray
+            Sum of all the signals, per region
+        components : list of 2darray
+            Components fitted for each region.
+            Note that regions with only one component will be 2darrays anyways.
+        """
+        def calc_f(x, diffc, difff, A, q):
+            """ Model for a single component """
+            # Compute the model and multiply it by its fraction
+            f = A * difff * self.model(x, diffc, **self.dosy_par) + q
+            return f
+
+        def calc_t(x, diff_c, diff_f, A, q):
+            """ Compute all the components """
+            # Loop over calc_f using all the values
+            yc = [calc_f(x, diffc, difff, A, q) for diffc, difff in zip(diff_c, diff_f)]
+            # The total trace is the sum of all the components
+            t = np.sum(yc, axis=0)
+            return t, yc
+
+        # Discriminate if you want to calculate the initial guess or the result
+        if what == 'iguess':
+            regions = deepcopy(self.i_guess)
+        elif what == 'result':
+            regions = deepcopy(self.result)
+        else:
+            raise ValueError('Specify what you want to plot: "iguess" or "result"')
+
+        # placeholders
+        totals, components = [], []
+        # Loop inside either iguess or result
+        for region in regions:
+            # Compute the totals and the components
+            t, yc = calc_t(self.g, region['diff_c'], region['diff_f'], region['I'], region['q'])
+            # Update the placeholders
+            totals.append(t)
+            components.append(np.array(yc))
+
+        return totals, components
+
+    @property
+    def data(self) -> dict:
+        """ Each time you call for it you will get a dictionary with the labels for each profile """
+        return {key: self._data[k] for k, key in enumerate(self.keys)}
+
+    @data.setter
+    def data(self, input_data: (list, dict)):
+        """ Get the data from the integrals (dict) or from the fit (list). ``_data`` is the 2darray! """
+        if isinstance(input_data, dict):
+            self.keys, self._data = self.data_from_integrals(input_data)
+        else:
+            self.keys, self._data = self.data_from_vf(input_data)
+
+    @staticmethod
+    def data_from_integrals(input_data):
+        """ Fetch data from the integrals dictionary """
+        keys = list(input_data.keys())
+        data = np.array([input_data[key] for key in keys])
+        return keys, data
+
+    @staticmethod
+    def data_from_vf(input_data):
+        """ Fetch data from the fit list """
+        raise NotImplementedError('WIP')
+
+    def fetch_dosy_par(self, s, difflist=None):
+        """
+        Reads the acquisition parameters to get the DOSY parameters.
+        The sequence is `stebpgp1s19`, where:
+
+        -   bigdelta = d20
+        -   littledelta = 2 * p30
+        -   tau = p2 + d16
+
+        Creates the ``self.dosy_par`` attribute.
+
+        Parameters
+        ----------
+        s : DOSY object
+            Input spectrum that contains the ``ngdic`` attribute
+        difflist : 1darray or None
+            Gradient list in Gauss/cm, if existing. If ``None``, it will
+            be read as well from ``<s.datadir>/difflist``
+        """
+        #   Gradient list
+        if difflist is None:
+            difflist = np.loadtxt(os.path.join(s.datadir, 'difflist'))
+        # difflist is in G/cm -> we need T/m
+        self.g = difflist * 1e-2
+
+        # Reading the parameter from acqus
+        d20 = s.ngdic['acqus']['D'][20]
+        d16 = s.ngdic['acqus']['D'][16]
+        p30 = s.ngdic['acqus']['P'][30]
+        p2 = s.ngdic['acqus']['P'][2]
+
+        self.dosy_par = {
+                'gamma': sim.gamma[f'{s.acqus["nuc"]}'],    # MHz/T
+                'D': d20,                       # big delta /s
+                'd': p30 * 2 * 1e-6,            # little delta /s
+                'tau': (p2 + d16) * 1e-6,       # tau /s
+                }
+
+    @staticmethod
+    def model(g, diff_c, gamma, D, d, tau):
+        r"""
+        Model for stepped gradient (at least I think it is)
+
+        .. math::
+
+            y(g) = \exp \{ - D (2 \pi \gamma g \delta)^2 \, (\Delta - \delta / 3 - \tau ) \}
+
+
+        Parameters
+        ----------
+        g : 1darray
+            Gradient strength T/m
+        diff_c : float
+            Diffusion coefficient m^2/s
+        gamma : float
+            Gyromagnetic ratio MHz/T
+        D : float
+            Big delta seconds
+        d : float
+            Little delta seconds
+        tau : float
+            Tau seconds
+
+        Returns
+        -------
+        y : 1darray
+            Computed model
+        """
+        # 1e6 is to convert MHz -> Hz for the gamma
+        A = 2 * np.pi * gamma * d * 1e6
+        B = (D - d/3 - tau/2)
+        arg = - diff_c * g**2 * A**2 * B
+        y = np.exp(arg)
+        return y

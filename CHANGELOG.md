@@ -1,3 +1,47 @@
+# Version 0.5a.3
+
+Improved compatibility between classes *Spectrum_2D* and *Pseudo_2D*.
+Changed implementation of *processing.integral* to make it more intuitive, all the calls to it were adjusted consequently.
+New GUIs for integration. Called by the *integrate* methods of *Spectrum_1D* and *Pseudo_2D*.
+
+
+DOSY class for spectrum and DosyFIT for fitting them.
+New functions for the display of the diffusion coefficients after fitting them.
+
+Better warnings handling.
+Added a warning if you do not zero-fill enough to do a Hilbert transform.
+Changed *os.getlogin* to *getpass.getuser* because it raised an error on virtual machines.
+Bug fixes.
+
+## New functions:
+- *misc.expformat*
+- *misc.key_to_limits*
+- *misc.limits_to_key*
+- *figures.diffplot*
+- *figures.ax_diffplot*
+- *fit.write_dy*
+- *fit.read_dy*
+- *fit.make_iguess_dosy*
+- *fit.make_iguess_dosy_panel*
+- *fit.fit_dosy*
+- *fit.fit_plot_dosy*
+- *anal.write_igrl*
+- *anal.read_igrl*
+- *Pseudo_2D.abs*
+- *Pseudo_2D.absa*
+
+## Modified functions:
+- *processing.integral*: Now **x** and **dx** are two different parameters. Included options to subtract the straight baseline.
+- *figures.dotmd*: new buttons "Select ALL" and "Select NONE"
+- *anal.integrate*: completely remade from scratch. New options!
+- *anal.integrate_p2D*: completely remade from scratch. New options!
+- *Spectrum_2D.qfil*: the SFO is generic and not SFO2 by default anymore
+- *Pseudo_2D.plot_md*: the labels are passed on the basis of **ppm_f1**
+
+## New classes:
+- *fit.DosyFit*
+- *Spectra.DOSY*
+
 # Version 0.5a.2
 
 Modified *processing.hilbert* by adding the **axis** parameter.
