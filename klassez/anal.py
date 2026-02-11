@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Button, Cursor, SpanSelector, RectangleSelector, CheckButtons
 import lmfit
 from datetime import datetime
-import os
+import getpass
 
 from . import fit, misc, sim, figures, processing, anal
 from .config import CM, COLORS
@@ -1390,7 +1390,7 @@ def write_igrl(filename, dic, indirect_scale=None, header=False):
     if header:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Integrals computed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Integrals computed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
     # Write the indirect scale
     if indirect_scale is not None and n_spectra > 1:

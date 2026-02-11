@@ -13,6 +13,7 @@ import lmfit
 from datetime import datetime
 import warnings
 from copy import deepcopy
+import getpass
 
 from . import fit, misc, sim, figures, processing, anal
 from .config import CM, COLORS, cron
@@ -938,7 +939,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
     with open(f'{filename}.fvf', 'a', buffering=1) as f:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
     # Generate the values from the regions dictionary with the gen_reg generator
     Q = gen_reg(regions)
@@ -1757,7 +1758,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
     with open(f'{filename}.ivf', 'a', buffering=1) as f:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Initial guess computed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Initial guess computed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
     # Remove the imaginary part from the experimental data and make a shallow copy
     if np.iscomplexobj(S_in):
@@ -2361,7 +2362,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     with open(f'{filename}.ivf', 'a', buffering=1) as f:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Initial guess computed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Initial guess computed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
     prev = 0
     # Dwell time
@@ -2796,7 +2797,7 @@ def write_vf(filename, peaks, lims, Int, prev=0, header=False, bas_c=None):
     if header:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
     #   Header
     f.write('{:>16};\t{:>12}\n'.format('Region', 'Intensity'))
     f.write('-'*96+'\n')
@@ -2952,7 +2953,7 @@ def write_dy(filename, diff_c, diff_f, diff_e, label, intensity, offset, header=
     if header:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! DOSY fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! DOSY fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
     #   Header
     f.write('{:>24}; {:>14}; {:>14}\n'.format('Region', 'Intensity', 'Offset'))
     f.write('-'*96+'\n')
@@ -3451,7 +3452,7 @@ def write_log(input_file, output_file, limits, V_i, C_i, V_f, C_f, result, runti
     f = open(log_file, 'w')
 
     f.write('***{:^60}***\n\n'.format('FIT LOG'))
-    f.write('Fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+    f.write('Fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
     f.write('-'*60)
     f.write('\n\n')
 
@@ -6239,7 +6240,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
     with open(f'{filename}.ivf', 'a', buffering=1) as f:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Initial guess computed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Initial guess computed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
     # Remove the imaginary part from the experimental data and make a shallow copy
     if np.iscomplexobj(S_in):
@@ -7019,7 +7020,7 @@ def make_iguess_dosy(x, labels, data, model, model_args, diff_c_0=1e-10, filenam
     with open(f'{filename}.idy', 'a', buffering=1) as f:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! DOSY fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! DOSY fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
     # Make a loop: call the GUI for each set of integrals
     for k, (label, y) in enumerate(zip(labels, data)):
@@ -7375,7 +7376,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
     with open(f'{filename}.fvf', 'a', buffering=1) as f:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! Fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! Fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
     # Generate the values from the regions dictionary with the gen_reg generator
     Q = gen_reg(regions)
@@ -8186,7 +8187,7 @@ class DosyFit:
         # Info on the region to be fitted
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
-        f.write('! DOSY fit performed by {} on {}\n\n'.format(os.getlogin(), date_and_time))
+        f.write('! DOSY fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
         for k, label in enumerate(self.keys):
             print(f'Fitting region {label} [ # {k+1} of {len(self.keys)}]')

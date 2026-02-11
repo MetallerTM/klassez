@@ -14,6 +14,8 @@ DOSY class for spectrum and DosyFIT for fitting them
 05/02/26
 Changed implementation of *processing.integral* to make it more intuitive, all the calls to it were adjusted consequently.
 New functions for the display of the diffusion coefficients after fitting them.
+11/02/26
+Changed *os.getlogin* to *getpass.getuser* because it raised an error on virtual machines.
 
 ## New functions:
 21/01/26
