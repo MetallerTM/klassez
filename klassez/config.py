@@ -2,20 +2,56 @@
 
 import seaborn as sns
 from datetime import datetime
+from functools import wraps
+import inspect
 
 
-def cron(func, *args, **kwargs):
+def cron(f):
     r""" Decorator: use it to monitor the runtime of a function.  """
-    def new_func(*args, **kwargs):
+    @wraps(f)
+    def wrapper(*args, **kws):
         start_time = datetime.now()
 
-        return_values = func(*args, **kwargs)
+        return_values = f(*args, **kws)
 
         end_time = datetime.now()
         run_time = end_time - start_time
         print(f'Runtime: {run_time}\n')
         return return_values
-    return new_func
+    return wrapper
+
+
+def safe_kws(f):
+    """
+    Decorator.
+
+    Let us assume we want to run the following code:
+
+    ::
+        def f(a, b=1):
+            print(a, b)
+
+        kws = {'a': 1, 'b': 2, 'c': 3}
+        f(**kws)
+
+    This will raise an error, because there is not a parameter ``c`` in the
+    signature of ``f``. Decorating ``f`` with ``@safe_kws`` will filter the passed
+    ``kws`` dictionary to include only the parameters that are also present in ``f``,
+    in order to avoid this error to appear.
+    """
+
+    # Take the signature of the function as OrderedDict {arg_name: default_value}
+    sig = inspect.signature(f)
+    # Take only the names of the arguments
+    all_args_names = set(sig.parameters.keys())
+
+    @wraps(f)
+    def wrapper(*args, **kws):
+        # From kws, keep only the arguments that also appear in the signature
+        new_kws = {arg: value for arg, value in kws.items()
+                   if arg in all_args_names}
+        return f(*args, **new_kws)
+    return wrapper
 
 
 # Use seaborn's colormaps and save it to a dictionary

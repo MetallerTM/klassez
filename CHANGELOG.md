@@ -1,5 +1,23 @@
 # Version 0.5a.4
 
+12/02/26
+Added model functions for different DOSY experiments.
+The class *fit.DosyFit* was modified accordingly to get the correct parameters and model on the basis of the pulse sequence.
+New decorator *safe_kws*.
+
+## New functions:
+12/02/26
+- *config.safe_kws* (decorator)
+- *fit.model_ste*
+- *fit.model_stebp*
+- *fit.model_dste*
+- *fit.model_dstebp*
+
+## Modified classes:
+12/02/26
+- *fit.DosyFit*: the **model** attribute is set from the new functions in *fit* accordingly to the pulse sequence of the experiment
+- *Spectra.DOSY*: when instancing **D = fit.DosyFit**, the pulse sequence is read from the **acqus** dictionary and passed automatically
+
 
 # Version 0.5a.3
 

@@ -3983,7 +3983,7 @@ class DOSY(Pseudo_2D):
         super().read_integrals(*args, **kws)
         self._instance_D(self.integrals)
 
-    def _instance_D(self, input_data):
+    def _instance_D(self, input_data, pprog=None):
         """
         If there is not a ``self.D`` attribute already existing, creates it
         with the parameters read from the spectrum itself.
@@ -3992,7 +3992,11 @@ class DOSY(Pseudo_2D):
         if hasattr(self, 'D'):
             self.D.data = input_data
         else:
-            self.D = fit.DosyFit(self, difflist=self.ppm_f1,
+            if hasattr(self, 'ngdic'):
+                pprog = self.ngdic['acqus']['PULPROG']
+            elif pprog is None:
+                pprog = 'stebp'
+            self.D = fit.DosyFit(self, pprog=pprog, difflist=self.ppm_f1,
                                  input_data=input_data,
                                  filename=self.filename)
 

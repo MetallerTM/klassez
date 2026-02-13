@@ -2760,7 +2760,7 @@ def integral(fx, x=None, dx=None, lims=None, use_bas=False):
         x_tr, fx_tr = misc.trim_data(x_in, fx_in, lims)
 
     if use_bas:
-        bas = calc_bas(fx_tr, 0, len(x_tr))
+        bas = calc_bas(fx_tr, 0, len(x_tr)-1)
     else:
         bas = np.zeros_like(x_tr)
 
