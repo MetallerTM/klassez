@@ -1099,7 +1099,7 @@ class Spectrum_1D:
         # Write the file
         with open(filename, 'w') as f:
             f.write('!\n\n')
-        fit.write_vf(filename, dic, lims=limits, I=Hs)
+        fit.write_vf(filename, dic, lims=limits, Int=Hs)
         print(f'File {filename} generated successfully.')
 
     def to_wav(self, filename=None, cutoff=None, rate=44100):

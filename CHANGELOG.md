@@ -4,6 +4,9 @@
 Added model functions for different DOSY experiments.
 The class *fit.DosyFit* was modified accordingly to get the correct parameters and model on the basis of the pulse sequence.
 New decorator *safe_kws*.
+17/02/26
+The functions for interactive phase do not automatically move the zoom on the spectrum, but it is fixed. Press Z to change it.
+Updated documentation.
 
 ## New functions:
 12/02/26
@@ -12,6 +15,11 @@ New decorator *safe_kws*.
 - *fit.model_stebp*
 - *fit.model_dste*
 - *fit.model_dstebp*
+
+## Modified functions:
+17/02/26
+- *processing.interactive_phase_1D*: default behavior for the zoom is RED instead of GREEN
+- *processing.interactive_phase_2D*: default behavior for the zoom is RED instead of GREEN
 
 ## Modified classes:
 12/02/26

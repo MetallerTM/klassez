@@ -43,6 +43,13 @@ extensions = [
 
 autosummary_generate = True
 
+numfig = True
+numfig_format = {
+    'figure': 'Figure %s',
+    'table':  'Table %s',
+    'code-block': 'Listing %s',
+}
+
 intersphinx_mapping = {
     'numpy': ('https://numpy.org/doc/stable/', None),
     'scipy': ('https://docs.scipy.org/doc/scipy/', None),

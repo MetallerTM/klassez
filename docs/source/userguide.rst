@@ -7,7 +7,7 @@ Processing of a "raw" 1D spectrum
 *********************************
 
 Let us say that your spectrum is saved in the folder
-*/home/myself/spectra/mydataset/1/*. Initialize the spectrum object
+`/home/myself/spectra/mydataset/1/`. Initialize the spectrum object
 through:
 
 ::
@@ -31,123 +31,121 @@ This command will do three main tasks:
 by specifying the option "``spect``".
 
 A detailed description of ``acqus`` and ``procs`` is shown in
-table `1 <#t:acqus_1D>`__ and table `2 <#t:procs_1D>`__.
+:numref:`t-acqus_1D` and :numref:`t-procs_1D`.
 
 Please note that reading the spectrum causes the program to save a file
 called *"name.procs"*, where "name" is the path name.
 
-.. container::
-   :name: t:acqus_1D
 
-   .. table:: Description of the ``acqus`` dictionary of a ``Spectrum_1D`` object.
+.. table:: Description of the ``acqus`` dictionary of a ``Spectrum_1D`` object.
+    :name: t-acqus_1D
 
-      +-------------+-------------------------------------------------------+
-      | Key         | Explanation                                           |
-      +=============+=======================================================+
-      | ``B0``      | Magnetic field strength /T                            |
-      +-------------+-------------------------------------------------------+
-      | ``spect``   | Spectrometer format: ``simulated``, ``bruker``,       |
-      |             | ``varian``, ``oxford``                                |
-      +-------------+-------------------------------------------------------+
-      | ``BYTORDA`` | Endianness of binary data: ``0`` little endian, ``1`` |
-      |             | big endian                                            |
-      +-------------+-------------------------------------------------------+
-      | ``DTYPA``   | Binary data type: ``0`` *int32*, ``2`` *float64*      |
-      +-------------+-------------------------------------------------------+
-      | ``GRPDLY``  | Number of points of the digital filter                |
-      +-------------+-------------------------------------------------------+
-      | ``nuc``     | Observed nucleus                                      |
-      +-------------+-------------------------------------------------------+
-      | ``o1p``     | Carrier frequency i.e. center of the spectrum, in ppm |
-      +-------------+-------------------------------------------------------+
-      | ``o1``      | Same as ``o1p``, but in Hz                            |
-      +-------------+-------------------------------------------------------+
-      | ``SWp``     | Sweep width, in ppm                                   |
-      +-------------+-------------------------------------------------------+
-      | ``SW``      | Sweep width, in Hz                                    |
-      +-------------+-------------------------------------------------------+
-      | ``SFO1``    | Larmor frequency of the observed nucleus at field     |
-      |             | ``B0``                                                |
-      +-------------+-------------------------------------------------------+
-      | ``TD``      | Number of sampled complex points                      |
-      +-------------+-------------------------------------------------------+
-      | ``dw``      | Dwell time, i.e. the sampling interval, in seconds    |
-      +-------------+-------------------------------------------------------+
-      | ``AQ``      | Time duration of the FID                              |
-      +-------------+-------------------------------------------------------+
-      | ``t1``      | Acquisition timescale                                 |
-      +-------------+-------------------------------------------------------+
+    +-------------+-------------------------------------------------------+
+    | Key         | Explanation                                           |
+    +=============+=======================================================+
+    | ``B0``      | Magnetic field strength /T                            |
+    +-------------+-------------------------------------------------------+
+    | ``spect``   | Spectrometer format: ``simulated``, ``bruker``,       |
+    |             | ``varian``, ``oxford``                                |
+    +-------------+-------------------------------------------------------+
+    | ``BYTORDA`` | Endianness of binary data: ``0`` little endian, ``1`` |
+    |             | big endian                                            |
+    +-------------+-------------------------------------------------------+
+    | ``DTYPA``   | Binary data type: ``0`` *int32*, ``2`` *float64*      |
+    +-------------+-------------------------------------------------------+
+    | ``GRPDLY``  | Number of points of the digital filter                |
+    +-------------+-------------------------------------------------------+
+    | ``nuc``     | Observed nucleus                                      |
+    +-------------+-------------------------------------------------------+
+    | ``o1p``     | Carrier frequency i.e. center of the spectrum, in ppm |
+    +-------------+-------------------------------------------------------+
+    | ``o1``      | Same as ``o1p``, but in Hz                            |
+    +-------------+-------------------------------------------------------+
+    | ``SWp``     | Sweep width, in ppm                                   |
+    +-------------+-------------------------------------------------------+
+    | ``SW``      | Sweep width, in Hz                                    |
+    +-------------+-------------------------------------------------------+
+    | ``SFO1``    | Larmor frequency of the observed nucleus at field     |
+    |             | ``B0``                                                |
+    +-------------+-------------------------------------------------------+
+    | ``TD``      | Number of sampled complex points                      |
+    +-------------+-------------------------------------------------------+
+    | ``dw``      | Dwell time, i.e. the sampling interval, in seconds    |
+    +-------------+-------------------------------------------------------+
+    | ``AQ``      | Time duration of the FID                              |
+    +-------------+-------------------------------------------------------+
+    | ``t1``      | Acquisition timescale                                 |
+    +-------------+-------------------------------------------------------+
 
 
-.. container::
-   :name: t:procs_1D
 
-   .. table:: Description of the ``procs`` dictionary of a ``Spectrum_1D`` object.
+.. table:: Description of the ``procs`` dictionary of a ``Spectrum_1D`` object.
+    :name: t-procs_1D
 
-      +------------+--------------------------------------------------------+
-      | Key        | Explanation                                            |
-      +============+========================================================+
-      | ``wf``     | Window function. This is a dictionary itself:          |
-      |            |                                                        |
-      |            | -  ``"mode"``: choose function between                 |
-      |            |                                                        |
-      |            |    -  ``"no"``: no apodization                         |
-      |            |                                                        |
-      |            |    -  ``"em"``: exponential                            |
-      |            |                                                        |
-      |            |    -  ``"sin"``: sine                                  |
-      |            |                                                        |
-      |            |    -  ``"qsin"``: squared sine                         |
-      |            |                                                        |
-      |            |    -  ``"gm"``: mixed lorentzian-gaussian              |
-      |            |                                                        |
-      |            |    -  ``"gmb"``: mixed lorentzian-gaussian, Bruker     |
-      |            |       style                                            |
-      |            |                                                        |
-      |            | -  ``"lb"``: Exponential line-broadening. Read by      |
-      |            |    ``em``                                              |
-      |            |                                                        |
-      |            | -  ``"lb_gm"``: Exponential line-broadening. Read by   |
-      |            |    ``gm``                                              |
-      |            |                                                        |
-      |            | -  ``"gb"``: Gaussian line-broadening. Read by ``gmb`` |
-      |            |                                                        |
-      |            | -  ``"gb_gm"``: Gaussian line-broadening. Read by      |
-      |            |    ``gm``                                              |
-      |            |                                                        |
-      |            | -  ``"gc"``: Center of the gaussian :math:`\in [0,1]`. |
-      |            |    Read by ``gm``                                      |
-      |            |                                                        |
-      |            | -  ``"ssb"``: Shift of the sine bell. Read by ``sin``  |
-      |            |    and ``qsin``                                        |
-      |            |                                                        |
-      |            | -  ``"sw"``: Sweep width. Automatically set according  |
-      |            |    to ``acqus["SW"]``                                  |
-      +------------+--------------------------------------------------------+
-      | ``zf``     | Zero-filling. Set the *final* number of points!        |
-      +------------+--------------------------------------------------------+
-      | ``tdeff``  | Number of points to be used for processing             |
-      +------------+--------------------------------------------------------+
-      | ``fcor``   | Scaling factor for the first point of the FID before   |
-      |            | Fourier transform                                      |
-      +------------+--------------------------------------------------------+
-      | ``p0``     | Frequency-independent phase correction /degrees        |
-      +------------+--------------------------------------------------------+
-      | ``p1``     | First order phase correction /degrees                  |
-      +------------+--------------------------------------------------------+
-      | ``pv``     | Pivot point for the first order phase correction /ppm  |
-      +------------+--------------------------------------------------------+
-      | ``basl_c`` | Set of coefficients of a polynomion to be used as      |
-      |            | baseline, starting from the :math:`0`-order            |
-      |            | coefficient                                            |
-      +------------+--------------------------------------------------------+
-      | ``cal``    | Offset, in ppm, to be added to the frequency and ppm   |
-      |            | scales for calibration                                 |
-      +------------+--------------------------------------------------------+
+    +------------+--------------------------------------------------------+
+    | Key        | Explanation                                            |
+    +============+========================================================+
+    | ``wf``     | Window function. This is a dictionary itself:          |
+    |            |                                                        |
+    |            | -  ``"mode"``: choose function between                 |
+    |            |                                                        |
+    |            |    -  ``"no"``: no apodization                         |
+    |            |                                                        |
+    |            |    -  ``"em"``: exponential                            |
+    |            |                                                        |
+    |            |    -  ``"sin"``: sine                                  |
+    |            |                                                        |
+    |            |    -  ``"qsin"``: squared sine                         |
+    |            |                                                        |
+    |            |    -  ``"gm"``: mixed lorentzian-gaussian              |
+    |            |                                                        |
+    |            |    -  ``"gmb"``: mixed lorentzian-gaussian, Bruker     |
+    |            |       style                                            |
+    |            |                                                        |
+    |            | -  ``"lb"``: Exponential line-broadening. Read by      |
+    |            |    ``em``                                              |
+    |            |                                                        |
+    |            | -  ``"lb_gm"``: Exponential line-broadening. Read by   |
+    |            |    ``gm``                                              |
+    |            |                                                        |
+    |            | -  ``"gb"``: Gaussian line-broadening. Read by ``gmb`` |
+    |            |                                                        |
+    |            | -  ``"gb_gm"``: Gaussian line-broadening. Read by      |
+    |            |    ``gm``                                              |
+    |            |                                                        |
+    |            | -  ``"gc"``: Center of the gaussian :math:`\in [0,1]`. |
+    |            |    Read by ``gm``                                      |
+    |            |                                                        |
+    |            | -  ``"ssb"``: Shift of the sine bell. Read by ``sin``  |
+    |            |    and ``qsin``                                        |
+    |            |                                                        |
+    |            | -  ``"sw"``: Sweep width. Automatically set according  |
+    |            |    to ``acqus["SW"]``                                  |
+    +------------+--------------------------------------------------------+
+    | ``zf``     | Zero-filling. Set the *final* number of points!        |
+    +------------+--------------------------------------------------------+
+    | ``tdeff``  | Number of points to be used for processing             |
+    +------------+--------------------------------------------------------+
+    | ``fcor``   | Scaling factor for the first point of the FID before   |
+    |            | Fourier transform                                      |
+    +------------+--------------------------------------------------------+
+    | ``p0``     | Frequency-independent phase correction /degrees        |
+    +------------+--------------------------------------------------------+
+    | ``p1``     | First order phase correction /degrees                  |
+    +------------+--------------------------------------------------------+
+    | ``pv``     | Pivot point for the first order phase correction /ppm  |
+    +------------+--------------------------------------------------------+
+    | ``basl_c`` | Set of coefficients of a polynomion to be used as      |
+    |            | baseline, starting from the :math:`0`-order            |
+    |            | coefficient                                            |
+    +------------+--------------------------------------------------------+
+    | ``cal``    | Offset, in ppm, to be added to the frequency and ppm   |
+    |            | scales for calibration                                 |
+    +------------+--------------------------------------------------------+
 
 
 To make the Fourier transform of the FID to obtain the spectrum, you
-must invoke the :meth:`process` method, which reads the ``procs`` dictionary
+must invoke the :func:`klassez.Spectra.Spectrum_1D.process` method, which reads the ``procs`` dictionary
 to get the instructions on the processing you want to make on your
 spectrum. For instance, if you want to obtain a final spectrum of
 :math:`8k` points with an exponential broadening of 25 Hz:
@@ -172,27 +170,27 @@ For instance:
 will generate a composite window function made with ``em, lb=10`` and ``qsin, ssb=2``.
 
 
-Calling the :meth:`process` method generates new attributes of the class:
+Calling the :func:`klassez.Spectra.Spectrum_1D.process` method generates new attributes of the class:
 
--  ``freq``: the frequency scale, in Hz;
+-  ``self.freq``: the frequency scale, in Hz;
 
--  ``ppm``: the ppm scale;
+-  ``self.ppm``: the ppm scale;
 
--  ``r``: the real part of the spectrum;
+-  ``self.r``: the real part of the spectrum;
 
--  ``i``: the imaginary part of the spectrum;
+-  ``self.i``: the imaginary part of the spectrum;
 
--  ``S``: the complex spectrum
+-  ``self.S``: the complex spectrum
    (:math:`{\tt S} = {\tt r} + \ui {\tt i}`).
 
-After the Fourier transform, the :meth:`process` method applies the phase
+After the Fourier transform, the :func:`klassez.Spectra.Spectrum_1D.process` method applies the phase
 correction and the calibration using the phase angles and the
 calibration value saved in the ``procs`` dictionary automatically. This
 allows the user to not phase their spectra every time, as well as
 keeping a record of the processing.
 
 If the spectrum requires phase correction, you can perform it
-interactively:
+interactively (:numref:`f-adjph_1D`):
 
 ::
 
@@ -209,13 +207,27 @@ the pivot set at 7.32 ppm:
 
 In both cases, the phase angles are updated in the ``procs`` dictionary.
 
-The spectrum can be calibrated using a dedicated GUI:
+.. figure:: _static/Phase_Correction_1D.png
+   :name: f-adjph_1D
+   :width: 90.0%
+
+   GUI for the interactive phase correction of a 1D spectrum.
+   You can select the value to modify (0, 1st order or pivot) from the selector on the right.
+   Then, use the mouse scroll to edit the values.
+   The arrow buttons at the top increase or decrease the sensitivity of the movement.
+   Press "Z" on the keyboard to toggle the automatic adjustment of the vertical limits.
+   Press "SAVE" to save the results of the phasing.
+
+
+The spectrum can be calibrated by using a dedicated GUI (:numref:`f-cal_1D`).
+To do so, you must call for the method :func:`klassez.Spectra.Spectrum_1D.cal` with the option ``from_procs=False``.
+The option ``from_procs=True`` will only apply the values stored in ``self.procs['cal']``.
 
 ::
 
-   s.cal()
+   s.cal(from_procs=False)
 
-or specifying the shift value in ppm or in Hz (in this case, be sure to
+Alternatively, you can specify the shift value in ppm or in Hz (in this case, be sure to
 set the ``isHz`` keyword to ``True``).
 
 ::
@@ -225,13 +237,17 @@ set the ``isHz`` keyword to ``True``).
 
 Both ``ppm`` and ``freq`` are updated according to the given values.
 
-The spectrum can be interactively integrated with a dedicated GUI, that calls for :func:`klassez.anal.integrate`, by typing:
+.. figure:: _static/Calibration_1D.png
+   :name: f-cal_1D
+   :width: 90.0%
 
-::
-
-   s.integrate()
-
-The values of the integrals are saved in the ``integrals`` attribute.
+   GUI for the interactive calibration of a 1D spectrum.
+   The green bar moves together with the spectrum, the red bar is the reference. 
+   First, set the green bar with right-double-click of the mouse on a reference signal.
+   Then, set the red bar with left-double-click on the final, calibrated position on the ppm scale.
+   Now, use the mouse scroll to move the spectrum, or click on the "OVERLAY" button to teleport the green position on the red.
+   The values are written on the right side of the figure panel.
+   Press "SAVE" to store the result.
 
 
 The class ``pSpectrum_1D``
@@ -249,7 +265,7 @@ Processing of a "raw" 2D spectrum
 *********************************
 
 Let us say that your spectrum is saved in the folder
-*/home/myself/spectra/mydataset/21/*. Initialize the spectrum object
+`/home/myself/spectra/mydataset/21/`. Initialize the spectrum object
 through:
 
 ::
@@ -260,152 +276,142 @@ through:
 The generated ``acqus`` and ``procs`` dictionaries include informations
 on both dimensions.
 
-.. container::
-   :name: t:acqus_2D
 
-   .. table:: Description of the ``acqus`` dictionary of a ``Spectrum_2D`` object.
+.. table:: Description of the ``acqus`` dictionary of a ``Spectrum_2D`` object.
+    :name: t-acqus_2D
 
-      +-------------+-------------------------------------------------------+
-      | Key         | Explanation                                           |
-      +=============+=======================================================+
-      | ``B0``      | Magnetic field strength /T                            |
-      +-------------+-------------------------------------------------------+
-      | ``BYTORDA`` | Endianness of binary data: ``0`` little endian, ``1`` |
-      |             | big endian                                            |
-      +-------------+-------------------------------------------------------+
-      | ``DTYPA``   | Binary data type: ``0`` *int32*, ``2`` *float64*      |
-      +-------------+-------------------------------------------------------+
-      | ``GRPDLY``  | Number of points of the digital filter                |
-      +-------------+-------------------------------------------------------+
-      | ``nuc1``    | Observed nucleus in the indirect dimension            |
-      +-------------+-------------------------------------------------------+
-      | ``nuc2``    | Observed nucleus in the direct dimension              |
-      +-------------+-------------------------------------------------------+
-      | ``o1p``     | Carrier frequency i.e. center of the indirect         |
-      |             | dimension, in ppm                                     |
-      +-------------+-------------------------------------------------------+
-      | ``o2p``     | Carrier frequency i.e. center of the direct           |
-      |             | dimension, in ppm                                     |
-      +-------------+-------------------------------------------------------+
-      | ``o1``      | Same as ``o1p``, but in Hz                            |
-      +-------------+-------------------------------------------------------+
-      | ``o2``      | Same as ``o2p``, but in Hz                            |
-      +-------------+-------------------------------------------------------+
-      | ``SW1p``    | Sweep width of the indirect dimension, in ppm         |
-      +-------------+-------------------------------------------------------+
-      | ``SW2p``    | Sweep width of the direct dimension, in ppm           |
-      +-------------+-------------------------------------------------------+
-      | ``SW1``     | Sweep width of the indirect dimension, in Hz          |
-      +-------------+-------------------------------------------------------+
-      | ``SW2``     | Sweep width of the indirect dimension, in Hz          |
-      +-------------+-------------------------------------------------------+
-      | ``SFO1``    | Larmor frequency of the observed nucleus in F1 at     |
-      |             | field ``B0``                                          |
-      +-------------+-------------------------------------------------------+
-      | ``SFO2``    | Larmor frequency of the observed nucleus in F2 at     |
-      |             | field ``B0``                                          |
-      +-------------+-------------------------------------------------------+
-      | ``TD1``     | Number of :math:`t_1`-increments                      |
-      +-------------+-------------------------------------------------------+
-      | ``TD2``     | Number of sampled complex points                      |
-      +-------------+-------------------------------------------------------+
-      | ``dw1``     | :math:`t_1` increments, in seconds                    |
-      +-------------+-------------------------------------------------------+
-      | ``dw2``     | Dwell time, i.e. the sampling interval, in seconds    |
-      +-------------+-------------------------------------------------------+
-      | ``AQ1``     | Sampled timescale of the indirect dimension           |
-      +-------------+-------------------------------------------------------+
-      | ``AQ2``     | Time duration of the FID                              |
-      +-------------+-------------------------------------------------------+
-      | ``t1``      | Evolution timescale                                   |
-      +-------------+-------------------------------------------------------+
-      | ``t2``      | Acquisition timescale                                 |
-      +-------------+-------------------------------------------------------+
-
-
-.. container::
-   :name: t:procs_2D
-
-   .. table:: 
-      Description of the ``procs`` dictionary of a
-      ``Spectrum_2D`` object. Each of these dictionary entry is a list of
-      two elements: the first one (index ``0``) is the processing to apply
-      on the indirect dimension, the second (index ``1``) on the direct
-      dimension. For instance, ``procs[tdeff] = [64, 1024]`` means to
-      truncate the indirect evolutions to 64 points and the FIDs to 1024
-      points.
-
-      +-----------+---------------------------------------------------------+
-      | Key       | Explanation                                             |
-      +===========+=========================================================+
-      | ``wf``    | Window function. This is a dictionary itself:           |
-      |           |                                                         |
-      |           | -  ``"mode"``: choose function between                  |
-      |           |                                                         |
-      |           |    -  ``"no"``: no apodization                          |
-      |           |                                                         |
-      |           |    -  ``"em"``: exponential                             |
-      |           |                                                         |
-      |           |    -  ``"sin"``: sine                                   |
-      |           |                                                         |
-      |           |    -  ``"qsin"``: squared sine                          |
-      |           |                                                         |
-      |           |    -  ``"gm"``: mixed lorentzian-gaussian               |
-      |           |                                                         |
-      |           |    -  ``"gmb"``: mixed lorentzian-gaussian, Bruker      |
-      |           |       style                                             |
-      |           |                                                         |
-      |           | -  ``"lb"``: Exponential line-broadening. Read by       |
-      |           |    ``em`` and ``gmb``                                   |
-      |           |                                                         |
-      |           | -  ``"lb_gm"``: Exponential line-broadening. Read by    |
-      |           |    ``gm``                                               |
-      |           |                                                         |
-      |           | -  ``"gb"``: Gaussian line-broadening. Read by ``gmb``  |
-      |           |                                                         |
-      |           | -  ``"gb_gm"``: Gaussian line-broadening. Read by       |
-      |           |    ``gm``                                               |
-      |           |                                                         |
-      |           | -  ``"gc"``: Center of the gaussian :math:`\in [0,1]`.  |
-      |           |    Read by ``gm``                                       |
-      |           |                                                         |
-      |           | -  ``"ssb"``: Shift of the sine bell. Read by ``sin``   |
-      |           |    and ``qsin``                                         |
-      |           |                                                         |
-      |           | -  ``"sw"``: Sweep width. Automatically set according   |
-      |           |    to ``acqus["SW"]``                                   |
-      +-----------+---------------------------------------------------------+
-      | ``zf``    | Zero-filling. Set the *final* number of points!         |
-      +-----------+---------------------------------------------------------+
-      | ``tdeff`` | Number of points to be used for processing              |
-      +-----------+---------------------------------------------------------+
-      | ``fcor``  | Scaling factor for the first point of the FID before    |
-      |           | Fourier transform                                       |
-      +-----------+---------------------------------------------------------+
-      | ``p02``   | Frequency-independent phase correction /degrees, direct |
-      |           | dimension                                               |
-      +-----------+---------------------------------------------------------+
-      | ``p12``   | First order phase correction /degrees, direct dimension |
-      +-----------+---------------------------------------------------------+
-      | ``pv2``   | Pivot point for the first order phase correction /ppm,  |
-      |           | direct dimension                                        |
-      +-----------+---------------------------------------------------------+
-      | ``p01``   | Frequency-independent phase correction /degrees,        |
-      |           | indirect dimension                                      |
-      +-----------+---------------------------------------------------------+
-      | ``p11``   | First order phase correction /degrees, indirect         |
-      |           | dimension                                               |
-      +-----------+---------------------------------------------------------+
-      | ``pv1``   | Pivot point for the first order phase correction /ppm,  |
-      |           | indirect dimension                                      |
-      +-----------+---------------------------------------------------------+
-      | ``cal_1`` | Calibration offset for F1 /ppm                          |
-      +-----------+---------------------------------------------------------+
-      | ``cal_2`` | Calibration offset for F2 /ppm                          |
-      +-----------+---------------------------------------------------------+
+    +-------------+-------------------------------------------------------+
+    | Key         | Explanation                                           |
+    +=============+=======================================================+
+    | ``B0``      | Magnetic field strength /T                            |
+    +-------------+-------------------------------------------------------+
+    | ``BYTORDA`` | Endianness of binary data: ``0`` little endian, ``1`` |
+    |             | big endian                                            |
+    +-------------+-------------------------------------------------------+
+    | ``DTYPA``   | Binary data type: ``0`` *int32*, ``2`` *float64*      |
+    +-------------+-------------------------------------------------------+
+    | ``GRPDLY``  | Number of points of the digital filter                |
+    +-------------+-------------------------------------------------------+
+    | ``nuc1``    | Observed nucleus in the indirect dimension            |
+    +-------------+-------------------------------------------------------+
+    | ``nuc2``    | Observed nucleus in the direct dimension              |
+    +-------------+-------------------------------------------------------+
+    | ``o1p``     | Carrier frequency i.e. center of the indirect         |
+    |             | dimension, in ppm                                     |
+    +-------------+-------------------------------------------------------+
+    | ``o2p``     | Carrier frequency i.e. center of the direct           |
+    |             | dimension, in ppm                                     |
+    +-------------+-------------------------------------------------------+
+    | ``o1``      | Same as ``o1p``, but in Hz                            |
+    +-------------+-------------------------------------------------------+
+    | ``o2``      | Same as ``o2p``, but in Hz                            |
+    +-------------+-------------------------------------------------------+
+    | ``SW1p``    | Sweep width of the indirect dimension, in ppm         |
+    +-------------+-------------------------------------------------------+
+    | ``SW2p``    | Sweep width of the direct dimension, in ppm           |
+    +-------------+-------------------------------------------------------+
+    | ``SW1``     | Sweep width of the indirect dimension, in Hz          |
+    +-------------+-------------------------------------------------------+
+    | ``SW2``     | Sweep width of the indirect dimension, in Hz          |
+    +-------------+-------------------------------------------------------+
+    | ``SFO1``    | Larmor frequency of the observed nucleus in F1 at     |
+    |             | field ``B0``                                          |
+    +-------------+-------------------------------------------------------+
+    | ``SFO2``    | Larmor frequency of the observed nucleus in F2 at     |
+    |             | field ``B0``                                          |
+    +-------------+-------------------------------------------------------+
+    | ``TD1``     | Number of :math:`t_1`-increments                      |
+    +-------------+-------------------------------------------------------+
+    | ``TD2``     | Number of sampled complex points                      |
+    +-------------+-------------------------------------------------------+
+    | ``dw1``     | :math:`t_1` increments, in seconds                    |
+    +-------------+-------------------------------------------------------+
+    | ``dw2``     | Dwell time, i.e. the sampling interval, in seconds    |
+    +-------------+-------------------------------------------------------+
+    | ``AQ1``     | Sampled timescale of the indirect dimension           |
+    +-------------+-------------------------------------------------------+
+    | ``AQ2``     | Time duration of the FID                              |
+    +-------------+-------------------------------------------------------+
+    | ``t1``      | Evolution timescale                                   |
+    +-------------+-------------------------------------------------------+
+    | ``t2``      | Acquisition timescale                                 |
+    +-------------+-------------------------------------------------------+
 
 
-Then, the sequence of commands resembles the ones of the 1D spectra.
+.. table:: Description of the ``procs`` dictionary of a ``Spectrum_2D`` object. Each of these dictionary entry is a list of two elements: the first one (index ``0``) is the processing to apply on the indirect dimension, the second (index ``1``) on the direct dimension. For instance, ``procs[tdeff] = [64, 1024]`` means to truncate the indirect evolutions to 64 points and the FIDs to 1024 points.
+    :name: t-procs_2D
+
+    +-----------+---------------------------------------------------------+
+    | Key       | Explanation                                             |
+    +===========+=========================================================+
+    | ``wf``    | Window function. This is a dictionary itself:           |
+    |           |                                                         |
+    |           | -  ``"mode"``: choose function between                  |
+    |           |                                                         |
+    |           |    -  ``"no"``: no apodization                          |
+    |           |                                                         |
+    |           |    -  ``"em"``: exponential                             |
+    |           |                                                         |
+    |           |    -  ``"sin"``: sine                                   |
+    |           |                                                         |
+    |           |    -  ``"qsin"``: squared sine                          |
+    |           |                                                         |
+    |           |    -  ``"gm"``: mixed lorentzian-gaussian               |
+    |           |                                                         |
+    |           |    -  ``"gmb"``: mixed lorentzian-gaussian, Bruker      |
+    |           |       style                                             |
+    |           |                                                         |
+    |           | -  ``"lb"``: Exponential line-broadening. Read by       |
+    |           |    ``em`` and ``gmb``                                   |
+    |           |                                                         |
+    |           | -  ``"lb_gm"``: Exponential line-broadening. Read by    |
+    |           |    ``gm``                                               |
+    |           |                                                         |
+    |           | -  ``"gb"``: Gaussian line-broadening. Read by ``gmb``  |
+    |           |                                                         |
+    |           | -  ``"gb_gm"``: Gaussian line-broadening. Read by       |
+    |           |    ``gm``                                               |
+    |           |                                                         |
+    |           | -  ``"gc"``: Center of the gaussian :math:`\in [0,1]`.  |
+    |           |    Read by ``gm``                                       |
+    |           |                                                         |
+    |           | -  ``"ssb"``: Shift of the sine bell. Read by ``sin``   |
+    |           |    and ``qsin``                                         |
+    |           |                                                         |
+    |           | -  ``"sw"``: Sweep width. Automatically set according   |
+    |           |    to ``acqus["SW"]``                                   |
+    +-----------+---------------------------------------------------------+
+    | ``zf``    | Zero-filling. Set the *final* number of points!         |
+    +-----------+---------------------------------------------------------+
+    | ``tdeff`` | Number of points to be used for processing              |
+    +-----------+---------------------------------------------------------+
+    | ``fcor``  | Scaling factor for the first point of the FID before    |
+    |           | Fourier transform                                       |
+    +-----------+---------------------------------------------------------+
+    | ``p02``   | Frequency-independent phase correction /degrees, direct |
+    |           | dimension                                               |
+    +-----------+---------------------------------------------------------+
+    | ``p12``   | First order phase correction /degrees, direct dimension |
+    +-----------+---------------------------------------------------------+
+    | ``pv2``   | Pivot point for the first order phase correction /ppm,  |
+    |           | direct dimension                                        |
+    +-----------+---------------------------------------------------------+
+    | ``p01``   | Frequency-independent phase correction /degrees,        |
+    |           | indirect dimension                                      |
+    +-----------+---------------------------------------------------------+
+    | ``p11``   | First order phase correction /degrees, indirect         |
+    |           | dimension                                               |
+    +-----------+---------------------------------------------------------+
+    | ``pv1``   | Pivot point for the first order phase correction /ppm,  |
+    |           | indirect dimension                                      |
+    +-----------+---------------------------------------------------------+
+    | ``cal_1`` | Calibration offset for F1 /ppm                          |
+    +-----------+---------------------------------------------------------+
+    | ``cal_2`` | Calibration offset for F2 /ppm                          |
+    +-----------+---------------------------------------------------------+
+
+
+Then, the sequence of commands for the processing resembles the ones of the 1D spectra.
 
 ::
 
@@ -538,25 +544,27 @@ the ``#`` character.
 
 Example:
 
-::
+.. code-block::
+    :caption: Input file for the simulation of 1D spectrum.
+    :name: lst-acqus_1D
+    
+    B0  16.4    # 700 MHz 1H
+    nuc 1H
+    o1p 4.7
+    SWp 40
+    TD  8192
 
-   B0  16.4    # 700 MHz 1H
-   nuc 1H
-   o1p 4.7
-   SWp 40
-   TD  8192
+    shifts  1, 3, 5, 7
+    fwhm    [10 for k in range(4)]
+    amplitudes  10, 20, 15, 10
+    b       0, 0.4, 0.6, 1
+    phases  5, 0, 10, 0
 
-   shifts  1, 3, 5, 7
-   fwhm    [10 for k in range(4)]
-   amplitudes  10, 20, 15, 10
-   b       0, 0.4, 0.6, 1
-   phases  5, 0, 10, 0
-
-   mult    s, t, dt, ddd   
-   Jconst  0, 15, [12, 9.5], [25, 15, 10]
+    mult    s, t, dt, ddd   
+    Jconst  0, 15, [12, 9.5], [25, 15, 10]
 
 
-This input file generates the spectrum in Figure `1 <#fig:test_1D>`__.
+This input file generates the spectrum in :numref:`f-test_1D`.
 
 Code:
 
@@ -573,8 +581,11 @@ Code:
 
 
 .. figure:: _static/test_1D.png
-   :alt: 
-   :width: 80.0%
+    :name: f-test_1D
+    :alt: Simulated 1D spectrum.
+    :width: 80.0%
+   
+    Simulated spectrum with the input file shown in :numref:`lst-acqus_1D`.
 
 
 Simulate 2D data
@@ -626,7 +637,9 @@ employing the *States-TPPI* sampling scheme.
 
 Example:
 
-::
+.. code-block::
+   :caption: Input file for the simulation of a 2D spectrum
+   :name: lst-acqus_2D
 
    B0  28.2
    nuc1    15N 
@@ -645,7 +658,7 @@ Example:
    amplitudes  10, 20, 10, 20, 10, 10
    beta    0.0, 0.2, 0.4, 0.6, 0.8, 1.0
 
-This input file generates the spectrum in Figure `2 <#fig:test_2D>`__.
+This input file generates the spectrum in :numref:`f-test_2D`.
 
 Code:
 
@@ -662,12 +675,19 @@ Code:
 
 
 .. figure:: _static/test_2D.png
-   :alt: 
-   :width: 80.0%
+    :name: f-test_2D
+    :width: 80.0%
+    
+    Simulated 2D spectrum with the input file shown in :numref:`lst-acqus_2D`.
+
+    
 
 
 The ``Pseudo_2D`` class
 ***********************
+
+"Classic" pseudo-2D processing
+------------------------------
 
 Sometimes, the spectroscopist might find interesting to acquire a series
 of 1D experiments in which one (or more) parameters are changed
@@ -752,13 +772,156 @@ The method ``integrate`` differs a little bit from the one coded in
 
    s.integrate(which=2)        # Interactive panel on the 3rd spectrum
 
-Even if you select the integration limits on a single spectrum, the
-method ``integrate`` will compute the integrals throughout the whole
-range of experiment. This means that each entry of ``integrals`` will be
-an array as long as the number of experiment.
+The GUI will display all the transient stacked one to each other. The integral function
+that will appear when dragging the region refers to the reference spectrum, but in the
+side panel on the bottom left it will appear how the trend of the integrals throughout
+the whole series will look like. 
+When pressing SAVE, the integrals will be saved in a `.igrl` file, as in the 1D case,
+to be recovered with the method ``read_integrals``.
+
+
+DOSY spectra
+------------
+
+One particular kind of pseudo-2D datasets are the Diffusion Ordered Spectroscopy (DOSY).
+In these experiment, the strength of a gradient is evolved in the indirect dimension.
+The resulting transient will become dependent on the translational diffusion coefficient, 
+which can be extracted by fitting this kind of data.
+
+As it is in principle a pseudo-2D, the :class:`klassez.Spectra.DOSY` is a subclass of :class:`klassez.Spectra.Pseudo_2D`,
+with added features. 
+In this release of klassez, the only supported format for DOSY datasets is the Bruker format.
+Upon initialization of a ``DOSY`` instance, klassez will read the FID and the `difflist` from the dataset folder, which
+is a text file that contains the strength of the gradients employed during the evolution of the indirect dimension in Gauss / cm.
+This list will be saved in the ``self.ppm_f1`` attribute and never overwritten.
+
+The rest of the processing is exactly the same of the classic ``Pseudo_2D``, described in the previous section.
+The analysis instead is different because it includes specific routines to fit the DOSY. 
+When calling the ``self.integrate`` method, an attribute ``self.D`` will be automatically created as an instance of the class
+:class:`klassez.fit.DosyFit`, with the values of the important parameters read by the dataset itself.
+In the present release, :class:`klassez.fit.DosyFit` supports the fit for single and double stimulated echoes, with or without bipolar gradients
+(sequences `ste`, `stebp`, `dste`, `dstebp`).
+
+The important attributes of the :class:`klassez.fit.DosyFit` class are:
+
+- ``self.g``: 1darray that contains the `difflist` converted to Tesla / meter (so that the diffusion coefficient comes in :math:`m^2 s^{-1}`;
+
+- ``self.data``: dictionary that contains the integrated values of the parent spectrum using the integration region as a key formatted as ``{ppm1:.3f}:{ppm2:.3f}``;
+ 
+- ``self.dosy_par``: dictionary of the parameters that will be employed by the model during the fit.
+
+
+::
+
+    # Fit of the DOSY
+    #   Make/read initial guess
+    s.D.iguess(filename=filename)
+    #   Fit the data
+    s.D.dofit(filename=filename)
+    #   Plot the fits
+    s.D.plot(filename=filename, dpi=200)
+    #   Make a figure of the diffusion coefficients
+    s.diffplot(filename=filename, dpi=200)
+
+The method :func:`klassez.fit.DosyFit.iguess` allows to generate an oculated initial guess for all the integrated regions.
+More than one component can be used at once for a single region. The user can adjust the relative fraction of the various components,
+as well as to adjust the intensity factor automatically or not. Example and additional explanation in :numref:`f-dosy_iguess`.
+Computing the initial guess creates a file `<filename>.idy`, that can be read with :func:`klassez.fit.read_dy`.
+If the file already exists, it will be loaded and stored in the attribute ``self.i_guess``.
+
+.. figure:: _static/Initialization_of_diffusion_coefficient.png
+    :name: f-dosy_iguess
+    :width: 90.0%
+
+    GUI for the initialization of the diffusion coefficient. The integrals trend will appear as black points.
+    The total model is the blue trace. Use the mouse scroll to change either the value of the diffusion coefficient or the fraction, according
+    to the selector on the right part of the figure.
+    It is possible to change the sensitivity of the scroll with the selector "coarse/fine", or with the arrow buttons. 
+    Use the "+" button to add a component. Use the vertical slider to change component to edit.
+    The check button at the top toggles the computation of the intensity factor. Deactivate it to gain more freedom in adjusting the 
+    relative fraction when trying to adjust multiple components. **DO NOT INCLUDE** the offset unless you have a very specific reason to do so.
+    When you are satisfied with your guess, press "SAVE" to save it.
+        
+
+At this point, the fit can be performed by calling the method :func:`klassez.fit.DosyFit.dofit`. 
+A number of parameters for the fit can be adjusted. The model function is selected automatically on the basis
+of the employed pulse sequence (see :func:`klassez.fit.DosyFit.select_model`).
+The results of the fit will be saved in a file named `<filename>.fdy`. A new entry of the file will be added at the bottom.
+This file **will never be overwritten** automatically by the program.
+
+Alternatively, the results of a previously performed fit can be read from a `.fdy` file by the method :func:`klassez.fit.DosyFit.load_fit`.
+In both cases, the outcome will be stored in the attribute ``self.result``.
+
+Now it is the time to see how the fit looks like.
+The :func:`klassez.fit.DosyFit.plot` method generates the figure of the fitted trends, that also display the diffusion coefficient value in the legend.
+A number of parameters for the figure can be tuned, such as dimension, resolution and format of the figure to save, to display the residuals or not, etc.
+When the fit is either performed or loaded (i.e. the attribute ``self.D.result`` exists), the parent ``DOSY`` object gains access to the :func:`klassez.Spectra.DOSY.diffplot`.
+This function will generate a figure that display an upper panel with the whole spectrum, and a bottom panel with the fitted diffusion coefficients. 
+The integrated regions will be highlighted as light-blue spans in both panels. This will be useful to compare the different diffusion coefficients associated to the various regions, and therefore to the chemical species present in the sample.
+
+FIGURE HERE TODO
+
+
+Analyzing data in KLASSEZ
+*************************
+
+Integrate 1D spectra
+--------------------
+
+A 1D spectrum represented by the class :class:`klassez.Spectra.Spectrum_1D` can be interactively integrated with a dedicated GUI, that calls for :func:`klassez.anal.integrate`, by typing:
+
+::
+
+   s.integrate()
+
+An example of such interface is shown in :numref:`f-integrals_1D`.
+The integrals are computed according to the fundamental theorem of calculus (see :func:`klassez.processing.integrate`), using the frequency (Hz) scale as independent variable.
+The obtained values are normalized to the FID intensity. In NMR, the intensity (i.e. the integral) of the whole spectrum
+is given by the first point of the FID. To preserve this information (which is something that klassez indeed does), it is required to 
+apply a conversion factor to the "raw" integrals equal to twice the dwell time (``2 * self.acqus['dw']``).
+
+The ``self.integrals`` attribute is a dictionary that has the strings ``{ppm1:.3f}:{ppm2:.3f}`` as keys, with ``ppm1`` and ``ppm2`` being the 
+ppm values that delimit the integration regions. Each key is associated with the integral of that region.
+
+It is also possible to integrate the spectrum "blindly", i.e. without using the GUI, by specifying the integration regions.
+The limits must be passed to the function as a list of 2-entry-tuples, the latter containing the integration regions:
+::
+
+    lims = [[3, 2], [9, 8]]
+    s.integrate(lims=lims)
+
+If you have a given spectrum ``t`` that you already integrated, and you want to integrate the spectrum ``s`` on the same regions, you can easily convert
+the keys of ``t.integrals`` to the limits by using the function :func:`klassez.misc.key_to_limits`:
+::
+
+    limits = misc.key_to_limits(list(t.integrals.keys()))
+    s.integrate(lims=limits)
+
+
+After each call of the :func:`integrate` function, a section of a `<filename>.igrl` file is written. 
+Such file can be loaded by calling the :func:`klassez.Spectra.Spectrum_1D.read_integrals` method with the name of the file to read:
+::
+
+    s.read_integrals(filename='myfilename.igrl')
+
+
+
+.. figure:: _static/Spectrum_Integration_1D.png
+    :name: f-integrals_1D
+
+    GUI for the integration of 1D spectra. Drag and drop the mouse to highlight an integration region.
+    The integral will appear as a red trace on top of the spectrum. The height is not indicative of the value (which is written on the right),
+    but it is not important, as it is the shape of that curve that matters. It is possible to include a "baseline" for the calculation, that is 
+    basically the straight line that connects the borders of the integration window. Might be useful sometimes.
+    Once you are satisfied with the integral, press the ADD button. The integral function plot from red becomes green, and you can integrate another
+    region. Repeat this procedure for as many peaks as you want. 
+    To remove an integral from the list, click on the correspondant integral value displayed in black above the top border of the figure. The integral should become blue.
+    Press "REMOVE" to remove it.
+    Once you integrated all the regions you were interested in, press "SAVE" to close the figure and write the `.igrl` file.
+
 
 Deconvolution of 1D datasets
-****************************
+----------------------------
 
 The class :class:`klassez.fit.Voigt_Fit` in *KLASSEZ* offers a very convenient
 interface to deconvolve a spectrum by fitting. A shortcut to the class,
@@ -1008,4 +1171,49 @@ Read and process 2D spectrum
    f2.plot()
 
 
+
+Read, process and fit DOSY
+--------------------------
+
+::
+
+    #! /usr/bin/env python3
+
+    from klassez import *
+
+    # Read the spectrum
+    s = DOSY('apo/11')
+
+    # Processing
+    #   Window function: exponential with 0.5 Hz linebroadening
+    s.procs['wf']['mode'] = 'em'
+    s.procs['wf']['lb'] = 0.5
+    #   Zerofill to twice the size
+    s.procs['zf'] = 2 * s.fid.shape[-1]
+    #   Apply and do FT
+    s.process()
+    #   Remove digital filter
+    s.pknl()
+    #   Phase the spectrum (uncomment to do it!)
+    s.adjph()
+    #   Plot the spectrum to see it
+    s.plot_md()
+
+    # Analysis
+    filename = 'test'
+    #   Integrals
+    if 1:       # compute the integrals
+        s.integrate(filename=filename)
+    else:       # read an integrals file
+        s.read_integrals(filename=f'{filename}.igrl')
+
+    # Fit of the DOSY
+    #   Make/read initial guess
+    s.D.iguess(filename=filename)
+    #   Fit the data
+    s.D.dofit(filename=filename)
+    #   Plot the fits
+    s.D.plot(filename=filename, dpi=200)
+    #   Make a figure of the diffusion coefficients
+    s.diffplot(filename=filename, dpi=200)
 

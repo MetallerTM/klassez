@@ -2169,9 +2169,9 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     box_z = plt.axes([0.05, 0.02, 0.02, 0.06])          # Zoom state button
     # Remove ticks
     box_z.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
-    # Make it green
+    # Make it red
     box_z.set_alpha(0.4)
-    box_z.set_facecolor('tab:green')
+    box_z.set_facecolor('tab:red')
     box_z.text(0.5, 0.5, 'Z', ha='center', va='center', fontsize=15, transform=box_z.transAxes)
 
     radiolabels = [     # labels for the radio buttons
@@ -2195,7 +2195,7 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     # values:     p0 p1 pivot
     P = np.array([0, 0, float(round(np.mean(ppmscale), 2))])
 
-    zoom_adj = True
+    zoom_adj = False
 
     def statmod(label):
         # changes the 'stat' array according to the radiobutton
@@ -2366,7 +2366,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     else:
         S_rr, _ = S.real, S.imag
 
-    zoom_adj = True
+    zoom_adj = False
 
     def phase(data, p0=0, p1=0, pivot=None, dim='f2'):
         """This is the actual phase function """
@@ -2431,9 +2431,9 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     box_z = plt.axes([0.05, 0.02, 0.02, 0.06])          # Zoom state button
     # Remove ticks
     box_z.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
-    # Make it green
+    # Make it red
     box_z.set_alpha(0.4)
-    box_z.set_facecolor('tab:green')
+    box_z.set_facecolor('tab:red')
     box_z.text(0.5, 0.5, 'Z', ha='center', va='center', fontsize=15, transform=box_z.transAxes)
 
     radiolabels = [     # labels for the radio buttons
