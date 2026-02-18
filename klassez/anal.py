@@ -122,7 +122,7 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True):
         fig.canvas.draw()
 
     # Widgets
-    Cursor(ax, useblit=True, color='red', linewidth=0.4)
+    cursor = Cursor(ax, useblit=True, color='k', linewidth=0.4)
     fig.canvas.mpl_connect('button_press_event', on_click)
     fig.canvas.mpl_connect('scroll_event', on_scroll)
 
@@ -289,7 +289,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
     misc.set_fontsizes(ax, 14)
 
     # Widgets
-    Cursor(ax, useblit=True, color='red', linewidth=0.4)       # Moving crosshair
+    cursor = Cursor(ax, useblit=True, color='red', linewidth=0.4)       # Moving crosshair
     fig.canvas.mpl_connect('button_press_event', on_click)      # Right click
     fig.canvas.mpl_connect('scroll_event', on_scroll)          # Mouse scroll
     span = RectangleSelector(ax, onselect, useblit=False, props=dict(facecolor='tab:red', alpha=0.5))    # Draggable rectangle

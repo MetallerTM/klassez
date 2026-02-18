@@ -2679,7 +2679,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     #   save button
     save_button = Button(box_save, r'SAVE', hovercolor='0.975')
     #   mouse position
-    Cursor(ax, horizOn=False, vertOn=False, useblit=True, lw=0.2, color='tab:green')
+    cursor = Cursor(ax, horizOn=False, vertOn=False, useblit=True, lw=0.2, color='tab:green')
 
     # Draw the spectrum in blue
     ax.plot(ppm, s, c='tab:blue', lw=0.8)

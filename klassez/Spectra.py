@@ -836,7 +836,7 @@ class Spectrum_1D:
         misc.set_fontsizes(ax, 14)
 
         # Set a vertical line for inspection
-        Cursor(ax, useblit=True, c='tab:red', lw=0.8, horizOn=False)
+        cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8, horizOn=False)
 
         # Widget for distance measurement
         SpanSelector(ax, onselect, direction='horizontal', useblit=False, button=3,
@@ -1964,7 +1964,7 @@ class Spectrum_2D:
         else:
             self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
 
-    def qfil(self, which=None, u=None, s=None, *, SFO=None):
+    def qfil(self, which=None, u=None, s=None, from_procs=True, *, SFO=None):
         """
         Gaussian filter to suppress signals.
         Tries to read ``self.procs['qfil']``, which is ``{ 'u': u, 's': s }``
@@ -1978,6 +1978,8 @@ class Spectrum_2D:
             Position /ppm
         s : float
             Width (standard deviation) /Hz
+        from_procs : bool
+            Read the parameters from the ``procs`` dictionary
         SFO : float
             Nucleus Larmor frequency to use for the conversion to Hz. If None, ``self.acqus['SFO2']`` is used by default.
 
@@ -1992,15 +1994,18 @@ class Spectrum_2D:
             :func:`klassez.anal.select_traces`
 
         """
+        if 'qfil' not in self.procs.keys():     # Then add it
+            self.procs['qfil'] = {'u': u, 's': s}
+
         if SFO is None:
             SFO = self.acqus['SFO2']
         if 'qfil' not in self.procs.keys():  # Then add it
             self.procs['qfil'] = {'u': u, 's': s}
 
         for key, value in self.procs['qfil'].items():
-            if value is None:   # missing value --> call for interaction
+            if value is None or not from_procs:   # missing value --> call for interaction
                 if which is None:   # select a spectrum to be used
-                    which_list = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
+                    which_list = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=True)
                     which, _ = misc.ppmfind(self.ppm_f1, which_list[0][1])
                 # Now get the values
                 self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm_f2, self.rr[which], SFO)
@@ -2078,7 +2083,7 @@ class Spectrum_2D:
         else:
             # Get the missing entries
             if offset[0] is None or offset[1] is None:  # Select the reference traces
-                coord = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
+                coord = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=True)
                 ix, iy = coord[0][0], coord[0][1]   # Position of the first crosshair
                 # F2 reference spectrum
                 X = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
@@ -2659,7 +2664,7 @@ class Spectrum_2D:
         dz_button.on_clicked(decrease_zoom)
 
         # Crosshair for visualization
-        Cursor(ax, useblit=True, c='tab:red', lw=0.8)
+        cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8)
 
         plt.show()
         plt.close()
@@ -3186,7 +3191,7 @@ class Pseudo_2D(Spectrum_2D):
         else:
             # Get the missing entries
             if offset is None:   # Select the reference traces
-                coord = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
+                coord = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=True)
                 _, iy = coord[0][0], coord[0][1]   # Position of the first crosshair
                 # F2 reference spectrum
                 X = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
@@ -3464,7 +3469,7 @@ class Pseudo_2D(Spectrum_2D):
 
         misc.set_fontsizes(ax, 14)
 
-        Cursor(ax, useblit=True, c='tab:red', lw=0.8)
+        cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8)
 
         plt.show()
         plt.close()
@@ -3670,7 +3675,7 @@ class Pseudo_2D(Spectrum_2D):
         self.integrals, self.ppm_f1 = anal.read_igrl(filename, n)
         print(f'{filename} read.')
 
-    def qfil(self, which=None, u=None, s=None):
+    def qfil(self, which=None, u=None, s=None, from_procs=True):
         """
         Gaussian filter to suppress signals.
         Tries to read ``self.procs['qfil']``, which is ``{ 'u': u, 's': s }``
@@ -3696,7 +3701,7 @@ class Pseudo_2D(Spectrum_2D):
             :func:`klassez.anal.select_traces`
 
         """
-        super().qfil(which=which, u=u, s=s, SFO=self.acqus['SFO1'])
+        super().qfil(which=which, u=u, s=s, from_procs=from_procs, SFO=self.acqus['SFO1'])
 
     def align(self, lims=None, u_off=0.5, ref_idx=0):
         """

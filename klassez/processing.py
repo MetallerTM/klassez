@@ -3057,7 +3057,7 @@ def calibration(ppmscale, S, ref=None):
     reset_button.on_clicked(reset)
     up_button.on_clicked(increase_step)
     down_button.on_clicked(decrease_step)
-    Cursor(ax, useblit=True, horizOn=False, color='k', linewidth=0.4)
+    cursor = Cursor(ax, useblit=True, horizOn=False, color='k', linewidth=0.4)
     fig.canvas.mpl_connect('button_press_event', mouse_click)
     fig.canvas.mpl_connect('scroll_event', on_scroll)
 
@@ -3979,7 +3979,7 @@ def interactive_basl_windows(ppm, data):
 
     misc.set_fontsizes(ax, 14)
     # Widgets
-    Cursor(ax, useblit=True, color='k', linewidth=0.2)
+    cursor = Cursor(ax, useblit=True, color='k', linewidth=0.2)
     fig.canvas.mpl_connect('button_press_event', on_click)
 
     plt.show()
