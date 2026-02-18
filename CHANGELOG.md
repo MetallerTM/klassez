@@ -10,6 +10,14 @@ Updated documentation.
 18/02/26
 Bug fixes. Rendering of 2D contour plot reworked.
 
+Changed name of the following functions:
+- Module **PROCESSING**
+    - *abca* &rarr; *abc_v2*
+    - *absa* &rarr; *abs_v2*
+    - *absa2* &rarr; *abs2_v2*
+
+The calls to these functions were modified accordingly.
+
 ## New functions:
 12/02/26
 - *config.safe_kws* (decorator)
