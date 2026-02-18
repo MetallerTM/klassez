@@ -3253,7 +3253,7 @@ def simplisma(D, nc, f=10, oncols=True):
     If ``oncols=True``, this function estimates ``S`` with simplisma, then calculates :math:`C = D S^+`.
     If ``oncols=False``, this function estimates ``C`` with *simplisma*, then calculates :math:`S = C^+ D`. ``f`` defines the percentage of allowed noise.
 
-    .. _Windig and Guilment: 10.1021/ac00014a016
+    .. _Windig and Guilment: https://pubs.acs.org/doi/10.1021/ac00014a016
 
     Parameters
     ----------
