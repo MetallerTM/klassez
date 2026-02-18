@@ -221,7 +221,7 @@ In both cases, the phase angles are updated in the ``procs`` dictionary.
 
 The spectrum can be calibrated by using a dedicated GUI (:numref:`f-cal_1D`).
 To do so, you must call for the method :func:`klassez.Spectra.Spectrum_1D.cal` with the option ``from_procs=False``.
-The option ``from_procs=True`` will only apply the values stored in ``self.procs['cal']``.
+The option ``from_procs=True`` (default) will only apply the values stored in ``self.procs['cal']``.
 
 ::
 
@@ -248,6 +248,40 @@ Both ``ppm`` and ``freq`` are updated according to the given values.
    Now, use the mouse scroll to move the spectrum, or click on the "OVERLAY" button to teleport the green position on the red.
    The values are written on the right side of the figure panel.
    Press "SAVE" to store the result.
+
+
+Another sometimes useful feature is the possibility to remove one signal from the spectrum (usually, the solvent resonance).
+To do so, there is the :func:`klassez.Spectra.Spectrum_1D.qfil` method.
+
+::
+
+    s.qfil()
+
+The idea is to apply a reverse-gaussian filter (i.e. a V-shaped function that is 1 everywhere and goes to 0 at a given position, smoothly as a Gaussian),
+with the position in ppm and the width in Hz.
+When invoked, the function will first look into the ``procs`` dictionary to see if there is a ``'qfil'`` key. If it exists, the function computes the filter
+and applies it without further questions. Otherwise, it opens a GUI for the visual optimization of the parameters, which is shown in :numref:`f-qfil`.
+If the option ``from_procs=False`` is passed, the GUI is opened anyways and the final values are overwritten.
+
+.. figure:: _static/Adjust_Position_and_Width_for_QFIL.png
+    :name: f-qfil
+    :width: 90.0%
+
+    GUI for the selection of the parameters for the gaussian filter for :func:`klassez.processing.qfil`, which is invoked by the :meth:`qfil` of the Spectra classes.
+    The filter appears, upside down, as an orange trace. The original spectrum appears in blue, the spectrum after the filtering is displayed in real time in red.
+    Use the mouse scroll to adjust the values (which appear under the selector box). Close the figure to save the parameters.
+
+
+It is also possibile to pass the values of the filter from outside, without passing for the GUI:
+
+::
+
+    u = 5.0     # chemical shift of the signal to suppress
+    s = 310     # standard deviation of the filter in Hz
+    s.qfil(u=u, s=s)
+
+The filter is applied directly on the real part of the spectrum only. The imaginary part is automatically reconstructed via Hilbert transform.
+Therefore, if you want to perform further processing, be sure to have zero-filled the FID to at least twice its original size, otherwise you will get errors!
 
 
 The class ``pSpectrum_1D``
@@ -436,6 +470,46 @@ table below:
    pivot              ``pv1`` ``pv2``
    ================== ======= =======
 
+The GUI for the interactive phase correction on 2D spectra works in two steps. First, you have to select
+the traces to use as probes for the phase of the spectrum (:numref:`f-traces_selector`). Then, you can proceed to the actual phasing (:numref:`f-adjph_2D`).
+
+
+.. figure:: _static/Traces_Selector.png
+    :name: f-traces_selector
+    :width: 90.0%
+    
+    GUI for the selection of the traces to be used for the phase correction. Double click with the mouse
+    where you want to compute the projection, and a red crossmark will appear. To remove an existing marker, 
+    align the cursor with it and click with the right button of the mouse. Use the scroll to adjust the contour
+    levels. Close the figure to save.
+    
+
+.. figure:: _static/Phase_Correction_2D.png
+    :name: f-adjph_2D
+    :width: 90.0%
+
+    Here, the projections computed as in :numref:`f-traces_selector` are drawn in this plot.
+    The projection on the direct dimension are in the left column, the ones of the indirect dimension are in the right column.
+    Use the selector and the mouse scroll to change the values of the parameters. You will see all the traces to change
+    in response of your actions.
+    Press "SAVE AND CLOSE" to save the processed spectrum.
+
+   
+The calibration of a 2D spectrum works as in the 1D case, using the :func:`klassez.Spectra.Spectrum_2D.cal` method.
+For the interactive calibration, you will be prompted to select a reference trace
+by using the same GUI of :numref:`f-traces_selector`. Then you will calibrate one dimension at the time with the GUI in :numref:`f-cal_1D`.
+
+::
+    
+    s.cal()
+
+If you are sure that you want to calibrate only one dimension, there exist wrapper methods:
+
+::
+
+    s.calf2()
+    s.calf1()
+
 On the processed data, one may want to use the method :meth:`qfil` to suppress the solvent signal.
 This can be done interactively by invoking the function without further arguments:
 
@@ -443,6 +517,9 @@ This can be done interactively by invoking the function without further argument
         
    s.qfil()
 
+The function works exactly as the 1D counterpart. However, the GUI will first ask you to select a trace to use
+as reference for the computation of the filter, which is applied in a ridge-like manner on the whole 2D spectrum.
+The imaginary parts are reconstructed via Hilbert transform, hence be sure to have zero-filled enough!
 The key ``qfil = {'u': u, 's': s}`` are then saved in the ``procs`` dictionary for additional use.
 
 Another useful option is to make a so-called "strip transform" to use only the part of the spectrum you are interested in.
@@ -548,20 +625,20 @@ Example:
     :caption: Input file for the simulation of 1D spectrum.
     :name: lst-acqus_1D
     
-    B0  16.4    # 700 MHz 1H
-    nuc 1H
-    o1p 4.7
-    SWp 40
-    TD  8192
+    B0          16.4    # 700 MHz 1H
+    nuc         1H
+    o1p         4.7
+    SWp         40
+    TD          8192
 
-    shifts  1, 3, 5, 7
-    fwhm    [10 for k in range(4)]
+    shifts      1, 3, 5, 7
+    fwhm        [10 for k in range(4)]
     amplitudes  10, 20, 15, 10
-    b       0, 0.4, 0.6, 1
-    phases  5, 0, 10, 0
+    b           0, 0.4, 0.6, 1
+    phases      5, 0, 10, 0
 
-    mult    s, t, dt, ddd   
-    Jconst  0, 15, [12, 9.5], [25, 15, 10]
+    mult        s, t, dt, ddd   
+    Jconst      0, 15, [12, 9.5], [25, 15, 10]
 
 
 This input file generates the spectrum in :numref:`f-test_1D`.
@@ -641,22 +718,22 @@ Example:
    :caption: Input file for the simulation of a 2D spectrum
    :name: lst-acqus_2D
 
-   B0  28.2
-   nuc1    15N 
-   nuc2    1H
-   o1p 115 
-   o2p 5   
-   SW1p    40  
-   SW2p    20
-   TD1 512 
-   TD2 8192
+   B0           28.2
+   nuc1         15N 
+   nuc2         1H
+   o1p          115 
+   o2p          5   
+   SW1p         40  
+   SW2p         20
+   TD1          256 
+   TD2          2048
 
-   shifts_f1   130.0, 105.0, 120.0, 1.25e2, 130.0, 105.0
-   shifts_f2   0.0, 0.0, 4.0, 7.0, 1.1e1, 10.5
-   fwhm_f1 100, 100, 100, 100, 100, 100
-   fwhm_f2 50, 50, 50, 50, 50, 50
-   amplitudes  10, 20, 10, 20, 10, 10
-   beta    0.0, 0.2, 0.4, 0.6, 0.8, 1.0
+   shifts_f1    130.0, 105.0, 120.0, 1.25e2, 130.0, 105.0
+   shifts_f2    0.0, 0.0, 4.0, 7.0, 1.1e1, 10.5
+   fwhm_f1      100, 100, 100, 100, 100, 100
+   fwhm_f2      50, 50, 50, 50, 50, 50
+   amplitudes   10, 20, 10, 20, 10, 10
+   b            0.0, 0.2, 0.4, 0.6, 0.8, 1.0
 
 This input file generates the spectrum in :numref:`f-test_2D`.
 
@@ -765,19 +842,6 @@ index. ``which = "all"`` results in pointing at all spectra.
    s.plot_md(which="3, 5, 11")     # Plot the 3rd, the 5th and the 11th spectrum, superimposed
    s.plot_stacked(which="np.arange(0,100,5)")  # Makes a stacked plot with a spectrum every 5
 
-The method ``integrate`` differs a little bit from the one coded in
-``Spectrum_1D``.
-
-::
-
-   s.integrate(which=2)        # Interactive panel on the 3rd spectrum
-
-The GUI will display all the transient stacked one to each other. The integral function
-that will appear when dragging the region refers to the reference spectrum, but in the
-side panel on the bottom left it will appear how the trend of the integrals throughout
-the whole series will look like. 
-When pressing SAVE, the integrals will be saved in a `.igrl` file, as in the 1D case,
-to be recovered with the method ``read_integrals``.
 
 
 DOSY spectra
@@ -859,7 +923,7 @@ When the fit is either performed or loaded (i.e. the attribute ``self.D.result``
 This function will generate a figure that display an upper panel with the whole spectrum, and a bottom panel with the fitted diffusion coefficients. 
 The integrated regions will be highlighted as light-blue spans in both panels. This will be useful to compare the different diffusion coefficients associated to the various regions, and therefore to the chemical species present in the sample.
 
-FIGURE HERE TODO
+
 
 
 Analyzing data in KLASSEZ
@@ -1023,13 +1087,72 @@ understanding of the outcome of the fit procedure.
 
 Vide infra for a working example.
 
+
+
+Integrate a pseudo-2D spectrum
+------------------------------
+
+The method :func:`klassez.Spectra.Pseudo_2D.integrate` differs a little bit from the one coded in
+``Spectrum_1D``, but essentially from the user's perspective it works the same.
+
+::
+
+   s.integrate(ref=0)
+
+The GUI (:numref:`f-integrate_p2D`) will display all the transient stacked one to each other. The integral function
+that will appear when dragging the region refers to the reference spectrum, whose index is passed through the ``ref`` argument, but in the
+side panel on the bottom left it will appear how the trend of the integrals throughout
+the whole series will look like. 
+When pressing SAVE, the integrals will be saved in a `.igrl` file, as in the 1D case,
+to be recovered with the method :func:`klassez.Spectra.Pseudo_2D.read_integrals`.
+
+::
+
+    s.read_integrals(filename='myfilename.igrl')
+
+The ``self.integrals`` attribute is a dictionary that has the strings ``{ppm1:.3f}:{ppm2:.3f}`` as keys, with ``ppm1`` and ``ppm2`` being the 
+ppm values that delimit the integration regions. Each key is associated with the integrals of that region throughout the series, as 1darray.
+
+As in the 1D case, it is possible to integrate the spectrum "blindly", i.e. without using the GUI, by specifying the integration regions.
+The limits must be passed to the function as a list of 2-entry-tuples, the latter containing the integration regions:
+::
+
+    lims = [[3, 2], [9, 8]]
+    s.integrate(lims=lims)
+
+If you have a given spectrum ``t`` that you already integrated, and you want to integrate the spectrum ``s`` on the same regions, you can easily convert
+the keys of ``t.integrals`` to the limits by using the function :func:`klassez.misc.key_to_limits`:
+::
+
+    limits = misc.key_to_limits(list(t.integrals.keys()))
+    s.integrate(lims=limits)
+
+
+.. figure:: _static/Spectrum_Integration_p2D.png
+    :name: f-integrate_p2D
+
+    GUI for the integration of pseudo-2D spectra. Drag and drop the mouse to highlight an integration region.
+    The integral of the reference spectrum will appear as a red trace on top of the spectrum. The height is not indicative of the value (which is written on the right),
+    but it is not important, as it is the shape of that curve that matters. It is possible to include a "baseline" for the calculation, that is 
+    basically the straight line that connects the borders of the integration window. Might be useful sometimes.
+    The trend of the computed integrals throughout the series appears in the side panel.
+    Once you are satisfied with the integral, press the ADD button. The integral function plot from red becomes green, and you can integrate another
+    region. Repeat this procedure for as many peaks as you want. 
+    To remove an integral from the list, click on the correspondant integral value displayed in black above the top border of the figure. The integral should become blue.
+    Press "REMOVE" to remove it.
+    Once you integrated all the regions you were interested in, press "SAVE" to close the figure and write the `.igrl` file.
+
+
+
 Example scripts
 ***************
 
 Reading and processing of 1D spectra
 ------------------------------------
 
-::
+.. code-block::
+   :name: lst-process_1D
+   :caption: Example script for processing a 1D spectrum.
 
    #! /usr/bin/env python3
 
@@ -1041,28 +1164,38 @@ Reading and processing of 1D spectra
    if 1:
        # This example is for the simulated data
        s = Spectrum_1D('acqus_1D', isexp=False)
-       s.to_vf()   # You can convert info on peaks to .ivf for fitting
+       # You can convert info on peaks to .ivf for fitting
+       s.to_vf()
    else:
        # Use the following to read experimentals:
        spect = 'bruker', 'jeol', 'varian', 'magritek', 'oxford' # One of these
        s = Spectrum_1D(path_to_dataset, spect=spect)
-
    # Setup the processing
    #   Apodization
-   #       Follow the table in the user manual to see what reads what
+   #   Follow the table in the user manual to see what reads what
    s.procs['wf']['mode'] = 'em'
    s.procs['wf']['lb'] = 5
    #   Zero-filling
    s.procs['zf'] = 2**14
-
    #   Apply processing and do FT
    s.process()
-   # Remove the digital filter
+   #   Remove the digital filter
    s.pknl()
-   # Phase correction
+
+   #   Phase correction
    s.adjph()
+
+   #   Calibration
+   s.cal(from_procs=False)
+
+   #   Remove solvent
+   s.qfil(from_procs=False)
+
    # Plot the data
    s.plot()
+
+   # Integrate the spectrum
+   s.integrate()
 
 
 Fit 1D spectrum
@@ -1070,7 +1203,9 @@ Fit 1D spectrum
 
 The beginning of the script is the same of the reading example.
 
-::
+.. code-block::
+   :name: lst-fit_1D
+   :caption: Example script to fit a 1D spectrum. This listing continues from :numref:`lst-process_1D`.
 
    # s.F is a fit.Voigt_Fit object
    filename = 'test_1D_fit'    # base filename for everything fit-related
@@ -1124,58 +1259,70 @@ The beginning of the script is the same of the reading example.
 Read and process 2D spectrum
 ----------------------------
 
-::
+.. code-block:: 
+   :name: lst-process_2D
+   :caption: Example script for processing a 2D spectrum.
 
-   #! /usr/bin/env python3
+    #! /usr/bin/env python3
 
-   from klassez import *
+    from klassez import *
 
-   # Be aware that this is a BASIC processing
-   # Read the documentation of the functions to see the full powers
+    # Be aware that this is a BASIC processing
+    # Read the documentation of the functions to see the full powers
+    if 1:
+        # This example is for the simulated data
+        s = Spectrum_2D('acqus_2D', isexp=False)
+    else:
+        # For experimentals, at version 0.4a.7 klassez reads only 2D bruker
+        s = Spectrum_2D(path_to_dataset)
 
-   if 1:
-       # This example is for the simulated data
-       s = Spectrum_2D('acqus_2D', isexp=False)
-   else:
-       # For experimentals, at version 0.4a.7 klassez reads only 2D bruker
-       s = Spectrum_2D(path_to_dataset)
+    # Setup the processing
+    #   Apodization
+    #   Follow the table in the user manual to see what reads what
+    #   REMEMBER: index 0 is F1, index 1 is F2, for procs
+    s.procs['wf'][1]['mode'] = 'em'
+    s.procs['wf'][1]['lb'] = 5
+    s.procs['wf'][0]['mode'] = 'qsin'
+    s.procs['wf'][0]['ssb'] = 2
+    #   Zero-filling
+    s.procs['zf'] = 512, 4096
+    #   Apply processing and do FT
+    s.process()
+    #   Remove the digital filter
+    s.pknl()
 
-   # Setup the processing
-   #   Apodization
-   #       Follow the table in the user manual to see what reads what
-   #       REMEMBER: index 0 is F1, index 1 is F2, for procs
-   s.procs['wf'][1]['mode'] = 'em'
-   s.procs['wf'][1]['lb'] = 5
-   s.procs['wf'][0]['mode'] = 'qsin'
-   s.procs['wf'][0]['ssb'] = 2
-   #   Zero-filling
-   s.procs['zf'] = 512, 2048
+    #   Phase correction
+    s.adjph()
 
-   #   Apply processing and do FT
-   s.process()
-   # Remove the digital filter
-   s.pknl()
-   # Phase correction
-   s.adjph()
-   # Plot the data
-   s.plot()
+    #   Calibrate
+    s.cal()
 
-   # Extract projections
-   ppm_f2 = 180
-   ppm_f1 = 10
-   s.projf1(ppm_f2)    # Extract F1 trace @ ppm_f2 ppm
-   f1 = s.Trf1[f'{ppm_f2:.2f}']    # Call it back: it is a Spectrum_1D object!
-   f1.plot()
-   s.projf2(ppm_f1)    # Extract F2 trace @ ppm_f1 ppm
-   f2 = s.Trf2[f'{ppm_f1:.2f}']    # Call it back: it is a Spectrum_1D object!
-   f2.plot()
+    #   Remove solvent
+    s.qfil()
 
+    # Plot the data
+    s.plot()
 
+    # Extract projections
+    ppm_f1 = 105
+    ppm_f2 = 10
+    s.projf1(ppm_f2)
+    # Extract F1 trace @ ppm_f2 ppm
+    f1 = s.Trf1[f'{ppm_f2:.2f}']
+    # Call it back: it is a Spectrum_1D object!
+    f1.plot()
+    s.projf2(ppm_f1)
+    # Extract F2 trace @ ppm_f1 ppm
+    f2 = s.Trf2[f'{ppm_f1:.2f}']
+    # Call it back: it is a Spectrum_1D object!
+    f2.plot()
 
 Read, process and fit DOSY
 --------------------------
 
-::
+.. code-block::
+   :name: lst-process_dosy
+   :caption: Example for the processing of a DOSY spectrum. The processing of a ``Pseudo_2D`` is the same!
 
     #! /usr/bin/env python3
 
