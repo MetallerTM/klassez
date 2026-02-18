@@ -14,7 +14,7 @@ Another option is to clone the `GitHub repository`_ and install the package with
 
 ::
 
-   git clone git@github.com:MetallerTM/klassez.git
+   git clone https://github.com/MetallerTM/klassez
 
    cd klassez
    pip install .
@@ -29,7 +29,7 @@ A note on `matplotlib` backends
 In order for this functionality to work properly, it is required to set an appropriate backend able to render such interactive figures.
 
 It is recommended to use either ``qtagg`` (faster) or ``tkagg``. Although ``gtk4agg`` is a viable option, it is now deprecated and has some problems in the installation.
-``qtagg`` requires either the package :mod:`pyqt5` (or better, :mod:`pyqt6`) to work properly. 
+``qtagg`` requires either the package :mod:`pyqt5` (**or** :mod:`pyqt6`, **not both!** Raises conflicts) to work properly. 
 These requirements **are not set as mandatory** for the installation of *KLASSEZ*! The user must provide to the installation and to the set of the appropriate backend by themself.
 
 Here follows the instructions on how to set ``qtagg`` as backend for rendering figures in :mod:`matplotlib`.
@@ -81,21 +81,10 @@ Initialize the package by writing, at the top of your file:
 
 This line executes the following code:
 
-::
+.. literalinclude:: ../../klassez/__init__.py
+    :language: python
 
-        import os
-        import sys
-        import numpy as np
-        import matplotlib as mpl
-        import matplotlib.pyplot as plt
-        from copy import deepcopy
-        from pprint import pprint
 
-        from . import fit, misc, sim, figures, processing, anal
-
-        from .Spectra import Spectrum_1D, pSpectrum_1D, Spectrum_2D, pSpectrum_2D, Pseudo_2D
-
-        from .config import CM, CM_2D, COLORS, cron
 
 
 
@@ -151,8 +140,8 @@ instance:
    print(sim.gamma['13C'])
    >>> 10.70611
 
-A decorator function called ``cron`` is defined in the top-level script
-``config``, and imported by ``__init__``, so that you can use it after
+A decorator function called :func:`klassez.config.cron` is defined in the top-level script
+`config`, and imported by `__init__`, so that you can use it after
 writing:
 
 ::
@@ -161,4 +150,15 @@ writing:
 
 This decorator allows to measure the runtime of a function, and print it
 on standard output once it ended.
+
+The other decorator function present in klassez is :func:`klassez.config.safe_kws`. 
+Its purpose is to filter the keyworded arguments passed to the decorated function to 
+keep only the matching ones. This allows to use the same set of keyworded arguments
+with functions that work in a slightly different manner, and thus have a different 
+signature. 
+This decorator is imported from `config` as well, therefore it can be accessed after:
+
+::
+
+    from klassez import safe_kws
 

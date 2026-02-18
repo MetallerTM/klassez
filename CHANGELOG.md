@@ -7,6 +7,8 @@ New decorator *safe_kws*.
 17/02/26
 The functions for interactive phase do not automatically move the zoom on the spectrum, but it is fixed. Press Z to change it.
 Updated documentation.
+18/02/26
+Bug fixes. Rendering of 2D contour plot reworked.
 
 ## New functions:
 12/02/26
@@ -15,11 +17,16 @@ Updated documentation.
 - *fit.model_stebp*
 - *fit.model_dste*
 - *fit.model_dstebp*
+18/02/26
+- *figures.draw_bare_contour*
 
 ## Modified functions:
 17/02/26
 - *processing.interactive_phase_1D*: default behavior for the zoom is RED instead of GREEN
 - *processing.interactive_phase_2D*: default behavior for the zoom is RED instead of GREEN
+18/02/26
+- *figures.ax2D*: employs the new function *figures.draw_bare_contour*
+- *figures.redraw_contours*: lightened implementation to make it faster
 
 ## Modified classes:
 12/02/26

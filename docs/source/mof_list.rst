@@ -6,6 +6,7 @@ List of modules and functions
 .. toctree::
    :maxdepth: 2
    
+   config
    misc
    processing
    figures

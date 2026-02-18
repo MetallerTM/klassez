@@ -27,7 +27,8 @@ def safe_kws(f):
 
     Let us assume we want to run the following code:
 
-    ::
+    .. code-block::
+
         def f(a, b=1):
             print(a, b)
 

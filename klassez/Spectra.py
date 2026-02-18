@@ -32,6 +32,7 @@ wf0 = {
         'gc': 0,
         'sw': None
         }
+
 r"""
 Classes for the management of NMR data.
 """
@@ -136,7 +137,10 @@ class Spectrum_1D:
             self.datadir = os.path.abspath(in_file)  # Get the file position
             if not os.path.isdir(self.datadir):
                 self.datadir = os.path.dirname(self.datadir)
-            self.filename = os.path.basename(self.datadir).strip(os.sep).rsplit('.', 1)[0]  # Get the filename
+            if isexp:
+                self.filename = os.path.basename(self.datadir).strip(os.sep).rsplit('.', 1)[0]  # Get the filename
+            else:
+                self.filename = os.path.basename(in_file).strip(os.sep).rsplit('.', 1)[0]   # Use the input filename
             # If filename is a directory, write things inside it
             if os.path.isdir(f'{os.sep}'.join([self.datadir, self.filename])) and isexp:
                 self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
@@ -1413,9 +1417,12 @@ class Spectrum_2D:
             self.datadir = os.path.abspath(in_file)  # Get the file position
             if not os.path.isdir(self.datadir):
                 self.datadir = os.path.dirname(self.datadir)
-            self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]  # Get the filename
+            if isexp:
+                self.filename = os.path.basename(self.datadir).strip(os.sep).rsplit('.', 1)[0]  # Get the filename
+            else:
+                self.filename = os.path.basename(in_file).rsplit('.', 1)[0]     # Use the name of the file as filename
             # If filename is a directory, write things inside it
-            if os.path.isdir('/'.join([self.datadir, self.filename])) and isexp:
+            if os.path.isdir(os.sep.join([self.datadir, self.filename])) and isexp:
                 self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
 
         if isexp is False:   # Simulate the data
