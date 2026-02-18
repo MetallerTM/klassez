@@ -52,6 +52,10 @@ data, and save the parameters in dedicated files.
 Regarding the development of the package, I would like to acknowledge
 Letizia Fiorucci for her contribution in the design and the
 implementation of several functions, and for the alpha-testing.
+I also wish to give my thanks to Massimo Lucci, who performed extensive testing 
+of the functions for routine (and not!) applications. Many bugs were discovered and
+eliminated thanks to his efforts.
+
 
 .. [1]
    https://www.nmrglue.com/
