@@ -28,7 +28,7 @@ def interactive_echo_param(data0):
     """
     Interactive plot that allows to select the parameters needed to process a CPMG-like FID.
     Use the TextBox or the arrow keys to adjust the values.
-    You can call ``processing.sum_echo_train`` or ``processing.split_echo_train`` by starring the return statement of this function, i.e.:
+    You can call :func:`klassez.processing.sum_echo_train` or :func:`klassez.processing.split_echo_train` by starring the return statement of this function, i.e.:
 
     .. code-block:: python
 
@@ -692,7 +692,7 @@ def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False, ref
 
 def eae(data):
     """
-    Shuffles data if the spectrum is acquired with FnMODE = Echo-Antiecho.
+    Shuffles data if the spectrum is acquired with ``FnMODE = 'Echo-Antiecho'``.
     NOTE: introduces -90° phase shift in F1, to be corrected after the processing
 
     .. code-block:: python
@@ -2329,7 +2329,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     """
     Interactively adjust the phases of a 2D spectrum.
     First select the traces you want to use as reference, then use the mouse scroll to adjust the phase angles.
-    ``S`` must be complex or hypercomplex, so BEFORE TO UNPACK with ::func::`klassez.processing.unpack_2D`
+    ``S`` must be complex or hypercomplex, so BEFORE TO UNPACK with :func:`klassez.processing.unpack_2D`
 
     Parameters
     ----------
@@ -3589,13 +3589,13 @@ def mcr(input_data, nc, f=10, tol=1e-3, itermax=1e4, P='H', oncols=True):
 
     .. seealso::
 
-        :func:`klassez.processing.mcr_stack``
+        :func:`klassez.processing.mcr_stack`
 
-        :func:`klassez.processing.mcr_unpack``
+        :func:`klassez.processing.mcr_unpack`
 
-        :func:`klassez.processing.simplisma``
+        :func:`klassez.processing.simplisma`
 
-        :func:`klassez.processing.mcr_als``
+        :func:`klassez.processing.mcr_als`
 
     """
 
@@ -4350,7 +4350,7 @@ def acme(data, m=1, a=5e-5):
     r"""
     Automated phase Correction based on Minimization of Entropy.
     This algorithm allows for automatic phase correction by minimizing the entropy of the m-th derivative of the spectrum,
-    as explained in detail by L. Chen et.al. in Journal of Magnetic Resonance 158 (2002) 164-168.
+    as explained in detail by `L. Chen et. al.`_.
 
     Defined the entropy of `h` as:
 
@@ -4379,6 +4379,10 @@ def acme(data, m=1, a=5e-5):
     where `P(R)` is a penalty function for negative values of the spectrum.
 
     The phase correction is applied using :func:`klassez.processing.ps`. The values ``p0`` and ``p1`` are fitted using Nelder-Mead algorithm.
+
+
+    .. _L. Chen et. al.: https://www.sciencedirect.com/science/article/pii/S1090780702000691
+
 
     Parameters
     ----------
@@ -4503,8 +4507,10 @@ def acme(data, m=1, a=5e-5):
 
 def whittaker_smoother(data, n=2, s_f=1, w=None):
     """
-    Adapted from P.H.C. Eilers, Anal. Chem 2003, 75, 3631-3636.
+    Adapted from `P.H.C. Eilers, Anal. Chem 2003, 75, 3631-3636`_.
     Implementation of the smoothing algorithm proposed by Whittaker in 1923.
+
+    .. _P.H.C. Eilers, Anal. Chem 2003, 75, 3631-3636: https://pubs.acs.org/doi/10.1021/ac034173t
 
     Parameters
     ----------
@@ -5334,7 +5340,7 @@ def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's':
 
         :func:`klassez.fit.lsp`
 
-        :func:`klassez.processing.abca`
+        :func:`klassez.processing.abc_v2`
     """
 
     def compute_weights(ppm, data, qfil=False, alpha=2.75):
@@ -5392,11 +5398,11 @@ def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's':
     return baseline
 
 
-def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
+def abc_v2(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
     """
     Automatic computation of a baseline for a spectrum using a thresholding-based method for the detection of the baseline-only region,
     followed by a weighted linear least squares optimization with a polynomion of degree n-1.
-    Employs the same method for the detection of signal-free regions of ``processing.apk``.
+    Employs the same method for the detection of signal-free regions of :func:`klassez.processing.apk`.
     Set ``qfil=True`` if there is a very intense solvent peak that would hamper the computation of the threshold.
 
     Parameters
@@ -5479,8 +5485,8 @@ def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
 
 def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's': 10}):
     """
-    Computes the baseline correction on data using ``processing.abc``, and gives back the subtracted spectrum.
-    The imaginary part of the spectrum is reconstructed using ``processing.hilbert``.
+    Computes the baseline correction on data using :func:`klassez.processing.abc`, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using :func:`klassez.processing.hilbert`.
 
     Parameters
     ----------
@@ -5493,13 +5499,13 @@ def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's':
     lims : tuple or None
         Limits for the region on which to compute the baseline, in ppm
     alpha : float
-        The threshold will be set as thr = alpha * np.std(np.gradient(data))
+        The threshold will be set as ``thr = alpha * np.std(np.gradient(data))``
     qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
     qfilp : dict
-        Parameters to be used to compute the filter if qfil is True. Keys:
-        'u' = center of the filter in ppm
-        's' = width of the filter in Hz
+        Parameters to be used to compute the filter if ``qfil=True``. Keys:
+        ``'u'`` = center of the filter in ppm
+        ``'s'`` = width of the filter in Hz
 
     Returns
     ----------
@@ -5521,10 +5527,10 @@ def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's':
     return S
 
 
-def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
+def abs_v2(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
     """
-    Computes the baseline correction on data using ``processing.abca``, and gives back the subtracted spectrum.
-    The imaginary part of the spectrum is reconstructed using ``processing.hilbert``.
+    Computes the baseline correction on data using :func:`klassez.processing.abc_v2`, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using :func:`klassez.processing.hilbert`.
 
     Parameters
     ----------
@@ -5543,9 +5549,9 @@ def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
     qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
     qfilp : dict
-        Parameters to be used to compute the filter if qfil is True. Keys:
-        'u' = center of the filter in ppm
-        's' = width of the filter in Hz
+        Parameters to be used to compute the filter if ``qfil=True``. Keys:
+        ``'u'`` = center of the filter in ppm
+        ``'s'`` = width of the filter in Hz
 
     Returns
     ----------
@@ -5554,12 +5560,12 @@ def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
 
     .. seealso::
 
-        :func:`klassez.processing.abca`
+        :func:`klassez.processing.abc_v2`
 
         :func:`klassez.processing.hilbert`
     """
     # Compute the baseline
-    b = processing.abca(ppm, data.real, SFO1, n=n, alpha=alpha, winsize=winsize, lims=lims, qfil=qfil, qfilp=qfilp)
+    b = processing.abc_v2(ppm, data.real, SFO1, n=n, alpha=alpha, winsize=winsize, lims=lims, qfil=qfil, qfilp=qfilp)
     # Subtract it
     datab = data.real - b
     # Compute the missing imaginary part
@@ -5567,11 +5573,11 @@ def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
     return S
 
 
-def absa2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}, FnMODE='States-TPPI'):
+def abs2_v2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}, FnMODE='States-TPPI'):
     """
     Baseline correction for 2D datasets, alternative version.
-    Computes the baseline correction on ``data`` using ``processing.abca`` for each row, and gives back the subtracted spectrum.
-    The imaginary part of the spectrum is reconstructed using either ``processing.hilbert`` or ``processing.hilbert2`` depending on ``FnMODE``.
+    Computes the baseline correction on ``data`` using :func:`klassez.processing.abc_v2` for each row, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using either :func:`klassez.processing.hilbert` or :func:`klassez.processing.hilbert2` depending on ``FnMODE``.
 
     .. todo::
 
@@ -5588,13 +5594,13 @@ def absa2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qf
     lims : tuple or None
         Limits for the region on which to compute the baseline, in ppm
     alpha : float
-        The threshold will be set as thr = alpha * np.std(np.gradient(data))
+        The threshold will be set as ``thr = alpha * np.std(np.gradient(data))``
     qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
     qfilp : dict
-        Parameters to be used to compute the filter if qfil is True. Keys:
-        'u' = center of the filter in ppm
-        's' = width of the filter in Hz
+        Parameters to be used to compute the filter if ``qfil=True``. Keys:
+        ``'u'`` = center of the filter in ppm
+        ``'s'`` = width of the filter in Hz
 
     Returns
     ----------
@@ -5603,7 +5609,7 @@ def absa2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qf
 
     .. seealso::
 
-        :func:`klassez.processing.abca`
+        :func:`klassez.processing.abc_v2`
 
         :func:`klassez.processing.hilbert`
 
@@ -5612,7 +5618,7 @@ def absa2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qf
     # Compute the baseline
     D = deepcopy(data)
     for k, trace in enumerate(D):
-        b = processing.abca(ppm_f2, trace, SFO1, n=n, lims=lims, winsize=winsize, qfil=qfil, qfilp=qfilp)
+        b = processing.abc_v2(ppm_f2, trace, SFO1, n=n, lims=lims, winsize=winsize, qfil=qfil, qfilp=qfilp)
         # Subtract it
         D[k] = trace - b
     # Compute the missing imaginary part
@@ -5627,8 +5633,8 @@ def absa2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qf
 def abs2(ppm_f2, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's': 10}, FnMODE='States-TPPI'):
     """
     Baseline correction for 2D datasets.
-    Computes the baseline correction on ``data`` using ``processing.abc`` for each row, and gives back the subtracted spectrum.
-    The imaginary part of the spectrum is reconstructed using either ``processing.hilbert`` or ``processing.hilbert2`` depending on ``FnMODE``.
+    Computes the baseline correction on ``data`` using :func:`klassez.processing.abc` for each row, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using either :func:`klassez.processing.hilbert` or :func:`klassez.processing.hilbert2` depending on ``FnMODE``.
 
     Parameters
     ----------
@@ -5641,13 +5647,13 @@ def abs2(ppm_f2, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 
     lims : tuple or None
         Limits for the region on which to compute the baseline, in ppm
     alpha : float
-        The threshold will be set as thr = alpha * np.std(np.gradient(data))
+        The threshold will be set as ``thr = alpha * np.std(np.gradient(data))``
     qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
     qfilp : dict
-        Parameters to be used to compute the filter if qfil is True. Keys:
-        'u' = center of the filter in ppm
-        's' = width of the filter in Hz
+        Parameters to be used to compute the filter if ``qfil=True``. Keys:
+        ``'u'`` = center of the filter in ppm
+        ``'s'`` = width of the filter in Hz
 
     Returns
     ----------

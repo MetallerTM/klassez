@@ -1176,7 +1176,7 @@ class Spectrum_1D:
         self.i = self.S.imag
         return original - datap
 
-    def absa(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
+    def abs_v2(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
         """
         Correct the baseline automatically on the real part of the spectrum, then retrieve
         the imaginary part through Hilbert transform.
@@ -1203,13 +1203,13 @@ class Spectrum_1D:
 
         .. seealso::
 
-            :func:`klassez.processing.absa`
+            :func:`klassez.processing.abs_v2`
 
             :func:`klassez.processing.hilbert`
         """
         original = deepcopy(self.S)
         # Correct the baseline
-        datap = processing.absa(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
+        datap = processing.abs_v2(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
         # Retrieve imaginary part
         self.S = processing.hilbert(datap)
         # Overwrite it
@@ -3884,7 +3884,7 @@ class Pseudo_2D(Spectrum_2D):
         self.ii = self.S.imag
         return original - datap
 
-    def absa(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
+    def abs_v2(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
         """
         Correct the baseline automatically on the real part of the spectrum, then retrieve
         the imaginary part through Hilbert transform.
@@ -3911,13 +3911,13 @@ class Pseudo_2D(Spectrum_2D):
 
         .. seealso::
 
-            :func:`klassez.processing.absa`
+            :func:`klassez.processing.abs_v2`
 
             :func:`klassez.processing.hilbert`
         """
         original = deepcopy(self.S)
         # Correct the baseline
-        datap = processing.absa(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
+        datap = processing.abs_v2(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
         # Retrieve imaginary part
         self.S = processing.hilbert(datap)
         # Overwrite it
