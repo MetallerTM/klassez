@@ -35,6 +35,9 @@ The calls to these functions were modified accordingly.
 18/02/26
 - *figures.ax2D*: employs the new function *figures.draw_bare_contour*
 - *figures.redraw_contours*: lightened implementation to make it faster
+19/02/26
+- *processing.interactive_phase_1D*: modified zoom computation, added +90/-90 buttons
+- *processing.interactive_phase_2D*: modified zoom computation, added +90/-90 buttons
 
 ## Modified classes:
 12/02/26

@@ -2166,6 +2166,9 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     box_sande = plt.axes([0.81, 0.10, 0.18, 0.04])      # save and exit button
     box_radio = plt.axes([0.81, 0.55, 0.18, 0.25])      # radio buttons
 
+    box_p90 = plt.axes([0.81, 0.225, 0.085, 0.05])      # +90
+    box_m90 = plt.axes([1-0.095, 0.225, 0.085, 0.05])  # -90
+
     box_z = plt.axes([0.05, 0.02, 0.02, 0.06])          # Zoom state button
     # Remove ticks
     box_z.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
@@ -2186,6 +2189,8 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     down_button = Button(box_ds, r'$\downarrow$', hovercolor='0.975')
     save_button = Button(box_save, 'SAVE', hovercolor='0.975')
     reset_button = Button(box_reset, 'RESET', hovercolor='0.975')
+    p90_button = Button(box_p90, '+90°', hovercolor='0.975')
+    m90_button = Button(box_m90, '-90°', hovercolor='0.975')
     saveandexit = Button(box_sande, 'SAVE AND EXIT', hovercolor='0.975')
     #   Radiobuttons
     radio = RadioButtons(box_radio, radiolabels)
@@ -2200,10 +2205,30 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     def statmod(label):
         # changes the 'stat' array according to the radiobutton
         nonlocal stat
-        stat = np.zeros(3)
+        stat = np.zeros(3, dtype=int)
         for k, L in enumerate(radiolabels):
             if label == L:
                 stat[k] = 1
+
+    def p90(event):
+        """ add 90 degrees to phase 0 or phase 1 """
+        if bool(int(stat[-1])):
+            return
+        nonlocal P
+        for j in range(len(stat)):
+            if stat[j]:
+                P[j] += 90
+        on_scroll(None)
+
+    def m90(event):
+        """ removes 90 degrees to phase 0 or phase 1 """
+        if bool(int(stat[-1])):
+            return
+        nonlocal P
+        for j in range(len(stat)):
+            if stat[j]:
+                P[j] -= 90
+        on_scroll(None)
 
     def roll_up(event):
         # Increase the active value of its 'sens'
@@ -2231,10 +2256,12 @@ def interactive_phase_1D(ppmscale, S, reference=None):
 
     def on_scroll(event):
         # When you move the mouse scroll
-        if event.button == 'up':
-            roll_up(event)
-        if event.button == 'down':
-            roll_down(event)
+        #if not isinstance(event, (int, float)):
+        if event is not None:
+            if event.button == 'up':
+                roll_up(event)
+            if event.button == 'down':
+                roll_down(event)
 
         # Print the actual values
         phases_text.set_text('p0={:7.2f} | p1={:7.2f} | pv={:7.2f}'.format(*P))
@@ -2249,8 +2276,19 @@ def interactive_phase_1D(ppmscale, S, reference=None):
         pivot_bar.set_xdata((pivot,))              # update pivot bar
         # Interactively update the vertical limits
         if zoom_adj:
-            T = max(data_inside.real)
-            B = min(data_inside.real)
+            idxs = []
+            for x in ax.get_xlim():
+                if x < min(ppmscale):
+                    xval = min(ppmscale)
+                elif x > max(ppmscale):
+                    xval = max(ppmscale)
+                else:
+                    xval = x
+                idxs.append(misc.ppmfind(ppmscale, xval)[0])
+            sl = slice(*sorted(idxs))
+
+            T = max(data_inside[sl].real)
+            B = min(data_inside[sl].real)
             ax.set_ylim(B - 0.05*T, T + 0.05*T)
         # Update
         fig.canvas.draw()
@@ -2313,6 +2351,8 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     radio.on_clicked(statmod)
     reset_button.on_clicked(reset)
     save_button.on_clicked(save)
+    p90_button.on_clicked(p90)
+    m90_button.on_clicked(m90)
     saveandexit.on_clicked(save_and_exit)
     fig.canvas.mpl_connect('scroll_event', on_scroll)
     fig.canvas.mpl_connect('key_press_event', zoom_onoff)
@@ -2436,6 +2476,9 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     box_z.set_facecolor('tab:red')
     box_z.text(0.5, 0.5, 'Z', ha='center', va='center', fontsize=15, transform=box_z.transAxes)
 
+    box_p90 = plt.axes([0.81, 0.225, 0.085, 0.05])      # +90
+    box_m90 = plt.axes([1-0.095, 0.225, 0.085, 0.05])  # -90
+
     radiolabels = [     # labels for the radio buttons
             '0$^{th}$-order\nphase correction',
             '1$^{st}$-order\nphase correction',
@@ -2450,6 +2493,9 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     save_button = Button(box_save, 'SAVE', hovercolor='0.975')
     reset_button = Button(box_reset, 'RESET', hovercolor='0.975')
     saveandexit = Button(box_sande, 'SAVE AND EXIT', hovercolor='0.975')
+
+    p90_button = Button(box_p90, '+90°', hovercolor='0.975')
+    m90_button = Button(box_m90, '-90°', hovercolor='0.975')
     #   Radiobuttons
     radio = RadioButtons(box_radio, radiolabels)
     seldim = RadioButtons(box_dimen, ['F2', 'F1'])
@@ -2533,12 +2579,41 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
                 if statf[i] and stat[k]:
                     sens[i][k] = sens[i][k]/2
 
+    def p90(event):
+        """ add 90 degrees to phase 0 or phase 1 """
+        if bool(int(stat[-1])):
+            return
+        nonlocal P
+        for j in range(len(stat)):
+            if stat[j]:
+                if statf[0]:
+                    P[0][j] += 90
+                else:
+                    P[1][j] += 90
+                break
+        on_scroll(None)
+
+    def m90(event):
+        """ removes 90 degrees to phase 0 or phase 1 """
+        if bool(int(stat[-1])):
+            return
+        nonlocal P
+        for j in range(len(stat)):
+            if stat[j]:
+                if statf[0]:
+                    P[0][j] -= 90
+                else:
+                    P[1][j] -= 90
+                break
+        on_scroll(None)
+
     def on_scroll(event):
         # When you move the mouse scroll
-        if event.button == 'up':
-            roll_up(event)
-        if event.button == 'down':
-            roll_down(event)
+        if event is not None:
+            if event.button == 'up':
+                roll_up(event)
+            if event.button == 'down':
+                roll_down(event)
 
         # Print the actual values
         phases_text.set_text(
@@ -2673,6 +2748,9 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     reset_button.on_clicked(reset)
     save_button.on_clicked(save)
     saveandexit.on_clicked(save_and_exit)
+
+    p90_button.on_clicked(p90)
+    m90_button.on_clicked(m90)
 
     up_button.on_clicked(sens_up)
     down_button.on_clicked(sens_down)
