@@ -2942,7 +2942,7 @@ def write_dy(filename, diff_c, diff_f, diff_e, label, intensity, offset, header=
 
         :func:`klassez.fit.read_dy`
 
-        :func:`klassez.fit.make_dosy_iguess`
+        :func:`klassez.fit.make_iguess_dosy`
     """
     # Adjust the intensities
     diff_f, I_corr = misc.molfrac(diff_f)
@@ -8411,6 +8411,9 @@ class DosyFit:
         difflist : 1darray or None
             Gradient list in Gauss/cm, if existing. If ``None``, it will
             be read as well from ``<s.datadir>/difflist``
+        bp : bool
+            True if the sequence uses bipolar gradients, False if it does not.
+            It is needed because in the former case the little delta is ``2 * p30``
         """
         #   Gradient list
         if difflist is None:

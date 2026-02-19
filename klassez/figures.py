@@ -675,7 +675,7 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
                    Negatives=False, X_label=r'$\delta\ $ F2 /ppm', Y_label=r'$\delta\ $ F1 /ppm',
                    lw=0.5, n_xticks=10, n_yticks=10, labels=None, name=None, ext='png', dpi=600):
     """
-    Generates the figure of multiple, superimposed spectra, using :func:`klassez.figures.figures.ax2D`.
+    Generates the figure of multiple, superimposed spectra, using :func:`klassez.figures.ax2D`.
 
     Parameters
     ----------

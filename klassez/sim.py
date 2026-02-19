@@ -186,7 +186,7 @@ def load_sim_1D(File):
 
 def sim_1D(File, pv=False):
     """
-    Simulates a 1D NMR spectrum from the instructions written in File.
+    Simulates a 1D NMR spectrum from the instructions written in ``File``.
 
     Parameters
     -----------
@@ -298,8 +298,8 @@ def load_sim_2D(File, states=True):
 
 def sim_2D(File, states=True, alt=True, pv=False):
     """
-    Simulates a 2D NMR spectrum from the instructions written in File.
-    The indirect dimension is sampled with states-TPPI as default.
+    Simulates a 2D NMR spectrum from the instructions written in ``File``.
+    The indirect dimension is sampled with States-TPPI as default.
 
     Parameters
     ----------
@@ -368,7 +368,9 @@ def sim_2D(File, states=True, alt=True, pv=False):
 
 def noisegen(size, o2, t2, s_n=1):
     """
-    Simulates additive noise in the time domain.
+    Simulates additive noise in the time domain, modelled as `Grage and Akke`_.
+
+    .. _Grage and Akke: https://www.sciencedirect.com/science/article/pii/S1090780703000387
 
     Parameters
     ----------
@@ -467,8 +469,13 @@ def water7(N, t2, vW, fwhm=300, A=1, spread=701.125):
 
 
 def f_gaussian(x, u, s, A=1):
-    """
+    r"""
     Gaussian function in the frequency domain:
+
+    .. math::
+
+        s(x) = \frac{A}{\sqrt{2\pi} \sigma} \exp\biggl\{-\frac{1}{2} \biggl(\frac{x - \mu}{\sigma}\biggr)^2\biggr\}
+
 
     Parameters
     ----------
@@ -494,8 +501,14 @@ def f_gaussian(x, u, s, A=1):
 
 
 def f_lorentzian(x, u, fwhm, A=1):
-    """
+    r"""
     Lorentzian function in the time domain:
+
+    .. math::
+
+        s(x) = \frac{A}{\pi} \frac{\gamma}{(x-\mu)^2 + \gamma^2}
+
+    where :math:`\gamma = \Gamma /2`
 
     Parameters
     ----------
@@ -552,8 +565,12 @@ def f_pvoigt(x, u, fwhm, A=1, b=0):
 
 
 def t_gaussian(t, u, s, A=1, phi=0):
-    """
+    r"""
     Gaussian function in the time domain.
+
+    .. math::
+
+        s(t) = A\, \exp\{i \omega t \}\, \exp\{-\sigma^2 t^2/2 \}
 
     Parameters
     ----------
@@ -584,6 +601,10 @@ def t_lorentzian(t, u, fwhm, A=1, phi=0):
     """
     Lorentzian function in the time domain.
 
+    .. math::
+
+        s(t) = A\, \exp\{i \omega t \}\, \exp\{-\Gamma t/2 \}
+
     Parameters
     ----------
     t : 1darray
@@ -610,8 +631,12 @@ def t_lorentzian(t, u, fwhm, A=1, phi=0):
 
 
 def t_pvoigt(t, u, fwhm, A=1, b=0, phi=0):
-    """
+    r"""
     Pseudo-Voigt function in the time domain:
+
+    .. math::
+
+        s(t) = A\, \exp\{i \omega t \}\, [(1-\beta) \exp\{-\Gamma t/2\} + \beta\exp\{-\sigma^2 t^2/2 \}]
 
     Parameters
     ----------
@@ -643,8 +668,12 @@ def t_pvoigt(t, u, fwhm, A=1, b=0, phi=0):
 
 
 def t_voigt(t, u, fwhm, A=1, b=0, phi=0):
-    """
+    r"""
     Voigt function in the time domain. The parameter b affects the linewidth of the lorentzian and gaussian contributions.
+
+    .. math::
+
+        s(t) = A\, \exp\{i \omega t \}\, \exp\{-(1-\beta) \Gamma t / 2-\beta\sigma^2 t^2/2 \}
 
     Parameters
     -----------
@@ -676,8 +705,21 @@ def t_voigt(t, u, fwhm, A=1, b=0, phi=0):
 
 
 def t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=1, states=True, alt=True):
-    """
+    r"""
     Bidimensional gaussian function.
+
+    .. math::
+
+        s(t_1, t_2) = A\, \exp\{ i \omega_2 t_2 - \sigma_2^2 t_2^2 /2 \}\, 
+                    \cos\{ \omega_1 t_{1s} - \frac{\pi}{2} (k \% 4) \}\,
+                    \exp\{ -\sigma_1^2 t_{1s}^2 /2\}
+
+    where:
+
+        * :math:`\omega = 2\pi \nu` --> resonance frequency
+        * :math:`\sigma = \Gamma / (2\sqrt{2\ln 2})` --> linewidth
+        * :math:`t_{1s}` is ``t1`` with double entries (States)
+
 
     Parameters
     ----------
@@ -726,8 +768,20 @@ def t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=1, states=True, alt=True):
 
 
 def t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=1, states=True, alt=True):
-    """
+    r"""
     Bidimensional lorentzian function.
+
+    .. math::
+
+        s(t_1, t_2) = A\, \exp\{ i \omega_2 t_2 - \Gamma_2 t_2 /2 \}\, 
+                    \cos\{ \omega_1 t_{1s} - \frac{\pi}{2} (k \% 4) \}\,
+                    \exp\{ -\Gamma_1 t_{1s} /2\}
+
+    where:
+
+        * :math:`\omega = 2\pi \nu` --> resonance frequency
+        * :math:`\Gamma` --> linewidth
+        * :math:`t_{1s}` is ``t1`` with double entries (States)
 
     Parameters
     ----------
@@ -778,10 +832,25 @@ def t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=1, states=True, alt=True):
 
 
 def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
-    """
+    r"""
     Generates a 2D pseudo-voigt signal in the time domain.
     b states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
     Indexes '1' and '2' on the variables stand for 'F1' and 'F2', respectively.
+
+
+    .. math::
+
+        s(t_1, t_2) = A\, \exp\{ i \omega_2 t_2 \}
+        [(1-\beta)\exp\{ - \Gamma_2 t_2 /2 \} + \beta\exp\{- \sigma_2^2 t_2^2 /2 \}] \, 
+                    \cos\{\omega_1 t_{1s} - \frac{\pi}{2} (k \% 4) \}\,
+                    [(1 - \beta)\exp\{- \Gamma_1 t_{1s} /2 \} + \beta\exp\{ -\sigma_1^2 t_{1s}^2 /2\}] 
+
+
+    where:
+
+        * :math:`\omega = 2\pi \nu` --> resonance frequency
+        * :math:`\sigma = \Gamma / (2\sqrt{2\ln 2})` --> linewidth
+        * :math:`t_{1s}` is ``t1`` with double entries (States)
 
     Parameters
     ----------
@@ -823,10 +892,23 @@ def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
 
 
 def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
-    """
+    r"""
     Generates a 2D Voigt signal in the time domain.
     b states for the fraction of gaussianity, whereas A defines the overall amplitude of the total peak.
     Indexes '1' and '2' on the variables stand for 'F1' and 'F2', respectively.
+
+
+    .. math::
+
+        s(t_1, t_2) = A\, \exp\{i \omega_2 t_2 - (1 - \beta) \Gamma_2 t_2 / 2 - \beta\sigma_2^2 t_2^2 /2\}\, 
+                    \cos\{\omega_1 t_{1s} - \frac{\pi}{2} (k \% 4) \}\,
+                    \exp\{ - (1 - \beta) \Gamma_1 t_{1s} / 2 - \beta \sigma_1^2 t_{1s}^2 /2\}
+
+    where:
+
+        * :math:`\omega = 2\pi \nu` --> resonance frequency
+        * :math:`\sigma = \Gamma / (2\sqrt{2\ln 2})` linewidth
+        * :math:`t_{1s}` is ``t1`` with double entries (States)
 
     Parameters
     -----------
