@@ -353,7 +353,7 @@ def fit_int(y, y_c, q=True):
     return A, q
 
 
-def get_region(ppmscale, S, rev=True):
+def get_region(ppmscale, S):
     """
     Interactively select the spectral region to be fitted.
     Returns the border ppm values.
@@ -364,119 +364,149 @@ def get_region(ppmscale, S, rev=True):
         The ppm scale of the spectrum
     S : 1darray
          The spectrum to be trimmed
-    rev : bool
-        Choose if to reverse the ppm scale and data (True) or not (False).
 
     Returns
-    ----------
-    left : float
-        Left border of the selected spectral window
-    right : float
-        Right border of the selected spectral window
+    -------
+    reg_lims : list of tuple
+        Limits on ``ppmscale`` selected by the GUI.
     """
 
     # Creation of interactive figure panel
     fig = plt.figure('Region Selector')
     fig.set_size_inches(15, 8)
-    plt.subplots_adjust(left=0.10, bottom=0.25, right=0.90, top=0.90)    # Make room for the sliders
+    plt.subplots_adjust(left=0.065, bottom=0.115, right=0.84, top=0.90)    # Make room for the sliders
     ax = fig.add_subplot()
 
-    # Set the slider initial values
-    if rev:
-        left = max(ppmscale)
-        right = min(ppmscale)
-    else:
-        right = max(ppmscale)
-        left = min(ppmscale)
-    res = misc.calcres(ppmscale)
+    # Limits of the x axis
+    xlims = [max(ppmscale), min(ppmscale)]
 
-    zoom_toggle = False
+    # Placeholders
+    reg_lims = []       # container for the regions
+    reg_spans = []      # container for the green spans
+    sel_idx = None      # Selected region
 
-    # Make the boxes
-    #   for sliders
-    box_left = plt.axes([0.1, 0.15, 0.80, 0.02])
-    box_t_left = plt.axes([0.1, 0.05, 0.05, 0.03])
-    box_right = plt.axes([0.1, 0.10, 0.80, 0.02])
-    box_t_right = plt.axes([0.85, 0.05, 0.05, 0.03])
-    #   for buttons
-    box_button = plt.axes([0.45, 0.925, 0.1, 0.04])
-    # Make the sliders
-    left_slider = Slider(ax=box_left, label='Left', valmin=min(ppmscale), valmax=max(ppmscale), valinit=left, valstep=res, color='tab:red')
-    right_slider = Slider(ax=box_right, label='Right', valmin=min(ppmscale), valmax=max(ppmscale), valinit=right, valstep=res, color='tab:green')
-    # Make the buttons
-    button = Button(box_button, 'SAVE', hovercolor='0.975')
-    l_tbox = TextBox(box_t_left, '', textalignment='center')
-    r_tbox = TextBox(box_t_right, '', textalignment='center')
+    # Placeholder for the red text
+    sel_text = fig.text(0.92, 0.80, '', ha='center', va='center', transform=fig.transFigure, fontsize=14, color='tab:red')
 
-    # Definition of the 'update' functions
-    #
-    def update_region(val):
-        # updates the value for the range selectors
-        left = left_slider.val
-        right = right_slider.val
-        LB, RB = misc.ppmfind(ppmscale, left)[0], misc.ppmfind(ppmscale, right)[0]
-        data_inside = S[min(LB, RB):max(LB, RB)]
+    # Make boxes for widgets
+    add_box = plt.axes([0.855, 0.84, 0.06, 0.06])
+    remove_box = plt.axes([0.925, 0.84, 0.06, 0.06])
+    save_box = plt.axes([0.860, 0.05, 0.12, 0.06])
 
-        L.set_xdata([left])
-        R.set_xdata([right])
-        if rev:
-            ax.set_xlim(left+25*res, right-25*res)
-        else:
-            ax.set_xlim(left-25*res, right+25*res)
-        T = max(data_inside.real)
-        B = min(data_inside.real)
-        if zoom_toggle:
-            ax.set_ylim(B - 0.05*T, T + 0.05*T)
+    # Box to list the selected regions
+    list_box = plt.axes([0.855, 0.15, 0.13, 0.55])
+    list_box.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    list_box.set_title('Selected regions')
 
-    def on_submit_l(v):
-        V = eval(v)
-        left_slider.set_val(V)
-        update_region(0)
+    all_text = list_box.text(0.5, 0.95, '', ha='center', va='top', transform=list_box.transAxes, fontsize=14, color='tab:green')
 
-    def on_submit_r(v):
-        V = eval(v)
-        right_slider.set_val(V)
-        update_region(0)
+    # Make buttons
+    add_button = Button(add_box, 'ADD', hovercolor='0.875')
+    save_button = Button(save_box, 'SAVE and EXIT', hovercolor='0.875')
+    remove_button = Button(remove_box, 'REMOVE', hovercolor='0.875')
+
+    #   SLOTS
+    def onselect(xmin, xmax):
+        """ Connected to the slider, changes the red text """
+        sel_text.set_text(f'{xmax:8.3f}:{xmin:8.3f}')
+        fig.canvas.draw()
+
+    def write_rlims():
+        """ Writes the limits in the box """
+        w_str = [f'{max(w):8.3f}:{min(w):8.3f}' for w in reg_lims]
+        all_text.set_text('\n'.join(w_str))
+        fig.canvas.draw()
+
+    def add(event):
+        """ ADD button """
+        # Get limits from the span selector
+        xmin, xmax = span.extents
+        # Do not allow less than 5 points selection
+        if xmax - xmin < 5 * misc.calcres(ppmscale):
+            return
+        # Update the limits
+        reg_lims.append((xmax, xmin))
+        # Draw the green span and add it to the list
+        tmp_span = ax.axvspan(xmin, xmax, color='tab:green', alpha=0.2, zorder=10)
+        reg_spans.append(tmp_span)
+        # Set the spanselector invisible otherwise it looks ugly as shit
+        span.set_visible(False)
+        # Write the green text
+        write_rlims()
+
+    def remove(event):
+        """ REMOVE button """
+        # You have selected a peak
+        if sel_text.get_color() == 'violet' and sel_idx is not None:
+            #  Remove the selected entry from the list of limits
+            _ = reg_lims.pop(sel_idx)
+            # Extract the green span and do not draw it anymore
+            kill_span = reg_spans.pop(sel_idx)
+            kill_span.remove()
+            # Update the green text
+            write_rlims()
+            fig.canvas.draw()
+
+    def get_index_selected(x):
+        """ Looks in the limits list if ``x`` is inside one region """
+        for idx, lims in enumerate(reg_lims):
+            if min(lims) < x and x < max(lims):
+                return idx
+
+    def on_click(event):
+        """ Mouse click """
+        # Do stuff only if you click inside the main panel
+        if event.inaxes == ax:
+            nonlocal sel_idx
+            if event.dblclick:  # only if you double click
+                # idx might be either a number or None
+                idx = get_index_selected(event.xdata)
+                sel_idx = idx
+                if idx is not None:
+                    # Set the selected span and the selection text to violet
+                    reg_spans[idx].set_color('violet')
+                    onselect(min(reg_lims[idx]), max(reg_lims[idx]))
+                    sel_text.set_color('violet')
+            else:
+                # single click: reset everything to normal
+                sel_idx = None
+                for reg_span in reg_spans:
+                    reg_span.set_color('tab:green')
+                    sel_text.set_color('tab:red')
+            fig.canvas.draw()
 
     def save(event):
-        # Saves the values to be returned
-        nonlocal left, right
-        left = left_slider.val
-        right = right_slider.val
+        """ SAVE button """
+        nonlocal reg_lims
+        # Sort the values to be returned from left to right in the ppmscale
+        reg_lims = sorted(reg_lims, key=lambda w: w[0])[::-1]
+        plt.close()
 
-    def key_press(event):
-        nonlocal zoom_toggle
-        if event.key == 'z':
-            zoom_toggle = not zoom_toggle
+    # Draw the spectrum
+    ax.plot(ppmscale, S.real, c='tab:blue', lw=0.8)        # Plot the data
 
-    misc.pretty_scale(ax, (left, right))
-    if rev:
-        ax.set_xlim(left+25*res, right-25*res)
-    else:
-        ax.set_xlim(left-25*res, right+25*res)
-
-    ax.plot(ppmscale, S.real, c='b', lw=0.8)        # Plot the data
-    misc.mathformat(ax, 'y')
+    # Cosmetic stuff
     ax.set_xlabel(r'$\delta\,$ /ppm')
     ax.set_ylabel('Intensity /a.u.')
-    ax.set_title('Press Z to toggle the automatic zoom')
-    L = ax.axvline(x=left, lw=0.5, c='r')           # Left selector
-    R = ax.axvline(x=right, lw=0.5, c='g')          # Right selector
+    misc.pretty_scale(ax, xlims, 'x')
+    misc.pretty_scale(ax, ax.get_ylim(), 'y')
+    misc.mathformat(ax, 'y')
+    misc.set_fontsizes(ax, 20)
 
-    # Call the 'update' functions upon interaction with the widgets
-    left_slider.on_changed(update_region)
-    right_slider.on_changed(update_region)
-    button.on_clicked(save)
-    l_tbox.on_submit(on_submit_l)
-    r_tbox.on_submit(on_submit_r)
-    fig.canvas.mpl_connect('key_press_event', key_press)
+    # Connect the widgets to the slots
+    span = SpanSelector(ax, onselect, onmove_callback=onselect, minspan=5*misc.calcres(ppmscale),
+                        direction='horizontal', interactive=True, drag_from_anywhere=True,
+                        props={'facecolor': 'tab:red', 'alpha': 0.3})
+    add_button.on_clicked(add)
+    remove_button.on_clicked(remove)
+    save_button.on_clicked(save)
+    fig.canvas.mpl_connect('button_press_event', on_click)
 
-    misc.set_fontsizes(ax, 14)
-
+    # Start event loop
     plt.show()
-    plt.close(1)
+    plt.close()
 
-    return left, right
+    return reg_lims
 
 
 def make_signal(t, u, s, k, b, phi, A, SFO1=701.125, o1p=0, N=None):
