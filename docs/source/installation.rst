@@ -21,6 +21,16 @@ Another option is to clone the `GitHub repository`_ and install the package with
 
 The required dependencies are sorted out automatically in either case.
 
+There also exist the possibility to install a dedicated environment using the *.yml* file in the main directory of the GitHub page.
+It works with either Anaconda/miniconda, and points to the latest stable version of *KLASSEZ* (i.e. the one in the *main* branch and on *PyPI*).
+You can download it from the GitHub page and install with
+
+::
+
+    conda env create -f kz_environment.yml
+
+Check the actual content of the `.yml` file to know the name of the created environment and to have a complete list of the packages to install.
+
 
 A note on `matplotlib` backends
 -------------------------------
