@@ -5,6 +5,7 @@ import os
 import numpy as np
 
 from importlib.resources import open_text, files
+from scipy import special
 
 from . import misc, sim
 
@@ -500,6 +501,45 @@ def f_gaussian(x, u, s, A=1):
     return f
 
 
+def f_skgaussian(x, u, s, A=1, a=0):
+    r"""
+    `Skewed-Gaussian function`_ in the frequency domain:
+
+    .. math::
+
+        s(x) = \frac{A}{\sqrt{2\pi} \sigma} \exp\biggl\{-\frac{z^2}{2} \biggr\}
+            \biggl[1 + \operatorname{erf} \biggl\{ \alpha \frac{z}{\sqrt{2}} \biggr\} \biggr]
+
+    with :math:`z = (x - \mu) / \sigma` and asymmetry parameter :math:`\alpha`.
+
+    .. _Skewed-Gaussian function: https://en.wikipedia.org/wiki/Skew_normal_distribution
+
+
+    Parameters
+    ----------
+    x : 1darray
+        Independent variable
+    u : float
+        Peak position
+    s : float
+        Standard deviation
+    A : float
+        Intensity
+    a : float
+        Asymmetry. ``a = 0`` gives the standard gaussian.
+
+    Returns
+    -------
+    f : 1darray
+        Gaussian function.
+    """
+    # Normal gaussian
+    f = sim.f_gaussian(x, u, s, A)
+    # Multiplied by erf
+    erf = 1 + special.erf(a * (x - u) / (s * np.sqrt(2)))
+    return f * erf
+
+
 def f_lorentzian(x, u, fwhm, A=1):
     r"""
     Lorentzian function in the time domain:
@@ -598,7 +638,7 @@ def t_gaussian(t, u, s, A=1, phi=0):
 
 
 def t_lorentzian(t, u, fwhm, A=1, phi=0):
-    """
+    r"""
     Lorentzian function in the time domain.
 
     .. math::
@@ -710,7 +750,7 @@ def t_2Dgaussian(t1, t2, v1, v2, s1, s2, A=1, states=True, alt=True):
 
     .. math::
 
-        s(t_1, t_2) = A\, \exp\{ i \omega_2 t_2 - \sigma_2^2 t_2^2 /2 \}\, 
+        s(t_1, t_2) = A\, \exp\{ i \omega_2 t_2 - \sigma_2^2 t_2^2 /2 \}\,
                     \cos\{ \omega_1 t_{1s} - \frac{\pi}{2} (k \% 4) \}\,
                     \exp\{ -\sigma_1^2 t_{1s}^2 /2\}
 
@@ -773,7 +813,7 @@ def t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=1, states=True, alt=True):
 
     .. math::
 
-        s(t_1, t_2) = A\, \exp\{ i \omega_2 t_2 - \Gamma_2 t_2 /2 \}\, 
+        s(t_1, t_2) = A\, \exp\{ i \omega_2 t_2 - \Gamma_2 t_2 /2 \}\,
                     \cos\{ \omega_1 t_{1s} - \frac{\pi}{2} (k \% 4) \}\,
                     \exp\{ -\Gamma_1 t_{1s} /2\}
 
@@ -841,10 +881,8 @@ def t_2Dpvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
     .. math::
 
         s(t_1, t_2) = A\, \exp\{ i \omega_2 t_2 \}
-        [(1-\beta)\exp\{ - \Gamma_2 t_2 /2 \} + \beta\exp\{- \sigma_2^2 t_2^2 /2 \}] \, 
+        [(1-\beta)\exp\{ - \Gamma_2 t_2 /2 \} + \beta\exp\{- \sigma_2^2 t_2^2 /2 \}] \,
                     \cos\{\omega_1 t_{1s} - \frac{\pi}{2} (k \% 4) \}\,
-                    [(1 - \beta)\exp\{- \Gamma_1 t_{1s} /2 \} + \beta\exp\{ -\sigma_1^2 t_{1s}^2 /2\}] 
-
 
     where:
 
@@ -900,7 +938,7 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
 
     .. math::
 
-        s(t_1, t_2) = A\, \exp\{i \omega_2 t_2 - (1 - \beta) \Gamma_2 t_2 / 2 - \beta\sigma_2^2 t_2^2 /2\}\, 
+        s(t_1, t_2) = A\, \exp\{i \omega_2 t_2 - (1 - \beta) \Gamma_2 t_2 / 2 - \beta\sigma_2^2 t_2^2 /2\}\,
                     \cos\{\omega_1 t_{1s} - \frac{\pi}{2} (k \% 4) \}\,
                     \exp\{ - (1 - \beta) \Gamma_1 t_{1s} / 2 - \beta \sigma_1^2 t_{1s}^2 /2\}
 

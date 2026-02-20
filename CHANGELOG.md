@@ -27,6 +27,8 @@ The calls to these functions were modified accordingly.
 - *fit.model_dstebp*
 18/02/26
 - *figures.draw_bare_contour*
+20/02/26
+- *sim.f_skgaussian*
 
 ## Modified functions:
 17/02/26
