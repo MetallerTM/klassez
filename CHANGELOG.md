@@ -1,3 +1,7 @@
+# Version 0.5a.5
+
+
+
 # Version 0.5a.4
 
 Added model functions for different DOSY experiments in the *fit* module.

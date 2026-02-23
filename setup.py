@@ -11,7 +11,7 @@ extras = {
 
 setup(
         name='klassez',
-        version="0.5a.4",
+        version="0.5a.5",
         author='Francesco Bruno, Letizia Fiorucci',
         author_email='bruno@cerm.unifi.it',
         description='A collection of functions for NMR data handling.',
