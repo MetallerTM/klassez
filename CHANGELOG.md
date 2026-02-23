@@ -1,14 +1,14 @@
 # Version 0.5a.4
 
-12/02/26
-Added model functions for different DOSY experiments.
+Added model functions for different DOSY experiments in the *fit* module.
 The class *fit.DosyFit* was modified accordingly to get the correct parameters and model on the basis of the pulse sequence.
+
+The functions for interactive phase do not automatically move the zoom on the spectrum by default, but it is fixed. Press Z on the keyboard to change it.
+
 New decorator *safe_kws*.
-17/02/26
-The functions for interactive phase do not automatically move the zoom on the spectrum, but it is fixed. Press Z to change it.
+Rendering of 2D contour plot reworked.
+Bug fixes.
 Updated documentation.
-18/02/26
-Bug fixes. Rendering of 2D contour plot reworked.
 
 Changed name of the following functions:
 - Module **PROCESSING**
@@ -19,32 +19,22 @@ Changed name of the following functions:
 The calls to these functions were modified accordingly.
 
 ## New functions:
-12/02/26
 - *config.safe_kws* (decorator)
+- *figures.draw_bare_contour*
+- *sim.f_skgaussian*
 - *fit.model_ste*
 - *fit.model_stebp*
 - *fit.model_dste*
 - *fit.model_dstebp*
-18/02/26
-- *figures.draw_bare_contour*
-20/02/26
-- *sim.f_skgaussian*
 
 ## Modified functions:
-17/02/26
-- *processing.interactive_phase_1D*: default behavior for the zoom is RED instead of GREEN
-- *processing.interactive_phase_2D*: default behavior for the zoom is RED instead of GREEN
-18/02/26
+- *processing.interactive_phase_1D*: default behavior for the zoom is RED instead of GREEN, modified zoom computation, added +90/-90 buttons
+- *processing.interactive_phase_2D*: default behavior for the zoom is RED instead of GREEN, modified zoom computation, added +90/-90 buttons
 - *figures.ax2D*: employs the new function *figures.draw_bare_contour*
 - *figures.redraw_contours*: lightened implementation to make it faster
-19/02/26
-- *processing.interactive_phase_1D*: modified zoom computation, added +90/-90 buttons
-- *processing.interactive_phase_2D*: modified zoom computation, added +90/-90 buttons
-20/02/26
 - *fit.get_region*: completely rewritten, now can return multiple regions
 
 ## Modified classes:
-12/02/26
 - *fit.DosyFit*: the **model** attribute is set from the new functions in *fit* accordingly to the pulse sequence of the experiment
 - *Spectra.DOSY*: when instancing **D = fit.DosyFit**, the pulse sequence is read from the **acqus** dictionary and passed automatically
 
@@ -56,7 +46,7 @@ Changed implementation of *processing.integral* to make it more intuitive, all t
 New GUIs for integration. Called by the *integrate* methods of *Spectrum_1D* and *Pseudo_2D*.
 
 
-DOSY class for spectrum and DosyFIT for fitting them.
+*DOSY* class for spectrum and *fit.DosyFit* for fitting them.
 New functions for the display of the diffusion coefficients after fitting them.
 
 Better warnings handling.
