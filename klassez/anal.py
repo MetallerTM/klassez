@@ -12,7 +12,7 @@ from . import fit, misc, sim, figures, processing, anal
 from .config import CM, COLORS
 
 
-def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
+def select_traces(ppm_f1, ppm_f2, data, Neg=True):
     """
     Select traces from a 2D spectrum, save the coordinates in a list.
     Left click to select a point, right click to remove it.
@@ -28,8 +28,6 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
         Spectrum
     Neg : bool
         Choose if to show the negative contours ( True) or not ( False )
-    grid : bool
-        Choose if to display the grid ( True) or not ( False )
 
     Returns
     -------
@@ -55,23 +53,21 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
 
     # set level for contour
     livello = 0.2
-    cnt = figures.ax2D(ax, ppm_f2, ppm_f1, data, xlims=(xsx, xdx), ylims=(ysx, ydx), cmap=cmaps[0], c_fac=1.4, lvl=livello, lw=0.5, X_label='', Y_label='')
+    cnt = figures.ax2D(ax, ppm_f2, ppm_f1, data, xlims=(xsx, xdx), ylims=(ysx, ydx),
+                       cmap=cmaps[0], c_fac=1.4, lvl=livello, lw=0.5, X_label='', Y_label='')
     if Neg:
-        Ncnt = figures.ax2D(ax, ppm_f2, ppm_f1, -data, xlims=(xsx, xdx), ylims=(ysx, ydx), cmap=cmaps[1], c_fac=1.4, lvl=livello, lw=0.5)
+        Ncnt = figures.ax2D(ax, ppm_f2, ppm_f1, -data, xlims=(xsx, xdx), ylims=(ysx, ydx),
+                            cmap=cmaps[1], c_fac=1.4, lvl=livello, lw=0.5)
     else:
         Ncnt = None
 
     # Make pretty scales
     misc.pretty_scale(ax, (xsx, xdx), 'x')
     misc.pretty_scale(ax, (ysx, ydx), 'y')
+    misc.set_fontsizes(ax, 20)
 
     xgrid = ppm_f2
     ygrid = ppm_f1
-    if grid:        # Set grid to visible
-        for i in xgrid:
-            ax.axvline(i, color='grey', lw=0.1)
-        for j in ygrid:
-            ax.axhline(j, color='grey', lw=0.1)
 
     # Parameters to save coordinates
     coord = []          # Final list of coordinates
@@ -115,22 +111,18 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True, grid=False):
         if Neg:
             nonlocal Ncnt
 
-        xsx, xdx = ax.get_xlim()
-        ysx, ydx = ax.get_ylim()
-
         if event.button == 'up':
             livello *= lvlstep
         if event.button == 'down':
             livello /= lvlstep
         if livello > 1:
             livello = 1
-        cnt, Ncnt = figures.redraw_contours(ax, ppm_f2, ppm_f1, data, lvl=livello, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=cmaps)
-        misc.pretty_scale(ax, (xsx, xdx), 'x')
-        misc.pretty_scale(ax, (ysx, ydx), 'y')
+        cnt, Ncnt = figures.redraw_contours(ax, ppm_f2, ppm_f1, data, lvl=livello,
+                                            cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=cmaps)
         fig.canvas.draw()
 
     # Widgets
-    Cursor(ax, useblit=True, color='red', linewidth=0.4)
+    cursor = Cursor(ax, useblit=True, color='k', linewidth=0.4)
     fig.canvas.mpl_connect('button_press_event', on_click)
     fig.canvas.mpl_connect('scroll_event', on_scroll)
 
@@ -297,7 +289,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
     misc.set_fontsizes(ax, 14)
 
     # Widgets
-    Cursor(ax, useblit=True, color='red', linewidth=0.4)       # Moving crosshair
+    cursor = Cursor(ax, useblit=True, color='red', linewidth=0.4)       # Moving crosshair
     fig.canvas.mpl_connect('button_press_event', on_click)      # Right click
     fig.canvas.mpl_connect('scroll_event', on_scroll)          # Mouse scroll
     span = RectangleSelector(ax, onselect, useblit=False, props=dict(facecolor='tab:red', alpha=0.5))    # Draggable rectangle

@@ -32,6 +32,7 @@ wf0 = {
         'gc': 0,
         'sw': None
         }
+
 r"""
 Classes for the management of NMR data.
 """
@@ -136,7 +137,10 @@ class Spectrum_1D:
             self.datadir = os.path.abspath(in_file)  # Get the file position
             if not os.path.isdir(self.datadir):
                 self.datadir = os.path.dirname(self.datadir)
-            self.filename = os.path.basename(self.datadir).strip(os.sep).rsplit('.', 1)[0]  # Get the filename
+            if isexp:
+                self.filename = os.path.basename(self.datadir).strip(os.sep).rsplit('.', 1)[0]  # Get the filename
+            else:
+                self.filename = os.path.basename(in_file).strip(os.sep).rsplit('.', 1)[0]   # Use the input filename
             # If filename is a directory, write things inside it
             if os.path.isdir(f'{os.sep}'.join([self.datadir, self.filename])) and isexp:
                 self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
@@ -832,7 +836,7 @@ class Spectrum_1D:
         misc.set_fontsizes(ax, 14)
 
         # Set a vertical line for inspection
-        Cursor(ax, useblit=True, c='tab:red', lw=0.8, horizOn=False)
+        cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8, horizOn=False)
 
         # Widget for distance measurement
         SpanSelector(ax, onselect, direction='horizontal', useblit=False, button=3,
@@ -1099,7 +1103,7 @@ class Spectrum_1D:
         # Write the file
         with open(filename, 'w') as f:
             f.write('!\n\n')
-        fit.write_vf(filename, dic, lims=limits, I=Hs)
+        fit.write_vf(filename, dic, lims=limits, Int=Hs)
         print(f'File {filename} generated successfully.')
 
     def to_wav(self, filename=None, cutoff=None, rate=44100):
@@ -1172,7 +1176,7 @@ class Spectrum_1D:
         self.i = self.S.imag
         return original - datap
 
-    def absa(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
+    def abs_v2(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
         """
         Correct the baseline automatically on the real part of the spectrum, then retrieve
         the imaginary part through Hilbert transform.
@@ -1199,13 +1203,13 @@ class Spectrum_1D:
 
         .. seealso::
 
-            :func:`klassez.processing.absa`
+            :func:`klassez.processing.abs_v2`
 
             :func:`klassez.processing.hilbert`
         """
         original = deepcopy(self.S)
         # Correct the baseline
-        datap = processing.absa(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
+        datap = processing.abs_v2(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
         # Retrieve imaginary part
         self.S = processing.hilbert(datap)
         # Overwrite it
@@ -1415,9 +1419,12 @@ class Spectrum_2D:
             self.datadir = os.path.abspath(in_file)  # Get the file position
             if not os.path.isdir(self.datadir):
                 self.datadir = os.path.dirname(self.datadir)
-            self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]  # Get the filename
+            if isexp:
+                self.filename = os.path.basename(self.datadir).strip(os.sep).rsplit('.', 1)[0]  # Get the filename
+            else:
+                self.filename = os.path.basename(in_file).rsplit('.', 1)[0]     # Use the name of the file as filename
             # If filename is a directory, write things inside it
-            if os.path.isdir('/'.join([self.datadir, self.filename])) and isexp:
+            if os.path.isdir(os.sep.join([self.datadir, self.filename])) and isexp:
                 self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
 
         if isexp is False:   # Simulate the data
@@ -1959,7 +1966,7 @@ class Spectrum_2D:
         else:
             self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
 
-    def qfil(self, which=None, u=None, s=None, *, SFO=None):
+    def qfil(self, which=None, u=None, s=None, from_procs=True, *, SFO=None):
         """
         Gaussian filter to suppress signals.
         Tries to read ``self.procs['qfil']``, which is ``{ 'u': u, 's': s }``
@@ -1973,6 +1980,8 @@ class Spectrum_2D:
             Position /ppm
         s : float
             Width (standard deviation) /Hz
+        from_procs : bool
+            Read the parameters from the ``procs`` dictionary
         SFO : float
             Nucleus Larmor frequency to use for the conversion to Hz. If None, ``self.acqus['SFO2']`` is used by default.
 
@@ -1987,15 +1996,18 @@ class Spectrum_2D:
             :func:`klassez.anal.select_traces`
 
         """
+        if 'qfil' not in self.procs.keys():     # Then add it
+            self.procs['qfil'] = {'u': u, 's': s}
+
         if SFO is None:
             SFO = self.acqus['SFO2']
         if 'qfil' not in self.procs.keys():  # Then add it
             self.procs['qfil'] = {'u': u, 's': s}
 
         for key, value in self.procs['qfil'].items():
-            if value is None:   # missing value --> call for interaction
+            if value is None or not from_procs:   # missing value --> call for interaction
                 if which is None:   # select a spectrum to be used
-                    which_list = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
+                    which_list = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=True)
                     which, _ = misc.ppmfind(self.ppm_f1, which_list[0][1])
                 # Now get the values
                 self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm_f2, self.rr[which], SFO)
@@ -2073,7 +2085,7 @@ class Spectrum_2D:
         else:
             # Get the missing entries
             if offset[0] is None or offset[1] is None:  # Select the reference traces
-                coord = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
+                coord = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=True)
                 ix, iy = coord[0][0], coord[0][1]   # Position of the first crosshair
                 # F2 reference spectrum
                 X = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
@@ -2654,7 +2666,7 @@ class Spectrum_2D:
         dz_button.on_clicked(decrease_zoom)
 
         # Crosshair for visualization
-        Cursor(ax, useblit=True, c='tab:red', lw=0.8)
+        cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8)
 
         plt.show()
         plt.close()
@@ -3181,7 +3193,7 @@ class Pseudo_2D(Spectrum_2D):
         else:
             # Get the missing entries
             if offset is None:   # Select the reference traces
-                coord = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=False, grid=False)
+                coord = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=True)
                 _, iy = coord[0][0], coord[0][1]   # Position of the first crosshair
                 # F2 reference spectrum
                 X = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, iy, column=False)
@@ -3459,7 +3471,7 @@ class Pseudo_2D(Spectrum_2D):
 
         misc.set_fontsizes(ax, 14)
 
-        Cursor(ax, useblit=True, c='tab:red', lw=0.8)
+        cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8)
 
         plt.show()
         plt.close()
@@ -3665,7 +3677,7 @@ class Pseudo_2D(Spectrum_2D):
         self.integrals, self.ppm_f1 = anal.read_igrl(filename, n)
         print(f'{filename} read.')
 
-    def qfil(self, which=None, u=None, s=None):
+    def qfil(self, which=None, u=None, s=None, from_procs=True):
         """
         Gaussian filter to suppress signals.
         Tries to read ``self.procs['qfil']``, which is ``{ 'u': u, 's': s }``
@@ -3691,7 +3703,7 @@ class Pseudo_2D(Spectrum_2D):
             :func:`klassez.anal.select_traces`
 
         """
-        super().qfil(which=which, u=u, s=s, SFO=self.acqus['SFO1'])
+        super().qfil(which=which, u=u, s=s, from_procs=from_procs, SFO=self.acqus['SFO1'])
 
     def align(self, lims=None, u_off=0.5, ref_idx=0):
         """
@@ -3874,7 +3886,7 @@ class Pseudo_2D(Spectrum_2D):
         self.ii = self.S.imag
         return original - datap
 
-    def absa(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
+    def abs_v2(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
         """
         Correct the baseline automatically on the real part of the spectrum, then retrieve
         the imaginary part through Hilbert transform.
@@ -3901,13 +3913,13 @@ class Pseudo_2D(Spectrum_2D):
 
         .. seealso::
 
-            :func:`klassez.processing.absa`
+            :func:`klassez.processing.abs_v2`
 
             :func:`klassez.processing.hilbert`
         """
         original = deepcopy(self.S)
         # Correct the baseline
-        datap = processing.absa(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
+        datap = processing.abs_v2(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
         # Retrieve imaginary part
         self.S = processing.hilbert(datap)
         # Overwrite it
@@ -3985,7 +3997,7 @@ class DOSY(Pseudo_2D):
         super().read_integrals(*args, **kws)
         self._instance_D(self.integrals)
 
-    def _instance_D(self, input_data):
+    def _instance_D(self, input_data, pprog=None):
         """
         If there is not a ``self.D`` attribute already existing, creates it
         with the parameters read from the spectrum itself.
@@ -3994,7 +4006,11 @@ class DOSY(Pseudo_2D):
         if hasattr(self, 'D'):
             self.D.data = input_data
         else:
-            self.D = fit.DosyFit(self, difflist=self.ppm_f1,
+            if hasattr(self, 'ngdic'):
+                pprog = self.ngdic['acqus']['PULPROG']
+            elif pprog is None:
+                pprog = 'stebp'
+            self.D = fit.DosyFit(self, pprog=pprog, difflist=self.ppm_f1,
                                  input_data=input_data,
                                  filename=self.filename)
 

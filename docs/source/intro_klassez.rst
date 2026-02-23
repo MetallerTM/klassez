@@ -3,7 +3,7 @@
 Introduction
 ============
 
-**KLASSEZ** is a python package written to handle 1D and 2D NMR data.
+*KLASSEZ* is a python package written to handle 1D and 2D NMR data.
 The aim of the project is to provide a toolkit, consisting of
 "black-box" functions organized in modules, that could be used to read,
 process and analyze such data in a flexible manner, so to adapt to the
@@ -15,7 +15,7 @@ The development of the toolkit started with ``python 3.8`` and therefore
 it is compatible with that version. Nevertheless, the use of
 ``python 3.10`` is advised.
 
-The key objects provided by **KLASSEZ** are the classes :class:`klassez.Spectrum_1D`
+The key objects provided by *KLASSEZ* are the classes :class:`klassez.Spectrum_1D`
 and :class:`klassez.Spectrum_2D`, that are able to fulfil the aims of the package
 with a few lines of code. The classes are able to read both simulated
 (i.e. generated with a custom-made input file) and experimental
@@ -23,8 +23,8 @@ datasets. The latter feature was tested with Bruker data after the
 removal of the digital filter (run command ``convdta`` in TopSpin), but
 should be compatible with other kind of spectrometers, thanks to the
 remarkable work made by J. J. Helmus and coworkers with their
-**nmrglue** package [1]_. Either the FID or the spectrum processed with
-external solver can be read from **KLASSEZ** by using the classes
+*nmrglue* package [1]_. Either the FID or the spectrum processed with
+external solver can be read from *KLASSEZ* by using the classes
 :class:`klassez.Spectrum_nD` or :class:`pSpectrum_nD`, respectively.
 
 The :mod:`klassez.processing` module, besides the classical functions used for the
@@ -45,13 +45,17 @@ minimize the difference between the experimental data and the model,
 generated with a Voigt profile in the time domain and then
 Fourier-transformed, in the least-square sense (employing the
 Levenberg-Marquardt algorithm implemented in :mod:`scipy`). For this
-purpose, the class :class:`klassez.fit.Voigt_fit` includes
+purpose, the class :class:`klassez.fit.Voigt_Fit` includes
 attribute functions to construct an initial guess interactively, fit the
 data, and save the parameters in dedicated files.
 
 Regarding the development of the package, I would like to acknowledge
 Letizia Fiorucci for her contribution in the design and the
 implementation of several functions, and for the alpha-testing.
+I also wish to give my thanks to Massimo Lucci, who performed extensive testing 
+of the functions for routine (and not!) applications. Many bugs were discovered and
+eliminated thanks to his efforts.
+
 
 .. [1]
    https://www.nmrglue.com/

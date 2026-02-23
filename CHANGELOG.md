@@ -1,3 +1,44 @@
+# Version 0.5a.4
+
+Added model functions for different DOSY experiments in the *fit* module.
+The class *fit.DosyFit* was modified accordingly to get the correct parameters and model on the basis of the pulse sequence.
+
+The functions for interactive phase do not automatically move the zoom on the spectrum by default, but it is fixed. Press Z on the keyboard to change it.
+
+New decorator *safe_kws*.
+Rendering of 2D contour plot reworked.
+Bug fixes.
+Updated documentation.
+
+Changed name of the following functions:
+- Module **PROCESSING**
+    - *abca* &rarr; *abc_v2*
+    - *absa* &rarr; *abs_v2*
+    - *absa2* &rarr; *abs2_v2*
+
+The calls to these functions were modified accordingly.
+
+## New functions:
+- *config.safe_kws* (decorator)
+- *figures.draw_bare_contour*
+- *sim.f_skgaussian*
+- *fit.model_ste*
+- *fit.model_stebp*
+- *fit.model_dste*
+- *fit.model_dstebp*
+
+## Modified functions:
+- *processing.interactive_phase_1D*: default behavior for the zoom is RED instead of GREEN, modified zoom computation, added +90/-90 buttons
+- *processing.interactive_phase_2D*: default behavior for the zoom is RED instead of GREEN, modified zoom computation, added +90/-90 buttons
+- *figures.ax2D*: employs the new function *figures.draw_bare_contour*
+- *figures.redraw_contours*: lightened implementation to make it faster
+- *fit.get_region*: completely rewritten, now can return multiple regions
+
+## Modified classes:
+- *fit.DosyFit*: the **model** attribute is set from the new functions in *fit* accordingly to the pulse sequence of the experiment
+- *Spectra.DOSY*: when instancing **D = fit.DosyFit**, the pulse sequence is read from the **acqus** dictionary and passed automatically
+
+
 # Version 0.5a.3
 
 Improved compatibility between classes *Spectrum_2D* and *Pseudo_2D*.
@@ -5,7 +46,7 @@ Changed implementation of *processing.integral* to make it more intuitive, all t
 New GUIs for integration. Called by the *integrate* methods of *Spectrum_1D* and *Pseudo_2D*.
 
 
-DOSY class for spectrum and DosyFIT for fitting them.
+*DOSY* class for spectrum and *fit.DosyFit* for fitting them.
 New functions for the display of the diffusion coefficients after fitting them.
 
 Better warnings handling.

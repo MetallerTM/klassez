@@ -28,7 +28,7 @@ def interactive_echo_param(data0):
     """
     Interactive plot that allows to select the parameters needed to process a CPMG-like FID.
     Use the TextBox or the arrow keys to adjust the values.
-    You can call ``processing.sum_echo_train`` or ``processing.split_echo_train`` by starring the return statement of this function, i.e.:
+    You can call :func:`klassez.processing.sum_echo_train` or :func:`klassez.processing.split_echo_train` by starring the return statement of this function, i.e.:
 
     .. code-block:: python
 
@@ -692,7 +692,7 @@ def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False, ref
 
 def eae(data):
     """
-    Shuffles data if the spectrum is acquired with FnMODE = Echo-Antiecho.
+    Shuffles data if the spectrum is acquired with ``FnMODE = 'Echo-Antiecho'``.
     NOTE: introduces -90° phase shift in F1, to be corrected after the processing
 
     .. code-block:: python
@@ -2166,12 +2166,15 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     box_sande = plt.axes([0.81, 0.10, 0.18, 0.04])      # save and exit button
     box_radio = plt.axes([0.81, 0.55, 0.18, 0.25])      # radio buttons
 
+    box_p90 = plt.axes([0.81, 0.225, 0.085, 0.05])      # +90
+    box_m90 = plt.axes([1-0.095, 0.225, 0.085, 0.05])  # -90
+
     box_z = plt.axes([0.05, 0.02, 0.02, 0.06])          # Zoom state button
     # Remove ticks
     box_z.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
-    # Make it green
+    # Make it red
     box_z.set_alpha(0.4)
-    box_z.set_facecolor('tab:green')
+    box_z.set_facecolor('tab:red')
     box_z.text(0.5, 0.5, 'Z', ha='center', va='center', fontsize=15, transform=box_z.transAxes)
 
     radiolabels = [     # labels for the radio buttons
@@ -2186,6 +2189,8 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     down_button = Button(box_ds, r'$\downarrow$', hovercolor='0.975')
     save_button = Button(box_save, 'SAVE', hovercolor='0.975')
     reset_button = Button(box_reset, 'RESET', hovercolor='0.975')
+    p90_button = Button(box_p90, '+90°', hovercolor='0.975')
+    m90_button = Button(box_m90, '-90°', hovercolor='0.975')
     saveandexit = Button(box_sande, 'SAVE AND EXIT', hovercolor='0.975')
     #   Radiobuttons
     radio = RadioButtons(box_radio, radiolabels)
@@ -2195,15 +2200,35 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     # values:     p0 p1 pivot
     P = np.array([0, 0, float(round(np.mean(ppmscale), 2))])
 
-    zoom_adj = True
+    zoom_adj = False
 
     def statmod(label):
         # changes the 'stat' array according to the radiobutton
         nonlocal stat
-        stat = np.zeros(3)
+        stat = np.zeros(3, dtype=int)
         for k, L in enumerate(radiolabels):
             if label == L:
                 stat[k] = 1
+
+    def p90(event):
+        """ add 90 degrees to phase 0 or phase 1 """
+        if bool(int(stat[-1])):
+            return
+        nonlocal P
+        for j in range(len(stat)):
+            if stat[j]:
+                P[j] += 90
+        on_scroll(None)
+
+    def m90(event):
+        """ removes 90 degrees to phase 0 or phase 1 """
+        if bool(int(stat[-1])):
+            return
+        nonlocal P
+        for j in range(len(stat)):
+            if stat[j]:
+                P[j] -= 90
+        on_scroll(None)
 
     def roll_up(event):
         # Increase the active value of its 'sens'
@@ -2231,10 +2256,12 @@ def interactive_phase_1D(ppmscale, S, reference=None):
 
     def on_scroll(event):
         # When you move the mouse scroll
-        if event.button == 'up':
-            roll_up(event)
-        if event.button == 'down':
-            roll_down(event)
+        #if not isinstance(event, (int, float)):
+        if event is not None:
+            if event.button == 'up':
+                roll_up(event)
+            if event.button == 'down':
+                roll_down(event)
 
         # Print the actual values
         phases_text.set_text('p0={:7.2f} | p1={:7.2f} | pv={:7.2f}'.format(*P))
@@ -2249,8 +2276,19 @@ def interactive_phase_1D(ppmscale, S, reference=None):
         pivot_bar.set_xdata((pivot,))              # update pivot bar
         # Interactively update the vertical limits
         if zoom_adj:
-            T = max(data_inside.real)
-            B = min(data_inside.real)
+            idxs = []
+            for x in ax.get_xlim():
+                if x < min(ppmscale):
+                    xval = min(ppmscale)
+                elif x > max(ppmscale):
+                    xval = max(ppmscale)
+                else:
+                    xval = x
+                idxs.append(misc.ppmfind(ppmscale, xval)[0])
+            sl = slice(*sorted(idxs))
+
+            T = max(data_inside[sl].real)
+            B = min(data_inside[sl].real)
             ax.set_ylim(B - 0.05*T, T + 0.05*T)
         # Update
         fig.canvas.draw()
@@ -2313,6 +2351,8 @@ def interactive_phase_1D(ppmscale, S, reference=None):
     radio.on_clicked(statmod)
     reset_button.on_clicked(reset)
     save_button.on_clicked(save)
+    p90_button.on_clicked(p90)
+    m90_button.on_clicked(m90)
     saveandexit.on_clicked(save_and_exit)
     fig.canvas.mpl_connect('scroll_event', on_scroll)
     fig.canvas.mpl_connect('key_press_event', zoom_onoff)
@@ -2329,7 +2369,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     """
     Interactively adjust the phases of a 2D spectrum.
     First select the traces you want to use as reference, then use the mouse scroll to adjust the phase angles.
-    ``S`` must be complex or hypercomplex, so BEFORE TO UNPACK with ::func::`klassez.processing.unpack_2D`
+    ``S`` must be complex or hypercomplex, so BEFORE TO UNPACK with :func:`klassez.processing.unpack_2D`
 
     Parameters
     ----------
@@ -2366,7 +2406,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     else:
         S_rr, _ = S.real, S.imag
 
-    zoom_adj = True
+    zoom_adj = False
 
     def phase(data, p0=0, p1=0, pivot=None, dim='f2'):
         """This is the actual phase function """
@@ -2431,10 +2471,13 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     box_z = plt.axes([0.05, 0.02, 0.02, 0.06])          # Zoom state button
     # Remove ticks
     box_z.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
-    # Make it green
+    # Make it red
     box_z.set_alpha(0.4)
-    box_z.set_facecolor('tab:green')
+    box_z.set_facecolor('tab:red')
     box_z.text(0.5, 0.5, 'Z', ha='center', va='center', fontsize=15, transform=box_z.transAxes)
+
+    box_p90 = plt.axes([0.81, 0.225, 0.085, 0.05])      # +90
+    box_m90 = plt.axes([1-0.095, 0.225, 0.085, 0.05])  # -90
 
     radiolabels = [     # labels for the radio buttons
             '0$^{th}$-order\nphase correction',
@@ -2450,6 +2493,9 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     save_button = Button(box_save, 'SAVE', hovercolor='0.975')
     reset_button = Button(box_reset, 'RESET', hovercolor='0.975')
     saveandexit = Button(box_sande, 'SAVE AND EXIT', hovercolor='0.975')
+
+    p90_button = Button(box_p90, '+90°', hovercolor='0.975')
+    m90_button = Button(box_m90, '-90°', hovercolor='0.975')
     #   Radiobuttons
     radio = RadioButtons(box_radio, radiolabels)
     seldim = RadioButtons(box_dimen, ['F2', 'F1'])
@@ -2533,12 +2579,41 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
                 if statf[i] and stat[k]:
                     sens[i][k] = sens[i][k]/2
 
+    def p90(event):
+        """ add 90 degrees to phase 0 or phase 1 """
+        if bool(int(stat[-1])):
+            return
+        nonlocal P
+        for j in range(len(stat)):
+            if stat[j]:
+                if statf[0]:
+                    P[0][j] += 90
+                else:
+                    P[1][j] += 90
+                break
+        on_scroll(None)
+
+    def m90(event):
+        """ removes 90 degrees to phase 0 or phase 1 """
+        if bool(int(stat[-1])):
+            return
+        nonlocal P
+        for j in range(len(stat)):
+            if stat[j]:
+                if statf[0]:
+                    P[0][j] -= 90
+                else:
+                    P[1][j] -= 90
+                break
+        on_scroll(None)
+
     def on_scroll(event):
         # When you move the mouse scroll
-        if event.button == 'up':
-            roll_up(event)
-        if event.button == 'down':
-            roll_down(event)
+        if event is not None:
+            if event.button == 'up':
+                roll_up(event)
+            if event.button == 'down':
+                roll_down(event)
 
         # Print the actual values
         phases_text.set_text(
@@ -2674,6 +2749,9 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
     save_button.on_clicked(save)
     saveandexit.on_clicked(save_and_exit)
 
+    p90_button.on_clicked(p90)
+    m90_button.on_clicked(m90)
+
     up_button.on_clicked(sens_up)
     down_button.on_clicked(sens_down)
     radio.on_clicked(statmod)
@@ -2760,7 +2838,7 @@ def integral(fx, x=None, dx=None, lims=None, use_bas=False):
         x_tr, fx_tr = misc.trim_data(x_in, fx_in, lims)
 
     if use_bas:
-        bas = calc_bas(fx_tr, 0, len(x_tr))
+        bas = calc_bas(fx_tr, 0, len(x_tr)-1)
     else:
         bas = np.zeros_like(x_tr)
 
@@ -3057,7 +3135,7 @@ def calibration(ppmscale, S, ref=None):
     reset_button.on_clicked(reset)
     up_button.on_clicked(increase_step)
     down_button.on_clicked(decrease_step)
-    Cursor(ax, useblit=True, horizOn=False, color='k', linewidth=0.4)
+    cursor = Cursor(ax, useblit=True, horizOn=False, color='k', linewidth=0.4)
     fig.canvas.mpl_connect('button_press_event', mouse_click)
     fig.canvas.mpl_connect('scroll_event', on_scroll)
 
@@ -3253,7 +3331,7 @@ def simplisma(D, nc, f=10, oncols=True):
     If ``oncols=True``, this function estimates ``S`` with simplisma, then calculates :math:`C = D S^+`.
     If ``oncols=False``, this function estimates ``C`` with *simplisma*, then calculates :math:`S = C^+ D`. ``f`` defines the percentage of allowed noise.
 
-    .. _Windig and Guilment: 10.1021/ac00014a016
+    .. _Windig and Guilment: https://pubs.acs.org/doi/10.1021/ac00014a016
 
     Parameters
     ----------
@@ -3589,13 +3667,13 @@ def mcr(input_data, nc, f=10, tol=1e-3, itermax=1e4, P='H', oncols=True):
 
     .. seealso::
 
-        :func:`klassez.processing.mcr_stack``
+        :func:`klassez.processing.mcr_stack`
 
-        :func:`klassez.processing.mcr_unpack``
+        :func:`klassez.processing.mcr_unpack`
 
-        :func:`klassez.processing.simplisma``
+        :func:`klassez.processing.simplisma`
 
-        :func:`klassez.processing.mcr_als``
+        :func:`klassez.processing.mcr_als`
 
     """
 
@@ -3979,7 +4057,7 @@ def interactive_basl_windows(ppm, data):
 
     misc.set_fontsizes(ax, 14)
     # Widgets
-    Cursor(ax, useblit=True, color='k', linewidth=0.2)
+    cursor = Cursor(ax, useblit=True, color='k', linewidth=0.2)
     fig.canvas.mpl_connect('button_press_event', on_click)
 
     plt.show()
@@ -4350,7 +4428,7 @@ def acme(data, m=1, a=5e-5):
     r"""
     Automated phase Correction based on Minimization of Entropy.
     This algorithm allows for automatic phase correction by minimizing the entropy of the m-th derivative of the spectrum,
-    as explained in detail by L. Chen et.al. in Journal of Magnetic Resonance 158 (2002) 164-168.
+    as explained in detail by `L. Chen et. al.`_.
 
     Defined the entropy of `h` as:
 
@@ -4379,6 +4457,10 @@ def acme(data, m=1, a=5e-5):
     where `P(R)` is a penalty function for negative values of the spectrum.
 
     The phase correction is applied using :func:`klassez.processing.ps`. The values ``p0`` and ``p1`` are fitted using Nelder-Mead algorithm.
+
+
+    .. _L. Chen et. al.: https://www.sciencedirect.com/science/article/pii/S1090780702000691
+
 
     Parameters
     ----------
@@ -4503,8 +4585,10 @@ def acme(data, m=1, a=5e-5):
 
 def whittaker_smoother(data, n=2, s_f=1, w=None):
     """
-    Adapted from P.H.C. Eilers, Anal. Chem 2003, 75, 3631-3636.
+    Adapted from `P.H.C. Eilers, Anal. Chem 2003, 75, 3631-3636`_.
     Implementation of the smoothing algorithm proposed by Whittaker in 1923.
+
+    .. _P.H.C. Eilers, Anal. Chem 2003, 75, 3631-3636: https://pubs.acs.org/doi/10.1021/ac034173t
 
     Parameters
     ----------
@@ -5334,7 +5418,7 @@ def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's':
 
         :func:`klassez.fit.lsp`
 
-        :func:`klassez.processing.abca`
+        :func:`klassez.processing.abc_v2`
     """
 
     def compute_weights(ppm, data, qfil=False, alpha=2.75):
@@ -5392,11 +5476,11 @@ def abc(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's':
     return baseline
 
 
-def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
+def abc_v2(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
     """
     Automatic computation of a baseline for a spectrum using a thresholding-based method for the detection of the baseline-only region,
     followed by a weighted linear least squares optimization with a polynomion of degree n-1.
-    Employs the same method for the detection of signal-free regions of ``processing.apk``.
+    Employs the same method for the detection of signal-free regions of :func:`klassez.processing.apk`.
     Set ``qfil=True`` if there is a very intense solvent peak that would hamper the computation of the threshold.
 
     Parameters
@@ -5479,8 +5563,8 @@ def abca(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
 
 def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's': 10}):
     """
-    Computes the baseline correction on data using ``processing.abc``, and gives back the subtracted spectrum.
-    The imaginary part of the spectrum is reconstructed using ``processing.hilbert``.
+    Computes the baseline correction on data using :func:`klassez.processing.abc`, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using :func:`klassez.processing.hilbert`.
 
     Parameters
     ----------
@@ -5493,13 +5577,13 @@ def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's':
     lims : tuple or None
         Limits for the region on which to compute the baseline, in ppm
     alpha : float
-        The threshold will be set as thr = alpha * np.std(np.gradient(data))
+        The threshold will be set as ``thr = alpha * np.std(np.gradient(data))``
     qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
     qfilp : dict
-        Parameters to be used to compute the filter if qfil is True. Keys:
-        'u' = center of the filter in ppm
-        's' = width of the filter in Hz
+        Parameters to be used to compute the filter if ``qfil=True``. Keys:
+        ``'u'`` = center of the filter in ppm
+        ``'s'`` = width of the filter in Hz
 
     Returns
     ----------
@@ -5521,10 +5605,10 @@ def abs(ppm, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's':
     return S
 
 
-def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
+def abs_v2(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
     """
-    Computes the baseline correction on data using ``processing.abca``, and gives back the subtracted spectrum.
-    The imaginary part of the spectrum is reconstructed using ``processing.hilbert``.
+    Computes the baseline correction on data using :func:`klassez.processing.abc_v2`, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using :func:`klassez.processing.hilbert`.
 
     Parameters
     ----------
@@ -5543,9 +5627,9 @@ def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
     qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
     qfilp : dict
-        Parameters to be used to compute the filter if qfil is True. Keys:
-        'u' = center of the filter in ppm
-        's' = width of the filter in Hz
+        Parameters to be used to compute the filter if ``qfil=True``. Keys:
+        ``'u'`` = center of the filter in ppm
+        ``'s'`` = width of the filter in Hz
 
     Returns
     ----------
@@ -5554,12 +5638,12 @@ def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
 
     .. seealso::
 
-        :func:`klassez.processing.abca`
+        :func:`klassez.processing.abc_v2`
 
         :func:`klassez.processing.hilbert`
     """
     # Compute the baseline
-    b = processing.abca(ppm, data.real, SFO1, n=n, alpha=alpha, winsize=winsize, lims=lims, qfil=qfil, qfilp=qfilp)
+    b = processing.abc_v2(ppm, data.real, SFO1, n=n, alpha=alpha, winsize=winsize, lims=lims, qfil=qfil, qfilp=qfilp)
     # Subtract it
     datab = data.real - b
     # Compute the missing imaginary part
@@ -5567,11 +5651,11 @@ def absa(ppm, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp=
     return S
 
 
-def absa2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}, FnMODE='States-TPPI'):
+def abs2_v2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}, FnMODE='States-TPPI'):
     """
     Baseline correction for 2D datasets, alternative version.
-    Computes the baseline correction on ``data`` using ``processing.abca`` for each row, and gives back the subtracted spectrum.
-    The imaginary part of the spectrum is reconstructed using either ``processing.hilbert`` or ``processing.hilbert2`` depending on ``FnMODE``.
+    Computes the baseline correction on ``data`` using :func:`klassez.processing.abc_v2` for each row, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using either :func:`klassez.processing.hilbert` or :func:`klassez.processing.hilbert2` depending on ``FnMODE``.
 
     .. todo::
 
@@ -5588,13 +5672,13 @@ def absa2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qf
     lims : tuple or None
         Limits for the region on which to compute the baseline, in ppm
     alpha : float
-        The threshold will be set as thr = alpha * np.std(np.gradient(data))
+        The threshold will be set as ``thr = alpha * np.std(np.gradient(data))``
     qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
     qfilp : dict
-        Parameters to be used to compute the filter if qfil is True. Keys:
-        'u' = center of the filter in ppm
-        's' = width of the filter in Hz
+        Parameters to be used to compute the filter if ``qfil=True``. Keys:
+        ``'u'`` = center of the filter in ppm
+        ``'s'`` = width of the filter in Hz
 
     Returns
     ----------
@@ -5603,7 +5687,7 @@ def absa2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qf
 
     .. seealso::
 
-        :func:`klassez.processing.abca`
+        :func:`klassez.processing.abc_v2`
 
         :func:`klassez.processing.hilbert`
 
@@ -5612,7 +5696,7 @@ def absa2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qf
     # Compute the baseline
     D = deepcopy(data)
     for k, trace in enumerate(D):
-        b = processing.abca(ppm_f2, trace, SFO1, n=n, lims=lims, winsize=winsize, qfil=qfil, qfilp=qfilp)
+        b = processing.abc_v2(ppm_f2, trace, SFO1, n=n, lims=lims, winsize=winsize, qfil=qfil, qfilp=qfilp)
         # Subtract it
         D[k] = trace - b
     # Compute the missing imaginary part
@@ -5627,8 +5711,8 @@ def absa2(ppm_f2, data, SFO1, n=5, lims=None, alpha=5, winsize=2, qfil=False, qf
 def abs2(ppm_f2, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's': 10}, FnMODE='States-TPPI'):
     """
     Baseline correction for 2D datasets.
-    Computes the baseline correction on ``data`` using ``processing.abc`` for each row, and gives back the subtracted spectrum.
-    The imaginary part of the spectrum is reconstructed using either ``processing.hilbert`` or ``processing.hilbert2`` depending on ``FnMODE``.
+    Computes the baseline correction on ``data`` using :func:`klassez.processing.abc` for each row, and gives back the subtracted spectrum.
+    The imaginary part of the spectrum is reconstructed using either :func:`klassez.processing.hilbert` or :func:`klassez.processing.hilbert2` depending on ``FnMODE``.
 
     Parameters
     ----------
@@ -5641,13 +5725,13 @@ def abs2(ppm_f2, data, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 
     lims : tuple or None
         Limits for the region on which to compute the baseline, in ppm
     alpha : float
-        The threshold will be set as thr = alpha * np.std(np.gradient(data))
+        The threshold will be set as ``thr = alpha * np.std(np.gradient(data))``
     qfil : bool
         Choose whether to apply a filter on the solvent region (True) or not (False)
     qfilp : dict
-        Parameters to be used to compute the filter if qfil is True. Keys:
-        'u' = center of the filter in ppm
-        's' = width of the filter in Hz
+        Parameters to be used to compute the filter if ``qfil=True``. Keys:
+        ``'u'`` = center of the filter in ppm
+        ``'s'`` = width of the filter in Hz
 
     Returns
     ----------

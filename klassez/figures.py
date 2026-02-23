@@ -19,6 +19,50 @@ figsize_large = (15, 8)
 warnings.filterwarnings("ignore", message="No contour levels were found within the data range.")
 
 
+def draw_bare_contour(ax, xscale, yscale, data, lvl, cmap='Greys_r', c_fac=1.4, c_num=16, lw=0.5):
+    """
+    Typically used within other functions, this calculates the contour lines and draws them on a given subplot.
+
+    Parameters
+    ----------
+    ax : matplotlib.Subplot Object
+        Panel where to draw the contours
+    xscale : 1darray
+        X-scale of the contours
+    yscale : 1darray
+        Y-scale of the contours
+    data : 2darray
+        Data where to extract the contour levels from
+    lvl : float
+        Relative height with respect to ``data`` for the first contour
+    c_fac : float
+        Spacing between next contour lines
+    c_num : int
+        Number of contour lines to compute
+    lw : float
+        Linewidths for the contours
+    cmap : str
+        Colormap identifier for the contour (must be in ``klassez.CM``, or better in ``klassez.CM_2D``)
+
+    Returns
+    ----------
+    cnt : matplotlib.contour.QuadContourSet object
+        Contour levels set
+    """
+    cmap = CM[f'{cmap}']
+
+    norm = np.max(np.abs(data))
+    contour_start = norm * lvl
+    contour_num = c_num
+    contour_factor = c_fac
+    # calculate contour levels
+    cl = contour_start * contour_factor ** np.arange(contour_num)
+
+    cnt = ax.contour(xscale, yscale, data, cl, cmap=cmap,
+                     extent=(min(xscale), max(xscale), max(yscale), min(yscale)), linewidths=lw)
+    return cnt
+
+
 def heatmap(data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, rev=(False, False), n_xticks=10, n_yticks=10, n_zticks=10, fontsize=10, name=None):
     """
     Computes a heatmap of data.
@@ -609,14 +653,8 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
     else:
         ysx, ydx = max(ylims), min(ylims)
 
-    norm = np.max(np.abs(datax))
-    contour_start = norm*lvl
-    contour_num = 16
-    contour_factor = c_fac
-    # calculate contour levels
-    cl = contour_start * contour_factor ** np.arange(contour_num)
-
-    cnt = ax.contour(ppm_f2, ppm_f1, datax, cl, cmap=cmap, extent=(min(ppm_f2), max(ppm_f2), max(ppm_f1), min(ppm_f1)), linewidths=lw)
+    cnt = figures.draw_bare_contour(ax, ppm_f2, ppm_f1, datax,
+                                    lvl=lvl, c_fac=c_fac, lw=lw)
 
     if X_label is not None:
         ax.set_xlabel(X_label)
@@ -637,7 +675,7 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
                    Negatives=False, X_label=r'$\delta\ $ F2 /ppm', Y_label=r'$\delta\ $ F1 /ppm',
                    lw=0.5, n_xticks=10, n_yticks=10, labels=None, name=None, ext='png', dpi=600):
     """
-    Generates the figure of multiple, superimposed spectra, using :func:`klassez.figures.figures.ax2D`.
+    Generates the figure of multiple, superimposed spectra, using :func:`klassez.figures.ax2D`.
 
     Parameters
     ----------
@@ -1287,7 +1325,7 @@ def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm',
         fig.set_size_inches(figsize_large)
         plt.subplots_adjust(left=0.10, bottom=0.1, right=0.95, top=0.95)
         misc.set_fontsizes(ax, 14)
-        Cursor(ax, useblit=True, horizOn=False, c='tab:red', lw=0.8)
+        cursor = Cursor(ax, useblit=True, horizOn=False, c='tab:red', lw=0.8)
         plt.show()
     plt.close()
     print('Done.')
@@ -1481,7 +1519,7 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     dz_button.on_clicked(decrease_zoom)
     all_button.on_clicked(select_all)
     none_button.on_clicked(select_none)
-    Cursor(ax, useblit=True, color='red', horizOn=False, linewidth=0.4)
+    cursor = Cursor(ax, useblit=True, color='red', horizOn=False, linewidth=0.4)
 
     plt.show()
     plt.close()
@@ -1607,12 +1645,8 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
 
     def on_scroll(event):
         """ What happens when you scroll """
-        nonlocal cnt
-        if Neg:
-            nonlocal Ncnt
-        # Get limits of the figure, to reset them later
-        xsx, xdx = ax.get_xlim()
-        ysx, ydx = ax.get_ylim()
+        if not Neg:
+            Ncnt = [None for w in range(len(cnt))]
         # Move only the active spectra
         for k in range(nsp):
             if flags[k]:
@@ -1622,35 +1656,17 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
                     lvl[k] /= lvlstep
                 if lvl[k] > 1:
                     lvl[k] = 1
-        # Clear ax because cnt cannot be overwritten as list
-        ax.cla()
         # Redraw the contours
-        cnt = [figures.ax2D(ax, ppm_f2[k], ppm_f1[k], S[k],
-                            xlims=(max(ppm_f2[k]), min(ppm_f2[k])),
-                            ylims=(max(ppm_f1[k]), min(ppm_f1[k])),
-                            cmap=cmaps[2*k], c_fac=1.4, lvl=lvl[k],
-                            lw=0.5, X_label=X_label, Y_label=Y_label)
-               for k in range(nsp)]
-        if Neg:
-            Ncnt = [figures.ax2D(ax, ppm_f2[k], ppm_f1[k], -S[k],
-                                 xlims=(max(ppm_f2[k]), min(ppm_f2[k])),
-                                 ylims=(max(ppm_f1[k]), min(ppm_f1[k])),
-                                 cmap=cmaps[2*k+1], c_fac=1.4, lvl=lvl[k],
-                                 lw=0.5, X_label=X_label, Y_label=Y_label)
-                    for k in range(nsp)]
-        else:
-            Ncnt = None
-
-        # Set the limits as they were before
-        misc.pretty_scale(ax, (xsx, xdx), 'x')
-        misc.pretty_scale(ax, (ysx, ydx), 'y')
+        for k in range(nsp):
+            cnt[k], Ncnt[k] = figures.redraw_contours(ax, ppm_f2[k], ppm_f1[k], S[k], lvl=lvl[k],
+                                                      cnt=cnt[k], Neg=Neg, cmap=[cmaps[2 * k], cmaps[2 * k + 1]],
+                                                      c_fac=1.4, lw=0.5)
 
         # Update the zoom values in the legend
         [scale_text[k].set_text(f'{value:.3f}') for k, value in enumerate(lvl)]
         # Bigger fonts
         misc.set_fontsizes(ax, 20)
         # Redraw the legend because of ax.cla()
-        ax.legend(handles=handles, loc='upper right', fontsize=14)
         fig.canvas.draw()
 
     def radioflag(label):
@@ -1693,45 +1709,28 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     else:
         Ncnt = None
 
-    # Compute handles for the legend
-    import matplotlib.lines as mlines
-    handles = []        # Artists for the legend
-    hColors = []        # Store the colors
-    for i in range(len(labels)):
-        # Transform the colormap in a list and take the most characteristic color
-        colorX = misc.cmap2list(cnt[i].get_cmap())[4]
-        # Draw a line with the associated label
-        patchX = mlines.Line2D([], [], color=colorX, label=f'{labels[i]}')
-        # Append these to the previous lists
-        handles.append(patchX)
-        hColors.append(colorX)
-        if Neg:
-            # same thing
-            colorNX = misc.cmap2list(Ncnt[i].get_cmap())[4]
-            patchNX = mlines.Line2D([], [], color=colorNX, label=f'$-${labels[i]}')
-            # We do not add these colors to hColors because it is useless
-            handles.append(patchNX)
-
     # Make pretty x-scale
     xsx, xdx = max(np.concatenate(ppm_f2)), min(np.concatenate(ppm_f2))
     ysx, ydx = max(np.concatenate(ppm_f1)), min(np.concatenate(ppm_f1))
     misc.pretty_scale(ax, (xsx, xdx), axis='x')
     misc.pretty_scale(ax, (ysx, ydx), axis='y')
 
+    colors_contours = [misc.cmap2list(CM[cmaps[2*k]], N=3)[1] for k in range(nsp)]
     # Create labels for the checkbox
     checklabels = []
     for k in range(nsp):
         checklabels.append(labels[k][:12])
     radio = CheckButtons(check_box, checklabels, list(np.ones(nsp)))
-    misc.edit_checkboxes(radio, xadj=0, yadj=0.005, dim=100, color=hColors)
+    misc.edit_checkboxes(radio, xadj=0, yadj=0.005, dim=100, color=colors_contours)
 
     # Print the scale factors
     lbl_y = [Q.get_position()[1] for Q in radio.labels]
     scale_text = []
-    for Y, value in zip(lbl_y, lvl):
+    for k, (Y, value) in enumerate(zip(lbl_y, lvl)):
         scale_text.append(check_box.text(0.995, Y, f'{value:.3f}',
                                          ha='right', va='center',
-                                         transform=check_box.transAxes, fontsize=10))
+                                         transform=check_box.transAxes, fontsize=10,
+                                         color=colors_contours[k]))
 
     # Create buttons
     iz_button = Button(iz_box, label=r'$\uparrow$')
@@ -1746,11 +1745,9 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     dz_button.on_clicked(decrease_zoom)
     save_button.on_clicked(makefigure)
 
-    Cursor(ax, useblit=True, color='red', linewidth=0.4)
+    cursor = Cursor(ax, useblit=True, color='red', linewidth=0.4)
 
     misc.set_fontsizes(ax, 20)
-    # Draw the legend now otherwise set_fontsizes makes it disappear
-    ax.legend(handles=handles, loc='upper right', fontsize=14)
 
     plt.show()
     plt.close()
@@ -1758,7 +1755,7 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     return lvl
 
 
-def redraw_contours(ax, ppm_f2, ppm_f1, S, lvl, cnt, Neg=False, Ncnt=None, lw=0.5, cmap=[None, None]):
+def redraw_contours(ax, ppm_f2, ppm_f1, S, lvl, cnt, Neg=False, Ncnt=None, cmap=[None, None], c_fac=1.4, c_num=16, lw=0.5):
     """
     Redraws the contours in interactive 2D visualizations.
 
@@ -1791,19 +1788,25 @@ def redraw_contours(ax, ppm_f2, ppm_f1, S, lvl, cnt, Neg=False, Ncnt=None, lw=0.
         Updated contours
     Ncnt : matplotlib.contour.QuadContourSet object or None
         Updated negative contours if Neg is True, None otherwise
+
+
+    .. seealso::
+
+        :func:`klassez.figures.draw_bare_contour`
     """
 
     # Suppress the 'I cannot find the contours' warning
     warnings.filterwarnings("ignore", message="No contour levels were found within the data range.")
 
+    # Remove the previously-existing contours
     cnt.remove()
     if Neg:
         Ncnt.remove()
     # Draw new positive contours
-    cnt = figures.ax2D(ax, ppm_f2, ppm_f1, S, lvl=lvl, cmap=cmap[0])
+    cnt = figures.draw_bare_contour(ax, ppm_f2, ppm_f1, S, lvl=lvl, cmap=cmap[0], c_fac=c_fac, c_num=c_num, lw=lw)
     if Neg:
         # Draw new negative contours
-        Ncnt = figures.ax2D(ax, ppm_f2, ppm_f1, -S, lvl=lvl, cmap=cmap[1])
+        Ncnt = figures.draw_bare_contour(ax, ppm_f2, ppm_f1, -S, lvl=lvl, cmap=cmap[1], c_fac=c_fac, c_num=c_num, lw=lw)
     else:
         Ncnt = None
 
