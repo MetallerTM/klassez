@@ -27,7 +27,7 @@ This command will do three main tasks:
 -  initialize a dictionary ``s.procs`` which contains the processing
    parameters.
 
-**KLASSEZ** is able to read also Varian and Spinsolve (Magritek) data,
+*KLASSEZ* is able to read also Varian and Spinsolve (Magritek) data,
 by specifying the option "``spect``".
 
 A detailed description of ``acqus`` and ``procs`` is shown in
@@ -542,7 +542,7 @@ Computing projections
 While the 2D spectra give an overall look on the whole experiment, the
 user might want to extract projection of the direct or the indirect
 dimension, to focus onto particular features in the spectrum. In order
-to do so, **KLASSEZ** offers two commands: ``projf1`` and ``projf2``,
+to do so, *KLASSEZ* offers two commands: ``projf1`` and ``projf2``,
 which compute the sum projections on the indirect or on the direct
 dimension, respectively, and store the result in dictionaries called
 ``trf1`` and ``trf2``, whose keys are the ppm values correspondant to
@@ -773,7 +773,7 @@ principle, but their processing and analysis resemble the one of 1D
 spectra. Therefore, they lie somewhere in between 1D spectra and 2D
 spectra, hence they are often referred to as *pseudo_2D*.
 
-Also in this case, **KLASSEZ** offers a specific class to deal with this
+Also in this case, *KLASSEZ* offers a specific class to deal with this
 kind of data: :class:`klassez.Spectra.Pseudo_2D`. :class:`Pseudo_2D` is a subclass of
 :class:`Spectrum_2D`; however, many functions have been adapted to resemble
 the 1D version.
@@ -926,8 +926,8 @@ The integrated regions will be highlighted as light-blue spans in both panels. T
 
 
 
-Analyzing data in KLASSEZ
-*************************
+Analyzing data in *KLASSEZ*
+***************************
 
 Integrate 1D spectra
 --------------------

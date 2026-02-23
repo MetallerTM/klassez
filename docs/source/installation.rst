@@ -23,14 +23,16 @@ The required dependencies are sorted out automatically in either case.
 
 There also exist the possibility to install a dedicated environment using the *.yml* file in the main directory of the GitHub page.
 It works with either Anaconda/miniconda, and points to the latest stable version of *KLASSEZ* (i.e. the one in the *main* branch and on *PyPI*).
-You can download it from the GitHub page and install with
+You can download the ``kz_environment.yml`` file from the GitHub page and install the environment with
 
 ::
 
     conda env create -f kz_environment.yml
 
-Check the actual content of the `.yml` file to know the name of the created environment and to have a complete list of the packages to install.
+The name of the created environment will be `kz_<version>`, but it can be changed by adding the option ``-n <new name>`` to the command.
+The  environment will contain the required packages to make *KLASSEZ* work, including the GUIs with the `qt` backend. Remember to activate it in matplotlib by following the instructions in the relative section (:ref:`mpl-backends`). Note that `pyqt6` is already installed by the environment!
 
+.. _mpl-backends:
 
 A note on `matplotlib` backends
 -------------------------------
@@ -98,7 +100,7 @@ This line executes the following code:
 
 
 
-This means these can be not imported in your code, as **KLASSEZ**
+This means these can be not imported in your code, as *KLASSEZ*
 already does it for you.
 
 An alternative, safer version to prevent overwriting of custom functions
