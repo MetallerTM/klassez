@@ -1,6 +1,9 @@
 # Version 0.5a.5
 
 
+## Modified functions:
+24/02/26
+- *figures.ax_diffplot*: added more customization options, bug fixes
 
 # Version 0.5a.4
 

@@ -1872,33 +1872,30 @@ def ongoing_fit(exp, calc, residual, ylims=None, filename=None, dpi=100):
     plt.close()
 
 
-def ax_diffplot(axd, axy, ppm, spectrum, dic, color='tab:blue', X_label=r'$\delta\,$ F1 /ppm'):
+def ax_diffplot(axd, axy, ppm, spectrum, dic, color='tab:blue', fmt='o', ms=8, X_label=r'$\delta\,$ F1 /ppm'):
     """
     Makes a plot of the diffusion coefficients, with error bars, as a function of the integrated regions.
 
     Parameters
     ----------
+    axd : matplotlib.Subplot Object
+        Subplot for the plot of the diffusion coefficients
+    axy : matplotlib.Subplot Object or None
+        Subplot for the plot of the spectra. If ``None``, it is not drawn.
     ppm : 1darray
         ppm scale of the fitted DOSY spectrum
     spectrum : 2darray
         DOSY spectrum
     dic : list of dict
         Dictionary that comes from the :class:`klassez.fit.DosyFit` class, i.e. from reading a `.dy` file.
-    xlims : sequence of float or False or None
-        Limits for the chemical shift axis.
-        If ``False``, the whole spectrum is plotted.
-        If ``None``, a restricted portion of the spectrum which includes all the
-        fitted regions is shown instead
+    color : str
+        Color for the markers that identify the diffusion coefficient
+    fmt : str
+        Marker used
+    ms : int
+        Marker size
     X_label : str
         Label for the chemical shift axis
-    filename : str or None
-        Filename for the figure to save. If None, the plot is shown instead
-    ext : str
-        Format for the figure to save
-    dpi : int
-        Resolution of the figure in dots per inches
-    dim : tuple of int
-        Dimension of the figure in inches
 
     Returns
     -------
@@ -1911,8 +1908,9 @@ def ax_diffplot(axd, axy, ppm, spectrum, dic, color='tab:blue', X_label=r'$\delt
         :class:`klassez.fit.DosyFit`
     """
 
-    for y in spectrum:
-        axy.plot(ppm, y, lw=0.8)
+    if axy is not None:
+        for y in spectrum:
+            axy.plot(ppm, y, lw=0.8)
 
     # Plot the diffusion coefficients
     for region in dic:
@@ -1923,11 +1921,13 @@ def ax_diffplot(axd, axy, ppm, spectrum, dic, color='tab:blue', X_label=r'$\delt
         # Highlight the fitted regions
         for ax in [axd, axy]:
             ax.axvspan(min(lims), max(lims), color='tab:blue', alpha=0.05)
+            if axy is None:
+                break
 
         # Draw the diffusion coefficients with their error bars
         for k, (diffc, diffe) in enumerate(zip(region['diff_c'], region['diff_e'])):
-            axd.errorbar(x_center, diffc, diffe, fmt='o',
-                         elinewidth=0.5, ecolor='k', capsize=2, ms=8, c=color)
+            axd.errorbar(x_center, diffc, diffe, fmt=fmt, ms=ms,
+                         elinewidth=0.5, ecolor='k', capsize=2, c=color)
 
     # Fancy stuff
     axd.set_xlabel(X_label)
@@ -1935,11 +1935,14 @@ def ax_diffplot(axd, axy, ppm, spectrum, dic, color='tab:blue', X_label=r'$\delt
     axd.grid(axis='y', lw=0.4)
 
     misc.pretty_scale(axd, ax.get_xlim(), 'x')
-    misc.pretty_scale(axy, axy.get_ylim(), 'y', 3)
+    if axy is not None:
+        misc.pretty_scale(axy, axy.get_ylim(), 'y', 3)
 
     for ax in [axd, axy]:
         misc.mathformat(ax)
         misc.set_fontsizes(ax, 16)
+        if axy is None:
+            break
 
 
 def diffplot(ppm, spectrum, dic, xlims=None, color='tab:blue', X_label=r'$\delta\,$ F1 /ppm', filename=None, ext='png', dpi=300, dim=None):
@@ -2018,7 +2021,7 @@ def diffplot(ppm, spectrum, dic, xlims=None, color='tab:blue', X_label=r'$\delta
             diffc_text.set_text(f'{event.ydata:12.5e}')
         fig.canvas.draw()
 
-    figures.ax_diffplot(axd, axy, ppm, spectrum, dic, color, X_label)
+    figures.ax_diffplot(axd, axy, ppm, spectrum, dic, color, X_label=X_label)
 
     misc.pretty_scale(axd, xlims, 'x')
 
