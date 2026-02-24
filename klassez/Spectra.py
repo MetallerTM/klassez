@@ -837,6 +837,7 @@ class Spectrum_1D:
 
         # Set a vertical line for inspection
         cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8, horizOn=False)
+        cursor.vertOn = True
 
         # Widget for distance measurement
         SpanSelector(ax, onselect, direction='horizontal', useblit=False, button=3,
@@ -2665,6 +2666,7 @@ class Spectrum_2D:
 
         # Crosshair for visualization
         cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8)
+        cursor.vertOn = True
 
         plt.show()
         plt.close()
@@ -3470,6 +3472,7 @@ class Pseudo_2D(Spectrum_2D):
         misc.set_fontsizes(ax, 14)
 
         cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8)
+        cursor.vertOn = True
 
         plt.show()
         plt.close()
@@ -4059,3 +4062,558 @@ class DOSY(Pseudo_2D):
         # Make the plot
         figures.diffplot(self.ppm_f2, self.rr, dic, xlims=xlims, X_label=X_label,
                          filename=filename, ext=ext, dpi=dpi, dim=dim)
+
+
+class pDOSY(DOSY):
+    """
+    Plane of a :class:`klassez.Spectra.DOSY_T1`.
+
+    Attributes:
+    -----------
+    TODO
+
+    """
+    def __init__(self, in_file, acqus, datadir, ppm_scale=None, indirect_scale=None, p=None, ngdic=None):
+        """
+        Initialize the class with the already processed spectrum and a few other parameters.
+
+        Parameters:
+        -----------
+        in_file : 2darray
+            Processed spectrum
+        acqus : dict
+            Acquisition dictionary in the format of the one of :cls:`kz.DOSY3D`
+        datadir : str
+            Location of the original 3D spectrum
+        ppm_scale : 1darray or None
+            PPM scale of the direct dimension to be used. If ``None``, it is computed from ``acqus``
+        indirect_scale: 1darray
+            Scale for the indirect dimension. Important for correct display and fitting.
+        p : int or str
+            It will be added to ``self.filename`` in order to not overwite the original files
+        """
+        # The input file is the processed data
+        # Real part
+        self.rr = in_file.real
+        # Imaginary part
+        if np.iscomplexobj(in_file):        # use the original imaginary part
+            self.ii = in_file.imag
+        else:                               # compute the hilbert transform
+            self.ii = processing.hilbert(self.rr).imag
+        # Complex data
+        self.S = self.rr + 1j * self.ii
+
+        # Store the acqus dictionary
+        self.acqus = acqus
+        # Add the FnMODE to acqus, required for certain functions inherited by Spectrum_2D
+        if 'FnMODE' not in self.acqus.keys():
+            self.acqus['FnMODE'] = 'No'
+
+        # Datadir and stuff
+        self.datadir = deepcopy(datadir)
+        self.filename = self.datadir.rsplit(os.sep, 1)[-1]
+        if p is not None:
+            self.filename += '_'+f'{p}'
+
+        # Compute the ppm and frequency scale for the direct dimension
+        if ppm_scale is None:   # compute the frequency scale, then transform it into ppm
+            self.freq_f2 = processing.make_scale(self.rr.shape[-1], self.acqus['dw'])
+            self.ppm_f2 = misc.freq2ppm(self.freq_f2, self.acqus['SFO1'], self.acqus['o1p'])
+        else:   # read the ppm scale and transform it to frequency
+            self.ppm_f2 = ppm_scale
+            self.freq_f2 = misc.ppm2freq(self.ppm_f2, self.acqus['SFO1'], self.acqus['o1p'])
+
+        # Important for the plots and the fit
+        #   the frequency scale is just the index of the transient in human numbering
+        self.freq_f1 = np.arange(self.rr.shape[0]) + 1
+        #   The ppm scale instead will be:
+        if indirect_scale is None:      # the index of the transient in python numbering
+            self.ppm_f1 = np.arange(self.rr.shape[0])
+        else:                           # the passed one
+            self.ppm_f1 = indirect_scale
+
+        # We might need it later
+        if ngdic is not None:
+            self.ngdic = ngdic
+
+    def write_procs(self):
+        """ Overwrites the original function to NOT EVER save a procs file """
+        pass
+
+
+class DOSY_T1:
+    """
+    Class: 3D DOSY spectrum
+
+    It should be acquired with the sequence described in
+    `Novakovic M. et al. (2025), Nature Communications, 16(1), 4628`_,
+    Supporting Information, Figure 12a.
+    This sequence, adapted in the pulse program ``stebpgp1s193D.rav``,
+    evolves the big delta (``d20``) in dimension F2 and the gradient strength according to
+    the `difflist` in dimension F1.
+    This sequence is actually equivalent to acquiring separate DOSY with different ``d20``.
+
+
+    .. _Novakovic M. et al. (2025), Nature Communications, 16(1), 4628: https://www.nature.com/articles/s41467-025-59759-2
+
+    Attributes:
+    -----------
+    datadir : str
+        Path to the input file/dataset directory
+    filename : str
+        Base of the name of the file, without extensions
+    fid : 3darray
+        FID
+    acqus : dict
+        Dictionary of acqusition parameters
+    ngdic : dict
+        Created only if it is an experimental spectrum. Generated by :func:`nmrglue.<spectrometer>.read`, contains all the information on the spectrometer and on the spectrum.
+    procs : dict
+        Dictionary of processing parameters
+    S : 3darray
+        Complex (or hypercomplex, depending on ``FnMODE``) spectrum
+    x_f1 : 1darray
+        gradient list
+    x_f2 : 1darray
+        big delta list
+    freq_f2 : 1darray
+        Frequency scale of the direct dimension, in Hz
+    ppm_f2 : 1darray
+        ppm scale of the direct dimension
+    """
+
+    def __init__(self, in_file):
+        """
+        Initialize the class.
+
+        Parameters
+        ----------
+        in_file : str
+            path to file to read, or to the folder of the spectrum
+        """
+        # Get the file position
+        self.datadir = os.path.abspath(in_file)
+        if not os.path.isdir(self.datadir):
+            self.datadir = os.path.dirname(self.datadir)
+        self.filename = os.path.basename(in_file).rsplit('.', 1)[0]  # Get the filename
+
+        # If filename is a directory, write things inside it
+        if os.path.isdir(os.sep.join([self.datadir, self.filename])):
+            self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
+
+        with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
+            warnings.simplefilter("ignore")
+            # Read the data, acquisition parameters...
+            dic, data = ng.bruker.read(in_file, cplex=True)
+            self.ngdic = dic
+            self.fid = data
+            self.acqus = misc.makeacqus_pp3D(dic)
+            self.fid = np.reshape(self.fid, (self.acqus['TD1'], self.acqus['TD2'], -1))
+            self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
+            self.acqus['DTYPA'] = dic['acqus']['DTYPA']
+
+            del dic
+            del data
+
+        # Get group delay points
+        try:
+            self.acqus['GRPDLY'] = int(self.ngdic['acqus']['GRPDLY'])
+        except Exception:
+            self.acqus['GRPDLY'] = 0
+
+        # Load the difflist
+        self.x_f1 = np.loadtxt(os.path.join(self.datadir, 'difflist'))
+        self.label_f1 = r'Gradient /G cm$^{-1}$'
+
+        # Load the d20 list
+        #   It should be the only file in lists/vd/ but we do not know its name
+        file = os.listdir(os.path.join(self.datadir, 'lists', 'vd'))[0]
+        #   Connect the name of the file to the path
+        vdlistpath = os.path.join(self.datadir, 'lists', 'vd', file)
+        #   Print a notification
+        print(f'Found {vdlistpath} to be imported as VDLIST')
+        #   Actual loading and storage in an attribute
+        vdlist = np.loadtxt(vdlistpath)
+        self.x_f2 = vdlist
+        self.label_f2 = 'Delay /s'
+
+        # Procs dictionary
+        if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
+            # If exists already, read it
+            self.procs = self.read_procs()
+        else:
+            # Initialize it as empty
+            self.procs = {}
+            proc_init_1D = (deepcopy(wf0), None, 0.5, 0)
+            for k, key in enumerate(proc_keys_1D):
+                self.procs[key] = proc_init_1D[k]         # Processing parameters
+            self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
+            #   Then, phases
+            self.procs['p0'] = 0
+            self.procs['p1'] = 0
+            self.procs['pv'] = round(self.acqus['o1p'], 2)
+            #   Then, baseline
+            self.procs['basl_c'] = None
+            self.procs['cal'] = 0
+            self.procs['roll_ppm'] = None
+
+            self.write_procs()
+
+    def process(self):
+        """
+        Process only the direct dimension.
+        Calls :func:`klassez.processing.fp` on each transient.
+        The parameters are read from the ``procs`` dictionary.
+
+        .. seealso::
+
+            :func:`klassez.processing.fp`
+        """
+        # Make empty self.S whose dimensions are given by the zero-filling
+        if self.procs['zf'] is None:
+            self.S = np.zeros(self.fid.shape).astype(self.fid.dtype)
+        else:
+            self.S = np.zeros((*self.fid.shape[:-1], self.procs['zf'])).astype(self.fid.dtype)
+
+        # Do the processing
+        # We suppress the UserWarnings because if the zerofilling is not enough it will show the warning 800 times and it is annoying
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', UserWarning)
+            # Process the transients one by one hence double for
+            for j in range(self.fid.shape[0]):      # difflist
+                for k in range(self.fid.shape[1]):  # vdlist
+                    self.S[j, k] = processing.fp(self.fid[j, k], wf=self.procs['wf'], zf=self.procs['zf'], fcor=self.procs['fcor'], tdeff=self.procs['tdeff'])
+        # Now if the zerofilling is incorrect give the warning just once
+        if self.S.shape[-1] < 2 * self.fid.shape[-1]:
+            warnings.warn('Not enough zerofilling for Hilbert Transform')
+
+        # Make the frequency and ppm scales
+        self.freq_f2 = processing.make_scale(self.S.shape[-1], dw=self.acqus['dw'])
+        if self.acqus['SFO1'] < 0:      # Correct for negative gamma nuclei
+            self.freq_f2 = self.freq_f2[::-1]
+        self.ppm_f2 = misc.freq2ppm(self.freq_f2, B0=self.acqus['SFO1'], o1p=self.acqus['o1p'])
+
+        if self.acqus['SFO1'] < 0:      # Correct for negative gamma nuclei
+            self.S = self.S[..., ::-1]
+
+        # Adjust the phase
+        self.adjph(fromplane=None, p0=self.procs['p0'], p1=self.procs['p1'], pv=self.procs['pv'], update=False)
+
+    def getplane(self, idx, dim='31'):
+        """
+        Extract from ``self.S`` the ``idx``-th plane (python numbering)
+        on the direction ``dim``.
+        Keeps a reference to it as the attribute ``self._active``.
+
+        Parameters
+        ----------
+        idx : int
+            Index of the plane to extract
+        dim : str
+            ``'31'`` = plane F3-F1; ``'32'`` = plane F3-F2
+
+        Returns
+        -------
+        active : pDOSY object
+            Extracted plane as :class:`klassez.Spectra.pDOSY` object
+        """
+        # We want to pass the ppm scale of the spectrum
+        if hasattr(self, 'ppm_f2'):
+            ppm_scale = self.ppm_f2
+        else:   # we do not care, pDOSY will compute it by itself
+            ppm_scale = None
+
+        if dim == '31':
+            # F3 - F1 plane
+            #   Slice along the second dimension
+            S = self.S[:, idx]
+            #   The indirect scale is the difflist, hence F1
+            indir_scale = self.x_f1
+        else:
+            # F3 - F1 plane
+            #   Slice along the first dimension
+            S = self.S[idx]
+            #   The indirect scale is the vdlist, hence F2
+            indir_scale = self.x_f2
+
+        # Store the plane as active and return it
+        self._active = pDOSY(S, self.acqus, self.datadir, ppm_scale, indir_scale, f'd{dim}_p{idx}', self.ngdic)
+        return self._active
+
+    def write_procs(self, other_dir=None):
+        """
+        Writes the actual ``procs`` dictionary in a file named ``"filename.procs"`` in the same directory of the input file.
+
+        Parameters
+        ----------
+        other_dir: str or None
+            Different location for the ``procs`` dictionary to write into. If None, ``self.datadir`` is used instead.
+
+            .. warning::
+
+                Do not put the trailing slash!
+        """
+        if other_dir:
+            path = os.path.join(other_dir, f'{self.filename}.procs')
+        else:
+            path = os.path.join(self.datadir, f'{self.filename}.procs')
+        with open(path, 'w') as f:
+            f.write(f'{self.procs}')
+
+    def read_procs(self, other_dir=None):
+        """
+        Reads the procs dictionary from a file named ``filename.procs`` in the same directory of the input file.
+
+        Parameters
+        ----------
+        other_dir : str or None
+            Different location for the procs dictionary to look into. If None, ``self.datadir`` is used instead.
+
+            .. warning::
+
+                Do not put the trailing slash!
+
+        Returns
+        ----------
+        procs: dict
+            Dictionary of processing parameters
+        """
+        if other_dir:
+            path = os.path.join(other_dir, f'{self.filename}.procs')
+        else:
+            path = os.path.join(self.datadir, f'{self.filename}.procs')
+        with open(path, 'r') as f:
+            procs = eval(f.read().replace('array', 'np.array'))
+        # Check if it was read correctly
+        if isinstance(procs, dict):
+            return procs
+        else:
+            raise ValueError(f'{self.filename}.procs cannot be interpreted as a dictionary')
+
+    def adjph(self, fromplane=0, expno=0, p0=None, p1=None, pv=None, update=True):
+        """
+        Adjusts the phases of the spectrum according to the given parameters, or interactively if they are left as default.
+
+        Parameters
+        ----------
+        fromplane : int
+            Index of the plane to use in the F3-F1 dimension
+        expno: int
+            Index of the experiment (python numbering) of the extracted plane to use in the interactive panel
+        p0: float or None
+            0-th order phase correction /°
+        p1: float or None
+            1-st order phase correction /°
+        pv: float or None
+            1-st order pivot /ppm
+        update: bool
+            Choose if to upload the procs dictionary or not
+
+        .. seealso::
+
+            :func:`klassez.processing.ps`
+
+            :func:`klassez.processing.interactive_phase_1D`
+        """
+        if fromplane is None:
+            values = p0, p1, pv
+        else:
+            # Get the reference spectrum
+            self.getplane(fromplane)
+            # Adjust the phases on the reference plane with its internal method
+            values = self._active.adjph(expno=expno, update=False)
+
+        # Apply to the whole dataset
+        self.S, _ = processing.ps(self.S, self.ppm_f2, *values)
+
+        # Update the procs dictionary
+        if update:
+            self.procs['p0'] += round(values[0], 2)
+            self.procs['p1'] += round(values[1], 2)
+            if values[2] is not None:
+                self.procs['pv'] = round(values[2], 5)
+        # Update the .procs file
+        self.write_procs()
+
+    def pknl(self):
+        """
+        Reverses the effect of the digital filter by applying a first order phase correction.
+        To be called after having processed the data by :func:`self.process()`.
+        """
+        if hasattr(self, 'S'):
+            self.S = processing.pknl(self.S, grpdly=self.acqus['GRPDLY'], onfid=False)
+        else:
+            self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
+
+    def plot(self, dim='31', fqscale=False, Neg=True, lvl0=0.2):
+        """
+        Plots the real part of the spectrum as a 2D contour plot.
+        You can scroll between the various planes inside the interactive panel.
+
+        TODO: THIS MUST BECOME A STANDALONE PLOT IN FIGURES
+
+        Parameters
+        ----------
+        dim : str
+            ``'31'`` = plane F3-F1; ``'32'`` = plane F3-F2
+        fqscale : bool
+            Display using frequency scale instead of ppm
+        Neg : bool
+            Plot (True) or not (False) the negative contours.
+        lvl0 : float
+            Starting contour value.
+        """
+        warnings.filterwarnings("ignore", message="No contour levels were found within the data range.")
+        # Plots data, set Neg=True to see negative contours
+        planeno = 0
+        if fqscale:
+            x_f2 = self.freq_f2
+        else:
+            x_f2 = self.ppm_f2
+
+        if dim == '31':
+            x_f1 = self.x_f1
+            idx_scale = self.x_f2
+            S = deepcopy(self.S.real[:, planeno])
+            Y_label = self.label_f1
+        elif dim == '32':
+            x_f1 = self.x_f2
+            idx_scale = self.x_f1
+            S = deepcopy(self.S.real[planeno])
+            Y_label = self.label_f2
+
+        n_xticks, n_yticks = 10, 10
+
+        def draw_panel(planeno):
+            nonlocal S, cnt, Ncnt
+
+            if dim == '31':
+                S = deepcopy(self.S.real[:, planeno])
+            elif dim == '32':
+                S = deepcopy(self.S.real[planeno])
+
+            cnt = figures.ax2D(ax, x_f2, x_f1, S, lvl=lvl, cmap=cmaps[0])
+            if Neg:
+                Ncnt = figures.ax2D(ax, x_f2, x_f1, -S, lvl=lvl, cmap=cmaps[1])
+
+            ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+            ax.text(0.900, 0.05, f'Plane no: {planeno+1:.0f}\nValue = {idx_scale[planeno]:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+            on_scroll(0)
+
+        # Make the figure
+        fig = plt.figure(f'{self.filename} - Plane dir. {dim}')
+        fig.set_size_inches(15, 8)
+        plt.subplots_adjust(left=0.10, bottom=0.10, right=0.90, top=0.95)
+        ax = fig.add_subplot()
+
+        X_label = r'$\delta\ $' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
+
+        cmaps = ['Blues_r', 'Reds_r']
+
+        # flags for the activation of scroll zoom
+        lvlstep = 1.4
+
+        # define boxes for sliders
+        iz_box = plt.axes([0.925, 0.80, 0.05, 0.05])
+        dz_box = plt.axes([0.925, 0.75, 0.05, 0.05])
+
+        next_box = plt.axes([0.925, 0.15, 0.05, 0.05])
+        prev_box = plt.axes([0.925, 0.10, 0.05, 0.05])
+
+        # Functions connected to the sliders
+        def increase_zoom(event):
+            nonlocal lvlstep
+            lvlstep += 0.05
+
+        def decrease_zoom(event):
+            nonlocal lvlstep
+            lvlstep -= 0.05
+            if lvlstep <= 1:
+                lvlstep = 1.05
+
+        def on_scroll(event):
+            nonlocal lvl, cnt
+            if Neg:
+                nonlocal Ncnt
+
+            act_xlim = ax.get_xlim()
+            act_ylim = ax.get_ylim()
+
+            if isinstance(event, (int, float)):
+                pass
+            else:
+                if event.button == 'up':
+                    lvl *= lvlstep
+                elif event.button == 'down':
+                    lvl /= lvlstep
+            if lvl > 1:
+                lvl = 1
+
+            if Neg:
+                cnt, Ncnt = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+            else:
+                cnt, _ = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+
+            misc.pretty_scale(ax, act_xlim, axis='x', n_major_ticks=n_xticks)
+            misc.pretty_scale(ax, act_ylim, axis='y', n_major_ticks=n_yticks)
+            ax.set_xlabel(X_label)
+            ax.set_ylabel(Y_label)
+            misc.set_fontsizes(ax, 14)
+            lvl_text.set_text(f'{lvl:.5g}')
+            fig.canvas.draw()
+
+        def next_spectrum(event):
+            nonlocal planeno
+            if planeno + 1 >= len(idx_scale):
+                return
+            else:
+                planeno += 1
+            ax.cla()
+            draw_panel(planeno)
+            fig.canvas.draw()
+
+        def prev_spectrum(event):
+            nonlocal planeno
+            if planeno <= 0:
+                return
+            else:
+                planeno -= 1
+            ax.cla()
+            draw_panel(planeno)
+            fig.canvas.draw()
+
+        lvl = lvl0
+
+        cnt = figures.ax2D(ax, x_f2, x_f1, S, lvl=lvl, cmap=cmaps[0])
+        if Neg:
+            Ncnt = figures.ax2D(ax, x_f2, x_f1, -S, lvl=lvl, cmap=cmaps[1])
+
+        lvl_text = ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+        ax.text(0.900, 0.05, f'Plane no: {planeno+1:.0f}\nValue = {idx_scale[planeno]:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+
+        # Make pretty x-scale
+        misc.pretty_scale(ax, (max(x_f2), min(x_f2)), axis='x', n_major_ticks=n_xticks)
+        misc.pretty_scale(ax, (max(x_f1), min(x_f1)), axis='y', n_major_ticks=n_yticks)
+        ax.set_xlabel(X_label)
+        ax.set_ylabel(Y_label)
+
+        # Create buttons
+        iz_button = Button(iz_box, label=r'$\uparrow$')
+        dz_button = Button(dz_box, label=r'$\downarrow$')
+        next_button = Button(next_box, label=r'>>')
+        prev_button = Button(prev_box, label=r'<<')
+
+        # Connect the widgets to functions
+        fig.canvas.mpl_connect('scroll_event', on_scroll)
+
+        iz_button.on_clicked(increase_zoom)
+        dz_button.on_clicked(decrease_zoom)
+        next_button.on_clicked(next_spectrum)
+        prev_button.on_clicked(prev_spectrum)
+
+        misc.set_fontsizes(ax, 14)
+
+        Cursor(ax, useblit=True, c='tab:red', lw=0.8)
+
+        plt.show()
+        plt.close()
