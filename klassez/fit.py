@@ -364,6 +364,8 @@ def get_region(ppmscale, S, fig_title='Region Selector'):
         The ppm scale of the spectrum
     S : 1darray
          The spectrum to be trimmed
+    fig_title : str
+        Title for the interactive figure panel
 
     Returns
     -------
@@ -8000,8 +8002,12 @@ def fit_dosy_multi(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_
         the bounds will be ``[0.2, 0.8]``
         If it is a list of two ``float``s, the bounds will be set to ``f_bds[0]` and ``f_bds[1]``,
         regardless of what the initial fraction is.
+    vary_I : bool
+        Include the computation of the intensity factor for each interval. If ``False``, all the intensity differences
+        will be handled by the fractions parameters.
     vary_q : bool
-        Include the computation of the offset in the parameters. **Strongly discouraged!**
+        Include the computation of the offsets in the parameters. **Strongly discouraged!**
+        If ``False``, the initial value read from the initial guess is kept thoughout the whole fitting.
 
     Returns
     -------
@@ -8036,17 +8042,21 @@ def fit_dosy_multi(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_
         # Sum them to get the total trace
         totals = np.sum(yyc, axis=1)
         if calc_I and calc_q:
+            # Compute them both analytically
             for p in range(Np):
                 I, q = fit.fit_int(yy[p], totals[p], calc_q)
                 param[f'I_p{p}'].set(value=float(I))
                 param[f'q_p{p}'].set(value=float(q))
         elif calc_I and not calc_q:
+            # Compute only the I leaving the q fixed
             for p in range(Np):
                 I, _ = fit.fit_int(yy[p]-par[f'q_p{p}'], totals[p], calc_q)
                 param[f'I_p{p}'].set(value=float(I))
         else:
+            # Both I and q stay fixed
             pass
 
+        # Apply I and q
         for p in range(Np):
             totals[p] *= param[f'I_p{p}'].value
             totals[p] += param[f'q_p{p}'].value
@@ -8234,7 +8244,7 @@ def plot_fit_dosy(x, label, y, total, yc, region, show_total=True, show_res=Fals
     plt.close()
 
 
-def plot_fit_dosy_multi(x, yy, totals, components, region, bigdeltas=None, filename=None, ext='png', dpi=300, dim=None):
+def plot_fit_dosy_multi(x, yy, totals, components, region, bigdeltas=None, colors=None, filename=None, ext='png', dpi=300, dim=None):
     """
     Makes a cumulative plot of a DOSY fit performed with the :class:`klassez.fit.DosyFit_pp3D` class.
 
@@ -8250,35 +8260,55 @@ def plot_fit_dosy_multi(x, yy, totals, components, region, bigdeltas=None, filen
 
         """
 
+    # Default figure dimension
     if dim is None:
         dim = 16, 9
     # Number of planes
     Np = yy.shape[0]
 
+    # Get the diffusion coefficients and their errors from the region dict
     diff_c = list(region['diff_c'])
     diff_e = list(region['diff_e'])
 
+    # Make the figure
     fig = plt.figure()
     fig.set_size_inches(dim)
     plt.subplots_adjust(left=0.05, right=0.975)
+    # One subplot per plane, top row
     axs = [fig.add_subplot(2, Np, w+1) for w in range(Np)]
+    # Unique subplot that spans the whole bottom row
     axt = fig.add_subplot(2, Np, (Np+1, 2*Np+1))
 
+    # Labels for the subplots that will appear in the legends
     if bigdeltas is None:
         titles = [f'Plane {k+1}' for k in range(Np)]
     else:
         titles = [r'$\Delta = $' + f'{bigdelta*1e3:.4g}' + ' ms' for bigdelta in bigdeltas]
 
-    colors = []
-    for y, yc, label in zip(yy, totals, titles):
-        yplot, = axt.plot(x, y, '.')
-        axt.plot(x, yc, c=yplot.get_color(), label=label)
-        colors.append(yplot.get_color())
+    # Handle the colors
+    if colors is None:
+        colors = COLORS
+    else:
+        # Check if you have enough colors for the rendering
+        assert len(colors) >= yy.shape[0], f'You need at least {yy.shape[0]} colors!'
+
+    # Bottom panel first (easier)
+    for y, yc, c, label in zip(yy, totals, colors, titles):
+        # Plot the experimental trends
+        yplot, = axt.plot(x, y, '.', c=c)
+        # Plot the fit line with the same color
+        axt.plot(x, yc, c=c, label=label)
+
+    # Write the value of the diffusion coefficient as the title of the legend
     legend_title = '\n'.join([
         'Diffusion coefficients:',
-        *[misc.expformat(diffc) + r'$ \pm $' + misc.expformat(diffe) + r' m$^2$ s$^{-1}$'
+        *[misc.expformat(diffc) + r'$ \pm $' +
+          misc.expformat(diffe) if diffe else '' +
+          r' m$^2$ s$^{-1}$'
           for diffc, diffe in zip(diff_c, diff_e)],
         ])
+
+    # Fancy stuff
     axt.set_xlabel(r'Gradients /T m$^{-1}$')
     axt.set_ylabel(r'Intensity /a.u.')
     misc.pretty_scale(axt, axt.get_xlim(), 'x')
@@ -8287,13 +8317,20 @@ def plot_fit_dosy_multi(x, yy, totals, components, region, bigdeltas=None, filen
     misc.set_fontsizes(axt, 16)
     axt.legend(title=legend_title, fontsize=12, title_fontsize=14)
 
-    axs[0].set_ylabel('Intensity /a.u.')
+    # Now the top row
+    axs[0].set_ylabel('Intensity /a.u.')    # label of the y axis only for the first subplot
+
     for ax, y, yc, comps, c, label in zip(axs, yy, totals, components, colors, titles):
+        # Experimentals as black dots
         ax.plot(x, y, 'k.')
+        # Fit line with the same color they have in the bottom panel
         ax.plot(x, yc, c=c, label=label)
+        # Draw the components ONLY if there are more than one
         if comps.shape[0] > 1:
             for comp in comps:
                 ax.plot(x, comp, c=c, ls='--', lw=0.8)
+
+        # Fancy stuff
         ax.set_xlabel(r'/T m$^{-1}$')
         ax.legend()
         misc.pretty_scale(ax, ax.get_xlim(), 'x', 4)
@@ -8301,7 +8338,9 @@ def plot_fit_dosy_multi(x, yy, totals, components, region, bigdeltas=None, filen
         misc.mathformat(ax)
         misc.set_fontsizes(ax, 16)
 
+    # Cut the white spaces as much as possible, it is a very big and complicated figure
     fig.tight_layout()
+    # save/plot the figure
     if filename is None:
         plt.show()
     else:
@@ -8328,6 +8367,7 @@ class DosyFit:
                     'D'     : # big delta in seconds,
                     'd'     : # little delta in seconds,
                     'tau'   : # tau in seconds,
+                    'p90'    : # 90° pulse duration in seconds,
                     }
 
     keys : list of str
@@ -8940,7 +8980,50 @@ def model_dstebp(g, diff_c, gamma, D, d, tau, p90):
 
 class DosyFit_pp3D(fit.DosyFit):
     """
-    TODO
+    Interface for the fitting of a :class:`klassez.Spectra.DOSY_T1` object, i.e. a 3D spectrum where the DOSY is acquired along the `31` dimension and the big delta (``d20``) is increased along F2.
+
+    Attributes
+    ----------
+    datadir : str
+        Path where to save files and figures
+    filename : str
+        Name for files, figures, and so on
+    planes : list of :class:`klassez.Spectra.pDOSY` object
+        Projection of the original spectrum along the `31` direction
+    g : 1darray
+        Gradient strength in T/m
+    dosy_par : dict
+        Dictionary of dosy parameters.
+        ::
+
+            dosy_par = {
+                    'gamma' : # gyromagnetic ratio in MHz/T,
+                    'D'     : # list of big delta in seconds,
+                    'd'     : # little delta in seconds,
+                    'tau'   : # tau in seconds,
+                    'p90'    : # 90° pulse duration in seconds,
+                    }
+
+    keys : list of str
+        Identifiers for the profiles to fit
+    data : dict of 2darray
+        ``data = {key : profile for each plane (plane, integrals) for key in self.keys}``
+    i_guess : list of dict
+        Dictionary of the initial guess, generated by ``self.iguess``.
+        ::
+
+            i_guess = [{
+                'I' : # intensity factor (1darray, long as planes),
+                'q' : # offset (1darray, long as planes),
+                'diff_c' : # diffusion coefficients (1darray, long as components),
+                'diff_f' : # fractions (2darray, (planes, components))
+                'diff_e' : # fit errors for the diffusion coefficients (1darray, long as components),
+                } for _ in self.keys]
+
+    result : list of dict
+        Dictionary of fit results, generated by either ``self.dofit`` or ``self.read_fit``.
+        Same structure and shape of ``self.i_guess``
+
     """
     def __init__(self, S, datadir=None, filename=None):
         """
