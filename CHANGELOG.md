@@ -1,9 +1,16 @@
 # Version 0.5a.5
 
+27/02/26
+Added a new class for formatting and colorizing text in the terminal, using the *matplotlib* color names converted in xterm strings.
+Invokable through the variable **textcolor**, imported by the *__init__* module.
 
 ## Modified functions:
 24/02/26
 - *figures.ax_diffplot*: added more customization options, bug fixes
+
+## New classes:
+27/02/26
+- *misc.XtermColors*
 
 # Version 0.5a.4
 

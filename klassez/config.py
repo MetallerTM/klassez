@@ -1,9 +1,15 @@
 #! /usr/bin/env python3
 
+import sys
+import os
+from numpy import loadtxt
 import seaborn as sns
 from datetime import datetime
 from functools import wraps
 import inspect
+from importlib.resources import open_text, files
+
+from .misc import XtermColors
 
 
 def cron(f):
@@ -96,3 +102,15 @@ colors = ['tab:blue', 'tab:red', 'tab:green', 'tab:orange', 'tab:cyan',
 for w in range(10):
     colors += colors
 COLORS = tuple(colors)
+
+# Color_formatter text
+if sys.version_info < (3, 13):      # python 3.9 - 3.12
+    with files(__package__).joinpath('tables', 'xterm_colors').open('r', encoding='utf-8') as f:
+        color_arr = loadtxt(f, dtype=str, comments='#', delimiter='&', converters=lambda w: w.strip(), skiprows=0, usecols=(0, 1), unpack=True)
+else:                               # python 3.13 and above
+    with open_text(__name__, os.path.join('tables', 'xterm_colors')) as f:
+        color_arr = loadtxt(f, dtype=str, comments='#', delimiter='&', converters=lambda w: w.strip(), skiprows=0, usecols=(0, 1), unpack=True)
+
+dic_xcolors = {str(name): '\033[' + str(color) for name, color in zip(color_arr[0], color_arr[1])}
+textcolor = XtermColors(dic_xcolors)
+
