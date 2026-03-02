@@ -8,7 +8,9 @@ import seaborn as sns
 import warnings
 
 from . import fit, misc, figures
-from .config import CM, COLORS, CM_2D
+from .config import CM, COLORS, CM_2D, cprint
+
+print = cprint
 
 s_colors = ['tab:cyan', 'tab:red', 'tab:green', 'tab:purple', 'tab:pink', 'tab:gray', 'tab:brown', 'tab:olive', 'salmon', 'indigo']
 
@@ -170,9 +172,9 @@ def heatmap(data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, 
 
     if name:
         # Save the figure
-        print('Saving {}.png...'.format(name), end='\r')
+        print('Saving {}.png...'.format(name), end='\r', c='tab:cyan')
         plt.savefig(name+'.png', dpi=600)
-        print('{}.png saved.\n'.format(name))
+        print('{}.png saved.\n'.format(name), c='tab:cyan')
     else:
         # Make figure larger
         fig.set_size_inches(figsize_large)
@@ -566,14 +568,14 @@ def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
     misc.set_fontsizes(ax, fontsize)
 
     if name:
-        print(f'Saving {name}.{ext}...')
+        print(f'Saving {name}.{ext}...', c='tab:cyan')
         plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         misc.set_fontsizes(ax, 14)
         plt.show()
     plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
 
 def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fac=1.4,
@@ -790,14 +792,14 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
 
     if name:
         misc.set_fontsizes(10)
-        print(f'Saving {name}.{ext}...')
+        print(f'Saving {name}.{ext}...', c='tab:cyan')
         plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         misc.set_fontsizes(14)
         plt.show()
     plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
 
 def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5,
@@ -875,14 +877,14 @@ def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.
 
     if name:
         misc.set_fontsizes(ax, 10)
-        print(f'Saving {name}.{ext}...')
+        print(f'Saving {name}.{ext}...', c='tab:cyan')
         plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         misc.set_fontsizes(ax, 14)
         plt.show()
     plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
 
 def ax1D(ax, ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5, X_label=r'$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, label=None, fontsize=10):
@@ -1128,7 +1130,7 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, lw=0
     # Save / Show the figure
     if name:
         misc.set_fontsizes(ax, 10)
-        print(f'Saving {name}.{ext}...')
+        print(f'Saving {name}.{ext}...', c='tab:cyan')
         plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
@@ -1136,7 +1138,7 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, lw=0
         misc.set_fontsizes(ax, 14)
         plt.show()
     plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
 
 def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, s_labels=None, X_label=r'$\delta\,$ F1 /ppm', n_xticks=10, name=None):
@@ -1319,7 +1321,7 @@ def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm',
     # Shows or saves the figure
     if name:
         misc.set_fontsizes(ax, 10)
-        print(f'Saving {name}.{ext}...')
+        print(f'Saving {name}.{ext}...', c='tab:cyan')
         plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
@@ -1328,7 +1330,7 @@ def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm',
         cursor = Cursor(ax, useblit=True, horizOn=False, c='tab:red', lw=0.8)
         plt.show()
     plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
 
 def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
@@ -2039,5 +2041,5 @@ def diffplot(ppm, spectrum, dic, xlims=None, color='tab:blue', X_label=r'$\delta
     else:
         # Save the figure
         plt.savefig(f'{filename}.{ext}', dpi=dpi)
-        print(f'Diffplot {filename}.{ext} saved.\n')
+        print(f'Diffplot {filename}.{ext} saved.\n', c='tab:cyan')
     plt.close()

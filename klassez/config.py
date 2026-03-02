@@ -9,7 +9,112 @@ from functools import wraps
 import inspect
 from importlib.resources import open_text, files
 
-from .misc import XtermColors
+_print = print
+
+
+class XtermColors:
+    """
+    Container for the pretty customization of printed text, in terms of colors and style.
+    Uses the `xterm` version of the standard `matplotlib` colors.
+
+    Usage:
+
+    .. code-block::
+
+        from klassez import textcolor
+
+        text = 'my text'
+        print(textcolor(text, 'red')
+
+
+    Use
+
+    .. code-block::
+
+        print(klassez.textcolor)
+
+    to see the supported colors and styles.
+
+    Attributes
+    ----------
+    colors : dict
+        Name of the supported colors and correspondant formatting string.
+    styles : dict
+        Name of the supported font styles
+    reset : str
+        String to reset the output to normal
+
+    """
+    styles = {
+            'bold': '\033[1m',
+            'italic': '\033[3m',
+            'bold_italic': '\033[1;3m',
+            'underline': '\033[4m',
+            }
+    reset = '\033[0m'
+
+    def __str__(self):
+        """ Prints the name of the supported colors and styles. """
+        N = len(list(self.colors.keys()))
+        n_percol = 6
+        color_keys = [list(self.colors.keys())[n_percol*j: n_percol*j+n_percol]
+                      for j in range(N // n_percol)]
+        color_keys += [list(self.colors.keys())[-1 * (N % n_percol):]]
+
+        color_doc_string = '\n'.join([
+            ' '.join([self(f'{w:>15s}', color=w) for w in splitted_colors])
+            for splitted_colors in color_keys
+            ])
+
+        style_doc_string = ' '.join([self(f'{w:>15s}', style=w) for w in list(self.styles.keys())])
+
+        dash_line = '-' * 96
+
+        doc_string = '\n'.join([
+            'List of supported colors',
+            dash_line,
+            color_doc_string,
+            '\n',
+            'List of supported styles',
+            dash_line,
+            style_doc_string,
+            ])
+        return doc_string
+
+    def __init__(self, dic_xcolor):
+        """
+        Store ``dic_xcolor`` in ``self.colors``.
+
+        Parameters
+        ----------
+        dic_xcolor : dict
+            Name of the colors and rendering strings
+
+        """
+        self.colors = dic_xcolor
+
+    def __call__(self, text: str, color=None, style=None):
+        """
+        Formats the text.
+
+        Parameters
+        ----------
+        text : str
+            Text to format
+        color, c : str or None
+            Color to format the text. If ``None``, the default color is kept
+        style, s : str or None
+            Style to format the text. If ``None``, the default style is kept
+
+        Returns
+        -------
+        fmt_text : str
+            Formatted text with chosen style and color
+        """
+        color_str = self.colors[color] if color else ''
+        style_str = self.styles[style] if style else ''
+        fmt_text = color_str + style_str + text + self.reset
+        return fmt_text
 
 
 def cron(f):
@@ -59,6 +164,31 @@ def safe_kws(f):
                    if arg in all_args_names}
         return f(*args, **new_kws)
     return wrapper
+
+
+def cprint(*args, c=None, s=None, sep=' ', end='\n', file=None, flush=False):
+    """
+    This function can override the default :func:`print` function, allowing to format the text easily.
+    Calls :func:`klassez.textcolor` with ``color=c`` and ``style=s``.
+
+    Parameters
+    ----------
+    args : sequence
+        Things to print, will be converted in text.
+    c : str or None
+        Color of the text
+    s : str or None
+        Style of the text
+    All the rest are the parameters of the print function
+    """
+    # Format the text
+    str_args = [textcolor(str(arg), color=c, style=s) for arg in args]
+
+    # Join using the correct separator
+    text = sep.join(str_args)
+
+    # Print with the original print
+    _print(text, end=end, file=file, flush=flush)
 
 
 # Use seaborn's colormaps and save it to a dictionary
@@ -113,4 +243,3 @@ else:                               # python 3.13 and above
 
 dic_xcolors = {str(name): '\033[' + str(color) for name, color in zip(color_arr[0], color_arr[1])}
 textcolor = XtermColors(dic_xcolors)
-

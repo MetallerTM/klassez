@@ -16,8 +16,9 @@ from copy import deepcopy
 import getpass
 
 from . import fit, misc, sim, figures, processing, anal
-from .config import CM, COLORS, cron, safe_kws
+from .config import CM, COLORS, cron, safe_kws, cprint
 
+print = cprint
 
 """
 Functions for performing fits.
@@ -78,12 +79,12 @@ def histogram(data, nbins=100, density=True, f_lims=None, xlabel=None, x_symm=Fa
     m, s = fit.ax_histogram(ax, data, nbins=nbins, density=density, f_lims=f_lims, xlabel=xlabel, x_symm=x_symm, fitG=fitG, barcolor=barcolor, fontsize=fontsize)
 
     if name:
-        print(f'Saving {name}.{ext}...')
+        print(f'Saving {name}.{ext}...', c='tab:cyan')
         plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         plt.show()
     plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
     return m, s
 
@@ -623,7 +624,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False,
         else:
             return np.zeros_like(ppm_scale)
 
-    print('Saving figures...')
+    print('Saving figures...', c='tab:cyan')
     # Shallow copy of the real part of the experimental spectrum
     S_r = np.copy(S.real)
     N = S_r.shape[-1]       # For (eventual) zero-filling
@@ -758,7 +759,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False,
     # Save the figure
     plt.savefig(f'{filename}_full.{ext}', dpi=dpi)
     plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
 
 def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
@@ -951,7 +952,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
             else:
                 bas_c = np.zeros(5)
             if 1:   # Switch: turn this print on and off
-                print(f'Fitting of region {k+1}/{Nr}. [{limits[0]:.3f}:{limits[1]:.3f}] ppm')
+                print(f'Fitting of region {k+1}/{Nr}. [{limits[0]:.3f}:{limits[1]:.3f}] ppm', c='tab:orange')
             # Make a copy of the region dictionary and remove what is not a peak
             peaks = deepcopy(region)
             peaks.pop('limits')
@@ -1066,7 +1067,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
                 else:
                     params = result.params
 
-                print(f'Optimization {k+1:4.0f}/{len(method)}, method = {mthd}')
+                print(f'Optimization {k+1:4.0f}/{len(method)}, method = {mthd}', c='tab:orange')
                 if mthd == 'leastsq' or mthd == 'least_squares':
                     result = minner.minimize(method='leastsq', max_nfev=int(itermax), ftol=fit_tol, params=params)
                 else:
@@ -3436,6 +3437,7 @@ def test_residuals(res, alpha=0.05):
     test_gaussian = fit.test_ks(r, alpha)
 
     # Print the results
+    print('Residual test', c='tab:orange', s='underline')
     print('\n'.join([
         f'{"Random":22s}: {test_randomness}',
         f'{"Non-correlated":22s}: {test_correlation}',
@@ -3673,7 +3675,7 @@ class Voigt_Fit:
             regions = fit.read_vf(f'{filename}.{ext}')
         # Store it
         self.i_guess = regions
-        print(f'{filename}.{ext} loaded as input file.')
+        print(f'{filename}.{ext} loaded as input file.', c='tab:blue')
 
     def load_fit(self, filename=None, n=-1, ext='fvf'):
         """
@@ -3711,7 +3713,7 @@ class Voigt_Fit:
             raise NameError(f'{filename}.{ext} does not exist.')
         # Store
         self.result = regions
-        print(f'{filename}.{ext} loaded as fit result file.')
+        print(f'{filename}.{ext} loaded as fit result file.', c='tab:blue')
 
     def dofit(self, indep=True, u_lim=1, f_lim=10, k_lim=(0, 3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None, method='leastsq', basl_fit='no'):
         """
@@ -5113,7 +5115,7 @@ class Voigt_Fit_2D:
                         label_list.append(f'{label}')
         # Store coord into the attribute coord
         self.coord = coord
-        print(f'Loaded {coord_filename} as coord.')
+        print(f'Loaded {coord_filename} as coord.', c='tab:blue')
 
         # Update label_list, if there are labels in the coord file
         if len(label_list) > 0:
@@ -5330,7 +5332,7 @@ class Voigt_Fit_2D:
             if peak_index < start_index:    # Do not guess
                 peak_index += 1
                 continue
-            print(f'Preparing iguess for {peak_index:4.0f}/{len(self.coord):4.0f} peak', end='\r')
+            print(f'Preparing iguess for {peak_index:4.0f}/{len(self.coord):4.0f} peak', end='\r', c='tab:orange')
             # Unpack TR1 and TR2
             u1, tr1 = TR1
             u2, tr2 = TR2
@@ -5386,7 +5388,7 @@ class Voigt_Fit_2D:
         for peak_index, peak_values in looped_values:
             if use_logfile:  # Redirect the standard output to the logfile
                 sys.stdout = open(fit_kws['logfile'], 'a', buffering=1)
-            print(f'Fitting peak {peak_index:4.0f} / {max(self.idx):4.0f}')
+            print(f'Fitting peak {peak_index:4.0f} / {max(self.idx):4.0f}', c='tab:orange')
             if peak_index < start_index:    # Skip
                 continue
             if len(peak_values) == 0:   # Skip empty parameters
@@ -5785,13 +5787,13 @@ def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
     x = np.linspace(-1, 1, y.shape[-1])
 
     # Make initial guess of the polynomion coefficients
-    print('Make initial guess of the polynomion coefficients...')
+    print('Make initial guess of the polynomion coefficients...', c='tab:orange')
     if c_i:
         c = np.copy(c_i)
     else:
         c = fit.lsp(y, x, n)
     px_iguess = misc.polyn(x, c)
-    print('Done.')
+    print('Done.', c='tab:orange')
 
     # Compute an intensity factor to decrease the weight on the fit procedure
     Int = fit.fit_int(np.abs(y), np.abs(px_iguess))[0]
@@ -5808,7 +5810,7 @@ def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
     # Get the objective function of choice
     R = fit.CostFunc(method, s)
 
-    print('Optimizing the baseline...')
+    print('Optimizing the baseline...', c='tab:orange')
     # Make the fit
     if cplx:
         f2min = f2min_cplx
@@ -6005,7 +6007,7 @@ def sinc_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
     R = fit.SINC_ObjFunc(gamma1, gamma2, gamma3, e1, e2)
 
     # Minimize using the method of choice. "leastsq" not accepted!
-    print('Starting phase correction...')
+    print('Starting phase correction...', c='tab:orange')
     minner = lmfit.Minimizer(f2min, param, fcn_args=(d, R))
     result = minner.minimize(**fit_kws)
     print(f'The fit has ended. {result.message}.\nNumber of function evaluations: {result.nfev}')
@@ -7059,7 +7061,7 @@ def make_iguess_dosy(x, labels, data, model, model_args, diff_c_0=1e-10, filenam
     for k, (label, y) in enumerate(zip(labels, data)):
         print(f'Region {label} [ # {k+1} of {len(labels)}]', end='\r')
         fit.make_iguess_dosy_panel(x, label, y, model, model_args, diff_c_0, filename)
-    print(f'\n{filename}.idy saved.')
+    print(f'\n{filename}.idy saved.', c='tab:blue')
 
 
 def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_res=False, res_offset=0, X_label=r'$\delta$ /ppm', labels=None, filename='fit', ext='png', dpi=600):
@@ -7139,7 +7141,7 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
     finally:
         # Update the filename for the figures by including the new directory
         filename = os.path.join(filename+'_fit', filename)
-    print('Saving figures...')
+    print('Saving figures...', c='tab:cyan')
     # Shallow copy of the real part of the experimental spectrum
     S_r = np.copy(S.real)
     # Make the acqus dictionary to be fed into the fit.Peak objects
@@ -7243,7 +7245,7 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
         # Save the figure
         plt.savefig(f'{filename}_full_E{i+1}.{ext}', dpi=dpi)
         plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
 
 def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, vary_phase=False, vary_b=False, itermax=10000, filename='fit'):
@@ -7390,7 +7392,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
             # Get limits and total intensity from the dictionary of the first region
             limits = region[0]['limits']
             if 1:   # Switch: turn this print on and off
-                print(f'Fitting of region {k+1}/{Nr}. [{limits[0]:.3f}:{limits[1]:.3f}] ppm')
+                print(f'Fitting of region {k+1}/{Nr}. [{limits[0]:.3f}:{limits[1]:.3f}] ppm', c='tab:orange')
             # Make a copy of the region dictionary and remove what is not a peak
             peaklist = deepcopy(region)
             for peaks in peaklist:
@@ -7592,7 +7594,7 @@ class Voigt_Fit_P2D:
             regions = fit.read_vf_P2D(f'{input_file}.ivf')
         # Store it
         self.i_guess = regions
-        print(f'{input_file}.ivf loaded as input file.')
+        print(f'{input_file}.ivf loaded as input file.', c='tab:blue')
 
     def load_fit(self, output_file=None, n=-1):
         """
@@ -7616,7 +7618,7 @@ class Voigt_Fit_P2D:
             raise NameError(f'{output_file}.fvf does not exist.')
         # Store
         self.result = regions
-        print(f'{output_file}.fvf loaded as fit result file.')
+        print(f'{output_file}.fvf loaded as fit result file.', c='tab:blue')
 
     def dofit(self, u_tol=1, f_tol=10, vary_phase=False, vary_b=True, itermax=10000, filename=None):
         """
@@ -8513,7 +8515,7 @@ class DosyFit:
             regions = fit.read_dy(f'{filename}.{ext}')
         # Store it
         self.i_guess = regions
-        print(f'{filename}.{ext} loaded as input file.\n')
+        print(f'{filename}.{ext} loaded as input file.\n', c='tab:blue')
 
     def dofit(self, filename=None, d_bds=3, f_bds=[0, 3], vary_q=False):
         """
@@ -8556,7 +8558,7 @@ class DosyFit:
         f.write('! DOSY fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
         for k, label in enumerate(self.keys):
-            print(f'Fitting region {label} [ # {k+1} of {len(self.keys)}]')
+            print(f'Fitting region {label} [ # {k+1} of {len(self.keys)}]', c='tab:orange')
             dic_result = fit.fit_dosy(self.g, self._data[k], self.i_guess[k],
                                       self.model, self.dosy_par,
                                       d_bds=d_bds, f_bds=f_bds, vary_q=vary_q)
@@ -8564,7 +8566,7 @@ class DosyFit:
                          label, dic_result['I'], dic_result['q'])
             dic_result['label'] = label
             self.result.append(dic_result)
-        print(f'{filename} saved.\n')
+        print(f'{filename} saved.\n', c='tab:blue')
 
     def load_fit(self, filename=None, n=-1, ext='fdy'):
         """
@@ -8604,7 +8606,7 @@ class DosyFit:
             raise NameError(f'{filename}.{ext} does not exist.')
         # Store
         self.result = regions
-        print(f'{filename}.{ext} loaded as fit result file.\n')
+        print(f'{filename}.{ext} loaded as fit result file.\n', c='tab:blue')
 
     def plot(self, what='result', show_res=False, res_offset=0, filename=None, ext='png', dpi=600, dim=None):
         """
@@ -8658,7 +8660,7 @@ class DosyFit:
 
         # Make the figures
         totals, components = self.get_fit_lines(what)
-        print(f'Saving figures in {figure_path}...')
+        print(f'Saving figures in {figure_path}...', c='tab:cyan')
         for k, (y, total, yc, region) in enumerate(zip(self._data, totals, components, regions)):
             print(f'{k+1}/{len(totals)}', end='\r')
             label = region['label']
@@ -8667,7 +8669,7 @@ class DosyFit:
             fit.plot_fit_dosy(self.g, label, y, total, yc, region,
                               show_res=show_res, res_offset=res_offset,
                               filename=figure_name, ext=ext, dpi=dpi, dim=dim)
-        print('Done.\n')
+        print('Done.\n', c='tab:cyan')
 
     def get_fit_lines(self, what='result'):
         """
@@ -9208,7 +9210,7 @@ class DosyFit_pp3D(fit.DosyFit):
         # Store it
         for plane in self.planes:
             plane.D.i_guess = regions
-        print(f'{filename}.{ext} loaded as input file.\n')
+        print(f'{filename}.{ext} loaded as input file.\n', c='tab:blue')
 
         self.merge_planes('iguess')
 
@@ -9289,8 +9291,7 @@ class DosyFit_pp3D(fit.DosyFit):
         else:
             dic_results = []
             for k, label in enumerate(self.keys):
-                print(k, label)
-                print(f'Fitting region {label} [ # {k+1} of {len(self.keys)}]')
+                print(f'Fitting region {label} [ # {k+1} of {len(self.keys)}]', c='tab:orange')
                 dic_result = fit.fit_dosy_multi(self.g, self.data[label], self.i_guess[k],
                                                 self.model, self.dosy_par,
                                                 d_bds=d_bds, f_bds=f_bds, vary_q=vary_q)
@@ -9396,7 +9397,7 @@ class DosyFit_pp3D(fit.DosyFit):
         os.makedirs(os.path.join(figdir, what), exist_ok=True)
         base = os.path.join(figdir, what)
 
-        print(f'Saving figures in "{base}".')
+        print(f'Saving figures in "{base}".', c='tab:cyan')
 
         # Get the fitted traces
         totals, components = self.get_fit_lines(what)
@@ -9440,7 +9441,7 @@ class DosyFit_pp3D(fit.DosyFit):
                                   filename=os.path.join(base, fn+'-R_'+region['label']),
                                   ext=ext, dpi=dpi, dim=dim)
 
-        print('Done.\n')
+        print('Done.\n', c='tab:cyan')
 
     def get_fit_lines(self, what='result'):
         """

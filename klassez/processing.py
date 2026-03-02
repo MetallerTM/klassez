@@ -15,7 +15,10 @@ import warnings
 from copy import deepcopy
 
 from . import fit, misc, sim, figures, processing, anal
+from .config import cprint
 from .Spectra import Spectrum_1D
+
+print = cprint
 
 """
 Contains a series of processing functions for different purposes
@@ -2361,7 +2364,7 @@ def interactive_phase_1D(ppmscale, S, reference=None):
 
     phased_data = phase(S, p0=p0_f, p1=p1_f, pivot=pivot_f)
     final_values = p0_f, p1_f, pivot_f
-    print('p0: {:.3f}, p1: {:.3f}, pv: {:.3f}\n'.format(*final_values))
+    print('p0: {:.3f}, p1: {:.3f}, pv: {:.3f}\n'.format(*final_values), c='violet')
     return phased_data, final_values
 
 
@@ -2775,8 +2778,8 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
 
     final_values_f1 = p0_f1, p1_f1, pivot_f1
     final_values_f2 = p0_f2, p1_f2, pivot_f2
-    print('F2 - p0: {:.3f}, p1: {:.3f}, pv: {:.3f}'.format(*final_values_f2))
-    print('F1 - p0: {:.3f}, p1: {:.3f}, pv: {:.3f}\n'.format(*final_values_f1))
+    print('F2 - p0: {:.3f}, p1: {:.3f}, pv: {:.3f}'.format(*final_values_f2), c='violet')
+    print('F1 - p0: {:.3f}, p1: {:.3f}, pv: {:.3f}\n'.format(*final_values_f1), c='violet')
 
     return S, final_values_f1, final_values_f2
 
@@ -3142,7 +3145,7 @@ def calibration(ppmscale, S, ref=None):
     plt.show()
     plt.close(1)
 
-    print('Offset: {: .3f} /ppm'.format(offset))
+    print('Offset: {: .3f} /ppm'.format(offset), c='violet')
 
     return offset
 
@@ -3429,7 +3432,7 @@ def simplisma(D, nc, f=10, oncols=True):
             pv.append(max(p_s[:, c]))            # Update pure component
             ipv.append(np.argmax(p_s[:, c]))     # Update pure variable
 
-        print('Purest variables succesfully found.\n')
+        print('Purest variables succesfully found.\n', c='violet')
         for c in range(nc):
             print('{}° purest variable:\t\t{}'.format(c+1, ipv[c]))
 
@@ -3508,7 +3511,7 @@ def simplisma(D, nc, f=10, oncols=True):
             pv.append(max(p_s[:, c]))          # Update pure component
             ipv.append(np.argmax(p_s[:, c]))   # Update pure variable
 
-        print('Purest variables succesfully found.\n')
+        print('Purest variables succesfully found.\n', c='violet')
         for c in range(nc):
             print('{}° purest variable:\t\t{}'.format(c+1, ipv[c]))
 
@@ -3579,7 +3582,7 @@ def mcr_als(D, C, S, itermax=10000, tol=1e-5):
 
     start_time = datetime.now()
     print('\n-----------------------------------------------------\n')
-    print('             MCR optimization running...             \n')
+    print('             MCR optimization running...             \n', c='violet')
 
     convergence_flag = 0
     print(f'{"#":>5s}\t{"C convergence":>12s}\t{"S convergence":>12s}')
@@ -3610,12 +3613,12 @@ def mcr_als(D, C, S, itermax=10000, tol=1e-5):
         # Arrest criterion
         if (rC < tol) and (rS < tol):
             end_time = datetime.now()
-            print('\n\n\tMCR converges in '+str(kk+1)+' steps.')
+            print('\n\n\tMCR converges in '+str(kk+1)+' steps.', c='violet')
             convergence_flag = 1    # Set to 1 if the arrest criterion is reached
             break
 
     if not convergence_flag:
-        print('\n\n\tMCR does not converge.')
+        print('\n\n\tMCR does not converge.', c='violet')
     end_time = datetime.now()
     print('\tTotal runtime: {}'.format(end_time - start_time))
 
@@ -3687,8 +3690,7 @@ def mcr(input_data, nc, f=10, tol=1e-3, itermax=1e4, P='H', oncols=True):
             nds = 1
             input_data = np.reshape(input_data, (1, input_data.shape[0], input_data.shape[1]))
         else:
-            print('Input data is not a matrix!')
-            exit()
+            raise ValueError('Input data is not a matrix!')
 
     print('\n*****************************************************')
     print('*                                                   *')
@@ -3752,15 +3754,15 @@ def lrd(data, nc):
     print('*****************************************************\n')
 
     # Make SVD
-    print('Performing SVD. This might take a while...')
+    print('Performing SVD. This might take a while...', c='violet')
     U, svals, V = linalg.svd(data)
-    print('Done.\n')
+    print('Done.\n', c='violet')
     # Apply hard-thresholding
     svals_p = np.zeros_like(svals)
     svals_p[:nc] = svals[:nc]
     # Reconstruct the denoised data
     data_out = U @ slinalg.diagsvd(svals_p, U.shape[1], V.shape[0]) @ V
-    print('Low-Rank Denosing completed.')
+    print('Low-Rank Denosing completed.', c='violet')
     print('\n*****************************************************\n')
     return data_out
 
@@ -3923,7 +3925,7 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
         # Print status
         print(f'{k+1:>6.0f} | {R:12.5e} | {tol:12.5e}', end='\r')
         if Cond and k:
-            print(f'\nCadzow converges in {k+1} steps.')
+            print(f'\nCadzow converges in {k+1} steps.', c='violet')
             break
         else:
             s0 = s
@@ -3931,7 +3933,7 @@ def iterCadzow(data, n, nc, itermax=100, f=0.005, print_head=True, print_time=Tr
 
     end_time = datetime.now()
     if k+1 == itermax:
-        print('\tCadzow does not converge.')
+        print('\tCadzow does not converge.', c='violet')
     if print_time is True:
         print('Total runtime: {}'.format(end_time - start_time))
     # Add empty line for aesthetic purposes
@@ -3977,12 +3979,12 @@ def cadzow_2D(data, n, nc, i=True, f=0.005, itermax=100, print_time=True):
 
     datap = np.zeros_like(data)
     for k in range(data.shape[0]):
-        print('Processing of transient '+str(k+1)+' of '+str(data.shape[0]))
+        print('Processing of transient '+str(k+1)+' of '+str(data.shape[0]), c='violet')
         if i:
             datap[k] = processing.iterCadzow(data[k], n=n, nc=nc, f=f, itermax=itermax, print_head=False, print_time=False)
         else:
             datap[k] = processing.cadzow(data[k], n=n, nc=nc, print_head=False)
-    print('Processing has ended!')
+    print('Processing has ended!', c='violet')
     end_time = datetime.now()
     if print_time is True:
         print('Total runtime: {}'.format(end_time - start_time))
@@ -5374,7 +5376,7 @@ def apk(ppm, data, SFO1, alpha=3, winsize=50, ap1=True, seethrough=False):
     # Apply the correction
     datap, *_ = processing.ps(data, p0=p0, p1=p1)
 
-    print('APK: p0: {:.3f}, p1: {:.3f}\n'.format(p0, p1))
+    print('APK: p0: {:.3f}, p1: {:.3f}\n'.format(p0, p1), c='violet')
 
     return datap, (p0, p1)
 

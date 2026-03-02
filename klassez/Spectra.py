@@ -15,6 +15,9 @@ from copy import deepcopy
 
 
 from . import fit, misc, sim, figures, processing, anal
+from .config import textcolor, cprint
+
+print = cprint
 
 # Suppress warnings that create alarmism
 warnings.filterwarnings(action='ignore', message='Error reading the pulse program')
@@ -615,7 +618,7 @@ class Spectrum_1D:
             #   to the offset, so that it stays in the center of the SW
             self.acqus['o1p'] += offppm
             self.acqus['o1'] += offhz
-            print(f'Applied calibration of {offppm:-.3f} ppm ({offhz:-.2f} Hz) as read from the procs dictionary.')
+            print(f'Applied calibration of {offppm:-.3f} ppm ({offhz:-.2f} Hz) as read from the procs dictionary.', c='violet')
         else:
             # Make shallow copies
             in_ppm = np.copy(self.ppm)
@@ -1011,7 +1014,7 @@ class Spectrum_1D:
 
         """
         self.integrals, _ = anal.read_igrl(filename, n)
-        print(f'{filename} read.')
+        print(f'{filename} read.', 'tab:blue')
 
     def to_vf(self, filename=None, Hs=None, fvf=True):
         """
@@ -1105,7 +1108,7 @@ class Spectrum_1D:
         with open(filename, 'w') as f:
             f.write('!\n\n')
         fit.write_vf(filename, dic, lims=limits, Int=Hs)
-        print(f'File {filename} generated successfully.')
+        print(f'File {filename} generated successfully.', c='tab:cyan')
 
     def to_wav(self, filename=None, cutoff=None, rate=44100):
         """
@@ -2070,7 +2073,7 @@ class Spectrum_2D:
                 # Move the offsets to the center of the SW
                 self.acqus['o2p'] += offp2
                 self.acqus['o2'] += offh2
-                print(f'Applied calibration of {offp2:-.3f} ppm ({offh2:-.2f} Hz) on F2 as read from the procs dictionary.')
+                print(f'Applied calibration of {offp2:-.3f} ppm ({offh2:-.2f} Hz) on F2 as read from the procs dictionary.', c='violet')
             if 'cal_1' in self.procs.keys():
                 offp1 = self.procs['cal_1']
                 offh1 = misc.ppm2freq(offp1, self.acqus['SFO1'])
@@ -2080,7 +2083,7 @@ class Spectrum_2D:
                 # Move the offsets to the center of the SW
                 self.acqus['o1p'] += offp1
                 self.acqus['o1'] += offh1
-                print(f'Applied calibration of {offp1:-.3f} ppm ({offh1:-.2f} Hz) on F1 as read from the procs dictionary.')
+                print(f'Applied calibration of {offp1:-.3f} ppm ({offh1:-.2f} Hz) on F1 as read from the procs dictionary.', c='violet')
         else:
             # Get the missing entries
             if offset[0] is None or offset[1] is None:  # Select the reference traces
@@ -3188,7 +3191,7 @@ class Pseudo_2D(Spectrum_2D):
             # Move the offsets to the center of the SW
             self.acqus['o1p'] += offp2
             self.acqus['o1'] += offh2
-            print(f'Applied calibration of {offp2:-.3f} ppm ({offh2:-.2f} Hz) as read from the procs dictionary.')
+            print(f'Applied calibration of {offp2:-.3f} ppm ({offh2:-.2f} Hz) as read from the procs dictionary.', c='violet')
 
         else:
             # Get the missing entries
@@ -4231,7 +4234,7 @@ class DOSY_T1:
         #   Connect the name of the file to the path
         vdlistpath = os.path.join(self.datadir, 'lists', 'vd', file)
         #   Print a notification
-        print(f'Found {vdlistpath} to be imported as VDLIST')
+        print(f'Found {vdlistpath} to be imported as VDLIST', c='tab:blue')
         #   Actual loading and storage in an attribute
         vdlist = np.loadtxt(vdlistpath)
         self.x_f2 = vdlist

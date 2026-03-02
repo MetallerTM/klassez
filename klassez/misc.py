@@ -9,114 +9,12 @@ import math
 import scipy.linalg as slinalg
 from copy import deepcopy
 
+from .config import cprint
 from . import misc, sim
 
 """ Collection of all-purpose functions """
 
-
-class XtermColors:
-    """
-    Container for the pretty customization of printed text, in terms of colors and style.
-    Uses the `xterm` version of the standard `matplotlib` colors.
-
-    Usage:
-
-    .. code-block::
-
-        from klassez import textcolor
-
-        text = 'my text'
-        print(textcolor(text, 'red')
-
-
-    Use
-
-    .. code-block::
-
-        print(klassez.textcolor)
-
-    to see the supported colors and styles.
-
-    Attributes
-    ----------
-    colors : dict
-        Name of the supported colors and correspondant formatting string.
-    styles : dict
-        Name of the supported font styles
-    reset : str
-        String to reset the output to normal
-
-    """
-    styles = {
-            'bold': '\033[1m',
-            'italic': '\033[3m',
-            'bold_italic': '\033[1;3m',
-            'underline': '\033[4m',
-            }
-    reset = '\033[0m'
-
-    def __str__(self):
-        """ Prints the name of the supported colors and styles. """
-        N = len(list(self.colors.keys()))
-        n_percol = 6
-        color_keys = [list(self.colors.keys())[n_percol*j: n_percol*j+n_percol]
-                      for j in range(N // n_percol)]
-        color_keys += [list(self.colors.keys())[-1 * (N % n_percol):]]
-
-        color_doc_string = '\n'.join([
-            ' '.join([self(f'{w:>15s}', color=w) for w in splitted_colors])
-            for splitted_colors in color_keys
-            ])
-
-        style_doc_string = ' '.join([self(f'{w:>15s}', style=w) for w in list(self.styles.keys())])
-
-        dash_line = '-' * 96
-
-        doc_string = '\n'.join([
-            'List of supported colors',
-            dash_line,
-            color_doc_string,
-            '\n',
-            'List of supported styles',
-            dash_line,
-            style_doc_string,
-            ])
-        return doc_string
-
-    def __init__(self, dic_xcolor):
-        """
-        Store ``dic_xcolor`` in ``self.colors``.
-
-        Parameters
-        ----------
-        dic_xcolor : dict
-            Name of the colors and rendering strings
-
-        """
-        self.colors = dic_xcolor
-
-    def __call__(self, text: str, color=None, style=None):
-        """
-        Formats the text.
-
-        Parameters
-        ----------
-        text : str
-            Text to format
-        color, c : str or None
-            Color to format the text. If ``None``, the default color is kept
-        style, s : str or None
-            Style to format the text. If ``None``, the default style is kept
-
-        Returns
-        -------
-        fmt_text : str
-            Formatted text with chosen style and color
-        """
-        color_str = self.colors[color] if color else ''
-        style_str = self.styles[style] if style else ''
-        fmt_text = color_str + style_str + text + self.reset
-        return fmt_text
+print = cprint
 
 
 def makeacqus_1D(dic):
@@ -835,10 +733,10 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True, filename=None,
     f = open_towrite(os.path.join(path, filename))
     if np.iscomplexobj(fid):
         fid = uncomplexify_data(fid, ddtype)
-    print('Writing \'{}\' file in {}...'.format(filename, path))
+    print('Writing \'{}\' file in {}...'.format(filename, path), c='tab:blue')
     f.write(fid.astype(endian+dtype).tobytes())
     f.close()
-    print('Done.')
+    print('Done.', c='tab:blue')
 
 
 def load_ser(path, TD1=1, BYTORDA=0, DTYPA=0, cplx=True):
@@ -912,7 +810,7 @@ def load_ser(path, TD1=1, BYTORDA=0, DTYPA=0, cplx=True):
     if cplx:    # Uncomplexify
         data = complexify_data(data)
 
-    print(f'Binary file {path} has been successfully read.')
+    print(f'Binary file {path} has been successfully read.', c='tab:blue')
     return data
 
 
@@ -1522,7 +1420,7 @@ def data2wav(data, filename='audiofile', cutoff=None, rate=44100):
     data /= max(np.abs(data))
     # Write the .wav file
     WF.write(f'{filename}.wav', rate, data)
-    print(f'Audio file saved as {filename}.wav')
+    print(f'Audio file saved as {filename}.wav', c='tab:blue')
 
 
 def zero_crossing(array, after=False):

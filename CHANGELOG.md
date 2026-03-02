@@ -18,7 +18,7 @@ Invokable through the variable **textcolor**, imported by the *__init__* module.
 
 ## New classes:
 27/02/26
-- *misc.XtermColors*
+- *config.XtermColors*
 - *fit.DosyFit_pp3D*
 
 ## Modified classes:
