@@ -4,13 +4,26 @@
 Added a new class for formatting and colorizing text in the terminal, using the *matplotlib* color names converted in xterm strings.
 Invokable through the variable **textcolor**, imported by the *__init__* module.
 
+## New functions:
+27/02/26
+- *fit.fit_dosy_multi*
+- *fit.plot_fit_dosy_multi*
+
+
 ## Modified functions:
 24/02/26
 - *figures.ax_diffplot*: added more customization options, bug fixes
+27/02/26
+- *fit.get_region*: added option for adding a custom title to the figure
 
 ## New classes:
 27/02/26
 - *misc.XtermColors*
+- *fit.DosyFit_pp3D*
+
+## Modified classes:
+27/02/26
+- *fit.DosyFit*: the parameter for the selection of the correct model from the pulse sequence name is handled by the new method *parse_pprog*
 
 # Version 0.5a.4
 

@@ -4617,3 +4617,25 @@ class DOSY_T1:
 
         plt.show()
         plt.close()
+
+    def integrate(self, filename=None):
+        """
+        Create the attribute ``self.D`` as ``klassez.fit.DosyFit_pp3D``, and integrate the planes along the `31` direction.
+
+        Parameters
+        ----------
+        filename : str or None
+            Custom filename for data and plots. If ``None``, ``self.filename`` is used.
+
+        Returns
+        -------
+        None
+
+        .. seealso::
+
+            :class:`klassez.fit.DosyFit_pp3D`
+            :func:`klassez.fit.DosyFit_pp3D.__init__`
+        """
+        if filename is None:
+            filename = self.filename
+        self.D = fit.DosyFit_pp3D(self, datadir=filename, filename=filename)
