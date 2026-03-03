@@ -19,6 +19,18 @@ Another option is to clone the `GitHub repository`_ and install the package with
    cd klassez
    pip install .
 
+If you do not care about keeping a copy of the package on your hard drive, you can install the latest version of `KLASSEZ` directly from the GitHub repository in a single command:
+
+::
+
+    pip install git+https://github.com/MetallerTM/klassez.git
+
+Notably, in this way you can also install the *dev* version:
+
+::
+    
+    pip install git+https://github.com/MetallerTM/klassez.git@dev-0.5a
+
 The required dependencies are sorted out automatically in either case.
 
 There also exist the possibility to install a dedicated environment using the *.yml* file in the main directory of the GitHub page.
