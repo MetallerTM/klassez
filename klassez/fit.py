@@ -9203,8 +9203,10 @@ class DosyFit_pp3D(fit.DosyFit):
             regions = fit.read_dy(f'{filename}.{ext}')
         else:                           # Make the initial guess interactively and save the file.
             ext = 'idy'
+            dosy_par_ref = deepcopy(self.dosy_par)
+            dosy_par_ref['D'] = self.dosy_par['D'][ref]
             fit.make_iguess_dosy(self.g, labels=self.keys, data=np.asarray(self._data)[:, ref],
-                                 model=self.model, model_args=self.dosy_par,
+                                 model=self._model, model_args=dosy_par_ref,
                                  diff_c_0=diff_c_0, filename=filename)
             regions = fit.read_dy(f'{filename}.{ext}')
         # Store it
@@ -9344,7 +9346,7 @@ class DosyFit_pp3D(fit.DosyFit):
 
         self.merge_planes('result')
 
-    def plot(self, what='result', show_res=False, res_offset=0, figdir=None, filename=None, ext='png', dpi=100, dim=None):
+    def plot(self, what='result', only_all=False, show_res=False, res_offset=0, figdir=None, filename=None, ext='png', dpi=100, dim=None):
         """
         Plots either the initial guess or the result of the fit, and saves all the figures. Calls :func:`fit.plot_fit_dosy`.
         The figures will be saved in the directory `<figdir>/<what>/<label>.png`.
@@ -9353,6 +9355,8 @@ class DosyFit_pp3D(fit.DosyFit):
         ----------
         what : str
             'iguess' to plot the initial guess, 'result' to plot the fitted data
+        only_all = bool
+            Plot only the figure with all the planes together
         show_res : bool
             Show the plot of the residuals
         res_offset : float
@@ -9416,6 +9420,10 @@ class DosyFit_pp3D(fit.DosyFit):
                                     bigdeltas=self.dosy_par['D'],
                                     filename=os.path.join(base, fn),
                                     ext=ext, dpi=dpi)
+
+            # Break here
+            if only_all:
+                continue
 
             # Make the minifigures
             for p, plane in enumerate(self.planes):
