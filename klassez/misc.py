@@ -2,12 +2,19 @@
 
 import os
 import numpy as np
+import nmrglue as ng
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as WF
 import math
+import warnings
 import scipy.linalg as slinalg
 from copy import deepcopy
+
+try:
+    import jeol_parser
+except Exception:
+    pass
 
 from .config import cprint
 from . import misc, sim
@@ -15,6 +22,208 @@ from . import misc, sim
 """ Collection of all-purpose functions """
 
 print = cprint
+
+
+def get_datadir_filename(in_file, isexp=True):
+    """
+    Computes the attributes ``datadir`` and ``filename`` to feed in the `Spectra` classes.
+    
+    If ``in_file`` is a dictionary of acqusition parameters, ``datadir`` is the current working directory and ``filename='dict'``.
+    In any other case, ``datadir`` is the absolute path to the directory that contains the raw FID, and ``filename`` is the name of the last directory.
+    Example: if the path to the FID is `/path/to/dataset/expno/fid`, ``datadir = '/path/to/dataset/expno/fid'``, ``filename = expno``.
+
+    Parameters
+    ----------
+    in_file : str or dict
+        Path to the dataset (also relative works) or dictionary of acquisition parameters
+    isexp : bool
+        For the correct computation of the filename, you have to specify if it is a real (``True``) or simulated (``False``) dataset
+
+    Returns
+    -------
+    datadir : str
+        Absolute path to the dataset
+    filename : str
+        Filename of the spectrum
+    """
+    if isinstance(in_file, dict):   # Simulated data with already given acqus dictionary
+        datadir = os.getcwd()      # Current directory
+        filename = 'dict'  # Filename is just "dict"
+    else:                           # You need to actually read a file
+        datadir = os.path.abspath(in_file)  # Get the file position
+        if not os.path.isdir(datadir):
+            datadir = os.path.dirname(datadir)
+        if isexp:
+            filename = os.path.basename(datadir).strip(os.sep).rsplit('.', 1)[0]  # Get the filename
+        else:
+            filename = os.path.basename(in_file).strip(os.sep).rsplit('.', 1)[0]   # Use the input filename
+        # If filename is a directory, write things inside it
+        if os.path.isdir(f'{os.sep}'.join([datadir, filename])) and isexp:
+            datadir = os.path.join(datadir, filename)     # i.e. add filename to datadir
+    return datadir, filename
+
+
+def read_fid_acqus_1D(in_file, spect='bruker'):
+    """
+    Uses :mod:`nmrglue` to read inside ``in_file`` in search for 1D NMR data.
+    Returns the complex FID and the dictionaries of setup parameters.
+
+    Parameters
+    ----------
+    in_file : str
+        Path where to find the data
+    spect : str
+        Data format. Valid options are: ``'bruker'``, ``'varian'``, ``'magritek'``, ``'oxford'``, ``'jeol'``
+
+    Returns
+    -------
+    fid : 1darray
+        FID of the dataset
+    acqus : dict
+        Dictionary of acquisition parameters, required by `klassez`
+    ngdic : dict
+        Complete set of acquisition, processing, and setup parameters.
+    """
+    def read_bruker(in_file):
+        """ For bruker data """
+        dic, data = ng.bruker.read(in_file, cplex=True)
+        acqus = misc.makeacqus_1D(dic)
+        # Set the data format keys in acqus
+        acqus['BYTORDA'] = dic['acqus']['BYTORDA']
+        acqus['DTYPA'] = dic['acqus']['DTYPA']
+        return data, acqus, dic
+
+    def read_varian(in_file):
+        """ For Varian data """
+        dic, data = ng.varian.read(in_file)
+        acqus = misc.makeacqus_1D_varian(dic)
+        return data, acqus, dic
+
+    def read_magritek(in_file):
+        """ Spinsolve data """
+        dic, data = ng.spinsolve.read(in_file, specfile='data.1d')         # Actual FID
+        if os.path.isfile(os.path.join(in_file, 'spectrum.1d')):
+            dic2, _, = ng.spinsolve.read(in_file, specfile='spectrum.1d')       # for config
+            dic.update(dic2)
+        if os.path.isfile(os.path.join(in_file, 'nmr_fid.dx')):
+            dic3, _, = ng.spinsolve.read(in_file, specfile='nmr_fid.dx')        # for config
+            dic.update(dic3)
+        acqus = misc.makeacqus_1D_spinsolve(dic)
+        return data, acqus, dic
+
+    def read_oxford(in_file):
+        """ jdx files """
+        if '.jdx' in in_file:
+            jdx_file = in_file
+        else:
+            # Try to see if there is a .jdx file
+            dirlist = os.listdir(in_file)
+            all_jdx = [w for w in dirlist if '.jdx' in w]
+            if len(all_jdx) == 0:
+                raise NameError(f'No .jdx file were found in {in_file}.')
+            elif len(all_jdx) > 1:
+                raise ValueError(f'There are more than one .jdx file in {in_file}.')
+            jdx_file = os.path.join(in_file, all_jdx[-1])
+        dic, cplx = ng.jcampdx.read(jdx_file)
+        acqus = misc.makeacqus_1D_oxford(dic)
+        data = cplx[0] + 1j*cplx[1]
+        return data, acqus, dic
+
+    def read_jeol(in_file):
+        """ Jeol files """
+        dic = jeol_parser.parse(in_file)
+        # Compute fid
+        fid = dic.pop('data')  # remove the data from the dictionary (useless)
+        # join real and imaginary part
+        fid_re = np.array(fid['re']).astype('float64')
+        fid_im = np.array(fid['im']).astype('float64')
+        # Complex FID
+        data = (fid_re + 1j*fid_im).reshape(-1)
+        # Make acqus
+        acqus = misc.makeacqus_1D_jeol(dic)
+        return data, acqus, dic
+
+    # MAIN READING
+    with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
+        warnings.simplefilter("ignore")
+
+        # Discriminate between different spectrometer formats
+        match spect:
+            case 'bruker':
+                fid, acqus, ngdic = read_bruker(in_file)
+            case 'varian':
+                fid, acqus, ngdic = read_varian(in_file)
+            case 'magritek':
+                fid, acqus, ngdic = read_magritek(in_file)
+            case 'oxford':
+                fid, acqus, ngdic = read_oxford(in_file)
+            case 'jeol':
+                fid, acqus, ngdic = read_jeol(in_file)
+            case _:
+                raise NotImplementedError('Unknown dataset format.')
+
+    # Add the file version to acqus
+    acqus['spect'] = spect
+    # Look for group delay points: if there are not, put it to 0
+    try:
+        acqus['GRPDLY'] = int(ngdic['acqus']['GRPDLY'])
+    except Exception:
+        acqus['GRPDLY'] = 0
+
+    return fid, acqus, ngdic
+
+
+def read_fid_acqus_2D(in_file, spect='bruker'):
+    """
+    Uses :mod:`nmrglue` to read inside ``in_file`` in search for 2D NMR data.
+    Returns the complex FID and the dictionaries of setup parameters.
+
+    Parameters
+    ----------
+    in_file : str
+        Path where to find the data
+    spect : str
+        Data format. Valid options are: ``'bruker'`` only.
+
+    Returns
+    -------
+    fid : 1darray
+        FID of the dataset
+    acqus : dict
+        Dictionary of acquisition parameters, required by `klassez`
+    ngdic : dict
+        Complete set of acquisition, processing, and setup parameters.
+    """
+    def read_bruker(in_file):
+        """ Bruker files """
+        dic, fid = ng.bruker.read(in_file, cplex=True)
+        acqus = misc.makeacqus_2D(dic)
+        fid = np.reshape(fid, (acqus['TD1'], -1))
+        acqus['BYTORDA'] = dic['acqus']['BYTORDA']
+        acqus['DTYPA'] = dic['acqus']['DTYPA']
+        FnMODE_flag = dic['acqu2s']['FnMODE']       # Get f1 acquisition mode
+        # List of possible modes
+        FnMODEs = ['Undefined', 'QF', 'QSEC', 'TPPI', 'States', 'States-TPPI', 'Echo-Antiecho', 'QF-nofreq']
+        acqus['FnMODE'] = FnMODEs[FnMODE_flag]  # Add to acqus
+        return fid, acqus, dic
+
+    # MAIN READING
+    with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
+        warnings.simplefilter("ignore")
+        # Discriminate between different spectrometer formats
+        match spect:
+            case 'bruker':
+                fid, acqus, ngdic = read_bruker(in_file)
+            case _:
+                raise NotImplementedError('Unknown dataset format.')
+
+    # Get group delay points
+    try:
+        acqus['GRPDLY'] = int(ngdic['acqus']['GRPDLY'])
+    except Exception:
+        acqus['GRPDLY'] = 0
+
+    return fid, acqus, ngdic
 
 
 def makeacqus_1D(dic):

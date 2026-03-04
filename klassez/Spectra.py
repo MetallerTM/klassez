@@ -7,15 +7,11 @@ from matplotlib.widgets import Button, Cursor, SpanSelector
 import nmrglue as ng
 import warnings
 
-try:
-    import jeol_parser
-except ImportError or ModuleNotFoundError:
-    pass
 from copy import deepcopy
 
 
 from . import fit, misc, sim, figures, processing, anal
-from .config import textcolor, cprint
+from .config import cprint
 
 print = cprint
 
@@ -133,20 +129,7 @@ class Spectrum_1D:
             :func:`klassez.sim.sim_1D`
         """
         # Set up the filenames
-        if isinstance(in_file, dict):   # Simulated data with already given acqus dictionary
-            self.datadir = os.getcwd()      # Current directory
-            self.filename = 'dict'  # Filename is just "dict"
-        else:                           # You need to actually read a file
-            self.datadir = os.path.abspath(in_file)  # Get the file position
-            if not os.path.isdir(self.datadir):
-                self.datadir = os.path.dirname(self.datadir)
-            if isexp:
-                self.filename = os.path.basename(self.datadir).strip(os.sep).rsplit('.', 1)[0]  # Get the filename
-            else:
-                self.filename = os.path.basename(in_file).strip(os.sep).rsplit('.', 1)[0]   # Use the input filename
-            # If filename is a directory, write things inside it
-            if os.path.isdir(f'{os.sep}'.join([self.datadir, self.filename])) and isexp:
-                self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
+        self.datadir, self.filename = misc.get_datadir_filename(in_file, isexp)
 
         # Read the data
         if isexp is False:  # Simulate the dataset
@@ -158,71 +141,9 @@ class Spectrum_1D:
             self.fid = sim.sim_1D(in_file, pv=pv)
             # The acqus dictionary will know your dataset is simulated
             self.acqus['spect'] = 'simulated'
-        else:   # Read the data from the directory using nmrglue
-            with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
-                warnings.simplefilter("ignore")
-                # Discriminate between different spectrometer formats
-                if spect == 'bruker':
-                    dic, data = ng.bruker.read(in_file, cplex=True)
-                    self.acqus = misc.makeacqus_1D(dic)
-                    # Set the data format keys in acqus
-                    self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
-                    self.acqus['DTYPA'] = dic['acqus']['DTYPA']
-
-                elif spect == 'varian':
-                    dic, data = ng.varian.read(in_file)
-                    self.acqus = misc.makeacqus_1D_varian(dic)
-
-                elif spect == 'magritek':
-                    dic1, data = ng.spinsolve.read(in_file, specfile='data.1d')         # Actual FID
-                    dic2, _, = ng.spinsolve.read(in_file, specfile='spectrum.1d')       # for config
-                    dic3, _, = ng.spinsolve.read(in_file, specfile='nmr_fid.dx')        # for config
-                    # Join the dictionary together
-                    dic = deepcopy(dic1)
-                    dic.update(dic3)
-                    dic.update(dic2)        # Important because it contains the ppm scale!
-                    self.acqus = misc.makeacqus_1D_spinsolve(dic)
-
-                elif spect == 'oxford':
-                    if '.jdx' in in_file:
-                        jdx_file = in_file
-                    else:
-                        dirlist = os.listdir(self.datadir)
-                        all_jdx = [w for w in dirlist if '.jdx' in w]
-                        if len(all_jdx) == 0:
-                            raise NameError(f'No .jdx file were found in {self.datadir}.')
-                        elif len(all_jdx) > 1:
-                            raise ValueError(f'There are more than one .jdx file in {self.datadir}.')
-                        jdx_file = os.path.join(self.datadir, all_jdx[-1])
-                    dic, cplx = ng.jcampdx.read(jdx_file)
-                    self.acqus = misc.makeacqus_1D_oxford(dic)
-                    data = cplx[0] + 1j*cplx[1]
-                elif spect == 'jeol':
-                    dic = jeol_parser.parse(in_file)
-                    # Compute fid
-                    fid = dic.pop('data')  # remove the data from the dictionary (useless)
-                    # join real and imaginary part
-                    fid_re = np.array(fid['re']).astype('float64')
-                    fid_im = np.array(fid['im']).astype('float64')
-                    # Complex FID
-                    data = (fid_re + 1j*fid_im).reshape(-1)
-                    # Make acqus
-                    self.acqus = misc.makeacqus_1D_jeol(dic)
-
-                else:
-                    raise NotImplementedError('Unknown dataset format.')
-
-            # Store the local variables as class attributes
-            self.acqus['spect'] = spect
-            self.fid = data
-            self.ngdic = dic        # NMRGLUE dictionary of parameters
-            del dic
-            del data
-        # Look for group delay points: if there are not, put it to 0
-        try:
-            self.acqus['GRPDLY'] = int(self.ngdic['acqus']['GRPDLY'])
-        except Exception:
             self.acqus['GRPDLY'] = 0
+        else:   # Read the data from the directory using nmrglue
+            self.fid, self.acqus, self.ngdic = misc.read_fid_acqus_1D(in_file, spect)
 
         # Initalize the procs dictionary
         # If there already is a procs dictionary saved as file, load it
@@ -230,22 +151,39 @@ class Spectrum_1D:
             self.procs = self.read_procs()
         # Otherwise, initialize it with default values
         else:
-            self.procs = {}
-            proc_init_1D = (deepcopy(wf0), None, 0.5, 0)    # Make a shallow copy
-            for k, key in enumerate(proc_keys_1D):  # Loop in this way to keep the order
-                self.procs[key] = proc_init_1D[k]
-            self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
-            #   phases
-            self.procs['p0'] = 0
-            self.procs['p1'] = 0
-            self.procs['pv'] = round(self.acqus['o1p'], 2)
-            #   baseline
-            self.procs['basl_c'] = None
-            #   calibration
-            self.procs['cal'] = 0
-
+            self.procs = self._default_procs(self.acqus)
             # Write this in datadir
             self.write_procs()
+
+    @staticmethod
+    def _default_procs(acqus):
+        """
+        Create the procs dictionary with the default values.
+
+        Parameters
+        ----------
+        acqus : dict
+            Dictionary of acquisition parameters
+
+        Returns
+        -------
+        procs : dict
+            Dictionary of processing parameters
+        """
+        procs = {}
+        proc_init_1D = (deepcopy(wf0), None, 0.5, 0)    # Make a shallow copy
+        for k, key in enumerate(proc_keys_1D):  # Loop in this way to keep the order
+            procs[key] = proc_init_1D[k]
+        procs['wf']['sw'] = round(acqus['SW'], 4)
+        #   phases
+        procs['p0'] = 0
+        procs['p1'] = 0
+        procs['pv'] = round(acqus['o1p'], 2)
+        #   baseline
+        procs['basl_c'] = None
+        #   calibration
+        procs['cal'] = 0
+        return procs
 
     def add_noise(self, s_n=1):
         """
@@ -1394,7 +1332,7 @@ class Spectrum_2D:
 
         return doc
 
-    def __init__(self, in_file, pv=False, isexp=True, is_pseudo=False):
+    def __init__(self, in_file, spect='bruker', pv=False, isexp=True):
         """
         Initialize the class.
 
@@ -1402,96 +1340,35 @@ class Spectrum_2D:
         ----------
         in_file : str
             path to file to read, or to the folder of the spectrum
+        spect : str
+            Data file format. Allowed: ``'bruker'`` only
         pv : bool
             True if you want to use pseudo-voigt lineshapes for simulation, False for Voigt
         isexp : bool
             True if this is an experimental dataset, False if it is simulated
-        is_pseudo : bool
-            True if it is a pseudo-2D.
-
-            .. warning::
-
-                Legacy option! Now use :class:`klassez.Spectra.Pseudo_2D`
 
         """
-        if isinstance(in_file, dict):   # Simulated data with already given acqus dictionary
-            self.datadir = os.getcwd()      # Current directory
-            self.filename = 'dict'  # Filename is just "dict"
-        else:                           # You need to actually read a file
-            self.datadir = os.path.abspath(in_file)  # Get the file position
-            if not os.path.isdir(self.datadir):
-                self.datadir = os.path.dirname(self.datadir)
-            if isexp:
-                self.filename = os.path.basename(self.datadir).strip(os.sep).rsplit('.', 1)[0]  # Get the filename
-            else:
-                self.filename = os.path.basename(in_file).rsplit('.', 1)[0]     # Use the name of the file as filename
-            # If filename is a directory, write things inside it
-            if os.path.isdir(os.sep.join([self.datadir, self.filename])) and isexp:
-                self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
+        self.datadir, self.filename = misc.get_datadir_filename(in_file, isexp)
 
         if isexp is False:   # Simulate the data
             self.acqus = sim.load_sim_2D(in_file)   # Read the acqus dictionary from the file
-            if is_pseudo:   # Tell not to do FT in f1
-                self.acqus['FnMODE'] = 'No'
-            else:   # Use States-TPPI as f1 acquisition because it is the simulation standard
-                self.acqus['FnMODE'] = 'States-TPPI'
+            self.acqus['FnMODE'] = 'States-TPPI'
+            self.acqus['GRPDLY'] = 0
             self.fid = sim.sim_2D(in_file, pv=pv)   # Read the FID
-        else:   # Read from nmrglue
-            with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
-                warnings.simplefilter("ignore")
-                dic, data = ng.bruker.read(in_file, cplex=True)
-                self.ngdic = dic
-                self.fid = data
-                self.acqus = misc.makeacqus_2D(dic)
-                self.fid = np.reshape(self.fid, (self.acqus['TD1'], -1))
-                self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
-                self.acqus['DTYPA'] = dic['acqus']['DTYPA']
-                FnMODE_flag = dic['acqu2s']['FnMODE']       # Get f1 acquisition mode
-                # List of possible modes
-                FnMODEs = ['Undefined', 'QF', 'QSEC', 'TPPI', 'States', 'States-TPPI', 'Echo-Antiecho', 'QF-nofreq']
-                self.acqus['FnMODE'] = FnMODEs[FnMODE_flag]  # Add to acqus
+        else:
+            self.fid, self.acqus, self.ngdic = misc.read_fid_acqus_2D(in_file, spect)
 
-                del dic
-                del data
         # put a flag for shuffling EAE data
         if self.acqus['FnMODE'] == 'Echo-Antiecho':
             self.eaeflag = 1    # i.e. to be shuffled
         else:
             self.eaeflag = 0    # no need of shuffling
 
-        # Get group delay points
-        try:
-            self.acqus['GRPDLY'] = int(self.ngdic['acqus']['GRPDLY'])
-        except Exception:
-            self.acqus['GRPDLY'] = 0
-
         # initialize the procs dictionary with default values
         if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
             self.procs = self.read_procs()
         else:
-            proc_init_2D = (
-                    [deepcopy(wf0), deepcopy(wf0)],     # window function
-                    [None, None],   # zero-fill
-                    [0.5, 0.5],     # fcor
-                    [0, 0]           # tdeff
-                    )
-
-            self.procs = {}
-            for k, key in enumerate(proc_keys_1D):
-                self.procs[key] = proc_init_2D[k]         # Processing parameters
-            self.procs['wf'][0]['sw'] = round(self.acqus['SW1'], 4)
-            self.procs['wf'][1]['sw'] = round(self.acqus['SW2'], 4)
-
-            # Then, phases
-            self.procs['p0_1'] = 0
-            self.procs['p1_1'] = 0
-            self.procs['pv_1'] = round(self.acqus['o1p'], 2)
-            self.procs['p0_2'] = 0
-            self.procs['p1_2'] = 0
-            self.procs['pv_2'] = round(self.acqus['o2p'], 2)
-            # Calibration
-            self.procs['cal_1'] = 0
-            self.procs['cal_2'] = 0
+            self.procs = self._default_procs(self.acqus)
             # Write the .procs file
             self.write_procs()
 
@@ -1500,6 +1377,46 @@ class Spectrum_2D:
         self.trf2 = {}
         self.Trf1 = {}
         self.Trf2 = {}
+
+    @staticmethod
+    def _default_procs(acqus):
+        """
+        Create the procs dictionary with the default values.
+
+        Parameters
+        ----------
+        acqus : dict
+            Dictionary of acquisition parameters
+
+        Returns
+        -------
+        procs : dict
+            Dictionary of processing parameters
+        """
+        proc_init_2D = (
+                [deepcopy(wf0), deepcopy(wf0)],     # window function
+                [None, None],   # zero-fill
+                [0.5, 0.5],     # fcor
+                [0, 0]           # tdeff
+                )
+
+        procs = {}
+        for k, key in enumerate(proc_keys_1D):
+            procs[key] = proc_init_2D[k]         # Processing parameters
+        procs['wf'][0]['sw'] = round(acqus['SW1'], 4)
+        procs['wf'][1]['sw'] = round(acqus['SW2'], 4)
+
+        # Then, phases
+        procs['p0_1'] = 0
+        procs['p1_1'] = 0
+        procs['pv_1'] = round(acqus['o1p'], 2)
+        procs['p0_2'] = 0
+        procs['p1_2'] = 0
+        procs['pv_2'] = round(acqus['o2p'], 2)
+        # Calibration
+        procs['cal_1'] = 0
+        procs['cal_2'] = 0
+        return procs
 
     def convdta(self, scaling=1):
         """
@@ -2923,44 +2840,20 @@ class Pseudo_2D(Spectrum_2D):
             True if this is an experimental dataset, False if it is simulated
         """
         # Set up the filenames
-        if isinstance(in_file, dict):   # Simulated data with already given acqus dictionary
-            self.datadir = os.getcwd()      # Current directory
-            self.filename = 'dict'  # Filename is just "dict"
-        else:                           # You need to actually read a file
-            self.datadir = os.path.abspath(in_file)  # Get the file position
-            if not os.path.isdir(self.datadir):
-                self.datadir = os.path.dirname(self.datadir)
-            self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]     # Get the filename
-            # If filename is a directory, write things inside it
-            if os.path.isdir(os.path.join(self.datadir, self.filename)) and isexp:
-                self.datadir = os.path.join(self.datadir, self.filename)    # i.e. add filename to datadir
+        self.datadir, self.filename = misc.get_datadir_filename(in_file, isexp)
 
         if isexp is False:      # It is simulated experiment
             if isinstance(in_file, dict):       # acqus dictionary provided
                 self.acqus = deepcopy(in_file)  # Just read it
             else:   # acqus is in the file: read it
                 self.acqus = sim.load_sim_1D(in_file)
+            self.acqus['GRPDLY'] = 0
             self.fid = None     # FID must be loaded with mount
         else:       # Experimental data
-            with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
-                warnings.simplefilter("ignore")
-                # Read the FID
-                dic, data = ng.bruker.read(in_file, cplex=True)
-                self.fid = data
-                # Make the acqus dictionary as it was 1D-like
-                self.acqus = misc.makeacqus_1D(dic)
-                self.acqus['BYTORDA'] = dic['acqus']['BYTORDA']
-                self.acqus['DTYPA'] = dic['acqus']['DTYPA']
-                self.ngdic = dic
-                del dic
-                del data
+            # Use the 1D version because it changes the shape of acqus
+            self.fid, self.acqus, self.ngdic = misc.read_fid_acqus_1D(in_file)
 
-        # Try to find the group delay
-        try:
-            self.acqus['GRPDLY'] = int(self.ngdic['acqus']['GRPDLY'])
-        except Exception:
-            self.acqus['GRPDLY'] = 0
-
+        # Reshape the FID
         if isinstance(self.fid, np.ndarray):
             try:
                 self.acqus['TD1'] = self.ngdic['acqu2s']['TD']
@@ -2971,27 +2864,37 @@ class Pseudo_2D(Spectrum_2D):
         else:
             self.acqus['TD1'] = 0
 
+        # Try to find the group delay
+        try:
+            self.acqus['GRPDLY'] = int(self.ngdic['acqus']['GRPDLY'])
+        except Exception:
+            self.acqus['GRPDLY'] = 0
+
         # Initalize the procs dictionary
         # If there already is a procs dictionary saved as file, load it
         if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
             self.procs = self.read_procs()
         # Otherwise, initialize it with default values
         else:
-            self.procs = {}
-            proc_init_1D = (deepcopy(wf0), None, 0.5, 0)
-            for k, key in enumerate(proc_keys_1D):
-                self.procs[key] = proc_init_1D[k]         # Processing parameters
-            self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
-            #   Then, phases
-            self.procs['p0'] = 0
-            self.procs['p1'] = 0
-            self.procs['pv'] = round(self.acqus['o1p'], 2)
-            #   Then, baseline
-            self.procs['basl_c'] = None
-            self.procs['cal'] = 0
-            self.procs['roll_ppm'] = None
-
+            self.procs = self._default_procs(self.acqus)
             self.write_procs()
+
+    @staticmethod
+    def _default_procs(acqus):
+        procs = {}
+        proc_init_1D = (deepcopy(wf0), None, 0.5, 0)
+        for k, key in enumerate(proc_keys_1D):
+            procs[key] = proc_init_1D[k]         # Processing parameters
+        procs['wf']['sw'] = round(acqus['SW'], 4)
+        #   Then, phases
+        procs['p0'] = 0
+        procs['p1'] = 0
+        procs['pv'] = round(acqus['o1p'], 2)
+        #   Then, baseline
+        procs['basl_c'] = None
+        procs['cal'] = 0
+        procs['roll_ppm'] = None
+        return procs
 
     def convdta(self, scaling=1):
         """ Calls processing.convdta """
@@ -4194,15 +4097,7 @@ class DOSY_T1:
         in_file : str
             path to file to read, or to the folder of the spectrum
         """
-        # Get the file position
-        self.datadir = os.path.abspath(in_file)
-        if not os.path.isdir(self.datadir):
-            self.datadir = os.path.dirname(self.datadir)
-        self.filename = os.path.basename(in_file).rsplit('.', 1)[0]  # Get the filename
-
-        # If filename is a directory, write things inside it
-        if os.path.isdir(os.sep.join([self.datadir, self.filename])):
-            self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
+        self.datadir, self.filename = misc.get_datadir_filename(in_file, isexp=True)
 
         with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
             warnings.simplefilter("ignore")
@@ -4245,22 +4140,25 @@ class DOSY_T1:
             # If exists already, read it
             self.procs = self.read_procs()
         else:
-            # Initialize it as empty
-            self.procs = {}
-            proc_init_1D = (deepcopy(wf0), None, 0.5, 0)
-            for k, key in enumerate(proc_keys_1D):
-                self.procs[key] = proc_init_1D[k]         # Processing parameters
-            self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
-            #   Then, phases
-            self.procs['p0'] = 0
-            self.procs['p1'] = 0
-            self.procs['pv'] = round(self.acqus['o1p'], 2)
-            #   Then, baseline
-            self.procs['basl_c'] = None
-            self.procs['cal'] = 0
-            self.procs['roll_ppm'] = None
-
+            self.procs = self._default_procs(self.acqus)
             self.write_procs()
+
+    @staticmethod
+    def _default_procs(acqus):
+        procs = {}
+        proc_init_1D = (deepcopy(wf0), None, 0.5, 0)
+        for k, key in enumerate(proc_keys_1D):
+            procs[key] = proc_init_1D[k]         # Processing parameters
+        procs['wf']['sw'] = round(acqus['SW'], 4)
+        #   Then, phases
+        procs['p0'] = 0
+        procs['p1'] = 0
+        procs['pv'] = round(acqus['o1p'], 2)
+        #   Then, baseline
+        procs['basl_c'] = None
+        procs['cal'] = 0
+        procs['roll_ppm'] = None
+        return procs
 
     def process(self):
         """

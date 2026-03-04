@@ -36,5 +36,5 @@ setup(
         extras_require=extras,
         packages=['klassez'],
         include_package_data=True,
-        python_requires='>=3.9',
+        python_requires='>=3.10',
         )
