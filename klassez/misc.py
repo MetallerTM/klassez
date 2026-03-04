@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 
-import os
 import numpy as np
 import nmrglue as ng
 import matplotlib as mpl
@@ -10,6 +9,7 @@ import math
 import warnings
 import scipy.linalg as slinalg
 from copy import deepcopy
+from pathlib import Path
 
 try:
     import jeol_parser
@@ -27,7 +27,7 @@ print = cprint
 def get_datadir_filename(in_file, isexp=True):
     """
     Computes the attributes ``datadir`` and ``filename`` to feed in the `Spectra` classes.
-    
+
     If ``in_file`` is a dictionary of acqusition parameters, ``datadir`` is the current working directory and ``filename='dict'``.
     In any other case, ``datadir`` is the absolute path to the directory that contains the raw FID, and ``filename`` is the name of the last directory.
     Example: if the path to the FID is `/path/to/dataset/expno/fid`, ``datadir = '/path/to/dataset/expno/fid'``, ``filename = expno``.
@@ -47,20 +47,21 @@ def get_datadir_filename(in_file, isexp=True):
         Filename of the spectrum
     """
     if isinstance(in_file, dict):   # Simulated data with already given acqus dictionary
-        datadir = os.getcwd()      # Current directory
+        datadir = Path.cwd()      # Current directory
         filename = 'dict'  # Filename is just "dict"
     else:                           # You need to actually read a file
-        datadir = os.path.abspath(in_file)  # Get the file position
-        if not os.path.isdir(datadir):
-            datadir = os.path.dirname(datadir)
+        datadir = Path(in_file).absolute()  # Get the file position
+        if not datadir.is_dir():
+            datadir = datadir.parent
         if isexp:
-            filename = os.path.basename(datadir).strip(os.sep).rsplit('.', 1)[0]  # Get the filename
+            filename = datadir.stem
         else:
-            filename = os.path.basename(in_file).strip(os.sep).rsplit('.', 1)[0]   # Use the input filename
+            filename = Path(in_file).stem
         # If filename is a directory, write things inside it
-        if os.path.isdir(f'{os.sep}'.join([datadir, filename])) and isexp:
-            datadir = os.path.join(datadir, filename)     # i.e. add filename to datadir
-    return datadir, filename
+        extended_dir = datadir / filename
+        if extended_dir.is_dir() and isexp:
+            datadir = extended_dir
+    return Path(datadir), filename
 
 
 def read_fid_acqus_1D(in_file, spect='bruker'):
@@ -84,54 +85,53 @@ def read_fid_acqus_1D(in_file, spect='bruker'):
     ngdic : dict
         Complete set of acquisition, processing, and setup parameters.
     """
-    def read_bruker(in_file):
+    def read_bruker(path):
         """ For bruker data """
-        dic, data = ng.bruker.read(in_file, cplex=True)
+        dic, data = ng.bruker.read(path, cplex=True)
         acqus = misc.makeacqus_1D(dic)
         # Set the data format keys in acqus
         acqus['BYTORDA'] = dic['acqus']['BYTORDA']
         acqus['DTYPA'] = dic['acqus']['DTYPA']
         return data, acqus, dic
 
-    def read_varian(in_file):
+    def read_varian(path):
         """ For Varian data """
-        dic, data = ng.varian.read(in_file)
+        dic, data = ng.varian.read(path)
         acqus = misc.makeacqus_1D_varian(dic)
         return data, acqus, dic
 
-    def read_magritek(in_file):
+    def read_magritek(path):
         """ Spinsolve data """
-        dic, data = ng.spinsolve.read(in_file, specfile='data.1d')         # Actual FID
-        if os.path.isfile(os.path.join(in_file, 'spectrum.1d')):
-            dic2, _, = ng.spinsolve.read(in_file, specfile='spectrum.1d')       # for config
+        dic, data = ng.spinsolve.read(path, specfile='data.1d')         # Actual FID
+        if (path / 'spectrum.1d').is_file():
+            dic2, _, = ng.spinsolve.read(path, specfile='spectrum.1d')       # for config
             dic.update(dic2)
-        if os.path.isfile(os.path.join(in_file, 'nmr_fid.dx')):
-            dic3, _, = ng.spinsolve.read(in_file, specfile='nmr_fid.dx')        # for config
+        if (path / 'nmr_fid.dx').is_file():
+            dic3, _, = ng.spinsolve.read(path, specfile='nmr_fid.dx')        # for config
             dic.update(dic3)
         acqus = misc.makeacqus_1D_spinsolve(dic)
         return data, acqus, dic
 
-    def read_oxford(in_file):
+    def read_oxford(path):
         """ jdx files """
-        if '.jdx' in in_file:
-            jdx_file = in_file
+        if '.jdx' in path:
+            jdx_file = path
         else:
             # Try to see if there is a .jdx file
-            dirlist = os.listdir(in_file)
-            all_jdx = [w for w in dirlist if '.jdx' in w]
+            all_jdx = list(path.glob('*.jdx'))
             if len(all_jdx) == 0:
-                raise NameError(f'No .jdx file were found in {in_file}.')
+                raise NameError(f'No .jdx file were found in {path}.')
             elif len(all_jdx) > 1:
-                raise ValueError(f'There are more than one .jdx file in {in_file}.')
-            jdx_file = os.path.join(in_file, all_jdx[-1])
+                raise ValueError(f'There are more than one .jdx file in {path}.')
+            jdx_file = all_jdx[-1]
         dic, cplx = ng.jcampdx.read(jdx_file)
         acqus = misc.makeacqus_1D_oxford(dic)
         data = cplx[0] + 1j*cplx[1]
         return data, acqus, dic
 
-    def read_jeol(in_file):
+    def read_jeol(path):
         """ Jeol files """
-        dic = jeol_parser.parse(in_file)
+        dic = jeol_parser.parse(path)
         # Compute fid
         fid = dic.pop('data')  # remove the data from the dictionary (useless)
         # join real and imaginary part
@@ -144,6 +144,7 @@ def read_fid_acqus_1D(in_file, spect='bruker'):
         return data, acqus, dic
 
     # MAIN READING
+    in_file = Path(in_file)
     with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
         warnings.simplefilter("ignore")
 
@@ -858,7 +859,7 @@ def polyn(x, c):
     return px
 
 
-def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True, filename=None, cplx=True):
+def write_ser(fid, path=None, BYTORDA=0, DTYPA=0, overwrite=True, filename=None, cplx=True):
     """
     Writes the FID file in directory ``path``, in a TopSpin-readable way (i.e. little endian, int32).
     The binary file is named 'fid' if 1D, 'ser' if multiD.
@@ -879,7 +880,7 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True, filename=None,
     fid : ndarray
         FID array to be written
     path : str
-        Directory where to save the file
+        Directory where to save the file. If ``None``, the current working directory is used
     BYTORDA : int
         little/big endian
     DTYPA : int
@@ -889,6 +890,23 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True, filename=None,
     filename : str
         Name for the file
     """
+    def uncomplexify_data(data_in, ddtype):
+        """ Uncomplexify data (pack real,imag) into a int32 array """
+        size = list(data_in.shape)
+        size[-1] = size[-1] * 2
+        data_out = np.empty(size, dtype=ddtype)
+        data_out[..., ::2] = data_in.real
+        data_out[..., 1::2] = data_in.imag
+        return data_out
+
+    def open_towrite(filename):
+        """ Open filename for writing and return file object """
+        path = Path(filename)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path.open('wb')
+
+    if path is None:
+        path = Path.cwd()
 
     if BYTORDA == 0:
         endian = '<'
@@ -906,23 +924,6 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True, filename=None,
     else:
         raise ValueError('Data type not defined')
 
-    def uncomplexify_data(data_in, ddtype):
-        # Uncomplexify data (pack real,imag) into a int32 array
-        size = list(data_in.shape)
-        size[-1] = size[-1] * 2
-        data_out = np.empty(size, dtype=ddtype)
-        data_out[..., ::2] = data_in.real
-        data_out[..., 1::2] = data_in.imag
-        return data_out
-
-    def open_towrite(filename):
-        # Open filename for writing and return file object
-        p, fn = os.path.split(filename)  # split into filename and path
-        # create directories if needed
-        if p != '' and os.path.exists(p) is False:
-            os.makedirs(p)
-        return open(filename, 'wb')
-
     fid = np.squeeze(fid)
     if filename is None:
         if len(fid.shape) == 1:
@@ -930,20 +931,21 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True, filename=None,
         else:
             filename = 'ser'
 
-    if os.path.exists(os.path.join(path, filename)):
+    bin_path = Path(path) / filename
+    if bin_path.exists():
         if overwrite is True:
-            os.remove(os.path.join(path, filename))
+            bin_path.unlink()
         else:
-            what_to_do = input('{} already exists. Overwrite it? [YES/no]'.format(filename+path))
-            if what_to_do.lower()[0] == 'n':
+            what_to_do = input(f'{bin_path} already exists. Overwrite it? [YES/no]') or 'y'
+            if what_to_do.lower().startswith('n'):
                 return 0
             else:
-                os.remove(os.path.join(path, filename))
-    f = open_towrite(os.path.join(path, filename))
+                bin_path.unlink()
+    f = open_towrite(bin_path)
     if np.iscomplexobj(fid):
         fid = uncomplexify_data(fid, ddtype)
     print('Writing \'{}\' file in {}...'.format(filename, path), c='tab:blue')
-    f.write(fid.astype(endian+dtype).tobytes())
+    f.write(fid.astype(endian + dtype).tobytes())
     f.close()
     print('Done.', c='tab:blue')
 

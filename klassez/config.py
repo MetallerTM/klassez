@@ -2,6 +2,7 @@
 
 import sys
 import os
+from pathlib import Path
 from numpy import loadtxt
 import seaborn as sns
 from datetime import datetime
@@ -238,7 +239,7 @@ if sys.version_info < (3, 13):      # python 3.9 - 3.12
     with files(__package__).joinpath('tables', 'xterm_colors').open('r', encoding='utf-8') as f:
         color_arr = loadtxt(f, dtype=str, comments='#', delimiter='&', converters=lambda w: w.strip(), skiprows=0, usecols=(0, 1), unpack=True)
 else:                               # python 3.13 and above
-    with open_text(__name__, os.path.join('tables', 'xterm_colors')) as f:
+    with open_text(__name__, Path('tables') / 'xterm_colors') as f:
         color_arr = loadtxt(f, dtype=str, comments='#', delimiter='&', converters=lambda w: w.strip(), skiprows=0, usecols=(0, 1), unpack=True)
 
 dic_xcolors = {str(name): '\033[' + str(color) for name, color in zip(color_arr[0], color_arr[1])}

@@ -8,7 +8,7 @@ from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.widgets import Button, RadioButtons, TextBox, Cursor, LassoSelector
-from matplotlib.path import Path
+from matplotlib.path import Path as MplPath
 import lmfit
 from datetime import datetime
 import warnings
@@ -2017,7 +2017,7 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
         # Function connected to the lasso
         nonlocal sgn_reg
         # raw selection of data
-        path = Path(verts, closed=True)
+        path = MplPath(verts, closed=True)
         selected = []
         for i in yscale:
             for j in xscale:
@@ -2039,7 +2039,7 @@ def tabula_rasa(data, lvl=0.05, cmap=cm.Blues_r):
         hull.set_data(xhull, yhull)
 
         # Fine selection of points on the basis of the hull
-        path = Path(CH.points[CH.vertices], closed=True)
+        path = MplPath(CH.points[CH.vertices], closed=True)
         selected = []
         for i in yscale:
             for j in xscale:
