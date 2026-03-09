@@ -234,7 +234,7 @@ def makeacqus_1D(dic):
     the "important" parameters.
 
     Parameters
-    -----------
+    ----------
 
     dic : dict
         NMRglue dictionary returned by ng.bruker.read
@@ -1386,7 +1386,7 @@ def hankel(data, n=None):
         Number of columns that the Hankel matrix will have
 
     Returns
-    --------
+    -------
     H : 2darray
         Hankel matrix of dimensions `(N-n+1, n)`
     """
@@ -1580,8 +1580,8 @@ def binomial_triangle(n):
     row : 1darray
         The n-th row of binomial triangle.
 
-    Examples:
-    ---------
+    Examples
+    --------
     >>> binomial_triangle(4)
     1 3 3 1
 

@@ -61,7 +61,7 @@ def histogram(data, nbins=100, density=True, f_lims=None, xlabel=None, x_symm=Fa
         Resolution of the image in dots per inches
 
     Returns
-    ----------
+    -------
     m : float
         Mean of data
     s : float
@@ -120,7 +120,7 @@ def ax_histogram(ax, data0, nbins=100, density=True, f_lims=None, xlabel=None, x
         Biggest fontsize in the figure
 
     Returns
-    ----------
+    -------
     m : float
         Mean of data
     s : float
@@ -191,7 +191,7 @@ def bin_data(data0, nbins=100, density=True, x_symm=False):
         set it to True to make symmetric x-axis with respect to 0
 
     Returns
-    ----------
+    -------
     hist : 1darray
         The bin intensity
     bin_scale : 1darray
@@ -249,7 +249,7 @@ def lr(y, x=None, force_intercept=False, w=None):
         Weights to be used for the linear regression.
 
     Returns
-    ----------
+    -------
     y_c : 1darray
         Fitted trend
     values : tuple
@@ -292,7 +292,7 @@ def calc_R2(y, y_c):
         Calculated data
 
     Returns
-    ----------
+    -------
     R2 : float
         R-squared coefficient
     """
@@ -331,7 +331,7 @@ def fit_int(y, y_c, q=True):
         If True, includes the offset in the calculation. If False, only the intensity factor is computed.
 
     Returns
-    ----------
+    -------
     A : float
         Optimized intensity
     q : float
@@ -542,7 +542,7 @@ def make_signal(t, u, s, k, b, phi, A, SFO1=701.125, o1p=0, N=None):
         length of the final signal. If None, the signal is not zero-filled before to be transformed.
 
     Returns
-    ----------
+    -------
     sgn : 1darray
         generated signal in the frequency domain
     """
@@ -614,7 +614,7 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False,
             Absolute intensity
 
         Returns
-        ----------
+        -------
         total: 1darray
             Sum spectrum
         """
@@ -813,7 +813,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
         * ``"calc"``: The baseline coefficients are calculated during the optimization via linear least-squares optimization
 
     Returns
-    ----------
+    -------
     lmfit_results: list of lmfit.Minimizer.MinimizerResult
         Sequence of the fit results, ordered as the regions dictionary
 
@@ -842,7 +842,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
             Absolute intensity
 
         Returns
-        ----------
+        -------
         total : 1darray
             Sum spectrum
         """
@@ -867,7 +867,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
             New values for the peaks
 
         Returns
-        ----------
+        -------
         peaks : dict
             Updated peaks dictionary with the new values
         """
@@ -907,7 +907,7 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
             Target value at the first call of this function. Used to compute the relative target function.
 
         Returns
-        ----------
+        -------
         residual : 1darray
             ``experimental - calculated``, in the fitting window
         """
@@ -1153,7 +1153,7 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus,
         Path to a file where to write the fit information. If it is None, they will be printed into standard output.
 
     Returns
-    ----------
+    -------
     out_parameters : 2darray
         parameters, but with the optimized values.
     """
@@ -1180,7 +1180,7 @@ def voigt_fit_2D(x_scale, y_scale, data, parameters, lim_f1, lim_f2, acqus,
             Trimming limits for y_scale
 
         Returns
-        ----------
+        -------
         res : 2darray
             Experimental -  calculated
         """
@@ -1325,7 +1325,7 @@ def smooth_spl(x, y, s_f=1, size=0, weights=None):
         Size of the spline. If ``size=0``, the same dimension as ``y`` is chosen.
 
     Returns
-    ----------
+    -------
     x_s : 1darray
         Location of the spline data points.
     y_s : 1darray
@@ -1382,7 +1382,7 @@ def interactive_smoothing(x, y, cmap='RdBu'):
         Name of the colormap to be used to represent the weights. Must be present in ``CM``
 
     Returns
-    ----------
+    -------
     sx : 1darray
         Location of the spline points
     sy : 1darray
@@ -1556,8 +1556,8 @@ class Peak:
     """
     Class to represent the characteristic parameters of an NMR peak, and to compute it.
 
-    Attributes:
-    -----------
+    Attributes
+    ----------
     t: 1darray
         Timescale for the FID
     SFO1: float
@@ -1632,7 +1632,7 @@ class Peak:
             If True, returns the FID instead of the transformed signal
 
         Returns
-        ----------
+        -------
         sgn : 1darray
             generated signal according to ``get_fid`` and ``cplx``
         """
@@ -1654,7 +1654,7 @@ class Peak:
             Absolute intensity value
 
         Returns
-        ----------
+        -------
         sgn : 1darray
             generated signal in the time domain
         """
@@ -1669,7 +1669,7 @@ class Peak:
         Creates a dictionary with the currently stored attributes and returns it.
 
         Returns
-        ----------
+        -------
         dic: dict
             Dictionary of parameters
         """
@@ -1753,7 +1753,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
             Number of peaks, i.e. the sequence goes from 1 to Np
 
         Returns
-        ----------
+        -------
         new_dic : dict
             Dictionary with the changed keys
         """
@@ -1777,7 +1777,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
             Components
 
         Returns
-        ----------
+        -------
         total : 1darray
             Sum spectrum
         """
@@ -2336,7 +2336,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
             Threshold values (prominence)
 
         Returns
-        ----------
+        -------
         ks : list
             List of indices where the program found peaks
         """
@@ -2353,7 +2353,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
             Indices of peak positions
 
         Returns
-        ----------
+        -------
         peak_in: list of fit.Peak objects
             Model peaks
         """
@@ -2880,7 +2880,7 @@ def read_vf(filename, n=-1):
         Number of performed fit to be read. Default: last one. The breakpoints are lines that start with "!". For this reason, ``n=0`` returns an empty dictionary, hence the first fit is ``n=1``.
 
     Returns
-    ----------
+    -------
     regions: list
         List of dictionaries for running the fit.
 
@@ -3033,7 +3033,7 @@ def read_dy(filename, n=-1):
         Number of performed fit to be read. Default: last one. The breakpoints are lines that start with "!". For this reason, ``n=0`` returns an empty dictionary, hence the first fit is ``n=1``.
 
     Returns
-    ----------
+    -------
     regions: list
         List of dictionaries for running the fit.
 
@@ -3116,7 +3116,7 @@ def test_randomsign(data, thresh=1.96):
         Significance level. The default is 1.96, which corresponds to 5% significance level.
 
     Returns
-    ----------
+    -------
     test : bool
         True if the signs are random, False otherwise
     """
@@ -3163,7 +3163,7 @@ def test_correl(data, subtract_mean=True):
         If True, subtracts from the residuals their mean.
 
     Returns
-    ----------
+    -------
     test: bool
         True if the residuals are non correlated, False otherwise
     """
@@ -3198,7 +3198,7 @@ def test_ks(data, thresh=0.05):
         Significance level for the test. Default is 5%
 
     Returns
-    ----------
+    -------
     test : bool
         True if the residuals are Gaussian, False otherwise
     """
@@ -3224,7 +3224,7 @@ def test_residuals(res, alpha=0.05):
         Significance level
 
     Returns
-    ----------
+    -------
     test_random : bool
         Randomness of the residuals (True = random)
     test_correlation : bool
@@ -3278,7 +3278,7 @@ def gaussian_fit(x, y, s_in=None):
         initial guess for the standard deviation of the gaussian. If None, ``np.std(y)`` is used
 
     Returns
-    ----------
+    -------
     u : float
         mean
     s : float
@@ -3319,8 +3319,8 @@ class Voigt_Fit:
     """
     This class offers an "interface" to fit a 1D NMR spectrum.
 
-    Attributes:
-    -----------
+    Attributes
+    ----------
     ppm_scale : 1darray
         Self-explanatory
     S : 1darray
@@ -3501,7 +3501,7 @@ class Voigt_Fit:
             * "calc" : The baseline coefficients are calculated during the optimization via linear least-squares optimization
 
         Returns
-        ----------
+        -------
         lmfit_results : list of lmfit.minimizer.MinimizerResult
             Sequence of the fit results, ordered as the regions dictionary
 
@@ -3600,7 +3600,7 @@ class Voigt_Fit:
             'iguess' or 'result'
 
         Returns
-        ----------
+        -------
         signals : list of 1darray
             Components used for the fit
         total : 1darray
@@ -3904,7 +3904,7 @@ def peak_pick_2D(ppm_f1, ppm_f2, data, coord_filename='coord.tmp'):
         Path to the file where to save the peak coordinates
 
     Returns
-    ----------
+    -------
     coord: list
         List of (u2, u1) for each peak
     """
@@ -3968,7 +3968,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
         Dictionary of processing parameters
 
     Returns
-    ----------
+    -------
     final_parameters : 2darray
         Matrix of dimension (# signals, 6) that contains, for each row: v1(Hz), v2(Hz), fwhm1(Hz), fwhm2(Hz), A, b
     fit_interval : tuple of tuple
@@ -4145,7 +4145,7 @@ def gen_iguess_2D(ppm_f1, ppm_f2, tr1, tr2, u1, u2, acqus, fwhm0=100, procs=None
             2D-like procs dictionary.
 
         Returns
-        ----------
+        -------
         peaks: list of 2darray
             rr part of the generated signals
         """
@@ -4392,7 +4392,7 @@ def build_2D_sgn(parameters, acqus, N=None, procs=None):
         2D-like procs dictionary.
 
     Returns
-    ----------
+    -------
     peak : 2darray
         rr part of the generated signal
     """
@@ -5001,8 +5001,8 @@ class CostFunc:
             2sx - s^2 & \text{otherwise}\\
             \end{cases}
 
-    Attributes:
-    -----------
+    Attributes
+    ----------
     method : function
         Function to be used for the computation of the objective value. It must take as input the array of the residuals and the threshold, no matter if the latter is actually used or not.
     s : float
@@ -5039,7 +5039,7 @@ class CostFunc:
             Method label
 
         Returns
-        ----------
+        -------
         f : function
             Selected model
         """
@@ -5066,7 +5066,7 @@ class CostFunc:
             Array of the residuals
 
         Returns
-        ----------
+        -------
         R: 1darray
             Computed objective function to be given to a least-squares solver
         """
@@ -5146,7 +5146,7 @@ def lsp(y, x, n=5, w=None):
         Array of weights for the data. If None, the nonweighted approach is used
 
     Returns
-    ----------
+    -------
     c : 1darray
         Set of minimized coefficients
     """
@@ -5192,7 +5192,7 @@ def polyn_basl(y, n=5, method='huber', s=0.2, c_i=None, itermax=1000):
         Number of maximum iterations
 
     Returns
-    ----------
+    -------
     px : 1darray
         Fitted polynomion
     c : list
@@ -5318,8 +5318,8 @@ class SINC_ObjFunc:
 
     where `d` is the real part of the NMR spectrum.
 
-    Attributes:
-    -----------
+    Attributes
+    ----------
     gamma1 : float
         Weighting factor for function g1
     gamma2 : float
@@ -5441,7 +5441,7 @@ def sinc_phase(data, gamma1=10, gamma2=0.01, gamma3=0, e1=0, e2=0, **fit_kws):
         additional parameters for the fit function. See :func:`lmfit.Minimizer.minimize` for details. Do not use "leastsq" because the cost function returns a scalar value!
 
     Returns
-    ----------
+    -------
     p0 : float
         Fitted zero-order phase correction angle, in degrees
     p1 : float
@@ -5559,7 +5559,7 @@ def read_vf_P2D(filename, n=-1):
         Number of performed fit to be read. Default: last one. The breakpoints are lines that start with "!". For this reason, n=0 returns an empty dictionary, hence the first fit is n=1.
 
     Returns
-    ----------
+    -------
     regions : list of list of dict
         List of dictionaries for running the fit.
     """
@@ -5699,7 +5699,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
             Number of peaks, i.e. the sequence goes from 1 to Np
 
         Returns
-        ----------
+        -------
         new_dic : dict
             Dictionary with the changed keys
         """
@@ -5723,7 +5723,7 @@ def make_iguess_P2D(S_in, ppm_scale, expno, t_AQ, SFO1=701.125, o1p=0, filename=
             Components
 
         Returns
-        ----------
+        -------
         total : 1darray
             Sum spectrum
         """
@@ -6592,7 +6592,7 @@ def plot_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False, show_
             Absolute intensity
 
         Returns
-        ----------
+        -------
         total: 1darray
             Sum spectrum
         """
@@ -6767,7 +6767,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
             Absolute intensity
 
         Returns
-        ----------
+        -------
         total : 1darray
             Sum spectrum
         """
@@ -6798,7 +6798,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
             Number of experiment of which to change the intensity of the peak
 
         Returns
-        ----------
+        -------
         peaks : dict
             Updated peaks dictionary with the new values
         """
@@ -6832,7 +6832,7 @@ def voigt_fit_P2D(S, ppm_scale, regions, t_AQ, SFO1, o1p, u_tol=1, f_tol=10, var
             Trimming region corresponding to the fitting window, in points
 
         Returns
-        ----------
+        -------
         residual : 1darray
             Experimental - calculated, in the fitting window, concatenated through all the experiments
         """
@@ -6981,8 +6981,8 @@ class Voigt_Fit_P2D:
     """
     This class offers an "interface" to fit a pseudo 2D NMR spectrum.
 
-    Attributes:
-    -----------
+    Attributes
+    ----------
     ppm_scale : 1darray
         Self-explanatory
     S  : 2darray
@@ -7180,7 +7180,7 @@ class Voigt_Fit_P2D:
             'iguess' or 'result'
 
         Returns
-        ----------
+        -------
         signals : list of list of 1darray
             Components used for the fit
         total : 2darray
@@ -8136,7 +8136,7 @@ class DosyFit:
             ``'iguess'`` or ``'result'``
 
         Returns
-        ----------
+        -------
         totals : list of 1darray
             Sum of all the signals, per region
         components : list of 2darray

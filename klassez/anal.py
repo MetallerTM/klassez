@@ -153,7 +153,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
         Choose if to show the negative contours ( True) or not ( False )
 
     Returns
-    ----------
+    -------
     peaks : list of dict
         For each peak there are two keys, 'f1' and 'f2', whose meaning is obvious.
         For each of these keys, you have 'u': center of the peak /ppm, and 'lim': the limits of the square you drew before.
@@ -348,7 +348,7 @@ def noise_std(y):
         The spectral region you would like to use to calculate the standard deviation of the noise.
 
     Returns
-    --------
+    -------
     noisestd : float
         The standard deviation of the noise.
     """
@@ -528,7 +528,7 @@ def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, ut
         True to show how the program fitted the traces.
 
     Returns
-    ----------
+    -------
     I_tot : float
         Computed integral.
     """
@@ -643,7 +643,7 @@ def integrate(ppm0, data0, SFO1, filename='integrals', X_label=r'$\delta\,$F1 /p
         Correction for the integral values. It should be ``dx = 2 * dw``
 
     Returns
-    ----------
+    -------
     abs_vals : dict
         Dictionary containing the values of the integrated peaks.
 
@@ -943,7 +943,7 @@ def integrate_p2D(ppm0, data0, SFO1, ref=0, indirect_scale=None, filename='integ
         Correction for the integral values. It should be ``dx = 2 * dw``
 
     Returns
-    ----------
+    -------
     abs_vals : dict
         Dictionary containing the values of the integrated peaks.
 
@@ -1303,7 +1303,7 @@ def integrate_2D(ppm_f1, ppm_f2, data, SFO1, SFO2, fwhm_1=200, fwhm_2=200, utol_
         True to show how the program fitted the traces.
 
     Returns
-    ----------
+    -------
     I : dict
         Computed integrals. The keys are ``'<ppm f1>:<ppm f2>'`` with 2 decimal figures.
     """
@@ -1437,7 +1437,7 @@ def read_igrl(filename, n=-1):
         For this reason, ``n=0`` returns an empty dictionary, hence the first attempt is ``n=1``.
 
     Returns
-    ----------
+    -------
     dic : dict
         Integrals
     indirect_scale : 1darray or None

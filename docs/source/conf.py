@@ -12,11 +12,13 @@ r"""
 """
 
 # -- Path setup --------------------------------------------------------------
+suppress_warnings = ["autosummary.*not found"]
 
 import os
 import sys
 from pathlib import Path
-sys.path.insert(0, Path(__file__).parent.parent.parent) #os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))  
+basedir_kz = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(basedir_kz))
 
 # -- Project information -----------------------------------------------------
 
@@ -43,6 +45,8 @@ extensions = [
 ]
 
 autosummary_generate = True
+numpydoc_class_members_toctree = False
+#numpydoc_show_class_members = False
 
 numfig = True
 numfig_format = {
