@@ -7,6 +7,7 @@ from matplotlib.widgets import Button, Cursor, SpanSelector, RectangleSelector, 
 import lmfit
 from datetime import datetime
 import getpass
+from pathlib import Path
 
 from . import fit, misc, sim, figures, processing, anal
 from .config import CM, COLORS
@@ -123,6 +124,7 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True):
 
     # Widgets
     cursor = Cursor(ax, useblit=True, color='k', linewidth=0.4)
+    cursor.horizOn = True
     fig.canvas.mpl_connect('button_press_event', on_click)
     fig.canvas.mpl_connect('scroll_event', on_scroll)
 
@@ -290,6 +292,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
 
     # Widgets
     cursor = Cursor(ax, useblit=True, color='red', linewidth=0.4)       # Moving crosshair
+    cursor.horizOn = True
     fig.canvas.mpl_connect('button_press_event', on_click)      # Right click
     fig.canvas.mpl_connect('scroll_event', on_scroll)          # Mouse scroll
     span = RectangleSelector(ax, onselect, useblit=False, props=dict(facecolor='tab:red', alpha=0.5))    # Draggable rectangle
@@ -1355,6 +1358,7 @@ def write_igrl(filename, dic, indirect_scale=None, header=False):
         :func:`klassez.anal.integrate`
 
     """
+    filename = Path(filename).with_suffix('.igrl')
     # Understand how many integrals per window we have to write
     for key, value in dic.items():
         if isinstance(value, (int, float)):
@@ -1376,7 +1380,7 @@ def write_igrl(filename, dic, indirect_scale=None, header=False):
     n_dashes = 25 + 14 * n_spectra
 
     # Open the file
-    f = open(f'{filename}.igrl', 'a', buffering=1)
+    f = filename.open('a', buffering=1)
 
     # Info on the region to be fitted
     if header:
@@ -1489,8 +1493,7 @@ def read_igrl(filename, n=-1):
         return dic_r, indirect_scale
 
     # Read the file
-    with open(filename, 'r') as J:
-        ff = J.read()
+    ff = Path(filename).read_text()
     # Get the actual section from an output file
     f = ff.split('!')[n]
     # Separate the bigger sections

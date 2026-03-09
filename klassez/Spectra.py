@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import os
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button, Cursor, SpanSelector
@@ -102,6 +102,20 @@ class Spectrum_1D:
 
         return doc
 
+    @property
+    def S(self) -> np.ndarray:
+        """ Normal getter for ``self.S`` attribute """
+        return self._S
+
+    @S.setter
+    def S(self, data: np.ndarray):
+        """ Every time ``self.S`` is instanced, ``self.r`` and ``self.i`` are updated automatically """
+        self._S = data
+        self.r = self._S.real
+        self.i = self._S.imag
+        if hasattr(self, 'F'):
+            self.F.S = self._S
+
     def __init__(self, in_file, pv=False, isexp=True, spect='bruker'):
         """
         Initialize the class.
@@ -147,7 +161,7 @@ class Spectrum_1D:
 
         # Initalize the procs dictionary
         # If there already is a procs dictionary saved as file, load it
-        if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
+        if (self.datadir / f'{self.filename}.procs').exists():
             self.procs = self.read_procs()
         # Otherwise, initialize it with default values
         else:
@@ -258,8 +272,6 @@ class Spectrum_1D:
         """
         if hasattr(self, 'S'):
             self.S = processing.pknl(self.S, grpdly=self.acqus['GRPDLY'], onfid=False)
-            self.r = self.S.real
-            self.i = self.S.imag
             self.F.S = self.S
         else:
             self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
@@ -322,9 +334,6 @@ class Spectrum_1D:
             self.S = self.S[::-1]
         if self.acqus['SFO1'] < 0:  # Correct for negative gamma nuclei
             self.S = self.S[::-1]
-        # Unpack the complex spectrum into real and imaginary part
-        self.r = self.S.real
-        self.i = self.S.imag
 
         # Calculate frequency and ppm scales
         self.freq = processing.make_scale(self.r.shape[0], dw=self.acqus['dw'])
@@ -333,7 +342,9 @@ class Spectrum_1D:
         self.ppm = misc.freq2ppm(self.freq, B0=self.acqus['SFO1'], o1p=self.acqus['o1p'])
 
         # Initializes the F attribute
-        self.F = fit.Voigt_Fit(self.ppm, self.S, self.acqus['t1'], self.acqus['SFO1'], self.acqus['o1p'], self.acqus['nuc'], filename=os.path.join(self.datadir, self.filename))
+        self.F = fit.Voigt_Fit(self.ppm, self.S, self.acqus['t1'], self.acqus['SFO1'],
+                               self.acqus['o1p'], self.acqus['nuc'],
+                               filename=self.datadir/self.filename)
 
         # Compute the baseline, if there is
         if self.procs['basl_c'] is None:    # Initialize it to zero
@@ -374,8 +385,6 @@ class Spectrum_1D:
         """
         # Basically, || self.S ||_2
         self.S = (self.S.real**2 + self.S.imag**2)**0.5
-        self.r = self.S.real
-        self.i = self.S.imag
 
         self.F.S = self.r
 
@@ -406,8 +415,6 @@ class Spectrum_1D:
         """
 
         self.S, (p0, p1) = processing.apk(self.ppm, self.S, self.acqus['SFO1'], alpha, winsize, ap1)
-        self.r = self.S.real
-        self.i = self.S.imag
 
         if update:
             self.procs['p0'] += p0
@@ -447,8 +454,6 @@ class Spectrum_1D:
         """
         # Adjust the phases
         self.S, values = processing.ps(self.S, self.ppm, p0=p0, p1=p1, pivot=pv, reference=reference)
-        self.r = self.S.real
-        self.i = self.S.imag
 
         if update:      # Add the new phases to the previous ones
             self.procs['p0'] += round(values[0], 2)
@@ -505,8 +510,6 @@ class Spectrum_1D:
             :func:`klassez.processing.rpbc`
         """
         self.S, p0, p1, c = processing.rpbc(self.S, **rpbc_kws)
-        self.r = self.S.real
-        self.i = self.S.imag
         # Update the procs dictionary
         self.procs['p0'] += p0
         self.procs['p1'] += p1
@@ -609,9 +612,9 @@ class Spectrum_1D:
             :func:`klassez.misc.write_acqus_1D`
         """
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}.acqus')
+            path = Path(other_dir) / f'{self.filename}.acqus'
         else:
-            path = os.path.join(self.datadir, f'{self.filename}.acqus')
+            path = self.datadir / f'{self.filename}.acqus'
         misc.write_acqus_1D(self.acqus, path=path)
 
     def write_procs(self, other_dir=None):
@@ -628,11 +631,10 @@ class Spectrum_1D:
                 Do not put the trailing slash!
         """
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}.procs')
+            path = Path(other_dir) / f'{self.filename}'
         else:
-            path = os.path.join(self.datadir, f'{self.filename}.procs')
-        with open(path, 'w') as f:
-            f.write(f'{self.procs}')
+            path = self.datadir / f'{self.filename}'
+        path.with_suffix('.procs').write_text(f'{self.procs}')
 
     def read_procs(self, other_dir=None):
         """
@@ -653,16 +655,15 @@ class Spectrum_1D:
             Dictionary of processing parameters
         """
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}.procs')
+            path = Path(other_dir) / f'{self.filename}.procs'
         else:
-            path = os.path.join(self.datadir, f'{self.filename}.procs')
-        with open(path, 'r') as f:
-            procs = eval(f.read().replace('array', 'np.array'))
+            path = self.datadir / f'{self.filename}.procs'
+        procs = eval(path.read_text().replace('array', 'np.array'))
         # Check if it was read correctly
         if isinstance(procs, dict):
             return procs
         else:
-            raise ValueError(f'{self.filename}.procs cannot be interpreted as a dictionary')
+            raise ValueError(f'{path} cannot be interpreted as a dictionary')
 
     @staticmethod
     def write_ser(ser, acqus, path=None, filename=None):
@@ -787,7 +788,7 @@ class Spectrum_1D:
         fig.canvas.mpl_connect('button_press_event', onclick)
 
         if name:    # Save the figure
-            plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
+            plt.savefig(Path(f'{name}').with_suffix(f'.{ext}'), dpi=dpi)
         else:       # Show it
             plt.show()
         plt.close()
@@ -829,8 +830,7 @@ class Spectrum_1D:
         # Apply it
         self.r = processing.qfil(self.ppm, self.S, self.procs['qfil']['u'], self.procs['qfil']['s'], self.acqus['SFO1'])
         self.S = processing.hilbert(self.r)
-        self.r = self.S.real
-        self.i = self.S.imag
+        self.F.S = self.S
 
         # Update the .procs file
         self.write_procs()
@@ -854,9 +854,6 @@ class Spectrum_1D:
             self.baseline, *_ = processing.ps(self.baseline, self.ppm, p0=self.procs['p0'], p1=self.procs['p1'], pivot=self.procs['pv'])
         # Subtract the baseline
         self.S -= self.baseline
-        # Unpack S
-        self.r = self.S.real
-        self.i = self.S.imag
 
     def integrate(self, filename=None, lims=None, use_bas=False):
         """
@@ -924,9 +921,9 @@ class Spectrum_1D:
         """
         # Detect the file position
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}')
+            path = Path(other_dir) / f'{self.filename}'
         else:
-            path = os.path.join(self.datadir, f'{self.filename}')
+            path = self.datadir / f'{self.filename}'
 
         anal.write_igrl(path, self.integrals, header=True)
 
@@ -973,11 +970,11 @@ class Spectrum_1D:
 
         # Create default filename
         if filename is None:
-            filename = os.path.join(self.datadir, self.filename)
+            filename = self.datadir / self.filename
         if fvf:
-            filename += '.fvf'
+            filename_x = filename.with_suffix('.fvf')
         else:
-            filename += '.ivf'
+            filename_x = filename.with_suffix('.ivf')
 
         # If Hs is not given, sum the intensities
         if Hs is None:
@@ -1043,10 +1040,9 @@ class Spectrum_1D:
         limits = umax + 64*f_umax, umin - 64*f_umin
 
         # Write the file
-        with open(filename, 'w') as f:
-            f.write('!\n\n')
-        fit.write_vf(filename, dic, lims=limits, Int=Hs)
-        print(f'File {filename} generated successfully.', c='tab:cyan')
+        filename_x.write_text('!\n\n')
+        fit.write_vf(filename_x, dic, lims=limits, Int=Hs)
+        print(f'File {filename_x} generated successfully.', c='tab:cyan')
 
     def to_wav(self, filename=None, cutoff=None, rate=44100):
         """
@@ -1070,10 +1066,11 @@ class Spectrum_1D:
             :func:`klassez.misc.data2wav`
         """
         if filename is None:
-            cwd = os.getcwd()
-            filename = os.path.join(cwd, self.filename)
+            filename = Path.cwd / self.filename
+        else:
+            filename = Path(filename)
         # Make a shallow copy of the FID
-        data = np.copy(self.fid)
+        data = deepcopy(self.fid)
         misc.data2wav(data, filename, cutoff, rate)
 
     def abs(self, n=5, lims=None, alpha=2.75, qfil=False, qfilp={'u': 4.7, 's': 10}):
@@ -1114,8 +1111,6 @@ class Spectrum_1D:
         # Retrieve imaginary part
         self.S = processing.hilbert(datap)
         # Overwrite it
-        self.r = self.S.real
-        self.i = self.S.imag
         return original - datap
 
     def abs_v2(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
@@ -1154,9 +1149,6 @@ class Spectrum_1D:
         datap = processing.abs_v2(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
         # Retrieve imaginary part
         self.S = processing.hilbert(datap)
-        # Overwrite it
-        self.r = self.S.real
-        self.i = self.S.imag
         return original - datap
 
 
@@ -1192,7 +1184,7 @@ class pSpectrum_1D(Spectrum_1D):
         """
         if istrace is True:     # it comes from a 2D
             assert isinstance(in_file, np.ndarray), 'The first parameter must be an array if istrace=True!'
-            self.datadir = os.getcwd()
+            self.datadir = Path.cwd()
             self.filename = filename
             if np.iscomplexobj(in_file):    # There is the whole information
                 self.r = in_file.real
@@ -1204,15 +1196,9 @@ class pSpectrum_1D(Spectrum_1D):
             self.acqus = acqus
 
         else:
+            self.datadir, self.filename = misc.get_datadir_filename(in_file)
             with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
                 warnings.simplefilter("ignore")
-                self.datadir = os.path.abspath(in_file)  # Get the file position
-                if not os.path.isdir(self.datadir):
-                    self.datadir = os.path.dirname(self.datadir)
-                self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]  # Get the filename
-                # If filename is a directory, write things inside it
-                if os.path.isdir('/'.join([self.datadir, self.filename])):
-                    self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
                 # Read the dictionary
                 dic, _ = ng.bruker.read_pdata(in_file)
                 # Read the real and imaginary part, separately
@@ -1233,23 +1219,10 @@ class pSpectrum_1D(Spectrum_1D):
             self.acqus['GRPDLY'] = 0
 
         if procs is None:   # Make it
-            if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
+            if (self.datadir / self.filename).with_suffix('.procs').exists():
                 self.procs = self.read_procs()
             else:
-                self.procs = {}
-                proc_init_1D = (deepcopy(wf0), None, 0.5, 0)
-                for k, key in enumerate(proc_keys_1D):
-                    self.procs[key] = proc_init_1D[k]         # Processing parameters
-                self.procs['wf']['sw'] = round(self.acqus['SW'], 4)
-                #   Then, phases
-                self.procs['p0'] = 0
-                self.procs['p1'] = 0
-                self.procs['pv'] = round(self.acqus['o1p'], 2)
-                #   Then, baseline
-                self.procs['basl_c'] = None
-                #   calibration
-                self.procs['cal'] = 0
-
+                self.procs = self._default_procs(self.acqus)
         else:   # Copy it
             self.procs = deepcopy(procs)
 
@@ -1332,6 +1305,24 @@ class Spectrum_2D:
 
         return doc
 
+    @property
+    def S(self) -> np.ndarray:
+        """ Normal getter for ``self.S`` attribute """
+        return self._S
+
+    @S.setter
+    def S(self, data: np.ndarray):
+        """ Every time ``self.S`` is instanced, ``self.r`` and ``self.i`` are updated automatically """
+        self._S = data
+        if 'FnMODE' not in self.acqus.keys():
+            self.rr = self._S.real
+            self.ii = self._S.imag
+        if self.acqus['FnMODE'] in ['No', 'QF', 'QF-nofreq']:
+            self.rr = self._S.real
+            self.ii = self._S.imag
+        else:
+            self.rr, self.ir, self.ri, self.ii = processing.unpack_2D(self._S)
+
     def __init__(self, in_file, spect='bruker', pv=False, isexp=True):
         """
         Initialize the class.
@@ -1365,11 +1356,10 @@ class Spectrum_2D:
             self.eaeflag = 0    # no need of shuffling
 
         # initialize the procs dictionary with default values
-        if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
+        if (self.datadir / self.filename).with_suffix('.procs').exists():
             self.procs = self.read_procs()
         else:
             self.procs = self._default_procs(self.acqus)
-            # Write the .procs file
             self.write_procs()
 
         # Create empty dictionary where to save the projections
@@ -1510,11 +1500,7 @@ class Spectrum_2D:
 
         # Correct also the spectrum for negative gamma nuclei
         if self.acqus['SFO2'] < 0:
-            self.S = self.S[:, ::-1]
-
-        # Unpack
-        self.rr = self.S.real
-        self.ii = self.S.imag
+            self.S = self.S[..., ::-1]
 
         # Use the spectrum index as fake scale
         self.freq_f1 = np.arange(self.S.shape[0])
@@ -1573,9 +1559,6 @@ class Spectrum_2D:
         else:
             self.fid = processing.tp_hyper(self.fid)
             self.S = processing.tp_hyper(self.S)
-        # Unpack S
-        self.rr = np.copy(self.S.real)
-        self.ii = np.copy(self.S.imag)
 
         # Make frequency and ppm scales
         self.freq_f1 = processing.make_scale(self.S.shape[0], dw=self.acqus['dw1'])
@@ -1649,17 +1632,6 @@ class Spectrum_2D:
             else:
                 self.S = processing.tp_hyper(self.S)
 
-        # Unpack according to FnMODE
-        if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:
-            self.rr = self.S.real
-            self.ii = self.S.imag
-        else:
-            rr, ir, ri, ii = processing.unpack_2D(self.S)
-            self.rr = rr
-            self.ri = ri
-            self.ir = ir
-            self.ii = ii
-
         # Calculates the frequency and ppm scales
         self.freq_f1 = processing.make_scale(self.rr.shape[0], dw=self.acqus['dw1'])
         if self.acqus['SFO1'] < 0:  # Correct for negative gamma nuclei
@@ -1708,15 +1680,6 @@ class Spectrum_2D:
             :func:`klassez.processing.unpack_2D`
         """
         self.S = (self.S.real**2 + self.S.imag**2)**0.5
-        if self.acqus['FnMODE'] in ['QF', 'QF-nofreq']:
-            self.rr = self.S.real
-            self.ii = self.S.imag
-        else:
-            rr, ir, ri, ii = processing.unpack_2D(self.S)
-            self.rr = rr
-            self.ri = ri
-            self.ir = ir
-            self.ii = ii
 
     def strip(self, xlim=None, ylim=None):
         """
@@ -1750,11 +1713,8 @@ class Spectrum_2D:
         # Reconstruct the imaginary components
         if self.acqus['FnMODE'] in ['QF', 'QF-nofreq']:
             self.S = processing.hilbert(self.rr)
-            self.rr = self.S.real
-            self.ii = self.S.imag
         else:
-            self.rr, self.ir, self.ri, self.ii = processing.hilbert2(self.rr)
-            self.S = processing.repack_2D(self.rr, self.ir, self.ri, self.ii)
+            self.S = processing.repack_2D(processing.hilbert2(self.rr))
 
         # Cut the frequency scales as well
         self.freq_f2 = misc.ppm2freq(self.ppm_f2, self.acqus['SFO2'], self.acqus['o2p'])
@@ -1840,17 +1800,6 @@ class Spectrum_2D:
             else:
                 self.S, values_f1, values_f2 = processing.interactive_phase_2D(self.ppm_f1, self.ppm_f2, self.S)
 
-        # Unpack the phased spectrum
-        if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:
-            self.rr = self.S.real
-            self.ii = self.S.imag
-        else:
-            rr, ir, ri, ii = processing.unpack_2D(self.S)
-            self.rr = rr
-            self.ri = ri
-            self.ir = ir
-            self.ii = ii
-
         # update the procs dictionary
         if update:
             self.procs['p0_2'] += round(values_f2[0], 2)
@@ -1877,11 +1826,6 @@ class Spectrum_2D:
         """
         if hasattr(self, 'S'):
             self.S = processing.pknl(self.S, grpdly=self.acqus['GRPDLY'], onfid=False)
-            rr, ir, ri, ii = processing.unpack_2D(self.S)
-            self.rr = rr
-            self.ri = ri
-            self.ir = ir
-            self.ii = ii
         else:
             self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
 
@@ -1935,13 +1879,12 @@ class Spectrum_2D:
         # Apply the filter
         self.rr = processing.qfil(self.ppm_f2, self.rr, self.procs['qfil']['u'], self.procs['qfil']['s'], SFO)
         # Unpack according to procs
-        if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:
+        if 'FnMODE' not in self.acqus.keys():
             self.S = processing.hilbert(self.rr)
-            self.rr = self.S.real
-            self.ii = self.S.imag
+        elif self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:
+            self.S = processing.hilbert(self.rr)
         else:
-            self.rr, self.ir, self.ri, self.ii = processing.hilbert2(self.rr)
-            self.S = processing.repack_2D(self.rr, self.ir, self.ri, self.ii)
+            self.S = processing.repack_2D(processing.hilbert2(self.rr))
 
         self.write_procs()
 
@@ -2127,10 +2070,11 @@ class Spectrum_2D:
             :func:`klassez.misc.write_acqus_1D`
         """
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}.acqus')
+            path = Path(other_dir) / f'{self.filename}'
         else:
-            path = os.path.join(self.datadir, f'{self.filename}.acqus')
-        misc.write_acqus_2D(self.acqus, path=path)
+            path = self.datadir / f'{self.filename}'
+
+        misc.write_acqus_2D(self.acqus, path=path.with_suffix('.acqus'))
 
     def write_procs(self, other_dir=None):
         """
@@ -2146,11 +2090,10 @@ class Spectrum_2D:
                 Do not put the trailing slash!
         """
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}.procs')
+            path = Path(other_dir) / f'{self.filename}'
         else:
-            path = os.path.join(self.datadir, f'{self.filename}.procs')
-        with open(path, 'w') as f:
-            f.write(f'{self.procs}')
+            path = self.datadir / f'{self.filename}'
+        path.with_suffix('.procs').write_text(f'{self.procs}')
 
     def read_procs(self, other_dir=None):
         """
@@ -2171,16 +2114,15 @@ class Spectrum_2D:
             Dictionary of processing parameters
         """
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}.procs')
+            path = Path(other_dir) / f'{self.filename}.procs'
         else:
-            path = os.path.join(self.datadir, f'{self.filename}.procs')
-        with open(path, 'r') as f:
-            procs = eval(f.read().replace('array', 'np.array'))
+            path = self.datadir / f'{self.filename}.procs'
+        procs = eval(path.read_text().replace('array', 'np.array'))
         # Check if it was read correctly
         if isinstance(procs, dict):
             return procs
         else:
-            raise ValueError(f'{self.filename}.procs cannot be interpreted as a dictionary')
+            raise ValueError(f'{path} cannot be interpreted as a dictionary')
 
     @staticmethod
     def write_ser(ser, acqus, path=None, filename=None):
@@ -2233,8 +2175,10 @@ class Spectrum_2D:
         """
         if path is None:
             path = self.datadir
+        else:
+            path = Path(path)
 
-        proc_dir = os.path.join(path, 'pdata', f'{procno}')
+        proc_dir = path / 'pdata' / f'{procno}'
         misc.write_ser(self.rr, proc_dir, self.acqus['BYTORDA'], self.acqus['DTYPA'], filename='2rr')
         misc.write_ser(self.ir, proc_dir, self.acqus['BYTORDA'], self.acqus['DTYPA'], filename='2ir')
         misc.write_ser(self.ri, proc_dir, self.acqus['BYTORDA'], self.acqus['DTYPA'], filename='2ri')
@@ -2341,17 +2285,16 @@ class Spectrum_2D:
         """
         # Detect the file position
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}.int')
+            path = Path(other_dir) / f'{self.filename}'
         else:
-            path = os.path.join(self.datadir, f'{self.filename}.int')
+            path = self.datadir / f'{self.filename}'
 
-        f = open(path, 'w')
-        f.write('{:12}\t{:12}\t\t{:20}\n'.format('ppm F2', 'ppm F1', 'Value'))
-        f.write('-'*60+'\n')
-        for key, value in self.integrals.items():
-            ppm2, ppm1 = tuple(key.split(':'))
-            f.write('{:12}\t{:12}\t\t{:20.5e}\n'.format(ppm2, ppm1, value))
-        f.close()
+        with path.with_suffix('.int').open('w') as f:
+            f.write('{:12}\t{:12}\t\t{:20}\n'.format('ppm F2', 'ppm F1', 'Value'))
+            f.write('-'*60+'\n')
+            for key, value in self.integrals.items():
+                ppm2, ppm1 = tuple(key.split(':'))
+                f.write('{:12}\t{:12}\t\t{:20.5e}\n'.format(ppm2, ppm1, value))
 
     def plot(self, fqscale=False, Neg=True, lvl0=0.2):
         """
@@ -2613,10 +2556,11 @@ class Spectrum_2D:
             :func:`klassez.misc.data2wav`
         """
         if filename is None:
-            cwd = os.getcwd()
-            filename = os.path.join(cwd, self.filename)
+            filename = Path.cwd() / self.filename
+        else:
+            filename = Path(filename)
         # Make a shallow copy of the FID
-        data = np.copy(self.fid)
+        data = deepcopy(self.fid)
         misc.data2wav(data, filename, cutoff, rate)
 
 
@@ -2677,31 +2621,25 @@ class pSpectrum_2D(Spectrum_2D):
         in_file : str
             Path to the spectrum. Here, the `'pdata/#'` folder must be specified.
         """
-        self.datadir = os.path.abspath(in_file)  # Get the file position
-        if not os.path.isdir(self.datadir):
-            self.datadir = os.path.dirname(self.datadir)
-        self.filename = os.path.basename(self.datadir).rsplit('.', 1)[0]  # Get the filename
-        # If filename is a directory, write things inside it
-        if os.path.isdir('/'.join([self.datadir, self.filename])):
-            self.datadir = os.path.join(self.datadir, self.filename)     # i.e. add filename to datadir
+        self.datadir, self.filename = misc.get_datadir_filename(in_file)
 
         # Read the dictionary
         with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
             warnings.simplefilter("ignore")
-            dic, _ = ng.bruker.read(in_file.split('pdata')[0], cplex=True)
+            dic, _ = ng.bruker.read(self.datadir.parent.parent, cplex=True)
             # Read the files
-            _, self.rr = ng.bruker.read_pdata(in_file, bin_files=['2rr'])
-            _, self.ii = ng.bruker.read_pdata(in_file, bin_files=['2ii'])
+            _, self.rr = ng.bruker.read_pdata(self.datadir, bin_files=['2rr'])
+            _, self.ii = ng.bruker.read_pdata(self.datadir, bin_files=['2ii'])
             # Check for existence of hypercomplex data parts
-            listdir = os.listdir(in_file)
-            if ('2ir' in listdir and '2ri' in listdir):  # Read them
-                _, self.ir = ng.bruker.read_pdata(in_file, bin_files=['2ir'])
-                _, self.ri = ng.bruker.read_pdata(in_file, bin_files=['2ri'])
+
+            if (self.datadir / '2ir').is_file() and (self.datadir / '2ri').is_file():
+                _, self.ir = ng.bruker.read_pdata(self.datadir, bin_files=['2ir'])
+                _, self.ri = ng.bruker.read_pdata(self.datadir, bin_files=['2ri'])
                 self.S = processing.repack_2D(self.rr, self.ir, self.ri, self.ii)
-            else:    # Copy rr in ir and ri in ii
-                self.ir = np.array(np.copy(self.rr))
-                self.ri = np.copy(self.ii)
-                self.S = self.rr + 1j*self.ii
+            else:
+                self.ir = self.rr.copy()
+                self.ri = self.ii.copy()
+                self.S = self.rr + 1j * self.ii
 
             # Make the acqus dir
             self.acqus = misc.makeacqus_2D(dic)
@@ -2717,32 +2655,10 @@ class pSpectrum_2D(Spectrum_2D):
             self.acqus['GRPDLY'] = 0
 
         # initialize the procs dictionary with default values
-        if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
+        if (self.datadir / self.filename).with_suffix('.procs').exists():
             self.procs = self.read_procs()
         else:
-            proc_init_2D = (
-                    [deepcopy(wf0), deepcopy(wf0)],     # window function
-                    [None, None],   # zero-fill
-                    [0.5, 0.5],     # fcor
-                    [0, 0]           # tdeff
-                    )
-
-            self.procs = {}
-            for k, key in enumerate(proc_keys_1D):
-                self.procs[key] = proc_init_2D[k]         # Processing parameters
-            self.procs['wf'][0]['sw'] = round(self.acqus['SW1'], 4)
-            self.procs['wf'][1]['sw'] = round(self.acqus['SW2'], 4)
-
-            # Then, phases
-            self.procs['p0_1'] = 0
-            self.procs['p1_1'] = 0
-            self.procs['pv_1'] = round(self.acqus['o1p'], 2)
-            self.procs['p0_2'] = 0
-            self.procs['p1_2'] = 0
-            self.procs['pv_2'] = round(self.acqus['o2p'], 2)
-            # Calibration
-            self.procs['cal_1'] = 0
-            self.procs['cal_2'] = 0
+            self.procs = self._default_procs(self.acqus)
             self.write_procs()
 
         # Calculates the frequency and ppm scales
@@ -2826,6 +2742,20 @@ class Pseudo_2D(Spectrum_2D):
         doc += '-'*64
         return doc
 
+    @property
+    def S(self) -> np.ndarray:
+        """ Normal getter for ``self.S`` attribute """
+        return self._S
+
+    @S.setter
+    def S(self, data: np.ndarray):
+        """ Every time ``self.S`` is instanced, ``self.r`` and ``self.i`` are updated automatically """
+        self._S = data
+        self.rr = self._S.real
+        self.ii = self._S.imag
+        if hasattr(self, 'F'):
+            self.F.S = self._S
+
     def __init__(self, in_file, pv=False, isexp=True):
         """
         Initialize the class.
@@ -2871,10 +2801,8 @@ class Pseudo_2D(Spectrum_2D):
             self.acqus['GRPDLY'] = 0
 
         # Initalize the procs dictionary
-        # If there already is a procs dictionary saved as file, load it
-        if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
+        if (self.datadir / self.filename).with_suffix('.procs').exists():
             self.procs = self.read_procs()
-        # Otherwise, initialize it with default values
         else:
             self.procs = self._default_procs(self.acqus)
             self.write_procs()
@@ -2974,10 +2902,6 @@ class Pseudo_2D(Spectrum_2D):
         if self.acqus['SFO1'] < 0:      # Correct for negative gamma nuclei
             self.S = self.S[:, ::-1]
 
-        # Unpack self.S
-        self.rr = self.S.real
-        self.ii = self.S.imag
-
         self.F = fit.Voigt_Fit_P2D(self.ppm_f2, self.S, self.acqus['t1'], self.acqus['SFO1'], self.acqus['o1p'], self.acqus['nuc'], self.filename)
 
         # Adjust the phase
@@ -2992,9 +2916,6 @@ class Pseudo_2D(Spectrum_2D):
             for k, experiment in enumerate(self.S):
                 roll_pt = int(self.procs['roll_ppm'][k] / misc.calcres(self.ppm_f2))    # Compute the circular shift in points
                 self.S[k] = np.roll(experiment, roll_pt)                # Apply it to each experiment
-            # Unpack S
-            self.rr = self.S.real
-            self.ii = self.S.imag
 
         self.integrals = {}
 
@@ -3029,13 +2950,13 @@ class Pseudo_2D(Spectrum_2D):
         """
         # Adjust the filename
         if filename is None:    # Default
-            filename = os.path.join(self.datadir, f'{self.filename}.npy')
+            filename = self.datadir / f'{self.filename}.npy'
         else:                   # Add the .npy extension
-            filename = f'{filename}.npy'
+            filename = Path(f'{filename}').with_suffix('.npy')
 
         # Check if the .npy file already exists
         if not len(fids):
-            if os.path.exists(filename):    # then load it
+            if filename.exists():    # then load it
                 self.fid = np.load(filename)
             else:
                 raise ValueError('You passed no FIDs!')
@@ -3164,10 +3085,6 @@ class Pseudo_2D(Spectrum_2D):
         _, values = processing.ps(S, self.ppm_f2, p0=p0, p1=p1, pivot=pv)
         self.S, _ = processing.ps(self.S, self.ppm_f2, *values)
 
-        # Unpack self.S
-        self.rr = self.S.real
-        self.ii = self.S.imag
-
         # Update the procs dictionary
         if update:
             self.procs['p0'] += round(values[0], 2)
@@ -3179,7 +3096,6 @@ class Pseudo_2D(Spectrum_2D):
 
         # Update the F attribute
         if hasattr(self, 'F'):
-            self.F.S = self.S
             self.F.ppm_scale = self.ppm_f2
 
         return values
@@ -3191,9 +3107,6 @@ class Pseudo_2D(Spectrum_2D):
         """
         if hasattr(self, 'S'):
             self.S = processing.pknl(self.S, grpdly=self.acqus['GRPDLY'], onfid=False)
-            self.rr = self.S.real
-            self.ii = self.S.imag
-            self.F.S = self.S
         else:
             self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
 
@@ -3477,8 +3390,6 @@ class Pseudo_2D(Spectrum_2D):
 
         # Reconstruct the imaginary components
         self.S = processing.hilbert(self.rr)
-        self.rr = self.S.real
-        self.ii = self.S.imag
 
         # Cut the frequency scales as well
         self.freq_f2 = misc.ppm2freq(self.ppm_f2, self.acqus['SFO1'], self.acqus['o1p'])
@@ -3554,9 +3465,9 @@ class Pseudo_2D(Spectrum_2D):
         """
         # Detect the file position
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}')
+            path = Path(other_dir) / f'{self.filename}'
         else:
-            path = os.path.join(self.datadir, f'{self.filename}')
+            path = self.datadir / f'{self.filename}'
 
         anal.write_igrl(path, self.integrals, header=True)
 
@@ -3640,20 +3551,14 @@ class Pseudo_2D(Spectrum_2D):
             lims = fit.get_region(self.ppm_f2, self.rr[ref_idx], rev=True)
         # Align
         self.S, roll_pt, roll_ppm = processing.align(self.ppm_f2, self.S, lims, u_off, ref_idx)
-        # Unpack S
-        self.rr = self.S.real
-        self.ii = self.S.imag
         # Update the procs dictionary
         if 'roll_ppm' not in self.procs.keys():
             self.procs['roll_ppm'] = np.zeros(self.S.shape[0])
         if self.procs['roll_ppm'] is None:
             self.procs['roll_ppm'] = np.zeros(self.S.shape[0])
-        print(self.procs['roll_ppm'])
         self.procs['roll_ppm'] += roll_ppm
         # Update the .procs file
         self.write_procs()
-
-        self.F.S = self.S
 
     def basl(self, from_procs=False, phase=True):
         """
@@ -3678,11 +3583,6 @@ class Pseudo_2D(Spectrum_2D):
         full_baseline = np.array([self.baseline for w in range(self.S.shape[0])])
         # Apply the baseline correction
         self.S -= full_baseline
-        self.rr = self.S.real
-        self.ii = self.S.imag
-
-        # Update F
-        self.F.S = self.S
 
     def rpbc(self, ref_exp=0, **rpbc_kws):
         """
@@ -3743,8 +3643,9 @@ class Pseudo_2D(Spectrum_2D):
             :func:`klassez.misc.data2wav`
         """
         if filename is None:
-            cwd = os.getcwd()
-            filename = os.path.join(cwd, self.filename)
+            filename = Path.cwd() / self.filename
+        else:
+            filename = Path(filename)
         # Make a shallow copy of the FID
         data = np.copy(self.fid)
         misc.data2wav(data, filename, cutoff, rate)
@@ -3788,9 +3689,6 @@ class Pseudo_2D(Spectrum_2D):
             datap[k] = processing.abs(self.ppm_f2, data, n=n, lims=lims, alpha=alpha, qfil=qfil, qfilp=qfilp)
         # Retrieve imaginary part
         self.S = deepcopy(datap)
-        # Overwrite it
-        self.rr = self.S.real
-        self.ii = self.S.imag
         return original - datap
 
     def abs_v2(self, n=5, lims=None, alpha=5, winsize=2, qfil=False, qfilp={'u': 4.7, 's': 10}):
@@ -3829,9 +3727,6 @@ class Pseudo_2D(Spectrum_2D):
         datap = processing.abs_v2(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
         # Retrieve imaginary part
         self.S = processing.hilbert(datap)
-        # Overwrite it
-        self.r = self.S.real
-        self.i = self.S.imag
         return original - datap
 
 
@@ -3858,7 +3753,7 @@ class DOSY(Pseudo_2D):
         Then, reads the `difflist` file and stores it in the ``self.difflist`` attribute.
         """
         super().__init__(*args, **kws)
-        self.difflist = np.loadtxt(os.path.join(self.datadir, 'difflist'))
+        self.difflist = np.loadtxt(self.datadir / 'difflist')
 
     def process(self):
         """
@@ -4017,7 +3912,7 @@ class pDOSY(DOSY):
 
         # Datadir and stuff
         self.datadir = deepcopy(datadir)
-        self.filename = self.datadir.rsplit(os.sep, 1)[-1]
+        self.filename = self.datadir.stem
         if p is not None:
             self.filename += '_'+f'{p}'
 
@@ -4120,14 +4015,12 @@ class DOSY_T1:
             self.acqus['GRPDLY'] = 0
 
         # Load the difflist
-        self.x_f1 = np.loadtxt(os.path.join(self.datadir, 'difflist'))
+        self.x_f1 = np.loadtxt(self.datadir / 'difflist')
         self.label_f1 = r'Gradient /G cm$^{-1}$'
 
         # Load the d20 list
         #   It should be the only file in lists/vd/ but we do not know its name
-        file = os.listdir(os.path.join(self.datadir, 'lists', 'vd'))[0]
-        #   Connect the name of the file to the path
-        vdlistpath = os.path.join(self.datadir, 'lists', 'vd', file)
+        vdlistpath = next((self.datadir / 'lists' / 'vd').iterdir())
         #   Print a notification
         print(f'Found {vdlistpath} to be imported as VDLIST', c='tab:blue')
         #   Actual loading and storage in an attribute
@@ -4136,8 +4029,7 @@ class DOSY_T1:
         self.label_f2 = 'Delay /s'
 
         # Procs dictionary
-        if os.path.exists(os.path.join(self.datadir, f'{self.filename}.procs')):
-            # If exists already, read it
+        if (self.datadir / self.filename).with_suffix('.procs').exists():
             self.procs = self.read_procs()
         else:
             self.procs = self._default_procs(self.acqus)
@@ -4255,11 +4147,10 @@ class DOSY_T1:
                 Do not put the trailing slash!
         """
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}.procs')
+            path = Path(other_dir) / f'{self.filename}'
         else:
-            path = os.path.join(self.datadir, f'{self.filename}.procs')
-        with open(path, 'w') as f:
-            f.write(f'{self.procs}')
+            path = self.datadir / f'{self.filename}'
+        path.with_suffix('.procs').write_text(f'{self.procs}')
 
     def read_procs(self, other_dir=None):
         """
@@ -4280,16 +4171,15 @@ class DOSY_T1:
             Dictionary of processing parameters
         """
         if other_dir:
-            path = os.path.join(other_dir, f'{self.filename}.procs')
+            path = Path(other_dir) / f'{self.filename}.procs'
         else:
-            path = os.path.join(self.datadir, f'{self.filename}.procs')
-        with open(path, 'r') as f:
-            procs = eval(f.read().replace('array', 'np.array'))
+            path = self.datadir / f'{self.filename}.procs'
+        procs = eval(path.read_text().replace('array', 'np.array'))
         # Check if it was read correctly
         if isinstance(procs, dict):
             return procs
         else:
-            raise ValueError(f'{self.filename}.procs cannot be interpreted as a dictionary')
+            raise ValueError(f'{path} cannot be interpreted as a dictionary')
 
     def adjph(self, fromplane=0, expno=0, p0=None, p1=None, pv=None, update=True):
         """

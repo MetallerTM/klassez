@@ -34,7 +34,7 @@ def get_datadir_filename(in_file, isexp=True):
 
     Parameters
     ----------
-    in_file : str or dict
+    in_file : str or Path or dict
         Path to the dataset (also relative works) or dictionary of acquisition parameters
     isexp : bool
         For the correct computation of the filename, you have to specify if it is a real (``True``) or simulated (``False``) dataset
@@ -71,7 +71,7 @@ def read_fid_acqus_1D(in_file, spect='bruker'):
 
     Parameters
     ----------
-    in_file : str
+    in_file : str or Path
         Path where to find the data
     spect : str
         Data format. Valid options are: ``'bruker'``, ``'varian'``, ``'magritek'``, ``'oxford'``, ``'jeol'``
@@ -181,7 +181,7 @@ def read_fid_acqus_2D(in_file, spect='bruker'):
 
     Parameters
     ----------
-    in_file : str
+    in_file : str or Path
         Path where to find the data
     spect : str
         Data format. Valid options are: ``'bruker'`` only.
@@ -879,7 +879,7 @@ def write_ser(fid, path=None, BYTORDA=0, DTYPA=0, overwrite=True, filename=None,
     ----------
     fid : ndarray
         FID array to be written
-    path : str
+    path : str or Path
         Directory where to save the file. If ``None``, the current working directory is used
     BYTORDA : int
         little/big endian

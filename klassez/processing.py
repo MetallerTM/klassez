@@ -2217,7 +2217,6 @@ def interactive_phase_1D(ppmscale, S, reference=None):
         """ add 90 degrees to phase 0 or phase 1 """
         if bool(int(stat[-1])):
             return
-        nonlocal P
         for j in range(len(stat)):
             if stat[j]:
                 P[j] += 90
@@ -2227,7 +2226,6 @@ def interactive_phase_1D(ppmscale, S, reference=None):
         """ removes 90 degrees to phase 0 or phase 1 """
         if bool(int(stat[-1])):
             return
-        nonlocal P
         for j in range(len(stat)):
             if stat[j]:
                 P[j] -= 90
@@ -2259,7 +2257,6 @@ def interactive_phase_1D(ppmscale, S, reference=None):
 
     def on_scroll(event):
         # When you move the mouse scroll
-        #if not isinstance(event, (int, float)):
         if event is not None:
             if event.button == 'up':
                 roll_up(event)
@@ -2586,7 +2583,6 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
         """ add 90 degrees to phase 0 or phase 1 """
         if bool(int(stat[-1])):
             return
-        nonlocal P
         for j in range(len(stat)):
             if stat[j]:
                 if statf[0]:
@@ -2600,7 +2596,6 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
         """ removes 90 degrees to phase 0 or phase 1 """
         if bool(int(stat[-1])):
             return
-        nonlocal P
         for j in range(len(stat)):
             if stat[j]:
                 if statf[0]:
@@ -3139,6 +3134,7 @@ def calibration(ppmscale, S, ref=None):
     up_button.on_clicked(increase_step)
     down_button.on_clicked(decrease_step)
     cursor = Cursor(ax, useblit=True, horizOn=False, color='k', linewidth=0.4)
+    cursor.vertOn = True
     fig.canvas.mpl_connect('button_press_event', mouse_click)
     fig.canvas.mpl_connect('scroll_event', on_scroll)
 
@@ -4060,6 +4056,7 @@ def interactive_basl_windows(ppm, data):
     misc.set_fontsizes(ax, 14)
     # Widgets
     cursor = Cursor(ax, useblit=True, color='k', linewidth=0.2)
+    cursor.vertOn = True
     fig.canvas.mpl_connect('button_press_event', on_click)
 
     plt.show()

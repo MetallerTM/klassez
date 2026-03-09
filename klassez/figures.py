@@ -1328,6 +1328,7 @@ def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm',
         plt.subplots_adjust(left=0.10, bottom=0.1, right=0.95, top=0.95)
         misc.set_fontsizes(ax, 14)
         cursor = Cursor(ax, useblit=True, horizOn=False, c='tab:red', lw=0.8)
+        cursor.vertOn = True
         plt.show()
     plt.close()
     print('Done.', c='tab:cyan')
@@ -1522,6 +1523,7 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     all_button.on_clicked(select_all)
     none_button.on_clicked(select_none)
     cursor = Cursor(ax, useblit=True, color='red', horizOn=False, linewidth=0.4)
+    cursor.vertOn = True
 
     plt.show()
     plt.close()
@@ -1748,6 +1750,7 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     save_button.on_clicked(makefigure)
 
     cursor = Cursor(ax, useblit=True, color='red', linewidth=0.4)
+    cursor.vertOn = True
 
     misc.set_fontsizes(ax, 20)
 

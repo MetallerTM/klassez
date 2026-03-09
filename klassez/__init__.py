@@ -7,6 +7,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from copy import deepcopy
 from pprint import pprint
+from pathlib import Path
 
 from . import fit, misc, sim, figures, processing, anal
 

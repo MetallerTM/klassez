@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 
 import sys
-import os
 from pathlib import Path
 from numpy import loadtxt
 import seaborn as sns

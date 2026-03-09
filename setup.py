@@ -1,9 +1,9 @@
 #! /usr/bin/env python3
 
 from setuptools import setup
+from pathlib import Path
 
-with open('README.md', 'r', encoding='utf-8') as fh:
-    long_description = fh.read()
+long_description = Path('README.md').read_text(encoding='utf-8')
 
 extras = {
    'jeolproc': ['jeol_parser']
