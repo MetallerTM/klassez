@@ -2,8 +2,6 @@
 
 from pathlib import Path
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.widgets import Button, Cursor
 import nmrglue as ng
 import warnings
 
@@ -2897,9 +2895,9 @@ class Pseudo_2D(Spectrum_2D):
         self.trf2[label] = f2
         self.Trf2[label] = pSpectrum_1D(f2, acqus=self.acqus, procs=self.procs, istrace=True)
 
-    def plot(self, fqscale=False, Neg=True, lvl0=0.2, Y_label=''):
+    def plot(self, fqscale=False, Neg=True, lvl0=0.2, Y_label='', name=None):
         """
-        Plots the real part of the spectrum as a 2D contour plot.
+        Plots the real part of the spectrum (``self.rr``). Use the mouse scroll to adjust the contour starting level.
 
         Parameters
         ----------
@@ -2908,109 +2906,25 @@ class Pseudo_2D(Spectrum_2D):
         Neg : bool
             Plot (True) or not (False) the negative contours.
         lvl0 : float
-            Starting contour value.
+            Starting contour value with respect to the maximum of the spectrum
         Y_label : str
-            Custom label for vertical axis.
+            Custom label for the y axis
+        name : str
+            Name of the figure. If ``None``, ``self.filename`` is used.
         """
-        warnings.filterwarnings("ignore", message="No contour levels were found within the data range.")
-        # Plots data, set Neg=True to see negative contours
-        S = np.copy(self.rr)
-        n_xticks, n_yticks = 10, 10
-
+        if name is None:
+            name = self.filename
         if fqscale:
             x_f1 = self.freq_f1
             x_f2 = self.freq_f2
+            X_label = r'$\nu\ $'+misc.nuc_format(self.acqus['nuc2'])+' /Hz'
         else:
             x_f1 = self.ppm_f1
             x_f2 = self.ppm_f2
+            X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc2'])+' /ppm'
 
-        # Make the figure
-        fig = plt.figure(f'{self.filename}')
-        fig.set_size_inches(15, 8)
-        plt.subplots_adjust(left=0.10, bottom=0.10, right=0.90, top=0.95)
-        ax = fig.add_subplot()
-
-        X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
-
-        cmaps = ['Blues_r', 'Reds_r']
-
-        # flags for the activation of scroll zoom
-        lvlstep = 1.4
-
-        # define boxes for sliders
-        iz_box = plt.axes([0.925, 0.80, 0.05, 0.05])
-        dz_box = plt.axes([0.925, 0.75, 0.05, 0.05])
-
-        # Functions connected to the sliders
-        def increase_zoom(event):
-            nonlocal lvlstep
-            lvlstep += 0.05
-
-        def decrease_zoom(event):
-            nonlocal lvlstep
-            lvlstep -= 0.05
-            if lvlstep <= 1:
-                lvlstep = 1.05
-
-        def on_scroll(event):
-            nonlocal lvl, cnt
-            if Neg:
-                nonlocal Ncnt
-
-            act_xlim = ax.get_xlim()
-            act_ylim = ax.get_ylim()
-
-            if event.button == 'up':
-                lvl *= lvlstep
-            elif event.button == 'down':
-                lvl /= lvlstep
-            if lvl > 1:
-                lvl = 1
-
-            if Neg:
-                cnt, Ncnt = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
-            else:
-                cnt, _ = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
-
-            misc.pretty_scale(ax, act_xlim, axis='x', n_major_ticks=n_xticks)
-            misc.pretty_scale(ax, act_ylim, axis='y', n_major_ticks=n_yticks)
-            ax.set_xlabel(X_label)
-            ax.set_ylabel(Y_label)
-            misc.set_fontsizes(ax, 14)
-            lvl_text.set_text(f'{lvl:.5g}')
-            fig.canvas.draw()
-
-        lvl = lvl0
-
-        cnt = figures.ax2D(ax, x_f2, x_f1, S, lvl=lvl, cmap=cmaps[0])
-        if Neg:
-            Ncnt = figures.ax2D(ax, x_f2, x_f1, -S, lvl=lvl, cmap=cmaps[1])
-
-        lvl_text = ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
-
-        # Make pretty x-scale
-        misc.pretty_scale(ax, (max(x_f2), min(x_f2)), axis='x', n_major_ticks=n_xticks)
-        misc.pretty_scale(ax, (max(x_f1), min(x_f1)), axis='y', n_major_ticks=n_yticks)
-        ax.set_xlabel(X_label)
-        ax.set_ylabel(Y_label)
-
-        # Create buttons
-        iz_button = Button(iz_box, label=r'$\uparrow$')
-        dz_button = Button(dz_box, label=r'$\downarrow$')
-
-        # Connect the widgets to functions
-        fig.canvas.mpl_connect('scroll_event', on_scroll)
-
-        iz_button.on_clicked(increase_zoom)
-        dz_button.on_clicked(decrease_zoom)
-
-        misc.set_fontsizes(ax, 14)
-
-        cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8)
-        cursor.vertOn = True
-
-        plt.show()
-        plt.close()
+        figures.plot_2D(x_f1, x_f2, self.rr, self.acqus['SFO1'], self.acqus['SFO2'],
+                        name=name, Neg=Neg, lvl0=lvl0, X_label=X_label, Y_label=Y_label)
 
     def plot_md(self, which=None, lims=None):
         """
@@ -3987,7 +3901,7 @@ class DOSY_T1:
         else:
             self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
 
-    def plot(self, dim='31', fqscale=False, Neg=True, lvl0=0.2):
+    def plot(self, dim='31', fqscale=False, Neg=True, lvl0=0.2, name=None):
         """
         Plots the real part of the spectrum as a 2D contour plot.
         You can scroll between the various planes inside the interactive panel.
@@ -4002,161 +3916,30 @@ class DOSY_T1:
             Plot (True) or not (False) the negative contours.
         lvl0 : float
             Starting contour value.
+        name : str
+            Custom name for the figure. If ``None``, ``self.filename`` is used.
         """
-        warnings.filterwarnings("ignore", message="No contour levels were found within the data range.")
+        if name is None:
+            name = self.filename
         # Plots data, set Neg=True to see negative contours
-        planeno = 0
         if fqscale:
             x_f2 = self.freq_f2
+            X_label = r'$\nu\ $' + misc.nuc_format(self.acqus['nuc']) + ' /Hz'
         else:
             x_f2 = self.ppm_f2
+            X_label = r'$\delta\ $' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
 
         if dim == '31':
             x_f1 = self.x_f1
             idx_scale = self.x_f2
-            S = deepcopy(self.S.real[:, planeno])
             Y_label = self.label_f1
         elif dim == '32':
             x_f1 = self.x_f2
             idx_scale = self.x_f1
-            S = deepcopy(self.S.real[planeno])
             Y_label = self.label_f2
 
-        n_xticks, n_yticks = 10, 10
-
-        def draw_panel(planeno):
-            nonlocal S, cnt, Ncnt
-
-            if dim == '31':
-                S = deepcopy(self.S.real[:, planeno])
-            elif dim == '32':
-                S = deepcopy(self.S.real[planeno])
-
-            cnt = figures.ax2D(ax, x_f2, x_f1, S, lvl=lvl, cmap=cmaps[0])
-            if Neg:
-                Ncnt = figures.ax2D(ax, x_f2, x_f1, -S, lvl=lvl, cmap=cmaps[1])
-
-            ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
-            ax.text(0.900, 0.05, f'Plane no: {planeno+1:.0f}\nValue = {idx_scale[planeno]:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
-            on_scroll(0)
-
-        # Make the figure
-        fig = plt.figure(f'{self.filename} - Plane dir. {dim}')
-        fig.set_size_inches(15, 8)
-        plt.subplots_adjust(left=0.10, bottom=0.10, right=0.90, top=0.95)
-        ax = fig.add_subplot()
-
-        X_label = r'$\delta\ $' + misc.nuc_format(self.acqus['nuc']) + ' /ppm'
-
-        cmaps = ['Blues_r', 'Reds_r']
-
-        # flags for the activation of scroll zoom
-        lvlstep = 1.4
-
-        # define boxes for sliders
-        iz_box = plt.axes([0.925, 0.80, 0.05, 0.05])
-        dz_box = plt.axes([0.925, 0.75, 0.05, 0.05])
-
-        next_box = plt.axes([0.925, 0.15, 0.05, 0.05])
-        prev_box = plt.axes([0.925, 0.10, 0.05, 0.05])
-
-        # Functions connected to the sliders
-        def increase_zoom(event):
-            nonlocal lvlstep
-            lvlstep += 0.05
-
-        def decrease_zoom(event):
-            nonlocal lvlstep
-            lvlstep -= 0.05
-            if lvlstep <= 1:
-                lvlstep = 1.05
-
-        def on_scroll(event):
-            nonlocal lvl, cnt
-            if Neg:
-                nonlocal Ncnt
-
-            act_xlim = ax.get_xlim()
-            act_ylim = ax.get_ylim()
-
-            if isinstance(event, (int, float)):
-                pass
-            else:
-                if event.button == 'up':
-                    lvl *= lvlstep
-                elif event.button == 'down':
-                    lvl /= lvlstep
-            if lvl > 1:
-                lvl = 1
-
-            if Neg:
-                cnt, Ncnt = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
-            else:
-                cnt, _ = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
-
-            misc.pretty_scale(ax, act_xlim, axis='x', n_major_ticks=n_xticks)
-            misc.pretty_scale(ax, act_ylim, axis='y', n_major_ticks=n_yticks)
-            ax.set_xlabel(X_label)
-            ax.set_ylabel(Y_label)
-            misc.set_fontsizes(ax, 14)
-            lvl_text.set_text(f'{lvl:.5g}')
-            fig.canvas.draw()
-
-        def next_spectrum(event):
-            nonlocal planeno
-            if planeno + 1 >= len(idx_scale):
-                return
-            else:
-                planeno += 1
-            ax.cla()
-            draw_panel(planeno)
-            fig.canvas.draw()
-
-        def prev_spectrum(event):
-            nonlocal planeno
-            if planeno <= 0:
-                return
-            else:
-                planeno -= 1
-            ax.cla()
-            draw_panel(planeno)
-            fig.canvas.draw()
-
-        lvl = lvl0
-
-        cnt = figures.ax2D(ax, x_f2, x_f1, S, lvl=lvl, cmap=cmaps[0])
-        if Neg:
-            Ncnt = figures.ax2D(ax, x_f2, x_f1, -S, lvl=lvl, cmap=cmaps[1])
-
-        lvl_text = ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
-        ax.text(0.900, 0.05, f'Plane no: {planeno+1:.0f}\nValue = {idx_scale[planeno]:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
-
-        # Make pretty x-scale
-        misc.pretty_scale(ax, (max(x_f2), min(x_f2)), axis='x', n_major_ticks=n_xticks)
-        misc.pretty_scale(ax, (max(x_f1), min(x_f1)), axis='y', n_major_ticks=n_yticks)
-        ax.set_xlabel(X_label)
-        ax.set_ylabel(Y_label)
-
-        # Create buttons
-        iz_button = Button(iz_box, label=r'$\uparrow$')
-        dz_button = Button(dz_box, label=r'$\downarrow$')
-        next_button = Button(next_box, label=r'>>')
-        prev_button = Button(prev_box, label=r'<<')
-
-        # Connect the widgets to functions
-        fig.canvas.mpl_connect('scroll_event', on_scroll)
-
-        iz_button.on_clicked(increase_zoom)
-        dz_button.on_clicked(decrease_zoom)
-        next_button.on_clicked(next_spectrum)
-        prev_button.on_clicked(prev_spectrum)
-
-        misc.set_fontsizes(ax, 14)
-
-        Cursor(ax, useblit=True, c='tab:red', lw=0.8)
-
-        plt.show()
-        plt.close()
+        figures.plot_p3D(x_f1, x_f2, idx_scale, self.S.real, dim=dim, Neg=Neg,
+                         name=name, X_label=X_label, Y_label=Y_label, lvl0=lvl0)
 
     def integrate(self, filename=None):
         """

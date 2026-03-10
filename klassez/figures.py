@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Button, CheckButtons, Cursor, SpanSelector
 import seaborn as sns
 import warnings
+from copy import deepcopy
 
 from . import fit, misc, figures
 from .config import CM, COLORS, CM_2D, cprint
@@ -2149,16 +2150,34 @@ def plot_1D(x, y, SFO1, name='Spectrum', X_label=r'$\delta\,$ /ppm'):
 
 def plot_2D(x_f1, x_f2, yy, SFO1=1, SFO2=1, Neg=True, lvl0=0.2, name='Spectrum', X_label=r'$\delta\,$F2 /ppm', Y_label=r'$\delta\,$F1 /ppm'):
     """
-    Plots the real part of the spectrum (``self.rr``). Use the mouse scroll to adjust the contour starting level.
+    Plots the real part of the spectrum. Use the mouse scroll to adjust the contour starting level.
 
     Parameters
     ----------
-    fqscale : bool
-        Display using frequency scale instead of ppm
+    x_f1 : 1darray
+        PPM (or frequency) scale for the y axis
+    x_f2 : 1darray
+        PPM (or frequency) scale for the x axis
+    yy : 2darray
+        Spectrum
+    SFO1 : float
+        Nucleus Larmor frequency of the indirect dimension
+    SFO2 : float
+        Nucleus Larmor frequency of the direct dimension
     Neg : bool
-        Plot (True) or not (False) the negative contours.
+        Display also the negative part of the spectrum
     lvl0 : float
-        Starting contour value with respect to the maximum of the spectrum
+        Starting contour level, with respect to the maximum of the spectrum
+    name : str
+        Filename for the figure.
+    X_label : str
+        Label for the x axis.
+    Y_label : str
+        Label for the y axis.
+
+    Returns
+    -------
+    None
     """
     class FakeSpanSelector:
         """
@@ -2368,6 +2387,199 @@ def plot_2D(x_f1, x_f2, yy, SFO1=1, SFO2=1, Neg=True, lvl0=0.2, name='Spectrum',
     dz_button.on_clicked(decrease_zoom)
 
     # Crosshair for visualization
+    cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8)
+    cursor.vertOn = True
+
+    plt.show()
+    plt.close()
+
+
+def plot_p3D(x_f1, x_f2, idx_scale, yyy, dim='31', Neg=True, lvl0=0.2, name='', X_label=r'$\delta\,$ /ppm', Y_label=''):
+    """
+    Plots the real part of the spectrum. Use the mouse scroll to adjust the contour starting level.
+    Use the '<<' and '>>' to move across planes.
+
+    Parameters
+    ----------
+    x_f1 : 1darray
+        PPM (or frequency) scale for the y axis
+    x_f2 : 1darray
+        PPM (or frequency) scale for the x axis
+    idx_scale : 1darray
+        Scale for the non-directly plotted dimension
+    yyy : 3darray
+        Spectrum
+    dim : str
+        Slicing direction.
+
+        -   ``dim = '31'`` --> Plot planes F3-F1 --> ``idx_scale`` represent F2
+        -   ``dim = '32'`` --> Plot planes F3-F2 --> ``idx_scale`` represent F1
+    Neg : bool
+        Display also the negative part of the spectrum
+    lvl0 : float
+        Starting contour level, with respect to the maximum of the spectrum
+    name : str
+        Filename for the figure.
+    X_label : str
+        Label for the x axis.
+    Y_label : str
+        Label for the y axis.
+
+    Returns
+    -------
+    None
+    """
+    # Ticks of x and y scales
+    n_xticks, n_yticks = 10, 10
+
+    # Instance variables and check consistency of scales
+    planeno = 0
+    if dim == '31':
+        assert len(idx_scale) == yyy.shape[1], 'The plane index scale length does not match the F2 dimension'
+        S = deepcopy(yyy)[:, planeno]
+    else:
+        assert len(idx_scale) == yyy.shape[0], 'The plane index scale length does not match the F1 dimension'
+        S = deepcopy(yyy)[planeno]
+
+    # Make the figure
+    fig = plt.figure(f'{name} - Plane dir. {dim}')
+    fig.set_size_inches(15, 8)
+    plt.subplots_adjust(left=0.10, bottom=0.10, right=0.90, top=0.95)
+    ax = fig.add_subplot()
+
+    cmaps = ['Blues_r', 'Reds_r']
+
+    # flags for the activation of scroll zoom
+    lvl = lvl0
+    lvlstep = 1.4
+
+    # define boxes for buttons
+    iz_box = plt.axes([0.925, 0.80, 0.05, 0.05])
+    dz_box = plt.axes([0.925, 0.75, 0.05, 0.05])
+    next_box = plt.axes([0.925, 0.15, 0.05, 0.05])
+    prev_box = plt.axes([0.925, 0.10, 0.05, 0.05])
+
+    # SLOTS
+    def draw_panel(planeno):
+        """ Draws the ``planeno`` slice """
+        nonlocal S, cnt, Ncnt
+        if dim == '31':
+            S = deepcopy(yyy[:, planeno])
+        elif dim == '32':
+            S = deepcopy(yyy[planeno])
+
+        cnt = figures.ax2D(ax, x_f2, x_f1, S, lvl=lvl, cmap=cmaps[0])
+        if Neg:
+            Ncnt = figures.ax2D(ax, x_f2, x_f1, -S, lvl=lvl, cmap=cmaps[1])
+
+        ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+        ax.text(0.900, 0.05, f'Plane no: {planeno+1:.0f}\nValue = {idx_scale[planeno]:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+        on_scroll(0)
+
+    def increase_zoom(event):
+        nonlocal lvlstep
+        lvlstep += 0.05
+
+    def decrease_zoom(event):
+        nonlocal lvlstep
+        lvlstep -= 0.05
+        if lvlstep <= 1:
+            lvlstep = 1.05
+
+    def on_scroll(event):
+        nonlocal lvl, cnt
+        if Neg:
+            nonlocal Ncnt
+
+        # Get the current limits for the axes
+        act_xlim = ax.get_xlim()
+        act_ylim = ax.get_ylim()
+
+        # Change the contours only if it is a real scroll event
+        if isinstance(event, (int, float)):
+            pass
+        else:
+            if event.button == 'up':
+                lvl *= lvlstep
+            elif event.button == 'down':
+                lvl /= lvlstep
+        # Safety check
+        if lvl > 1:
+            lvl = 1
+
+        # Redraw the spectrum with the correct level
+        if Neg:
+            cnt, Ncnt = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+        else:
+            cnt, _ = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+
+        # Apply the cosmetic stuff
+        misc.pretty_scale(ax, act_xlim, axis='x', n_major_ticks=n_xticks)
+        misc.pretty_scale(ax, act_ylim, axis='y', n_major_ticks=n_yticks)
+        ax.set_xlabel(X_label)
+        ax.set_ylabel(Y_label)
+        misc.set_fontsizes(ax, 14)
+        lvl_text.set_text(f'{lvl:.5g}')
+        fig.canvas.draw()
+
+    def next_spectrum(event):
+        """ Draw the next plane """
+        nonlocal planeno
+        # Do nothing if it is already the last spectrum
+        if planeno + 1 >= len(idx_scale):
+            return
+        else:
+            planeno += 1
+        # Clear subplot
+        ax.cla()
+        # Draw the plane from scratch
+        draw_panel(planeno)
+        fig.canvas.draw()
+
+    def prev_spectrum(event):
+        """ Draw the previous plane """
+        nonlocal planeno
+        # Do nothing if it is the first spectrum
+        if planeno <= 0:
+            return
+        else:
+            planeno -= 1
+        # Clear subplot
+        ax.cla()
+        # Draw the plane from scratch
+        draw_panel(planeno)
+        fig.canvas.draw()
+
+    # Draw the first plane
+    cnt = figures.ax2D(ax, x_f2, x_f1, S, lvl=lvl, cmap=cmaps[0])
+    if Neg:
+        Ncnt = figures.ax2D(ax, x_f2, x_f1, -S, lvl=lvl, cmap=cmaps[1])
+
+    # Make some text
+    lvl_text = ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+    ax.text(0.900, 0.05, f'Plane no: {planeno+1:.0f}\nValue = {idx_scale[planeno]:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+
+    # Cosmetic stuff
+    misc.pretty_scale(ax, (max(x_f2), min(x_f2)), axis='x', n_major_ticks=n_xticks)
+    misc.pretty_scale(ax, (max(x_f1), min(x_f1)), axis='y', n_major_ticks=n_yticks)
+    ax.set_xlabel(X_label)
+    ax.set_ylabel(Y_label)
+
+    # Create buttons
+    iz_button = Button(iz_box, label=r'$\uparrow$')
+    dz_button = Button(dz_box, label=r'$\downarrow$')
+    next_button = Button(next_box, label=r'>>')
+    prev_button = Button(prev_box, label=r'<<')
+
+    # Connect the widgets to functions
+    fig.canvas.mpl_connect('scroll_event', on_scroll)
+    iz_button.on_clicked(increase_zoom)
+    dz_button.on_clicked(decrease_zoom)
+    next_button.on_clicked(next_spectrum)
+    prev_button.on_clicked(prev_spectrum)
+
+    misc.set_fontsizes(ax, 14)
+
     cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8)
     cursor.vertOn = True
 
