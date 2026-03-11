@@ -26,12 +26,16 @@ The implementation of the *plot* methods for all classes have been changed accor
 - *figures.plot_1D*
 - *figures.plot_2D*
 - *figures.plot_p3D*
+11/03/26
+- *anal.snr_gui*
 
 ## Modified functions:
 24/02/26
 - *figures.ax_diffplot*: added more customization options, bug fixes
 27/02/26
 - *fit.get_region*: added option for adding a custom title to the figure
+11/03/26
+- *anal.snr*: parameter **x** became mandatory, **x** and **data** are now switched, new option **gui**
 
 ## New classes:
 27/02/26
