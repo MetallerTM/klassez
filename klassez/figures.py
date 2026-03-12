@@ -641,9 +641,15 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
 
     """
 
-    swapped_scales = not (len(ppm_f2) == datax.shape[1] and len(ppm_f1) == datax.shape[0])
-    if swapped_scales:
-        raise AssertionError('Swapped scales?')
+    ok_f1 = len(ppm_f1) == datax.shape[0]
+    ok_f2 = len(ppm_f2) == datax.shape[1]
+    if not ok_f1:
+        print('ERROR:', c='red', s='bold', end=' ')
+        print(f'The length of "x_f1" does not match the first dimension of the dataset / ({len(ppm_f1)}, {datax.shape[0]})')
+    if not ok_f2:
+        print('ERROR:', c='red', s='bold', end=' ')
+        print(f'The length of "x_f2" does not match the second dimension of the dataset / ({len(ppm_f2)}, {datax.shape[1]})')
+    assert ok_f1 and ok_f2, 'Inconsistent dimensions between scales and dataset.'
 
     cmap = CM[f'{cmap}']
 
@@ -1644,7 +1650,7 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     def decrease_zoom(event):
         """ halve it """
         nonlocal lvlstep
-        lvlstep -= 0.5
+        lvlstep -= 0.05
         if lvlstep < 1.05:
             lvlstep = 1.05
 

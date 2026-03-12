@@ -1854,3 +1854,20 @@ def expformat(num, df=3):
     str_num = f'{num:.{df}e}'
     str_num = r'$' + str_num.replace('e', r'\times 10^{') + r'}$'
     return str_num
+
+def get_extent(data):
+    """
+    Compute the extent of an array as ``np.max(data) - np.min(data)``.
+
+    Parameters
+    ----------
+    data : ndarray
+        Input data
+
+    Returns
+    -------
+    extent : float
+        ``max(data) - min(data)``
+    """
+    return np.max(data) - np.min(data)
+        

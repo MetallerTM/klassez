@@ -28,6 +28,9 @@ The implementation of the *plot* methods for all classes have been changed accor
 - *figures.plot_p3D*
 11/03/26
 - *anal.snr_gui*
+12/03/26
+- *misc.get_extent*
+- *anal.snr_gui_2D*
 
 ## Modified functions:
 24/02/26
@@ -36,6 +39,8 @@ The implementation of the *plot* methods for all classes have been changed accor
 - *fit.get_region*: added option for adding a custom title to the figure
 11/03/26
 - *anal.snr*: parameter **x** became mandatory, **x** and **data** are now switched, new option **gui**
+12/03/26
+- *anal.snr_2D*: matches the structure of the 1D version
 
 ## New classes:
 27/02/26
