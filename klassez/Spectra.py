@@ -2917,13 +2917,13 @@ class Pseudo_2D(Spectrum_2D):
         if fqscale:
             x_f1 = self.freq_f1
             x_f2 = self.freq_f2
-            X_label = r'$\nu\ $'+misc.nuc_format(self.acqus['nuc2'])+' /Hz'
+            X_label = r'$\nu\ $'+misc.nuc_format(self.acqus['nuc'])+' /Hz'
         else:
             x_f1 = self.ppm_f1
             x_f2 = self.ppm_f2
-            X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc2'])+' /ppm'
+            X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
 
-        figures.plot_2D(x_f1, x_f2, self.rr, self.acqus['SFO1'], self.acqus['SFO2'],
+        figures.plot_2D(x_f1, x_f2, self.rr, 1, self.acqus['SFO1'],
                         name=name, Neg=Neg, lvl0=lvl0, X_label=X_label, Y_label=Y_label)
 
     def plot_md(self, which=None, lims=None):
@@ -3846,16 +3846,19 @@ class DOSY_T1:
         else:
             raise ValueError(f'{path} cannot be interpreted as a dictionary')
 
-    def adjph(self, fromplane=0, expno=0, p0=None, p1=None, pv=None, update=True):
+    def adjph(self, fromplane=0, expno=0, dim='31', p0=None, p1=None, pv=None, update=True):
         """
         Adjusts the phases of the spectrum according to the given parameters, or interactively if they are left as default.
 
         Parameters
         ----------
         fromplane : int
-            Index of the plane to use in the F3-F1 dimension
+            Index of the plane to use in the ``dim`` direction
         expno: int
             Index of the experiment (python numbering) of the extracted plane to use in the interactive panel
+        dim : str
+            If ``'31'``, the directive ``fromplane`` is relative to the F3-F1 direction.
+            If ``'32'``, the directive ``fromplane`` is relative to the F3-F2 direction.
         p0: float or None
             0-th order phase correction /°
         p1: float or None
@@ -3875,7 +3878,7 @@ class DOSY_T1:
             values = p0, p1, pv
         else:
             # Get the reference spectrum
-            self.getplane(fromplane)
+            self.getplane(fromplane, dim=dim)
             # Adjust the phases on the reference plane with its internal method
             values = self._active.adjph(expno=expno, update=False)
 
@@ -3961,4 +3964,5 @@ class DOSY_T1:
         """
         if filename is None:
             filename = self.filename
+        filename = Path(filename)
         self.D = fit.DosyFit_pp3D(self, datadir=filename, filename=filename)

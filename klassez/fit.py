@@ -8650,6 +8650,8 @@ class DosyFit_pp3D(fit.DosyFit):
         """
         if filename is None:
             filename = self.datadir / f'{self.planes[ref].filename}'
+        else:
+            filename = Path(filename)
         # Check if the file exists
         filename_x = filename.with_suffix(f'.{ext}')
 
@@ -8660,7 +8662,7 @@ class DosyFit_pp3D(fit.DosyFit):
             fit.make_iguess_dosy(self.g, labels=self.keys, data=np.asarray(self._data)[:, ref],
                                  model=self._model, model_args=dosy_par_ref,
                                  diff_c_0=diff_c_0, filename=filename)
-            regions = fit.read_dy(filename_x)
+        regions = fit.read_dy(filename_x)
         # Store it
         for plane in self.planes:
             plane.D.i_guess = regions
@@ -8757,20 +8759,20 @@ class DosyFit_pp3D(fit.DosyFit):
                 to_save = [dic_results[w][p] for w, _ in enumerate(self.keys)]
                 plane.D.result = to_save
 
-                f = filenames[p].with_suffix('.fvf').open('a', buffering=1)
+                f = filenames[p].with_suffix('.fdy').open('a', buffering=1)
                 # Info on the region to be fitted
                 now = datetime.now()
                 date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
                 f.write('! DOSY fit performed by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
 
                 for k, result in enumerate(plane.D.result):
-                    fit.write_dy(filenames[p].with_suffix('.fvf'), result['diff_c'], result['diff_f'],
+                    fit.write_dy(filenames[p].with_suffix('.fdy'), result['diff_c'], result['diff_f'],
                                  result['diff_e'], label, result['I'], result['q'])
                 f.close()
 
         self.merge_planes('result')
 
-    def load_fit(self, ext='fdy'):
+    def load_fit(self, filename=None, ext='fdy'):
         """
         Reads the output of an already performed fit by reading the files
         `<plane.filename>.<ext>` for all the planes, reorganizes them, and stores
@@ -8789,10 +8791,13 @@ class DosyFit_pp3D(fit.DosyFit):
 
             :func:`klassez.fit.read_dy`
         """
+        if filename is None:
+            filenames = [self.datadir / f'{plane.filename}' for plane in self.planes]
+        else:
+            filenames = [Path(f'{filename}_{k}') for k in range(len(self.planes))]
 
-        for plane in self.planes:
-            filename = self.datadir / f'{plane.filename}'
-            regions = fit.read_dy(filename.with_suffix(f'.{ext}'))
+        for plane, fn in zip(self.planes, filenames):
+            regions = fit.read_dy(fn.with_suffix(f'.{ext}'))
             # Store it
             plane.D.result = regions
 
@@ -8944,7 +8949,8 @@ class DosyFit_pp3D(fit.DosyFit):
 
             # Compute the models
             yyc = np.array([
-                    [diff_f[p, k] * self.model(self.g, diff_c[k], k=p, **self.dosy_par)
+                    [region['q'][p] + region['I'][p] * diff_f[p, k] *
+                     self.model(self.g, diff_c[k], k=p, **self.dosy_par)
                      for k in range(Nc)]
                     for p in range(Np)
                     ])
@@ -8953,10 +8959,6 @@ class DosyFit_pp3D(fit.DosyFit):
             totals = np.sum(yyc, axis=1)
 
             # Apply intensity and offset
-            for p in range(Np):
-                totals[p] *= region['I'][p]
-                totals[p] += region['q'][p]
-
             all_totals.append(totals)
             all_components.append(yyc)
 
