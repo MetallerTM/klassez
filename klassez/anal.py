@@ -3,13 +3,17 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button, Cursor, SpanSelector, RectangleSelector, CheckButtons
+from matplotlib.widgets import Button, Cursor, SpanSelector, RectangleSelector, CheckButtons, RadioButtons
 import lmfit
 from datetime import datetime
 import getpass
+from pathlib import Path
+from copy import deepcopy
 
 from . import fit, misc, sim, figures, processing, anal
-from .config import CM, COLORS
+from .config import CM, COLORS, cprint
+
+print = cprint
 
 
 def select_traces(ppm_f1, ppm_f2, data, Neg=True):
@@ -123,6 +127,7 @@ def select_traces(ppm_f1, ppm_f2, data, Neg=True):
 
     # Widgets
     cursor = Cursor(ax, useblit=True, color='k', linewidth=0.4)
+    cursor.horizOn = True
     fig.canvas.mpl_connect('button_press_event', on_click)
     fig.canvas.mpl_connect('scroll_event', on_scroll)
 
@@ -151,7 +156,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
         Choose if to show the negative contours ( True) or not ( False )
 
     Returns
-    ----------
+    -------
     peaks : list of dict
         For each peak there are two keys, 'f1' and 'f2', whose meaning is obvious.
         For each of these keys, you have 'u': center of the peak /ppm, and 'lim': the limits of the square you drew before.
@@ -290,6 +295,7 @@ def select_for_integration(ppm_f1, ppm_f2, data, Neg=True):
 
     # Widgets
     cursor = Cursor(ax, useblit=True, color='red', linewidth=0.4)       # Moving crosshair
+    cursor.horizOn = True
     fig.canvas.mpl_connect('button_press_event', on_click)      # Right click
     fig.canvas.mpl_connect('scroll_event', on_scroll)          # Mouse scroll
     span = RectangleSelector(ax, onselect, useblit=False, props=dict(facecolor='tab:red', alpha=0.5))    # Draggable rectangle
@@ -345,7 +351,7 @@ def noise_std(y):
         The spectral region you would like to use to calculate the standard deviation of the noise.
 
     Returns
-    --------
+    -------
     noisestd : float
         The standard deviation of the noise.
     """
@@ -364,56 +370,98 @@ def noise_std(y):
     return noisestd
 
 
-def snr(data, x=None, signal=None, n_reg=None):
+def snr(x, data, s_reg=None, n_reg=None, gui=False):
     """
     Computes the signal to noise ratio of a 1D spectrum as height of the signal over twice the noise standard deviation.
+    If you are not sure about what to put into ``s_reg`` and ``n_reg``,
+    use the interactive interface by setting ``gui=True``.
+    The values will be suggested.
 
     Parameters
     ----------
+    x : 1darray
+        Scale of the spectrum to use. The values in ``n_reg`` are searched according to this scale
     data : 1darray
         The spectrum of which you want to compute the SNR
-    x : 1darray
-        Scale of the spectrum to use. If given, the values in ``n_reg`` are searched according to this scale
-    signal : float, optional
-        If provided, uses this value as maximum signal. Otherwise, it is selected as the maximum value in ``data``
+    s_reg : float or tuple
+        If ``float``, uses this value as maximum signal.
+        If ``tuple``, the maximum value within the ``s_reg`` region is used as maximum signal.
+        In this case, the limits of such region must be given according to ``x``.
+        If ``None``, it is selected as the maximum value in ``data``
     n_reg : list or tuple, optional
         If provided, contains the points that delimit the noise region. Otherwise, the whole spectrum is used.
+    gui : bool
+        Set it to ``True`` to ignore ``s_reg`` and ``n_reg``, and use the GUI for the interactive estimation.
 
     Returns
     -------
     snr : float
         The SNR of the spectrum
+
+
+    .. seealso::
+
+        :func:`klassez.anal.noise_std`
+        :func:`klassez.anal.snr_gui`
+
     """
     # Computes the SNR of a 1D spectrum (or 2D projection).
     # n_reg is a list/tuple of 2 values that delimitates the noise region
-    if signal is None:
+
+    # Interactive evaluation
+    if gui:
+        snr = anal.snr_gui(x, data)
+        return snr
+
+    # Evaluate signal
+    if s_reg is None:
         signal = np.max(data)
-
-    if x is None:
-        x = np.arange(data.shape[-1])
-
-    if n_reg is None:
-        y = data
+    elif isinstance(s_reg, float):
+        signal = s_reg
     else:
-        A = misc.ppmfind(x, n_reg[0])[0]
-        B = misc.ppmfind(x, n_reg[1])[0]
-        w = slice(min(A, B), max(A, B))
-        y = data[w]
-    snr = signal / (2 * anal.noise_std(y))
+        x_s, y_s = misc.trim_data(x, data, s_reg)
+        signal = np.max(y_s)
+
+    # Evaluate noise
+    if n_reg is None:
+        y = deepcopy(data)
+    else:
+        x_n, y = misc.trim_data(x, data, n_reg)
+    stdn = anal.noise_std(y)
+
+    # Compute SNR
+    snr = signal / (2 * stdn)
     return snr
 
 
-def snr_2D(data, n_reg=None):
+def snr_2D(x_f1, x_f2, data, s_reg=None, n_reg=None, gui=False):
     """
-    Computes the signal to noise ratio of a 2D spectrum.
+    Computes the signal to noise ratio of a 2D spectrum as the height of the signal
+    divided by twice the standard deviation of the noise, for each dimension.
+    If you are not sure about what to put into ``s_reg`` and ``n_reg``,
+    use the interactive interface by setting ``gui=True``.
+    The values will be suggested.
 
     Parameters
     ----------
-    data : 1darray
-        The spectrum of which you want to compute the SNR
+    x_f1 : 1darray
+        PPM scale of the spectrum for the indirect dimension
+    x_f2 : 1darray
+        PPM scale of the spectrum for the direct dimension
+    data : 2darray
+        Spectrum of which you want to compute the SNR
+    s_reg : float or list of tuple
+        If ``float``, uses this value as maximum signal.
+        If ``None``, it is selected as the maximum value in ``data``
+        Otherwise, you have to provide the limits to draw a rectangle on ``data`` as ``[(f2_sx, f2_dx), (f1_sx, f1_dx)]``;
+        the maximum signal is the highest point within this region.
     n_reg : list or tuple
-        If provided, the points of F1 scale and F2 scale, respectively, of which to extract the projections.
-        Otherwise, opens the tool for interactive selection.
+        Contains the coordinates at which to extract empty traces for the evaluation of the noise standard deviation.
+        It should be provided as ``[v2, v1]``, meaning that the noise-only trace of the indirect dimension will be taken at ``v2`` on ``x_f2``,
+        and the noise-only trace of the direct dimension will be taken at ``v1`` on ``x_f1``.
+        Leaving this parameter an ``None`` will open the interactive panel, and thus ``s_reg`` will be ignored.
+    gui : bool
+        Set it to ``True`` to ignore ``s_reg`` and ``n_reg``, and use the GUI for the interactive estimation.
 
     Returns
     -------
@@ -421,23 +469,43 @@ def snr_2D(data, n_reg=None):
         The SNR of the indirect dimension
     snr_f2 : float
         The SNR of the direct dimension
+
+    .. seealso::
+
+        :func:`klassez.anal.noise_std`
+        :func:`klassez.anal.snr_gui_2D`
     """
     # Computes the SNR of a 2D spectrum.
-    # n_reg is: (ppmf1 for f2 trace, ppmf2 for f1 trace)
+    # n_reg is basically mandatory!
     if n_reg is None:
-        x_scale = np.arange(data.shape[-1])
-        y_scale = np.arange(data.shape[0])
-        coord = anal.select_traces(y_scale, x_scale, data)
-        n_reg = (coord[0][0], coord[0][1])
-        print('index for SNR (F1 | F2): ', n_reg)
+        gui = True
 
-    f1_trace = data[:, n_reg[0]]
-    f2_trace = data[n_reg[1], :]
+    if gui:
+        # Call the GUI that sorts everything automatically
+        snr_f1, snr_f2 = anal.snr_gui_2D(x_f1, x_f2, data.real)
+    else:
+        # Evaluate what there is in s_reg
+        if s_reg is None:       # Maximum of the whole dataset
+            signal = np.max(data)
+        elif isinstance(s_reg, float):  # The passed value IS the maximum
+            signal = s_reg
+        else:
+            # Cut the spectrum around data according to s_reg
+            _, _, z_trim = misc.trim_data_2D(x_f2, x_f1, data, s_reg[0], s_reg[1])
+            # Find for the maximum within the rectangle
+            signal = np.max(z_trim)
 
-    snr_f1 = anal.snr(f1_trace, signal=np.max(data))
-    snr_f2 = anal.snr(f2_trace, signal=np.max(data))
+        # Get the projections
+        f2 = anal.get_trace(data, x_f2, x_f1, n_reg[1], column=False)
+        f1 = anal.get_trace(data, x_f2, x_f1, n_reg[0], column=True)
+        # Compute noise std
+        stdn_f1 = anal.noise_std(f1)
+        stdn_f2 = anal.noise_std(f2)
+        # Evaluate snr
+        snr_f1 = signal / (2 * stdn_f1)
+        snr_f2 = signal / (2 * stdn_f2)
 
-    return snr_f1, snr_f2
+    return float(snr_f1), float(snr_f2)
 
 
 def get_trace(data, ppm_f2, ppm_f1, a, b=None, column=True):
@@ -525,7 +593,7 @@ def integral_2D(ppm_f1, t_f1, SFO1, ppm_f2, t_f2, SFO2, u_1=None, fwhm_1=200, ut
         True to show how the program fitted the traces.
 
     Returns
-    ----------
+    -------
     I_tot : float
         Computed integral.
     """
@@ -640,7 +708,7 @@ def integrate(ppm0, data0, SFO1, filename='integrals', X_label=r'$\delta\,$F1 /p
         Correction for the integral values. It should be ``dx = 2 * dw``
 
     Returns
-    ----------
+    -------
     abs_vals : dict
         Dictionary containing the values of the integrated peaks.
 
@@ -940,7 +1008,7 @@ def integrate_p2D(ppm0, data0, SFO1, ref=0, indirect_scale=None, filename='integ
         Correction for the integral values. It should be ``dx = 2 * dw``
 
     Returns
-    ----------
+    -------
     abs_vals : dict
         Dictionary containing the values of the integrated peaks.
 
@@ -1300,7 +1368,7 @@ def integrate_2D(ppm_f1, ppm_f2, data, SFO1, SFO2, fwhm_1=200, fwhm_2=200, utol_
         True to show how the program fitted the traces.
 
     Returns
-    ----------
+    -------
     I : dict
         Computed integrals. The keys are ``'<ppm f1>:<ppm f2>'`` with 2 decimal figures.
     """
@@ -1355,6 +1423,7 @@ def write_igrl(filename, dic, indirect_scale=None, header=False):
         :func:`klassez.anal.integrate`
 
     """
+    filename = Path(filename).with_suffix('.igrl')
     # Understand how many integrals per window we have to write
     for key, value in dic.items():
         if isinstance(value, (int, float)):
@@ -1376,7 +1445,7 @@ def write_igrl(filename, dic, indirect_scale=None, header=False):
     n_dashes = 25 + 14 * n_spectra
 
     # Open the file
-    f = open(f'{filename}.igrl', 'a', buffering=1)
+    f = filename.open('a', buffering=1)
 
     # Info on the region to be fitted
     if header:
@@ -1433,7 +1502,7 @@ def read_igrl(filename, n=-1):
         For this reason, ``n=0`` returns an empty dictionary, hence the first attempt is ``n=1``.
 
     Returns
-    ----------
+    -------
     dic : dict
         Integrals
     indirect_scale : 1darray or None
@@ -1489,8 +1558,7 @@ def read_igrl(filename, n=-1):
         return dic_r, indirect_scale
 
     # Read the file
-    with open(filename, 'r') as J:
-        ff = J.read()
+    ff = Path(filename).read_text()
     # Get the actual section from an output file
     f = ff.split('!')[n]
     # Separate the bigger sections
@@ -1503,3 +1571,533 @@ def read_igrl(filename, n=-1):
     # Get the values. R has only one entry!
     dic, indirect_scale = read_region(R[0])
     return dic, indirect_scale
+
+
+def snr_gui(x, y):
+    """
+    GUI for the evaluation of the Signal to Noise Ratio of a 1D spectrum.
+
+    Select "Signal" on the top right corner and drag a region to highlight the
+    reference signal approximate position. The detected point appears as a blue X.
+
+    Then, select "Noise". Drag a signal-free region, i.e. where there is only noise.
+    This will be used for the estimation of the noise standard deviation.
+    The noise level will be highlighted in the figure by two red dashed lines.
+    If these lines do not visually match the noise level, it is most likely there
+    is a signal included in the noise region.
+
+    When both the signal and the noise are present, the SNR will be computed.
+    The selection can be refined as many times as one wants, until the figure panel is closed.
+    Close the figure to return the values, and to print the used ``s_reg`` and ``n_reg`` to be given
+    to :func:`klassez.anal.snr`.
+
+    Parameters
+    ----------
+    x : 1darray
+        PPM scale of the spectrum
+    y : 1darray
+        Spectrum
+
+    Returns
+    -------
+    snr : float
+        Estimated signal to noise ratio.
+    """
+    # Variables placeholder
+    s_reg = None
+    n_reg = None
+
+    # Make the figure
+    fig = plt.figure('Evaluate SNR')
+    fig.set_size_inches(15, 8)
+    plt.subplots_adjust(top=0.95, bottom=0.1, left=0.10, right=0.8)
+    ax = fig.add_subplot()
+
+    # Make boxes for widgets
+    radio_box = plt.axes([0.825, 0.80, 0.15, 0.15])
+
+    box_expl = plt.axes([0.825, 0.10, 0.15, 0.30])
+    box_expl.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
+    box_expl.spines.left.set_visible(False)
+    box_expl.spines.right.set_visible(False)
+    # Make the widgets
+    radio_labels = ['Signal', 'Noise']
+    radio = RadioButtons(radio_box, labels=radio_labels, active=0, activecolor='k',
+                         label_props=dict(color=['tab:blue', 'tab:red'], fontsize=[14, 14]))
+    # Text placeholders
+    s_reg_text = ax.text(0.90, 0.75, 'None', ha='center', va='center',
+                         transform=fig.transFigure, color='tab:blue', fontsize=14)
+    s_text = ax.text(0.90, 0.70, 'Signal: None', ha='center', va='center',
+                     transform=fig.transFigure, color='tab:blue', fontsize=14)
+    n_reg_text = ax.text(0.90, 0.65, 'None', ha='center', va='center',
+                         transform=fig.transFigure, color='tab:red', fontsize=14)
+    n_text = ax.text(0.90, 0.60, r'$\sigma_N$: None', ha='center', va='center',
+                     transform=fig.transFigure, color='tab:red', fontsize=14)
+    ax.text(0.90, 0.50, 'Signal-to-Noise Ratio', ha='center', va='center',
+            transform=fig.transFigure, color='k', fontsize=14)
+    snr_text = ax.text(0.90, 0.47, 'None', ha='center', va='center',
+                       transform=fig.transFigure, color='k', fontsize=18)
+
+    # tutorial
+    box_expl.text(0.01, 0.5, '\n'.join([
+        'Select "Signal" to drag the signal region (blue).',
+        'The blue X marks the detected maximum signal.',
+        '',
+        'Select "Noise" to drag the noise region (blue).',
+        'The red horizontal lines mark the estimated noise level.',
+        '',
+        'The signal to noise ratio is evaluated when both are present.',
+        ]), ha='left', va='center', transform=box_expl.transAxes,
+                  fontsize=10, color='k', wrap=True)
+
+    # SLOTS
+    def radio_selection(label):
+        """ Activate the correct span selector """
+        trigg = int(radio.index_selected)
+        if trigg == 0:  # Signal
+            span_n.set_active(False)
+            span_s.set_active(True)
+        else:           # Noise
+            span_s.set_active(False)
+            span_n.set_active(True)
+        fig.canvas.draw()
+
+    def compute_signal(s_reg):
+        """ Detect the signal position and height in ``s_reg`` """
+        x_t, y_t = misc.trim_data(x, y, s_reg)
+        k_rel = np.argmax(y_t)
+        xm = x_t[k_rel]
+        ym = y_t[k_rel]
+        return xm, ym
+
+    def compute_noisestd(n_reg):
+        """ Compute the noise standard deviation in ``n_reg`` """
+        x_t, y_t = misc.trim_data(x, y, n_reg)
+        noise_std = anal.noise_std(y_t)
+        mean_yn = np.mean(y_t)
+        return noise_std, mean_yn
+
+    def on_select(vsx, vdx):
+        """ When dragging the slider """
+        # Get the selected area of whatever slider it is
+        selected = sorted([vsx, vdx], reverse=True)
+
+        if int(radio.index_selected) == 0:      # Signal
+            nonlocal s_reg
+            # Write s_reg in the permanent variable and on the plot
+            s_reg = selected
+            s_reg_text.set_text(' : '.join([f'{w:8.3f}' for w in s_reg]))
+            # Get the max signal value and position
+            xm, ym = compute_signal(s_reg)
+            # Write the value
+            s_text.set_text(misc.expformat(ym))
+            # Draw the cross
+            cross.set_data([xm], [ym])
+            cross.set_visible(True)
+        elif int(radio.index_selected) == 1:    # Noise
+            if selected[0] - selected[1] < 5 * misc.calcres(x):
+                return
+            nonlocal n_reg
+            # Write n_reg in the permanent variable and on the plot
+            n_reg = selected
+            n_reg_text.set_text(' : '.join([f'{w:8.3f}' for w in n_reg]))
+            # Compute the noise standard deviation and write it in the plot
+            noise_std, mean_yn = compute_noisestd(n_reg)
+            n_text.set_text(misc.expformat(noise_std))
+            # Draw the red lines as mean_yn +/- noise_std
+            for k, line in enumerate([upper_line, lower_line]):
+                line.set_ydata([mean_yn + (-1)**k * noise_std])
+                line.set_visible(True)
+        # Try to compute the SNR
+        eval_snr(ret=False)
+        fig.canvas.draw()
+
+    def eval_snr(ret=False):
+        """ Compute SNR based on ``s_reg`` and ``n_reg`` """
+        # DO NOTHING if one of the two is missing
+        if s_reg is None or n_reg is None:
+            return None
+        # Compute the SNR
+        _, signal = compute_signal(s_reg)
+        noise_std, _ = compute_noisestd(n_reg)
+        snr = signal / (2 * noise_std)
+        if ret:     # Return the value
+            return snr
+        else:       # Write the value on the figure
+            snr_text.set_text(f'{snr:.2f}')
+
+    # Draw the spectrum
+    figures.ax1D(ax, x, y, c='k', X_label=r'$\delta\,$ /ppm')
+    # Placeholders, set invisible because with nothing selected they are useless
+    #   Blue cross
+    cross, = ax.plot([np.mean(x)], [y[len(y)//2]], 'x', c='b', ms=10, visible=False)
+    #   Red lines
+    upper_line = ax.axhline(1, lw=0.7, ls='--', c='r', visible=False)
+    lower_line = ax.axhline(-1, lw=0.7, ls='--', c='r', visible=False)
+
+    # Cosmetic stuff
+    misc.set_fontsizes(ax, 16)
+
+    # Connect widgets to slots
+    span_s = SpanSelector(ax, on_select, direction='horizontal', interactive=True,
+                          drag_from_anywhere=True, snap_values=x,
+                          props=dict(facecolor='tab:blue', alpha=0.2))
+    span_s.set_active(True)    # Only the signal selector must start active
+    span_n = SpanSelector(ax, on_select, direction='horizontal', interactive=True,
+                          drag_from_anywhere=True, snap_values=x,
+                          props=dict(facecolor='tab:red', alpha=0.2))
+    span_n.set_active(False)    # Only the signal selector must start active
+    radio.on_clicked(radio_selection)
+
+    # Start event loop
+    plt.show()
+    plt.close()
+
+    # If something went wrong and the SNR is not computed, early return
+    if s_reg is None or n_reg is None:
+        return
+
+    # Compute SNR on the basis of the current s_reg and n_reg
+    snr = eval_snr(ret=True)
+    # Print the obtained value
+    print(f'SNR = {snr:.2f}', c='violet')
+    print('Selected regions for SNR:', c='violet')
+    fmt_s_reg = f'({max(s_reg):.3f}, {min(s_reg):.3f})'
+    fmt_n_reg = f'({max(n_reg):.3f}, {min(n_reg):.3f})'
+    print(f's_reg={fmt_s_reg}, n_reg={fmt_n_reg}')
+    print()
+
+    return snr
+
+
+def snr_gui_2D(x_f1, x_f2, yy):
+    """
+    GUI for the evaluation of the Signal to Noise Ratio of a 2D spectrum.
+
+    Select "Signal" on the top right corner and drag a rectangle to highlight the
+    reference signal height. The detected point appears as a blue X.
+
+    Then, select "Noise". A red cross-cursor will appear. Find a position where
+    you can extract a signal-free region, i.e. where there is only noise.
+    Double click with the left button of the mouse to extract the projection in that point:
+    they will appear as red traces. These will be used for the estimation of the noise standard
+    deviation.
+
+    When both the signal and the noise are present, the SNR will be computed.
+    The selection can be refined as many times as one wants, until the figure panel is closed.
+    Close the figure to return the values, and to print the used ``s_reg`` and ``n_reg`` to be given
+    to :func:`klassez.anal.snr_2D`.
+
+    Parameters
+    ----------
+    x_f1 : 1darray
+        PPM scale of the spectrum for the indirect dimension
+    x_f2 : 1darray
+        PPM scale of the spectrum for the direct dimension
+    yy : 2darray
+        Spectrum
+
+    Returns
+    -------
+    snr_f1 : float
+        Estimated signal to noise ratio in the indirect dimension.
+    snr_f2 : float
+        Estimated signal to noise ratio in the direct dimension.
+    """
+    # Variables placeholder
+    s_reg = None
+    n_reg = None
+
+    # for the plot
+    lvl = 0.2       # Starting level
+    lvlstep = 1.4   # Increase factor
+    #   for the scaling of the red traces
+    swp2 = misc.get_extent(x_f2)
+    swp1 = misc.get_extent(x_f1)
+
+    # Make the figure
+    fig = plt.figure('Evaluate SNR')
+    fig.set_size_inches(15, 8)
+    plt.subplots_adjust(top=0.95, bottom=0.1, left=0.10, right=0.8)
+    ax = fig.add_subplot()
+
+    # Make boxes for widgets
+    #   radiobuttons signal/noise
+    radio_box = plt.axes([0.825, 0.80, 0.15, 0.15])
+    #   Explanation
+    box_expl = plt.axes([0.825, 0.10, 0.15, 0.30])
+    #   Deactivate the ticks and the lateral spines
+    box_expl.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
+    box_expl.spines.left.set_visible(False)
+    box_expl.spines.right.set_visible(False)
+
+    # Make the widgets
+    radio_labels = ['Signal', 'Noise']
+    radio = RadioButtons(radio_box, labels=radio_labels, active=0, activecolor='k',
+                         label_props=dict(color=['tab:blue', 'tab:red'], fontsize=[14, 14]))
+    # Text placeholders
+    s_reg_text = ax.text(0.90, 0.75, 'None', ha='center', va='center',
+                         transform=fig.transFigure, color='tab:blue', fontsize=14)
+    s_text = ax.text(0.90, 0.70, 'Signal: None', ha='center', va='center',
+                     transform=fig.transFigure, color='tab:blue', fontsize=14)
+    n_reg_text = ax.text(0.90, 0.65, 'None', ha='center', va='center',
+                         transform=fig.transFigure, color='tab:red', fontsize=14)
+    n_text = ax.text(0.90, 0.60, r'$\sigma_N$ F$_2$: None, $\sigma_N$ F$_1$: None',
+                     ha='center', va='center', transform=fig.transFigure,
+                     color='tab:red', fontsize=14)
+    ax.text(0.90, 0.52, 'Signal-to-Noise Ratio', ha='center', va='center',
+            transform=fig.transFigure, color='k', fontsize=14)
+    snr_text = ax.text(0.90, 0.47, 'None\n', ha='center', va='center',
+                       transform=fig.transFigure, color='k', fontsize=18)
+
+    # tutorial
+    box_expl.text(0.01, 0.5, '\n'.join([
+        'Select "Signal" to drag the signal region (blue).',
+        'The blue X marks the detected maximum signal.',
+        '',
+        'Select "Noise" to select the traces for the estimation of the noise level (red).',
+        'Double click to evaluate the projections at the cursor position.',
+        'The extracted projections appear as red lines on the figure where they were taken.',
+        'Right click to hide the plots.',
+        ]), ha='left', va='center', transform=box_expl.transAxes,
+                  fontsize=10, color='k', wrap=True)
+
+    # SLOTS
+    def radio_selection(label):
+        """ Activate the span selector or the cursor alternatively """
+        trigg = int(radio.index_selected)
+        if trigg == 0:  # Signal
+            span_n.set_active(False)
+            span_s.set_active(True)
+        else:           # Noise
+            span_s.set_active(False)
+            span_n.set_active(True)
+        fig.canvas.draw()
+
+    def compute_signal(s_reg):
+        """ Detect the signal position and height in ``s_reg`` """
+        # Cut the rectangle according to s_reg
+        x_t, y_t, z_t = misc.trim_data_2D(x_f2, x_f1, yy, s_reg[0], s_reg[1])
+        # Where is the maximum -> array of array hence [-1] to unpack
+        k_f1, k_f2 = np.argwhere(z_t == np.max(z_t))[-1]
+        xm = x_t[k_f2]          # coordinate on x_f2
+        ym = y_t[k_f1]          # coordinate on x_f1
+        zm = z_t[k_f1, k_f2]    # actual maximum value
+        return xm, ym, zm
+
+    def compute_noisestd(v_2, v_1, draw=False):
+        """
+        Compute the noise standard deviation in ``n_reg``.
+        Extract trace in F1 @ ``v_2`` and trace in F2 @ ``v_1``.
+        ``draw == True`` updates the figure.
+        """
+        trf1 = anal.get_trace(yy, x_f2, x_f1, v_2, column=True)
+        trf2 = anal.get_trace(yy, x_f2, x_f1, v_1, column=False)
+
+        if draw:    # Update the red traces
+            draw_traces(v_2, v_1, trf1, trf2)
+
+        # Compute the std of the noise
+        noisestd_f1 = anal.noise_std(trf1)
+        noisestd_f2 = anal.noise_std(trf2)
+        return noisestd_f1, noisestd_f2
+
+    def on_select(click_event, release_event):
+        """ When dragging the blue rectangle"""
+        # Get the selected area
+        x1 = click_event.xdata
+        y1 = click_event.ydata
+        x2 = release_event.xdata
+        y2 = release_event.ydata
+        # Avoid selections less than 3x3 points in whatever dimension
+        if abs(x2 - x1) < 3 * misc.calcres(x_f2):
+            return
+        if abs(y2 - y1) < 3 * misc.calcres(x_f1):
+            return
+
+        # Sort them
+        sel_x = sorted([x1, x2], reverse=True)
+        sel_y = sorted([y1, y2], reverse=True)
+
+        if int(radio.index_selected) == 0:      # Signal
+            nonlocal s_reg
+            # Write s_reg in the permanent variable and on the plot
+            s_reg = [sel_x, sel_y]
+            s_reg_text.set_text('\n'.join([
+                ' : '.join([f'{w:8.3f}' for w in tmp])
+                for tmp in s_reg]))
+            # Get the max signal value and position
+            xm, ym, zm = compute_signal(s_reg)
+            # Write the value
+            s_text.set_text(misc.expformat(zm))
+            # Draw the cross
+            cross.set_data([xm], [ym])
+            cross.set_visible(True)
+        # Try to compute the SNR
+        eval_snr(ret=False)
+        fig.canvas.draw()
+
+    def on_click(event):
+        """ For the cursor """
+        def is_in(scale, value):
+            """ Check if value is within scale extents """
+            return min(scale) < value and value < max(scale)
+
+        # EARLY RETURNS if something is not specific
+        if radio.index_selected == 0:   # case 1: signal is selected
+            return
+        if event.inaxes != ax:      # case 2: click outside the panel
+            return
+        if event.button == 3:       # case 3: right click
+            # Disable the red traces and stop
+            line_f2.set_visible(False)
+            line_f1.set_visible(False)
+            fig.canvas.draw()
+            return
+        elif not (event.button == 1 and event.dblclick):    # case whatever!
+            return
+
+        # Basically, I survive until here ONLY if I double-clicked with the left
+        # mouse button inside the plot panel
+
+        # EARLY RETURNS to make sure that you can get a projection
+        if is_in(x_f2, event.xdata):
+            v_2 = event.xdata
+        else:
+            return
+        if is_in(x_f1, event.ydata):
+            v_1 = event.ydata
+        else:
+            return
+
+        # Basically, I survive until here ONLY if:
+        # 1. double-clicked with left mouse button inside the figure
+        # 2. the position where I clicked is both inside the ppm scale of
+        #    F1 and F2
+
+        # Write n_reg in the permanent location and update the text
+        nonlocal n_reg
+        n_reg = [v_2, v_1]
+        n_reg_text.set_text(f'F$_2$ @ {v_1:8.3f}, F$_1$ @ {v_2:8.3f}')
+        # Compute noise STD
+        noisestd_f1, noisestd_f2 = compute_noisestd(v_2, v_1, draw=True)
+        # Write them in the figure
+        text_f2 = r'$\sigma_N$ F$_2$: ' + f'{misc.expformat(noisestd_f2)}'
+        text_f1 = r'$\sigma_N$ F$_1$: ' + f'{misc.expformat(noisestd_f1)}'
+        n_text.set_text('\n'.join([text_f2, text_f1]))
+
+        # Try to evaluate the SNR
+        eval_snr(ret=False)
+        fig.canvas.draw()
+
+    def draw_traces(pos_f1, pos_f2, trf1, trf2):
+        """ Draw the red traces """
+        # extent of the traces = max - min
+        ext_tf1 = misc.get_extent(trf1)
+        ext_tf2 = misc.get_extent(trf2)
+        # final height: 1/15 of the other dimension
+        h1 = swp2 / 15
+        h2 = swp1 / 15
+
+        # The traces must be normalized to their extent,
+        # multiplied for their height to make them visible,
+        # then shifted to the position they were taken from
+        line_f2.set_ydata(trf2 / ext_tf2 * h2 + pos_f2)
+        line_f1.set_xdata(trf1 / ext_tf1 * h1 + pos_f1)
+        # Make them visible
+        line_f2.set_visible(True)
+        line_f1.set_visible(True)
+
+    def eval_snr(ret=False):
+        """ Compute SNR based on ``s_reg`` and ``n_reg`` """
+        # DO NOTHING if one of the two is missing
+        if s_reg is None or n_reg is None:
+            return None
+        # Compute the SNR
+        _, _, signal = compute_signal(s_reg)
+        noise_std_f1, noise_std_f2 = compute_noisestd(*n_reg)
+        snr_f1 = signal / (2 * noise_std_f1)
+        snr_f2 = signal / (2 * noise_std_f2)
+        if ret:     # Return the values
+            return snr_f1, snr_f2
+        else:       # Write the values on the figure
+            snr_text.set_text('\n'.join([
+                f'F$_1$: {snr_f1:.2f}',
+                f'F$_2$: {snr_f2:.2f}',
+                ]))
+
+    # HERE BELOW slots for the scroll
+    def increase_zoom(event):
+        """ step of the scroll """
+        nonlocal lvlstep
+        lvlstep += 0.05
+
+    def decrease_zoom(event):
+        """ step of the scroll + safety check """
+        nonlocal lvlstep
+        lvlstep -= 0.05
+        if lvlstep < 1.05:
+            lvlstep = 1.05
+
+    def on_scroll(event):
+        """ What happens when you scroll """
+        nonlocal lvl, cnt
+        if event.button == 'up':
+            lvl *= lvlstep
+        if event.button == 'down':
+            lvl /= lvlstep
+        if lvl > 1:
+            lvl = 1
+        # Redraw the contours
+        cnt, _ = figures.redraw_contours(ax, x_f2, x_f1, yy, lvl=lvl, cnt=cnt, cmap=['Greys_r', None])
+        fig.canvas.draw()
+
+    # Draw the spectrum
+    cnt = figures.ax2D(ax, x_f2, x_f1, yy, cmap='Greys_r', lvl=lvl, X_label=r'$\delta\,$ F2 /ppm', Y_label=r'$\delta\,$ F1 /ppm')
+    # Placeholders, set invisible because with nothing selected they are useless
+    #   Blue cross
+    cross, = ax.plot([np.mean(x_f2)], [np.mean(x_f1)], 'x', c='b', ms=10, visible=False, zorder=11)
+    #   Red lines   -> zorder to make them always be on top
+    line_f2, = ax.plot(x_f2, np.ones_like(x_f2)*np.mean(x_f1), lw=0.7, ls='-', c='r', visible=False, zorder=10)
+    line_f1, = ax.plot(np.ones_like(x_f1)*np.mean(x_f2), x_f1, lw=0.7, ls='-', c='r', visible=False, zorder=10)
+
+    # Cosmetic stuff
+    misc.set_fontsizes(ax, 16)
+
+    # Connect widgets to slots
+    #   Radiobuttons
+    radio.on_clicked(radio_selection)
+    #   Rectangle
+    span_s = RectangleSelector(ax, on_select, interactive=True, drag_from_anywhere=True,
+                               # I want the handle to exist but to be invisible
+                               handle_props=dict(markersize=0, alpha=0, visible=False),
+                               props=dict(facecolor='tab:blue', edgecolor='tab:blue', alpha=0.2))
+    span_s.set_active(True)    # Only the signal selector must start active
+    #   Cursor
+    span_n = Cursor(ax, horizOn=True, vertOn=True, lw=1.5, color='tab:red')
+    span_n.set_active(False)    # Only the signal selector must start active
+    #   Clicks
+    fig.canvas.mpl_connect('button_press_event', on_click)
+    #   Scroll
+    fig.canvas.mpl_connect('scroll_event', on_scroll)
+
+    # Start event loop
+    plt.show()
+    plt.close()
+
+    # If something went wrong and the SNR is not computed, early return
+    if s_reg is None or n_reg is None:
+        return
+
+    # Compute SNR on the basis of the current s_reg and n_reg
+    snr_f1, snr_f2 = eval_snr(ret=True)
+    # Print the obtained value
+    print(f'SNR F1 = {snr_f1:.2f}, SNR F2 = {snr_f2:.2f}', c='violet')
+    print('Selected regions for SNR:', c='violet')
+    fmt_s_reg = f'[({max(s_reg[0]):.3f}, {min(s_reg[0]):.3f}), ' +\
+                f'({max(s_reg[1]):.3f}, {min(s_reg[1]):.3f})]'
+    fmt_n_reg = f'({n_reg[0]:.3f}, {n_reg[1]:.3f})'
+    print(f's_reg={fmt_s_reg}, n_reg={fmt_n_reg}')
+    print()
+
+    return snr_f1, snr_f2

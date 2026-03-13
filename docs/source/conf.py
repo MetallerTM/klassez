@@ -12,17 +12,20 @@ r"""
 """
 
 # -- Path setup --------------------------------------------------------------
+suppress_warnings = ["autosummary.*not found"]
 
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))  
+from pathlib import Path
+basedir_kz = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(basedir_kz))
 
 # -- Project information -----------------------------------------------------
 
 project = 'klassez'
 copyright = '2025, Francesco Bruno and Letizia Fiorucci'
 author = 'Francesco Bruno and Letizia Fiorucci'
-release = "0.5a.4"
+release = "0.5a.5"
 
 # -- General configuration ---------------------------------------------------
 
@@ -42,6 +45,8 @@ extensions = [
 ]
 
 autosummary_generate = True
+numpydoc_class_members_toctree = False
+#numpydoc_show_class_members = False
 
 numfig = True
 numfig_format = {

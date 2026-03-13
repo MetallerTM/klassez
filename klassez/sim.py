@@ -1,10 +1,10 @@
 #! /usr/bin/env python3
 
 import sys
-import os
 import numpy as np
 
 from importlib.resources import open_text, files
+from pathlib import Path
 from scipy import special
 
 from . import misc, sim
@@ -16,9 +16,9 @@ if sys.version_info < (3, 13):      # python 3.9 - 3.12
     with files(__package__).joinpath('tables', 'nuclei_jeol.dic').open('r', encoding='utf-8') as f:
         jeol_nuclei = eval(f.read())
 else:                               # python 3.13 and above
-    with open_text(__name__, os.path.join('tables', 'gamma.dic')) as f:
+    with open_text(__name__, Path('tables') / 'gamma.dic') as f:
         gamma = eval(f.read())
-    with open_text(__name__, os.path.join('tables', 'nuclei_jeol.dic')) as f:
+    with open_text(__name__, Path('tables') / 'nuclei_jeol.dic') as f:
         jeol_nuclei = eval(f.read())
 
 
@@ -130,7 +130,7 @@ def load_sim_1D(File):
         Path to the input file location
 
     Returns
-    --------
+    -------
     dic : dict
         Dictionary of the parameters, ready to be read from the simulation functions.
     """
@@ -190,7 +190,7 @@ def sim_1D(File, pv=False):
     Simulates a 1D NMR spectrum from the instructions written in ``File``.
 
     Parameters
-    -----------
+    ----------
     File : str
         Path to the input file location
     pv : bool
@@ -385,7 +385,7 @@ def noisegen(size, o2, t2, s_n=1):
         Standard deviation of the noise.
 
     Returns
-    ----------
+    -------
     noise : 2darray
         Noise matrix, of dimensions size.
     """
@@ -412,7 +412,7 @@ def mult_noise(data_size, mean=0, s_n=0.1):
     Multiplicative noise model.
 
     Parameters
-    -----------
+    ----------
     data_size : tuple
         Dimension of the FID array
     mean : float
@@ -716,7 +716,7 @@ def t_voigt(t, u, fwhm, A=1, b=0, phi=0):
         s(t) = A\, \exp\{i \omega t \}\, \exp\{-(1-\beta) \Gamma t / 2-\beta\sigma^2 t^2/2 \}
 
     Parameters
-    -----------
+    ----------
     t : 1darray
         Independent variable
     u : float
@@ -731,7 +731,7 @@ def t_voigt(t, u, fwhm, A=1, b=0, phi=0):
         Phase, in radians
 
     Returns
-    --------
+    -------
     S : 1darray
         Voigt function.
     """
@@ -845,7 +845,7 @@ def t_2Dlorentzian(t1, t2, v1, v2, fwhm1, fwhm2, A=1, states=True, alt=True):
         Set to True for "FnMODE":"States-TPPI
 
     Returns
-    --------
+    -------
     S : 2darray
         Lorentzian function.
     """
@@ -949,7 +949,7 @@ def t_2Dvoigt(t1, t2, v1, v2, fwhm1, fwhm2, A=1, b=0, states=True, alt=True):
         * :math:`t_{1s}` is ``t1`` with double entries (States)
 
     Parameters
-    -----------
+    ----------
     t1 : 1darray
         Indirect evolution timescale
     t2 : 1darray

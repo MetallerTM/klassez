@@ -2,9 +2,6 @@
 
 from klassez import *
 
-sys.stdout = open('test.log', 'w')
-sys.stderr = sys.stdout
-
 print('TEST OF THE KLASSEZ PACKAGE')
 print('This test is intended for internal use.')
 

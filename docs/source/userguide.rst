@@ -521,6 +521,8 @@ The function works exactly as the 1D counterpart. However, the GUI will first as
 as reference for the computation of the filter, which is applied in a ridge-like manner on the whole 2D spectrum.
 The imaginary parts are reconstructed via Hilbert transform, hence be sure to have zero-filled enough!
 The key ``qfil = {'u': u, 's': s}`` are then saved in the ``procs`` dictionary for additional use.
+If these keys are present in the ``procs`` dictionary, the filtering is applied without prompting for the GUI, unless
+``from_procs=False``.
 
 Another useful option is to make a so-called "strip transform" to use only the part of the spectrum you are interested in.
 Example:
@@ -760,8 +762,8 @@ Code:
     
 
 
-The ``Pseudo_2D`` class
-***********************
+Processing of a "raw" pseudo-2D`` spectrum
+******************************************
 
 "Classic" pseudo-2D processing
 ------------------------------
@@ -863,71 +865,180 @@ The rest of the processing is exactly the same of the classic ``Pseudo_2D``, des
 The analysis instead is different because it includes specific routines to fit the DOSY. 
 When calling the ``self.integrate`` method, an attribute ``self.D`` will be automatically created as an instance of the class
 :class:`klassez.fit.DosyFit`, with the values of the important parameters read by the dataset itself.
-In the present release, :class:`klassez.fit.DosyFit` supports the fit for single and double stimulated echoes, with or without bipolar gradients
-(sequences `ste`, `stebp`, `dste`, `dstebp`).
 
-The important attributes of the :class:`klassez.fit.DosyFit` class are:
 
-- ``self.g``: 1darray that contains the `difflist` converted to Tesla / meter (so that the diffusion coefficient comes in :math:`m^2 s^{-1}`;
+Processing of a DOSY_T1
+***********************
 
-- ``self.data``: dictionary that contains the integrated values of the parent spectrum using the integration region as a key formatted as ``{ppm1:.3f}:{ppm2:.3f}``;
- 
-- ``self.dosy_par``: dictionary of the parameters that will be employed by the model during the fit.
+A special class of DOSY spectra can be acquired with the sequence descripted in `Novakovic M. et al. (2025), Nature Communications, 16(1), 4628`_,
+Supporting Information, Figure 12a.  This sequence, adapted in the pulse program ``stebpgp1s193D.rav``,
+evolves the big delta (``d20``) in dimension F2 and the gradient strength according to the `difflist` in dimension F1.
+This sequence is actually equivalent to acquiring separate DOSY with different ``d20``.
 
+.. _Novakovic M. et al. (2025), Nature Communications, 16(1), 4628: https://www.nature.com/articles/s41467-025-59759-2
+
+
+The resulting dataset is a 3D spectrum where the first two dimensions are pseudo, and thus they do not need to be
+processed in any way. The window function, zero-filling and Fourier transform are applied only to the direct dimension.
+
+Read the dataset with
+::
+
+    s = kz.DOSY_T1(path/to/dataset)
+
+During the initialization, the script will look for the `difflist` file in the base directory, that will be stored in the ``self.x_f1``
+attribute, and for the `VDLIST` for the evolution of the big delta (``d20``), that will be stored in the ``self.x_f2`` attribute.
+The processing to get the spectrum is equivalent to the one of a 1D spectrum, as there is only one dimension to be processed.
+::
+
+    s.procs['wf']['mode'] = 'qsin'
+    s.procs['zf'] = s.fid.shape[-1] * 2
+    s.process()
+    s.pknl()    # remove group delay
+
+The command
+::
+
+    s.adjph(fromplane=0, expno=0, dim='31')
+
+will open a reference spectrum for the interactive phase adjustment. The obtained values will be then applied to all experiments in F3.
+The reference trace will be the ``expno``-th experiment of the ``fromplane``-th plane in the ``dim`` direction.
+The GUI for the phasing is the same of :numref:`f-adjph_1D`.
+
+The spectrum can be visually inspected through a dedicated GUI, that allows to move across the various planes along a given direction.
+An example is shown in :numref:`f-plot_pp3D`. You can use the `>>` and `<<` buttons to move forward and backwards between the planes, 
+and the mouse scroll to change the contour levels that are visualized.
 
 ::
 
-    # Fit of the DOSY
-    #   Make/read initial guess
-    s.D.iguess(filename=filename)
-    #   Fit the data
-    s.D.dofit(filename=filename)
-    #   Plot the fits
-    s.D.plot(filename=filename, dpi=200)
-    #   Make a figure of the diffusion coefficients
-    s.diffplot(filename=filename, dpi=200)
+    # To plot the DOSY direction
+    s.plot(dim='31')
+    # To plot the T1 direction
+    s.plot(dim='32')
 
-The method :func:`klassez.fit.DosyFit.iguess` allows to generate an oculated initial guess for all the integrated regions.
-More than one component can be used at once for a single region. The user can adjust the relative fraction of the various components,
-as well as to adjust the intensity factor automatically or not. Example and additional explanation in :numref:`f-dosy_iguess`.
-Computing the initial guess creates a file `<filename>.idy`, that can be read with :func:`klassez.fit.read_dy`.
-If the file already exists, it will be loaded and stored in the attribute ``self.i_guess``.
+Alternatively, you can extract the planes one by one, and use the internal method of the DOSY :func:`klassez.Spectra.DOSY.plot` to visualize.
+::
 
-.. figure:: _static/Initialization_of_diffusion_coefficient.png
-    :name: f-dosy_iguess
-    :width: 90.0%
-
-    GUI for the initialization of the diffusion coefficient. The integrals trend will appear as black points.
-    The total model is the blue trace. Use the mouse scroll to change either the value of the diffusion coefficient or the fraction, according
-    to the selector on the right part of the figure.
-    It is possible to change the sensitivity of the scroll with the selector "coarse/fine", or with the arrow buttons. 
-    Use the "+" button to add a component. Use the vertical slider to change component to edit.
-    The check button at the top toggles the computation of the intensity factor. Deactivate it to gain more freedom in adjusting the 
-    relative fraction when trying to adjust multiple components. **DO NOT INCLUDE** the offset unless you have a very specific reason to do so.
-    When you are satisfied with your guess, press "SAVE" to save it.
-        
-
-At this point, the fit can be performed by calling the method :func:`klassez.fit.DosyFit.dofit`. 
-A number of parameters for the fit can be adjusted. The model function is selected automatically on the basis
-of the employed pulse sequence (see :func:`klassez.fit.DosyFit.select_model`).
-The results of the fit will be saved in a file named `<filename>.fdy`. A new entry of the file will be added at the bottom.
-This file **will never be overwritten** automatically by the program.
-
-Alternatively, the results of a previously performed fit can be read from a `.fdy` file by the method :func:`klassez.fit.DosyFit.load_fit`.
-In both cases, the outcome will be stored in the attribute ``self.result``.
-
-Now it is the time to see how the fit looks like.
-The :func:`klassez.fit.DosyFit.plot` method generates the figure of the fitted trends, that also display the diffusion coefficient value in the legend.
-A number of parameters for the figure can be tuned, such as dimension, resolution and format of the figure to save, to display the residuals or not, etc.
-When the fit is either performed or loaded (i.e. the attribute ``self.D.result`` exists), the parent ``DOSY`` object gains access to the :func:`klassez.Spectra.DOSY.diffplot`.
-This function will generate a figure that display an upper panel with the whole spectrum, and a bottom panel with the fitted diffusion coefficients. 
-The integrated regions will be highlighted as light-blue spans in both panels. This will be useful to compare the different diffusion coefficients associated to the various regions, and therefore to the chemical species present in the sample.
+    # Extract all the planes in the F3-F1 direction
+    P31 = [s.getplane(x) for x, _ in enumerate(s.x_f2)]
+    #   Plot all of them
+    for q in P31:
+        q.plot()
+    # Extract all the planes in the F3-F2 direction
+    P32 = [s.getplane(x, '23') for x, _ in enumerate(s.x_f1)]
+    #   Plot all of them
+    for q in P32:
+        q.plot()
 
 
+
+.. figure:: _static/Plot_PP3D.png
+    :name: f-plot_pp3D
+
+    GUI for the interactive visual inspection of a DOSY-T1 spectrum. 
+    Use the ">>" and "<<" buttons to move across the planes, and the mouse
+    scroll to move the contour levels.
 
 
 Analyzing data in *KLASSEZ*
 ***************************
+
+Evaluate Signal to Noise Ratio
+------------------------------
+
+In `KLASSEZ`, the signal to noise ratio (SNR) of a spectrum is defined as the height of the tallest peak
+(or of the reference peak, chosen by the user) divided by twice the standard deviation of the noise.
+To estimate the SNR of a 1D spectrum, the function :func:`klassez.anal.snr` is used:
+::
+
+    s = kz.Spectrum_1D(path/to/dataset)
+
+    # ...
+
+    s_reg = (5, 4)
+    n_reg = (0, -2)
+
+    snr = kz.anal.snr(s.ppm, s.r, s_reg=s_reg, n_reg=n_reg)
+
+The user has to specify the region where to find the reference signal (``s_reg``) and a signal-free region (``n_reg``) 
+for the evaluation of the noise standard deviation.
+It is also possible to set them interactively by using a dedicated GUI:
+::
+
+    snr = kz.anal.snr(s.ppm, s.r, gui=True)
+
+which appears like in :numref:`f-snr_1D`. Here, the regions of signal and noise are highlighted with colored span selectors.
+There is also a display of the noise level, via two dashed red lines. If these lines do not visually match with the noise,
+most likely the user has included a signal within the noise region.
+
+
+.. figure:: _static/SNR_1D.png
+    :name: f-snr_1D
+
+    GUI for the evaluation of the Signal to Noise Ratio of a 1D spectrum.
+
+    Select "Signal" on the top right corner and drag a region to highlight the
+    reference signal approximate position. The detected point appears as a blue X.
+
+    Then, select "Noise". Drag a signal-free region, i.e. where there is only noise.
+    This will be used for the estimation of the noise standard deviation.
+    The noise level will be highlighted in the figure by two red dashed lines.
+    If these lines do not visually match the noise level, it is most likely there
+    is a signal included in the noise region.
+
+    When both the signal and the noise are present, the SNR will be computed.
+    The selection can be refined as many times as one wants, until the figure panel is closed.
+    Close the figure to return the values, and to print the used ``s_reg`` and ``n_reg`` to be given
+    to :func:`klassez.anal.snr`.
+
+
+The procedure for estimating the SNR of a 2D spectrum is equivalent to the 1D case.
+::
+
+    s = kz.Spectrum_2D(path/to/dataset)
+
+    # ...
+
+    s_reg = [(5, 4), (114, 110)]
+    n_reg = (-2, 102)
+
+    snr_f1, snr_f2 = kz.anal.snr_2D(s.ppm_f1, s.ppm_f2, s.rr, s_reg=s_reg, n_reg=n_reg)
+
+In this case, ``s_reg`` delimits a rectangular region where to search for the highest signal. In the example above,
+the instruction says `the reference signal is between 5 and 4 ppm in the direct dimension and between 114 and 110 ppm in the indirect dimension`.
+As the definition of what the SNR of a 2D spectrum actually is is quite ambiguous, *KLASSEZ* estimates the SNR for the direct and indirect dimension
+independently. This is the reason why the function returns two values.
+The estimate of the noise standard deviation is performed on two signal-free traces, extracted on the indirect and the direct dimension, where indicated by ``n_reg``.
+In this example, ``n_reg = (-2, 102)`` means `the noise-only trace of the indirect dimension must be taken at -2 ppm in the direct dimension chemical shift scale, and the one of the direct dimension must be taken at 102 ppm of the indirect dimension`.
+
+Also in this 2D case it is possible to use a GUI:
+::
+
+    snr_f1, snr_f2 = kz.anal.snr(s.ppm_f1, s.ppm_f2, s.rr, gui=True)
+
+which appears like in :numref:`f-snr_2D`. The region where to search for the reference signal is drawn with a rectangle selector.
+The noise-only traces are extracted using a crossmark-like cursor.
+
+.. figure:: _static/SNR_2D.png
+    :name: f-snr_2D
+
+    GUI for the evaluation of the Signal to Noise Ratio of a 2D spectrum.
+
+    Select "Signal" on the top right corner and drag a rectangle to highlight the
+    reference signal height. The detected point appears as a blue X.
+
+    Then, select "Noise". A red cross-cursor will appear. Find a position where
+    you can extract a signal-free region, i.e. where there is only noise.
+    Double click with the left button of the mouse to extract the projection in that point:
+    they will appear as red traces. These will be used for the estimation of the noise standard
+    deviation.
+
+    When both the signal and the noise are present, the SNR will be computed.
+    The selection can be refined as many times as one wants, until the figure panel is closed.
+    Close the figure to return the values, and to print the used ``s_reg`` and ``n_reg`` to be given
+    to :func:`klassez.anal.snr_2D`.
+
+
 
 Integrate 1D spectra
 --------------------
@@ -1144,6 +1255,132 @@ the keys of ``t.integrals`` to the limits by using the function :func:`klassez.m
 
 
 
+Fitting a DOSY
+--------------
+In the present release, :class:`klassez.fit.DosyFit` supports the fit for single and double stimulated echoes, with or without bipolar gradients
+(sequences `ste`, `stebp`, `dste`, `dstebp`).
+
+The important attributes of the :class:`klassez.fit.DosyFit` class are:
+
+- ``self.g``: 1darray that contains the `difflist` converted to Tesla / meter (so that the diffusion coefficient comes in :math:`m^2 s^{-1}`;
+
+- ``self.data``: dictionary that contains the integrated values of the parent spectrum using the integration region as a key formatted as ``{ppm1:.3f}:{ppm2:.3f}``;
+ 
+- ``self.dosy_par``: dictionary of the parameters that will be employed by the model during the fit.
+
+
+::
+
+    # Fit of the DOSY
+    #   Make/read initial guess
+    s.D.iguess(filename=filename)
+    #   Fit the data
+    s.D.dofit(filename=filename)
+    #   Plot the fits
+    s.D.plot(filename=filename, dpi=200)
+    #   Make a figure of the diffusion coefficients
+    s.diffplot(filename=filename, dpi=200)
+
+The method :func:`klassez.fit.DosyFit.iguess` allows to generate an oculated initial guess for all the integrated regions.
+More than one component can be used at once for a single region. The user can adjust the relative fraction of the various components,
+as well as to adjust the intensity factor automatically or not. Example and additional explanation in :numref:`f-dosy_iguess`.
+Computing the initial guess creates a file `<filename>.idy`, that can be read with :func:`klassez.fit.read_dy`.
+If the file already exists, it will be loaded and stored in the attribute ``self.i_guess``.
+
+.. figure:: _static/Initialization_of_diffusion_coefficient.png
+    :name: f-dosy_iguess
+    :width: 90.0%
+
+    GUI for the initialization of the diffusion coefficient. The integrals trend will appear as black points.
+    The total model is the blue trace. Use the mouse scroll to change either the value of the diffusion coefficient or the fraction, according
+    to the selector on the right part of the figure.
+    It is possible to change the sensitivity of the scroll with the selector "coarse/fine", or with the arrow buttons. 
+    Use the "+" button to add a component. Use the vertical slider to change component to edit.
+    The check button at the top toggles the computation of the intensity factor. Deactivate it to gain more freedom in adjusting the 
+    relative fraction when trying to adjust multiple components. **DO NOT INCLUDE** the offset unless you have a very specific reason to do so.
+    When you are satisfied with your guess, press "SAVE" to save it.
+        
+
+At this point, the fit can be performed by calling the method :func:`klassez.fit.DosyFit.dofit`. 
+A number of parameters for the fit can be adjusted. The model function is selected automatically on the basis
+of the employed pulse sequence (see :func:`klassez.fit.DosyFit.select_model`).
+The results of the fit will be saved in a file named `<filename>.fdy`. A new entry of the file will be added at the bottom.
+This file **will never be overwritten** automatically by the program.
+
+Alternatively, the results of a previously performed fit can be read from a `.fdy` file by the method :func:`klassez.fit.DosyFit.load_fit`.
+In both cases, the outcome will be stored in the attribute ``self.result``.
+
+Now it is the time to see how the fit looks like.
+The :func:`klassez.fit.DosyFit.plot` method generates the figure of the fitted trends, that also display the diffusion coefficient value in the legend.
+A number of parameters for the figure can be tuned, such as dimension, resolution and format of the figure to save, to display the residuals or not, etc.
+When the fit is either performed or loaded (i.e. the attribute ``self.D.result`` exists), the parent ``DOSY`` object gains access to the :func:`klassez.Spectra.DOSY.diffplot`.
+This function will generate a figure that display an upper panel with the whole spectrum, and a bottom panel with the fitted diffusion coefficients. 
+The integrated regions will be highlighted as light-blue spans in both panels. This will be useful to compare the different diffusion coefficients associated to the various regions, and therefore to the chemical species present in the sample.
+
+
+Fitting a DOSY-T1
+-----------------
+
+Conceptually, the fitting of a :class:`klassez.Spectra.DOSY_T1` is equivalent to fitting a series of DOSY spectra, as described in the previous section.
+However, there exist the class :class:`klassez.fit.Fit_Dosy_pp3D` to make it easier.
+
+The first thing to do is to integrate the dataset, that can be easily done with
+::
+
+    s.integrate(filename='custom_filename')     # or None for the default
+
+This command will create an instance of the :class:`klassez.fit.Fit_Dosy_pp3D` class, and will store it in the attribute ``D`` of the :class:`klassez.Spectra.DOSY_T1` object.
+In practice, from now on we can proceed with the fit by calling the methods as ``s.D.method()``.
+The reason why this method is called `integrate` and not `instance_D` or similar is because :func:`klassez.fit.Fit_Dosy_pp3D.__init__` will either compute or read the integrals of all the planes of the spectrum.
+The function will try to find the `.igrl` files in a folder named `<filename>`. If it does not find them, it will open the GUI of :numref:`f-integrate_p2D` to integrate
+interactively the first plane of the series. The same regions will be used to integrate all the others, and the aforementioned `.igrl` files are written automatically.
+This means that at the second call of ``s.integrate()``, there will be no need of computing the integrals again.
+
+At this point you have to create the initial guess for the diffusion coefficient for each of the integrated region.
+::
+
+    s.D.iguess(filename='custom filename')      # if you want
+
+As explained in the DOSY section, it is not required to have a super-accurate initial guess, the important thing is to have the correct number of components that 
+you want to include in the fit.
+The GUI is the same of :numref:`f-dosy_iguess`.
+This function will write the `.idy` files required for starting the fit.
+
+Now you can fit the data with
+::
+
+    s.D.dofit(seq=False, filename='custom filename')    # now you know the drill
+
+The important point to remember here is that the default behavior of this function is to use the same diffusion coefficient to fit the same region across all planes.
+This aspect will improve the robustness of the results.
+If you do not want this, and you want to fit each plane with its diffusion coefficient, run the function with ``seq=False``.
+At the end of the fit, a series of `.fdy` files are written.
+These can be read by
+::
+
+    s.D.load_fit(filename='custom filename')
+
+To visualize the results of the fit, the method :func:`klassez.fit.Fit_Dosy_pp3D.plot` will generate the figure for you.
+The function has a lot of parameters:
+::
+
+    s.D.plot(what='result',         # or 'iguess'
+             only_all=False,        # Save only the comprehensive figure
+             show_res=False,        # For the single plots
+             res_offset=0,          # For the single plots
+             figdir=None,           # Default (None) or custom figure directory
+             filename=filename,     # Root filename for the figures
+             ext='svg',             # Figure format
+             dpi=100,               # Resolution in dots per inches
+             dim=None               # Default (None) or custom figure size (inches)
+             )
+
+Set ``what`` to either ``'iguess'`` or ``'result'`` to plot the initial guess or the fit results, respectively.
+All the figures will be saved in ``figdir/what``, with a name that starts with ``filename`` and the interval.
+The parameter ``only_all``, if set to ``True``, will generate only a set of comprehensive figures where the profiles and their fit for all planes are plotted 
+together in the same panel. If it is ``False``, also one figure per interval per plane are saved. This might take a lot of time, hence it is recommended to turn this to ``False`` at the very end of the fitting trials (and if you `really need` these very detailed figures).
+
+
 Example scripts
 ***************
 
@@ -1317,8 +1554,8 @@ Read and process 2D spectrum
     # Call it back: it is a Spectrum_1D object!
     f2.plot()
 
-Read, process and fit DOSY
---------------------------
+Read and process a pseudo-2D and fit DOSY
+-----------------------------------------
 
 .. code-block::
    :name: lst-process_dosy
@@ -1329,7 +1566,7 @@ Read, process and fit DOSY
     from klassez import *
 
     # Read the spectrum
-    s = DOSY('apo/11')
+    s = DOSY('path/to/dataset/expno')
 
     # Processing
     #   Window function: exponential with 0.5 Hz linebroadening
@@ -1363,4 +1600,77 @@ Read, process and fit DOSY
     s.D.plot(filename=filename, dpi=200)
     #   Make a figure of the diffusion coefficients
     s.diffplot(filename=filename, dpi=200)
+
+
+Read, process and fit a DOSY-T1
+-------------------------------
+
+.. code-block::
+   :name: lst-process_dosyt1
+   :caption: Example for the processing and the fit of a DOSY_T1 spectrum.
+
+    #! /usr/bin/env python3
+
+    import klassez as kz
+
+    # Path to dataset
+    path = 'path/to/dataset/expno'
+    # Read the dataset
+    s = kz.DOSY_T1(path)
+
+    # Usual processing
+    s.procs['wf']['mode'] = 'qsin'
+    s.procs['zf'] = s.fid.shape[-1] * 2
+    s.process()
+    s.pknl()    # remove group delay
+
+    # Adjust the phase interactively using
+    # the ``expno``-th spectrum taken from
+    # plane ``fromplane`` in the direction
+    # ``dim`` as reference
+    s.adjph(fromplane=0, expno=0, dim='31')
+
+    # Plot interactively all the planes F3-F1
+    s.plot(dim='31')
+    # Plot interactively all the planes F3-F2
+    s.plot(dim='32')
+
+    # Extract all the plane in the F3-F1 direction
+    if 0:
+        P31 = [s.getplane(x) for x, _ in enumerate(s.x_f2)]
+        #   Plot all of them
+        for q in P31:
+            q.plot()
+        # Extract all the plane in the F3-F1 direction
+        P32 = [s.getplane(x, '23') for x, _ in enumerate(s.x_f1)]
+        #   Plot all of them
+        for q in P32:
+            q.plot()
+
+    # Fitting
+
+    filename = 'My_DOSYT1_spectrum'
+    # Integrate the first plane of the F3-F1 direction as reference.
+    # If this task was already done, this function will upload the integrals.
+    s.integrate(filename=filename)
+
+    # After s.integrate, s.D exists and can be used for fitting
+    #   Make initial guess
+    s.D.iguess(filename=filename)
+    #   Do the fit
+    s.D.dofit(filename=filename)
+    #   Load the fitted parameters
+    s.D.load_fit(filename=filename)
+    #   Save the figures
+    s.D.plot(what='result',         # or 'iguess'
+             only_all=False,        # Save only the comprehensive figure
+             show_res=False,        # For the single plots
+             res_offset=0,          # For the single plots
+             figdir=None,           # Default (None) or custom figure directory
+             filename=filename,     # Root filename for the figures
+             ext='svg',             # Figure format
+             dpi=100,               # Resolution in dots per inches
+             dim=None               # Default (None) or custom figure size (inches)
+             )
+
 

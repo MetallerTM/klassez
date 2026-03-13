@@ -1,13 +1,15 @@
-TEST OF THE KLASSEZ PACKAGE
-This test is intended for internal use.
+TEST OF THE KLASSEZ PACKAGE[0m
+This test is intended for internal use.[0m
 
- BEGIN OF THE TEST
-Spectrum_1D object
-Reading
-Processing
-Spectrum_2D object
-Reading
-Processing
-Compute projection in f2
-Compute projection in f1
-END OF THE TEST
+BEGIN OF THE TEST[0m
+Spectrum_1D object[0m
+Reading[0m
+Processing[0m
+Spectrum_2D object[0m
+Reading[0m
+Processing[0m
+/home/naoyuki/Programma/GitHub/KLASSEZ/klassez/Spectra.py:1543: UserWarning: Not enough zerofilling for Hilbert Transform in F1
+  self.S = processing.xfb(self.fid, wf=self.procs['wf'], zf=self.procs['zf'], fcor=self.procs['fcor'], tdeff=self.procs['tdeff'], FnMODE=self.acqus['FnMODE'], u=False)
+Compute projection in f2[0m
+Compute projection in f1[0m
+END OF THE TEST[0m

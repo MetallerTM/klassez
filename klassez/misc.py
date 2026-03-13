@@ -1,17 +1,230 @@
 #! /usr/bin/env python3
 
-import os
 import numpy as np
+import nmrglue as ng
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as WF
 import math
+import warnings
 import scipy.linalg as slinalg
 from copy import deepcopy
+from pathlib import Path
 
+try:
+    import jeol_parser
+except Exception:
+    pass
+
+from .config import cprint
 from . import misc, sim
 
 """ Collection of all-purpose functions """
+
+print = cprint
+
+
+def get_datadir_filename(in_file, isexp=True):
+    """
+    Computes the attributes ``datadir`` and ``filename`` to feed in the `Spectra` classes.
+
+    If ``in_file`` is a dictionary of acqusition parameters, ``datadir`` is the current working directory and ``filename='dict'``.
+    In any other case, ``datadir`` is the absolute path to the directory that contains the raw FID, and ``filename`` is the name of the last directory.
+    Example: if the path to the FID is `/path/to/dataset/expno/fid`, ``datadir = '/path/to/dataset/expno/fid'``, ``filename = expno``.
+
+    Parameters
+    ----------
+    in_file : str or Path or dict
+        Path to the dataset (also relative works) or dictionary of acquisition parameters
+    isexp : bool
+        For the correct computation of the filename, you have to specify if it is a real (``True``) or simulated (``False``) dataset
+
+    Returns
+    -------
+    datadir : str
+        Absolute path to the dataset
+    filename : str
+        Filename of the spectrum
+    """
+    if isinstance(in_file, dict):   # Simulated data with already given acqus dictionary
+        datadir = Path.cwd()      # Current directory
+        filename = 'dict'  # Filename is just "dict"
+    else:                           # You need to actually read a file
+        datadir = Path(in_file).absolute()  # Get the file position
+        if not datadir.is_dir():
+            datadir = datadir.parent
+        if isexp:
+            filename = datadir.stem
+        else:
+            filename = Path(in_file).stem
+        # If filename is a directory, write things inside it
+        extended_dir = datadir / filename
+        if extended_dir.is_dir() and isexp:
+            datadir = extended_dir
+    return Path(datadir), filename
+
+
+def read_fid_acqus_1D(in_file, spect='bruker'):
+    """
+    Uses :mod:`nmrglue` to read inside ``in_file`` in search for 1D NMR data.
+    Returns the complex FID and the dictionaries of setup parameters.
+
+    Parameters
+    ----------
+    in_file : str or Path
+        Path where to find the data
+    spect : str
+        Data format. Valid options are: ``'bruker'``, ``'varian'``, ``'magritek'``, ``'oxford'``, ``'jeol'``
+
+    Returns
+    -------
+    fid : 1darray
+        FID of the dataset
+    acqus : dict
+        Dictionary of acquisition parameters, required by `klassez`
+    ngdic : dict
+        Complete set of acquisition, processing, and setup parameters.
+    """
+    def read_bruker(path):
+        """ For bruker data """
+        dic, data = ng.bruker.read(path, cplex=True)
+        acqus = misc.makeacqus_1D(dic)
+        # Set the data format keys in acqus
+        acqus['BYTORDA'] = dic['acqus']['BYTORDA']
+        acqus['DTYPA'] = dic['acqus']['DTYPA']
+        return data, acqus, dic
+
+    def read_varian(path):
+        """ For Varian data """
+        dic, data = ng.varian.read(path)
+        acqus = misc.makeacqus_1D_varian(dic)
+        return data, acqus, dic
+
+    def read_magritek(path):
+        """ Spinsolve data """
+        dic, data = ng.spinsolve.read(path, specfile='data.1d')         # Actual FID
+        if (path / 'spectrum.1d').is_file():
+            dic2, _, = ng.spinsolve.read(path, specfile='spectrum.1d')       # for config
+            dic.update(dic2)
+        if (path / 'nmr_fid.dx').is_file():
+            dic3, _, = ng.spinsolve.read(path, specfile='nmr_fid.dx')        # for config
+            dic.update(dic3)
+        acqus = misc.makeacqus_1D_spinsolve(dic)
+        return data, acqus, dic
+
+    def read_oxford(path):
+        """ jdx files """
+        if '.jdx' in path:
+            jdx_file = path
+        else:
+            # Try to see if there is a .jdx file
+            all_jdx = list(path.glob('*.jdx'))
+            if len(all_jdx) == 0:
+                raise NameError(f'No .jdx file were found in {path}.')
+            elif len(all_jdx) > 1:
+                raise ValueError(f'There are more than one .jdx file in {path}.')
+            jdx_file = all_jdx[-1]
+        dic, cplx = ng.jcampdx.read(jdx_file)
+        acqus = misc.makeacqus_1D_oxford(dic)
+        data = cplx[0] + 1j*cplx[1]
+        return data, acqus, dic
+
+    def read_jeol(path):
+        """ Jeol files """
+        dic = jeol_parser.parse(path)
+        # Compute fid
+        fid = dic.pop('data')  # remove the data from the dictionary (useless)
+        # join real and imaginary part
+        fid_re = np.array(fid['re']).astype('float64')
+        fid_im = np.array(fid['im']).astype('float64')
+        # Complex FID
+        data = (fid_re + 1j*fid_im).reshape(-1)
+        # Make acqus
+        acqus = misc.makeacqus_1D_jeol(dic)
+        return data, acqus, dic
+
+    # MAIN READING
+    in_file = Path(in_file)
+    with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
+        warnings.simplefilter("ignore")
+
+        # Discriminate between different spectrometer formats
+        match spect:
+            case 'bruker':
+                fid, acqus, ngdic = read_bruker(in_file)
+            case 'varian':
+                fid, acqus, ngdic = read_varian(in_file)
+            case 'magritek':
+                fid, acqus, ngdic = read_magritek(in_file)
+            case 'oxford':
+                fid, acqus, ngdic = read_oxford(in_file)
+            case 'jeol':
+                fid, acqus, ngdic = read_jeol(in_file)
+            case _:
+                raise NotImplementedError('Unknown dataset format.')
+
+    # Add the file version to acqus
+    acqus['spect'] = spect
+    # Look for group delay points: if there are not, put it to 0
+    try:
+        acqus['GRPDLY'] = int(ngdic['acqus']['GRPDLY'])
+    except Exception:
+        acqus['GRPDLY'] = 0
+
+    return fid, acqus, ngdic
+
+
+def read_fid_acqus_2D(in_file, spect='bruker'):
+    """
+    Uses :mod:`nmrglue` to read inside ``in_file`` in search for 2D NMR data.
+    Returns the complex FID and the dictionaries of setup parameters.
+
+    Parameters
+    ----------
+    in_file : str or Path
+        Path where to find the data
+    spect : str
+        Data format. Valid options are: ``'bruker'`` only.
+
+    Returns
+    -------
+    fid : 1darray
+        FID of the dataset
+    acqus : dict
+        Dictionary of acquisition parameters, required by `klassez`
+    ngdic : dict
+        Complete set of acquisition, processing, and setup parameters.
+    """
+    def read_bruker(in_file):
+        """ Bruker files """
+        dic, fid = ng.bruker.read(in_file, cplex=True)
+        acqus = misc.makeacqus_2D(dic)
+        fid = np.reshape(fid, (acqus['TD1'], -1))
+        acqus['BYTORDA'] = dic['acqus']['BYTORDA']
+        acqus['DTYPA'] = dic['acqus']['DTYPA']
+        FnMODE_flag = dic['acqu2s']['FnMODE']       # Get f1 acquisition mode
+        # List of possible modes
+        FnMODEs = ['Undefined', 'QF', 'QSEC', 'TPPI', 'States', 'States-TPPI', 'Echo-Antiecho', 'QF-nofreq']
+        acqus['FnMODE'] = FnMODEs[FnMODE_flag]  # Add to acqus
+        return fid, acqus, dic
+
+    # MAIN READING
+    with warnings.catch_warnings():   # Suppress errors due to CONVDTA in TopSpin
+        warnings.simplefilter("ignore")
+        # Discriminate between different spectrometer formats
+        match spect:
+            case 'bruker':
+                fid, acqus, ngdic = read_bruker(in_file)
+            case _:
+                raise NotImplementedError('Unknown dataset format.')
+
+    # Get group delay points
+    try:
+        acqus['GRPDLY'] = int(ngdic['acqus']['GRPDLY'])
+    except Exception:
+        acqus['GRPDLY'] = 0
+
+    return fid, acqus, ngdic
 
 
 def makeacqus_1D(dic):
@@ -21,7 +234,7 @@ def makeacqus_1D(dic):
     the "important" parameters.
 
     Parameters
-    -----------
+    ----------
 
     dic : dict
         NMRglue dictionary returned by ng.bruker.read
@@ -240,6 +453,39 @@ def makeacqus_2D(dic):
     acqus['t2'] = np.linspace(0, acqus['TD2']*acqus['dw2'], acqus['TD2'])
     acqus['AQ1'] = acqus['t1'][-1]
     acqus['AQ2'] = acqus['t2'][-1]
+    return acqus
+
+
+def makeacqus_pp3D(dic):
+    """
+    Given a NMRGLUE dictionary from a 3D spectrum with two pseudo dimensions, (generated by ``nmrglue.bruker.read`` ), this function builds the acqus file with only the "important" parameters.
+
+    Parameters
+    ----------
+    dic : dict
+        NMRglue dictionary returned by :func:`ng.bruker.read`
+
+    Returns
+    -------
+    acqus : dict
+        Dictionary with only few parameters
+    """
+    # Same structure of Pseudo_2D
+    acqus = {}
+    acqus['nuc'] = dic['acqus']['NUC1']
+    acqus['SFO1'] = dic['acqus']['SFO1']
+    acqus['SWp'] = dic['acqus']['SW']
+    acqus['TD1'] = int(dic['acqu3s']['TD'])         # Indirect evolution is not /2
+    acqus['TD2'] = int(dic['acqu2s']['TD'])         # Indirect evolution is not /2
+    acqus['TD'] = int(dic['acqus']['TD'])//2       # Fuckin' Bruker
+    acqus['o1'] = dic['acqus']['O1']
+
+    acqus['B0'] = acqus['SFO1'] / sim.gamma[acqus['nuc']]
+    acqus['o1p'] = acqus['o1'] / acqus['SFO1']
+    acqus['SW'] = acqus['SWp'] * np.abs(acqus['SFO1'])
+    acqus['dw'] = 1 / acqus['SW']
+    acqus['t1'] = np.linspace(0, acqus['TD']*acqus['dw'], acqus['TD'])
+    acqus['AQ'] = acqus['t1'][-1]
     return acqus
 
 
@@ -613,7 +859,7 @@ def polyn(x, c):
     return px
 
 
-def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True, filename=None, cplx=True):
+def write_ser(fid, path=None, BYTORDA=0, DTYPA=0, overwrite=True, filename=None, cplx=True):
     """
     Writes the FID file in directory ``path``, in a TopSpin-readable way (i.e. little endian, int32).
     The binary file is named 'fid' if 1D, 'ser' if multiD.
@@ -633,8 +879,8 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True, filename=None,
     ----------
     fid : ndarray
         FID array to be written
-    path : str
-        Directory where to save the file
+    path : str or Path
+        Directory where to save the file. If ``None``, the current working directory is used
     BYTORDA : int
         little/big endian
     DTYPA : int
@@ -644,6 +890,23 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True, filename=None,
     filename : str
         Name for the file
     """
+    def uncomplexify_data(data_in, ddtype):
+        """ Uncomplexify data (pack real,imag) into a int32 array """
+        size = list(data_in.shape)
+        size[-1] = size[-1] * 2
+        data_out = np.empty(size, dtype=ddtype)
+        data_out[..., ::2] = data_in.real
+        data_out[..., 1::2] = data_in.imag
+        return data_out
+
+    def open_towrite(filename):
+        """ Open filename for writing and return file object """
+        path = Path(filename)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path.open('wb')
+
+    if path is None:
+        path = Path.cwd()
 
     if BYTORDA == 0:
         endian = '<'
@@ -661,23 +924,6 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True, filename=None,
     else:
         raise ValueError('Data type not defined')
 
-    def uncomplexify_data(data_in, ddtype):
-        # Uncomplexify data (pack real,imag) into a int32 array
-        size = list(data_in.shape)
-        size[-1] = size[-1] * 2
-        data_out = np.empty(size, dtype=ddtype)
-        data_out[..., ::2] = data_in.real
-        data_out[..., 1::2] = data_in.imag
-        return data_out
-
-    def open_towrite(filename):
-        # Open filename for writing and return file object
-        p, fn = os.path.split(filename)  # split into filename and path
-        # create directories if needed
-        if p != '' and os.path.exists(p) is False:
-            os.makedirs(p)
-        return open(filename, 'wb')
-
     fid = np.squeeze(fid)
     if filename is None:
         if len(fid.shape) == 1:
@@ -685,22 +931,23 @@ def write_ser(fid, path='./', BYTORDA=0, DTYPA=0, overwrite=True, filename=None,
         else:
             filename = 'ser'
 
-    if os.path.exists(os.path.join(path, filename)):
+    bin_path = Path(path) / filename
+    if bin_path.exists():
         if overwrite is True:
-            os.remove(os.path.join(path, filename))
+            bin_path.unlink()
         else:
-            what_to_do = input('{} already exists. Overwrite it? [YES/no]'.format(filename+path))
-            if what_to_do.lower()[0] == 'n':
+            what_to_do = input(f'{bin_path} already exists. Overwrite it? [YES/no]') or 'y'
+            if what_to_do.lower().startswith('n'):
                 return 0
             else:
-                os.remove(os.path.join(path, filename))
-    f = open_towrite(os.path.join(path, filename))
+                bin_path.unlink()
+    f = open_towrite(bin_path)
     if np.iscomplexobj(fid):
         fid = uncomplexify_data(fid, ddtype)
-    print('Writing \'{}\' file in {}...'.format(filename, path))
-    f.write(fid.astype(endian+dtype).tobytes())
+    print('Writing \'{}\' file in {}...'.format(filename, path), c='tab:blue')
+    f.write(fid.astype(endian + dtype).tobytes())
     f.close()
-    print('Done.')
+    print('Done.', c='tab:blue')
 
 
 def load_ser(path, TD1=1, BYTORDA=0, DTYPA=0, cplx=True):
@@ -774,7 +1021,7 @@ def load_ser(path, TD1=1, BYTORDA=0, DTYPA=0, cplx=True):
     if cplx:    # Uncomplexify
         data = complexify_data(data)
 
-    print(f'Binary file {path} has been successfully read.')
+    print(f'Binary file {path} has been successfully read.', c='tab:blue')
     return data
 
 
@@ -1139,7 +1386,7 @@ def hankel(data, n=None):
         Number of columns that the Hankel matrix will have
 
     Returns
-    --------
+    -------
     H : 2darray
         Hankel matrix of dimensions `(N-n+1, n)`
     """
@@ -1333,8 +1580,8 @@ def binomial_triangle(n):
     row : 1darray
         The n-th row of binomial triangle.
 
-    Examples:
-    ---------
+    Examples
+    --------
     >>> binomial_triangle(4)
     1 3 3 1
 
@@ -1384,7 +1631,7 @@ def data2wav(data, filename='audiofile', cutoff=None, rate=44100):
     data /= max(np.abs(data))
     # Write the .wav file
     WF.write(f'{filename}.wav', rate, data)
-    print(f'Audio file saved as {filename}.wav')
+    print(f'Audio file saved as {filename}.wav', c='tab:blue')
 
 
 def zero_crossing(array, after=False):
@@ -1607,3 +1854,20 @@ def expformat(num, df=3):
     str_num = f'{num:.{df}e}'
     str_num = r'$' + str_num.replace('e', r'\times 10^{') + r'}$'
     return str_num
+
+def get_extent(data):
+    """
+    Compute the extent of an array as ``np.max(data) - np.min(data)``.
+
+    Parameters
+    ----------
+    data : ndarray
+        Input data
+
+    Returns
+    -------
+    extent : float
+        ``max(data) - min(data)``
+    """
+    return np.max(data) - np.min(data)
+        

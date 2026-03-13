@@ -3,12 +3,15 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button, CheckButtons, Cursor
+from matplotlib.widgets import Button, CheckButtons, Cursor, SpanSelector
 import seaborn as sns
 import warnings
+from copy import deepcopy
 
 from . import fit, misc, figures
-from .config import CM, COLORS, CM_2D
+from .config import CM, COLORS, CM_2D, cprint
+
+print = cprint
 
 s_colors = ['tab:cyan', 'tab:red', 'tab:green', 'tab:purple', 'tab:pink', 'tab:gray', 'tab:brown', 'tab:olive', 'salmon', 'indigo']
 
@@ -45,7 +48,7 @@ def draw_bare_contour(ax, xscale, yscale, data, lvl, cmap='Greys_r', c_fac=1.4, 
         Colormap identifier for the contour (must be in ``klassez.CM``, or better in ``klassez.CM_2D``)
 
     Returns
-    ----------
+    -------
     cnt : matplotlib.contour.QuadContourSet object
         Contour levels set
     """
@@ -170,9 +173,9 @@ def heatmap(data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, 
 
     if name:
         # Save the figure
-        print('Saving {}.png...'.format(name), end='\r')
+        print('Saving {}.png...'.format(name), end='\r', c='tab:cyan')
         plt.savefig(name+'.png', dpi=600)
-        print('{}.png saved.\n'.format(name))
+        print('{}.png saved.\n'.format(name), c='tab:cyan')
     else:
         # Make figure larger
         fig.set_size_inches(figsize_large)
@@ -217,7 +220,7 @@ def ax_heatmap(ax, data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale
         Biggest font size to apply to the figure according to :func:`klassez.misc.set_fontsizes`
 
     Returns
-    ----------
+    -------
     im : matplotlib.AxesImage
         The heatmap
     cax : matplotlib.Subplot object
@@ -566,14 +569,14 @@ def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
     misc.set_fontsizes(ax, fontsize)
 
     if name:
-        print(f'Saving {name}.{ext}...')
+        print(f'Saving {name}.{ext}...', c='tab:cyan')
         plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         misc.set_fontsizes(ax, 14)
         plt.show()
     plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
 
 def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fac=1.4,
@@ -627,7 +630,7 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
         Biggest font size in the figure.
 
     Returns
-    ----------
+    -------
     cnt : matplotlib.QuadContour object
         Drawn contour lines
 
@@ -638,9 +641,15 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
 
     """
 
-    swapped_scales = not (len(ppm_f2) == datax.shape[1] and len(ppm_f1) == datax.shape[0])
-    if swapped_scales:
-        raise AssertionError('Swapped scales?')
+    ok_f1 = len(ppm_f1) == datax.shape[0]
+    ok_f2 = len(ppm_f2) == datax.shape[1]
+    if not ok_f1:
+        print('ERROR:', c='red', s='bold', end=' ')
+        print(f'The length of "x_f1" does not match the first dimension of the dataset / ({len(ppm_f1)}, {datax.shape[0]})')
+    if not ok_f2:
+        print('ERROR:', c='red', s='bold', end=' ')
+        print(f'The length of "x_f2" does not match the second dimension of the dataset / ({len(ppm_f2)}, {datax.shape[1]})')
+    assert ok_f1 and ok_f2, 'Inconsistent dimensions between scales and dataset.'
 
     cmap = CM[f'{cmap}']
 
@@ -790,14 +799,14 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
 
     if name:
         misc.set_fontsizes(10)
-        print(f'Saving {name}.{ext}...')
+        print(f'Saving {name}.{ext}...', c='tab:cyan')
         plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         misc.set_fontsizes(14)
         plt.show()
     plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
 
 def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5,
@@ -875,14 +884,14 @@ def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.
 
     if name:
         misc.set_fontsizes(ax, 10)
-        print(f'Saving {name}.{ext}...')
+        print(f'Saving {name}.{ext}...', c='tab:cyan')
         plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         misc.set_fontsizes(ax, 14)
         plt.show()
     plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
 
 def ax1D(ax, ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5, X_label=r'$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10, n_yticks=10, label=None, fontsize=10):
@@ -924,7 +933,7 @@ def ax1D(ax, ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.
          Biggest font size in the figure.
 
     Returns
-    ----------
+    -------
     line : Line2D Object
         Line object returned by ``plt.plot``.
     """
@@ -1128,7 +1137,7 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, lw=0
     # Save / Show the figure
     if name:
         misc.set_fontsizes(ax, 10)
-        print(f'Saving {name}.{ext}...')
+        print(f'Saving {name}.{ext}...', c='tab:cyan')
         plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
@@ -1136,7 +1145,7 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, lw=0
         misc.set_fontsizes(ax, 14)
         plt.show()
     plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
 
 def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, s_labels=None, X_label=r'$\delta\,$ F1 /ppm', n_xticks=10, name=None):
@@ -1319,16 +1328,17 @@ def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm',
     # Shows or saves the figure
     if name:
         misc.set_fontsizes(ax, 10)
-        print(f'Saving {name}.{ext}...')
+        print(f'Saving {name}.{ext}...', c='tab:cyan')
         plt.savefig(f'{name}.{ext}', format=f'{ext}', dpi=dpi)
     else:
         fig.set_size_inches(figsize_large)
         plt.subplots_adjust(left=0.10, bottom=0.1, right=0.95, top=0.95)
         misc.set_fontsizes(ax, 14)
         cursor = Cursor(ax, useblit=True, horizOn=False, c='tab:red', lw=0.8)
+        cursor.vertOn = True
         plt.show()
     plt.close()
-    print('Done.')
+    print('Done.', c='tab:cyan')
 
 
 def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
@@ -1349,7 +1359,7 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
         Number of numbered ticks on the x-axis of the figure
 
     Returns
-    ----------
+    -------
     scale_factor: list
         Intensity of the spectra with respect to the original when the figure is closed
     """
@@ -1520,6 +1530,7 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     all_button.on_clicked(select_all)
     none_button.on_clicked(select_none)
     cursor = Cursor(ax, useblit=True, color='red', horizOn=False, linewidth=0.4)
+    cursor.vertOn = True
 
     plt.show()
     plt.close()
@@ -1559,7 +1570,7 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
         If True, show the negative contours.
 
     Returns
-    ----------
+    -------
     lvl : list
         Start of level curves of all the spectra when the figure is closed
     """
@@ -1639,7 +1650,7 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     def decrease_zoom(event):
         """ halve it """
         nonlocal lvlstep
-        lvlstep -= 0.5
+        lvlstep -= 0.05
         if lvlstep < 1.05:
             lvlstep = 1.05
 
@@ -1746,6 +1757,7 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
     save_button.on_clicked(makefigure)
 
     cursor = Cursor(ax, useblit=True, color='red', linewidth=0.4)
+    cursor.vertOn = True
 
     misc.set_fontsizes(ax, 20)
 
@@ -1783,7 +1795,7 @@ def redraw_contours(ax, ppm_f2, ppm_f1, S, lvl, cnt, Neg=False, Ncnt=None, cmap=
         Colour of the contours. [cmap +, cmap -]
 
     Returns
-    ----------
+    -------
     cnt : matplotlib.contour.QuadContourSet object
         Updated contours
     Ncnt : matplotlib.contour.QuadContourSet object or None
@@ -1872,33 +1884,30 @@ def ongoing_fit(exp, calc, residual, ylims=None, filename=None, dpi=100):
     plt.close()
 
 
-def ax_diffplot(axd, axy, ppm, spectrum, dic, color='tab:blue', X_label=r'$\delta\,$ F1 /ppm'):
+def ax_diffplot(axd, axy, ppm, spectrum, dic, color='tab:blue', fmt='o', ms=8, X_label=r'$\delta\,$ F1 /ppm'):
     """
     Makes a plot of the diffusion coefficients, with error bars, as a function of the integrated regions.
 
     Parameters
     ----------
+    axd : matplotlib.Subplot Object
+        Subplot for the plot of the diffusion coefficients
+    axy : matplotlib.Subplot Object or None
+        Subplot for the plot of the spectra. If ``None``, it is not drawn.
     ppm : 1darray
         ppm scale of the fitted DOSY spectrum
     spectrum : 2darray
         DOSY spectrum
     dic : list of dict
         Dictionary that comes from the :class:`klassez.fit.DosyFit` class, i.e. from reading a `.dy` file.
-    xlims : sequence of float or False or None
-        Limits for the chemical shift axis.
-        If ``False``, the whole spectrum is plotted.
-        If ``None``, a restricted portion of the spectrum which includes all the
-        fitted regions is shown instead
+    color : str
+        Color for the markers that identify the diffusion coefficient
+    fmt : str
+        Marker used
+    ms : int
+        Marker size
     X_label : str
         Label for the chemical shift axis
-    filename : str or None
-        Filename for the figure to save. If None, the plot is shown instead
-    ext : str
-        Format for the figure to save
-    dpi : int
-        Resolution of the figure in dots per inches
-    dim : tuple of int
-        Dimension of the figure in inches
 
     Returns
     -------
@@ -1911,8 +1920,9 @@ def ax_diffplot(axd, axy, ppm, spectrum, dic, color='tab:blue', X_label=r'$\delt
         :class:`klassez.fit.DosyFit`
     """
 
-    for y in spectrum:
-        axy.plot(ppm, y, lw=0.8)
+    if axy is not None:
+        for y in spectrum:
+            axy.plot(ppm, y, lw=0.8)
 
     # Plot the diffusion coefficients
     for region in dic:
@@ -1923,11 +1933,13 @@ def ax_diffplot(axd, axy, ppm, spectrum, dic, color='tab:blue', X_label=r'$\delt
         # Highlight the fitted regions
         for ax in [axd, axy]:
             ax.axvspan(min(lims), max(lims), color='tab:blue', alpha=0.05)
+            if axy is None:
+                break
 
         # Draw the diffusion coefficients with their error bars
         for k, (diffc, diffe) in enumerate(zip(region['diff_c'], region['diff_e'])):
-            axd.errorbar(x_center, diffc, diffe, fmt='o',
-                         elinewidth=0.5, ecolor='k', capsize=2, ms=8, c=color)
+            axd.errorbar(x_center, diffc, diffe, fmt=fmt, ms=ms,
+                         elinewidth=0.5, ecolor='k', capsize=2, c=color)
 
     # Fancy stuff
     axd.set_xlabel(X_label)
@@ -1935,11 +1947,14 @@ def ax_diffplot(axd, axy, ppm, spectrum, dic, color='tab:blue', X_label=r'$\delt
     axd.grid(axis='y', lw=0.4)
 
     misc.pretty_scale(axd, ax.get_xlim(), 'x')
-    misc.pretty_scale(axy, axy.get_ylim(), 'y', 3)
+    if axy is not None:
+        misc.pretty_scale(axy, axy.get_ylim(), 'y', 3)
 
     for ax in [axd, axy]:
         misc.mathformat(ax)
         misc.set_fontsizes(ax, 16)
+        if axy is None:
+            break
 
 
 def diffplot(ppm, spectrum, dic, xlims=None, color='tab:blue', X_label=r'$\delta\,$ F1 /ppm', filename=None, ext='png', dpi=300, dim=None):
@@ -2018,7 +2033,7 @@ def diffplot(ppm, spectrum, dic, xlims=None, color='tab:blue', X_label=r'$\delta
             diffc_text.set_text(f'{event.ydata:12.5e}')
         fig.canvas.draw()
 
-    figures.ax_diffplot(axd, axy, ppm, spectrum, dic, color, X_label)
+    figures.ax_diffplot(axd, axy, ppm, spectrum, dic, color, X_label=X_label)
 
     misc.pretty_scale(axd, xlims, 'x')
 
@@ -2036,5 +2051,543 @@ def diffplot(ppm, spectrum, dic, xlims=None, color='tab:blue', X_label=r'$\delta
     else:
         # Save the figure
         plt.savefig(f'{filename}.{ext}', dpi=dpi)
-        print(f'Diffplot {filename}.{ext} saved.\n')
+        print(f'Diffplot {filename}.{ext} saved.\n', c='tab:cyan')
+    plt.close()
+
+
+def plot_1D(x, y, SFO1, name='Spectrum', X_label=r'$\delta\,$ /ppm'):
+    """
+    Plots the real part of the spectrum in an interactive panel for inspection.
+
+    Parameters
+    ----------
+    x : 1darray
+        PPM (or frequency) scale
+    y : 1darray
+        Spectrum
+    SFO1 : float
+        Nucleus Larmor frequency
+    name : str
+        Filename for the figure.
+    X_label : str
+        Label for the x axis.
+
+    Returns
+    -------
+    None
+    """
+    def onselect(xmin, xmax):
+        """ Moves the tracker """
+        # Set the bars visible
+        bar1.set_visible(True)
+        bar2.set_visible(True)
+        # Update the bars positions
+        bar1.set_xdata((xmin,))
+        bar2.set_xdata((xmax,))
+        # Compute distance
+        d_ppm = np.abs(xmin-xmax)
+        # Convert from ppm to Hz
+        d_hz = misc.ppm2freq(d_ppm, SFO1)
+        # Update the distance text
+        text = f'{d_ppm:12.3f} ppm | {d_hz:12.3f} Hz'
+        text_measure.set_text(text)
+        plt.draw()
+
+    def onclick(event):
+        """ Correct appearance of the tracker with mouse buttons """
+        if not event.inaxes:    # Do things only if click is inside the panel
+            return
+        # Left button interacts also with the span selector, right button only resets
+        if event.button == 1 or event.button == 3:
+            # Erase the text
+            text_measure.set_text('')
+            # Make the bars invisible
+            bar1.set_visible(False)
+            bar2.set_visible(False)
+            plt.draw()
+
+    # Default of 10 ticks on the ppm axis
+    n_xticks = 10
+
+    # Make the figure
+    fig = plt.figure(f'{name}')
+    fig.set_size_inches(figures.figsize_large)
+    plt.subplots_adjust(left=0.10, bottom=0.15, right=0.95, top=0.90)
+    ax = fig.add_subplot()
+
+    # Plot the spectrum
+    spect, = ax.plot(x, y, lw=0.8)
+    # Bars of the spanselector
+    bar1 = ax.axvline(x[0], c='r', lw=0.4, visible=False)
+    bar2 = ax.axvline(x[-1], c='r', lw=0.4, visible=False)
+
+    # Placeholder for distance measurement
+    text_measure = plt.text(0.75, 0.05, '', ha='left', va='bottom', transform=fig.transFigure, fontsize=12, color='r')
+
+    # Make the label of the x-axis
+    ax.set_xlabel(X_label)
+    ax.set_ylabel('Intensity /a.u.')
+
+    # Fancy figure adjustments
+    #   Make pretty x-scale
+    xsx, xdx = max(x), min(x)    # Order it as a ppm scale
+    misc.pretty_scale(ax, (xsx, xdx), axis='x', n_major_ticks=n_xticks)
+    #   Auto-adjusts the limits for the y-axis
+    misc.set_ylim(ax, y)
+    #   Make pretty y-scale
+    misc.pretty_scale(ax, ax.get_ylim(), axis='y', n_major_ticks=n_xticks)
+    misc.mathformat(ax)
+    #   Make the fontsizes bigger
+    misc.set_fontsizes(ax, 14)
+
+    # Set a vertical line for inspection
+    cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8, horizOn=False)
+    cursor.vertOn = True
+
+    # Widget for distance measurement
+    span = SpanSelector(ax, onselect, direction='horizontal', useblit=False, button=3,
+                        props={'alpha': 1, 'fill': False, 'color': 'r', 'lw': 0.4, 'edgecolor': 'r'})
+    # Connect mouse buttons
+    fig.canvas.mpl_connect('button_press_event', onclick)
+
+    plt.show()
+    plt.close()
+
+
+def plot_2D(x_f1, x_f2, yy, SFO1=1, SFO2=1, Neg=True, lvl0=0.2, name='Spectrum', X_label=r'$\delta\,$F2 /ppm', Y_label=r'$\delta\,$F1 /ppm'):
+    """
+    Plots the real part of the spectrum. Use the mouse scroll to adjust the contour starting level.
+
+    Parameters
+    ----------
+    x_f1 : 1darray
+        PPM (or frequency) scale for the y axis
+    x_f2 : 1darray
+        PPM (or frequency) scale for the x axis
+    yy : 2darray
+        Spectrum
+    SFO1 : float
+        Nucleus Larmor frequency of the indirect dimension
+    SFO2 : float
+        Nucleus Larmor frequency of the direct dimension
+    Neg : bool
+        Display also the negative part of the spectrum
+    lvl0 : float
+        Starting contour level, with respect to the maximum of the spectrum
+    name : str
+        Filename for the figure.
+    X_label : str
+        Label for the x axis.
+    Y_label : str
+        Label for the y axis.
+
+    Returns
+    -------
+    None
+    """
+    class FakeSpanSelector:
+        """
+        Line selector that stores (x1, y1) when you press the mouse left button,
+        and (x2, y2) when you release it. Then, draws the triangle
+        [(x1, y1), (x2, y1), (x2, y2)]
+        and writes the distance (x2-x1), (y2-y1) in ppm and in Hz.
+        """
+        def __init__(self, ppm_f2, ppm_f1, SFO2, SFO1):
+            """
+            Set initial values for x1, x2, y1, y2
+
+            Parameters
+            ----------
+            ppm_f2: 1darray
+                x-axis scale, in ppm
+            ppm_f1: 1darray
+                y-axis scale, in ppm
+            acqus: dict
+                Dictionary of acquisition parameters of the spectrum. Must contain SFO1 and SFO2.
+            """
+            self.x1 = ppm_f2[0]
+            self.x2 = ppm_f2[-1]
+            self.y1 = ppm_f1[0]
+            self.y2 = ppm_f1[-1]
+            self.SFO1 = SFO1
+            self.SFO2 = SFO2
+
+        def draw_lines(self):    # onselect(self, *null):
+            """ Moves the tracker """
+            # Makes the lines visible
+            dots.set_visible(True)
+            lx.set_visible(True)
+            ly.set_visible(True)
+
+            # Updates the values for the lines
+            dots.set_data((self.x1, self.x2), (self.y1, self.y2))
+            lx.set_data((self.x1, self.x2), (self.y1, self.y1))
+            ly.set_data((self.x2, self.x2), (self.y1, self.y2))
+
+            # Compute x-distance
+            xd_ppm = np.abs(self.x1-self.x2)
+            #   convert it in Hz
+            xd_hz = np.abs(misc.ppm2freq(xd_ppm, self.SFO2))
+            # Compute y-distance
+            yd_ppm = np.abs(self.y1-self.y2)
+            #   convert it in Hz
+            yd_hz = np.abs(misc.ppm2freq(yd_ppm, self.SFO1))
+
+            # Update the measure text
+            text = '\n'.join([
+                r'$\Delta$'+f'F2: {xd_ppm:12.3f} ppm | {xd_hz:12.3f} Hz',
+                r'$\Delta$'+f'F1: {yd_ppm:12.3f} ppm | {yd_hz:12.3f} Hz',
+                ])
+            text_measure.set_text(text)
+            plt.draw()
+
+        def onclick(self, event):
+            """
+            If left click, saves x1 and y1 in the click positions.
+            Right click clears the selection
+            """
+            if not event.inaxes:    # Do things only if click is inside the panel
+                return
+            if event.button == 1 or event.button == 3:
+                # Erase the text
+                text_measure.set_text(_text)
+                # Make the bars invisible
+                lx.set_visible(False)
+                ly.set_visible(False)
+            if event.button == 3:
+                # Store position of first point
+                self.x1 = event.xdata
+                self.y1 = event.ydata
+                # Draw it
+                dots.set_data((event.xdata,), (event.ydata,))
+            elif event.button == 1:
+                dots.set_visible(False)
+            plt.draw()
+
+        def onrelease(self, event):
+            """ If left click, draws the position of the second point, then calls draw_lines. """
+            if not event.inaxes:    # Do things only if click is inside the panel
+                return
+            if event.button == 3:
+                # Store position of the second point
+                self.x2 = event.xdata
+                self.y2 = event.ydata
+                # Draw triangle and stuff
+                self.draw_lines()
+
+    # Functions connected to the sliders
+    warnings.filterwarnings("ignore", message="No contour levels were found within the data range.")
+
+    def increase_zoom(event):
+        nonlocal lvlstep
+        lvlstep += 0.05
+
+    def decrease_zoom(event):
+        nonlocal lvlstep
+        lvlstep -= 0.05
+        if lvlstep <= 1:
+            lvlstep = 1.05
+
+    def on_scroll(event):
+        nonlocal lvl, cnt
+        if Neg:
+            nonlocal Ncnt
+
+        # Get window limits to reset them after redrawing
+        act_xlim = ax.get_xlim()
+        act_ylim = ax.get_ylim()
+
+        # Update level threshold
+        if event.button == 'up':
+            lvl *= lvlstep
+        elif event.button == 'down':
+            lvl /= lvlstep
+        # Correct if lvl goes out of bounds
+        if lvl > 1:
+            lvl = 1
+
+        # Redraw the contours
+        if Neg:
+            cnt, Ncnt = figures.redraw_contours(ax, x_f2, x_f1, yy, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+        else:
+            cnt, _ = figures.redraw_contours(ax, x_f2, x_f1, yy, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+
+        # Set the window limits as it was before
+        misc.pretty_scale(ax, act_xlim, axis='x', n_major_ticks=n_xticks)
+        misc.pretty_scale(ax, act_ylim, axis='y', n_major_ticks=n_yticks)
+        # Correct the labels of the axes
+        ax.set_xlabel(X_label)
+        ax.set_ylabel(Y_label)
+        # Correct the fontsize
+        misc.set_fontsizes(ax, 14)
+        # Update level threshold value
+        lvl_text.set_text(f'{lvl:.5g}')
+        fig.canvas.draw()
+
+    n_xticks, n_yticks = 10, 10
+
+    # Initialize the custom span selector
+    span = FakeSpanSelector(x_f2, x_f1, SFO2, SFO1)
+
+    # Cmaps for positive and negative contours
+    cmaps = ['Blues_r', 'Reds_r']
+
+    # flags for the activation of scroll zoom
+    lvlstep = 1.4
+
+    # Make the figure
+    fig = plt.figure(f'{name}')
+    fig.set_size_inches(15, 8)
+    plt.subplots_adjust(left=0.10, bottom=0.10, right=0.90, top=0.95)
+    ax = fig.add_subplot()
+
+    # Default values for initial plot
+    lvl = lvl0
+
+    # Placeholder for levels threshold text
+    lvl_text = ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+
+    # Plot the spectrum
+    #   positive contours
+    cnt = figures.ax2D(ax, x_f2, x_f1, yy, lvl=lvl, cmap=cmaps[0])
+    if Neg:
+        # Negative contours
+        Ncnt = figures.ax2D(ax, x_f2, x_f1, -yy, lvl=lvl, cmap=cmaps[1])
+
+    # Placeholders for tracker
+    dots, = ax.plot((x_f2[0], x_f2[-1]), (x_f1[0], x_f1[-1]), '--.', c='r',
+                    lw=0.5, markersize=5, visible=False)
+    lx, = ax.plot((x_f2[0], x_f2[-1]), (x_f1[0], x_f1[0]), '-', c='r',
+                  lw=0.5, visible=False)
+    ly, = ax.plot((x_f2[-1], x_f2[-1]), (x_f1[0], x_f1[-1]), '-', c='r',
+                  lw=0.5, visible=False)
+
+    # Distance measurement text placeholder
+    text_measure = plt.text(0.75, 0.015, '', ha='left', va='bottom', transform=fig.transFigure, fontsize=12, color='r')
+    _text = '\n'.join([
+        r'$\Delta$'+f'F2: {0:12.3f} ppm | {0:12.3f} Hz',
+        r'$\Delta$'+f'F1: {0:12.3f} ppm | {0:12.3f} Hz',
+        ])
+    text_measure.set_text(_text)
+
+    # Make pretty scales
+    misc.pretty_scale(ax, (max(x_f2), min(x_f2)), axis='x', n_major_ticks=n_xticks)
+    misc.pretty_scale(ax, (max(x_f1), min(x_f1)), axis='y', n_major_ticks=n_yticks)
+    ax.set_xlabel(X_label)
+    ax.set_ylabel(Y_label)
+
+    # Create buttons
+    # define boxes for buttons
+    iz_box = plt.axes([0.925, 0.80, 0.05, 0.05])
+    dz_box = plt.axes([0.925, 0.75, 0.05, 0.05])
+    iz_button = Button(iz_box, label=r'$\uparrow$')
+    dz_button = Button(dz_box, label=r'$\downarrow$')
+    misc.set_fontsizes(ax, 14)
+
+    # Connect the widgets to slots
+    fig.canvas.mpl_connect('scroll_event', on_scroll)
+    fig.canvas.mpl_connect('button_press_event', span.onclick)
+    fig.canvas.mpl_connect('button_release_event', span.onrelease)
+
+    iz_button.on_clicked(increase_zoom)
+    dz_button.on_clicked(decrease_zoom)
+
+    # Crosshair for visualization
+    cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8)
+    cursor.vertOn = True
+
+    plt.show()
+    plt.close()
+
+
+def plot_p3D(x_f1, x_f2, idx_scale, yyy, dim='31', Neg=True, lvl0=0.2, name='', X_label=r'$\delta\,$ /ppm', Y_label=''):
+    """
+    Plots the real part of the spectrum. Use the mouse scroll to adjust the contour starting level.
+    Use the '<<' and '>>' to move across planes.
+
+    Parameters
+    ----------
+    x_f1 : 1darray
+        PPM (or frequency) scale for the y axis
+    x_f2 : 1darray
+        PPM (or frequency) scale for the x axis
+    idx_scale : 1darray
+        Scale for the non-directly plotted dimension
+    yyy : 3darray
+        Spectrum
+    dim : str
+        Slicing direction.
+
+        -   ``dim = '31'`` --> Plot planes F3-F1 --> ``idx_scale`` represent F2
+        -   ``dim = '32'`` --> Plot planes F3-F2 --> ``idx_scale`` represent F1
+    Neg : bool
+        Display also the negative part of the spectrum
+    lvl0 : float
+        Starting contour level, with respect to the maximum of the spectrum
+    name : str
+        Filename for the figure.
+    X_label : str
+        Label for the x axis.
+    Y_label : str
+        Label for the y axis.
+
+    Returns
+    -------
+    None
+    """
+    # Ticks of x and y scales
+    n_xticks, n_yticks = 10, 10
+
+    # Instance variables and check consistency of scales
+    planeno = 0
+    if dim == '31':
+        assert len(idx_scale) == yyy.shape[1], 'The plane index scale length does not match the F2 dimension'
+        S = deepcopy(yyy)[:, planeno]
+    else:
+        assert len(idx_scale) == yyy.shape[0], 'The plane index scale length does not match the F1 dimension'
+        S = deepcopy(yyy)[planeno]
+
+    # Make the figure
+    fig = plt.figure(f'{name} - Plane dir. {dim}')
+    fig.set_size_inches(15, 8)
+    plt.subplots_adjust(left=0.10, bottom=0.10, right=0.90, top=0.95)
+    ax = fig.add_subplot()
+
+    cmaps = ['Blues_r', 'Reds_r']
+
+    # flags for the activation of scroll zoom
+    lvl = lvl0
+    lvlstep = 1.4
+
+    # define boxes for buttons
+    iz_box = plt.axes([0.925, 0.80, 0.05, 0.05])
+    dz_box = plt.axes([0.925, 0.75, 0.05, 0.05])
+    next_box = plt.axes([0.925, 0.15, 0.05, 0.05])
+    prev_box = plt.axes([0.925, 0.10, 0.05, 0.05])
+
+    # SLOTS
+    def draw_panel(planeno):
+        """ Draws the ``planeno`` slice """
+        nonlocal S, cnt, Ncnt
+        if dim == '31':
+            S = deepcopy(yyy[:, planeno])
+        elif dim == '32':
+            S = deepcopy(yyy[planeno])
+
+        cnt = figures.ax2D(ax, x_f2, x_f1, S, lvl=lvl, cmap=cmaps[0])
+        if Neg:
+            Ncnt = figures.ax2D(ax, x_f2, x_f1, -S, lvl=lvl, cmap=cmaps[1])
+
+        ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+        ax.text(0.900, 0.05, f'Plane no: {planeno+1:.0f}\nValue = {idx_scale[planeno]:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+        on_scroll(0)
+
+    def increase_zoom(event):
+        nonlocal lvlstep
+        lvlstep += 0.05
+
+    def decrease_zoom(event):
+        nonlocal lvlstep
+        lvlstep -= 0.05
+        if lvlstep <= 1:
+            lvlstep = 1.05
+
+    def on_scroll(event):
+        nonlocal lvl, cnt
+        if Neg:
+            nonlocal Ncnt
+
+        # Get the current limits for the axes
+        act_xlim = ax.get_xlim()
+        act_ylim = ax.get_ylim()
+
+        # Change the contours only if it is a real scroll event
+        if isinstance(event, (int, float)):
+            pass
+        else:
+            if event.button == 'up':
+                lvl *= lvlstep
+            elif event.button == 'down':
+                lvl /= lvlstep
+        # Safety check
+        if lvl > 1:
+            lvl = 1
+
+        # Redraw the spectrum with the correct level
+        if Neg:
+            cnt, Ncnt = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=Ncnt, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+        else:
+            cnt, _ = figures.redraw_contours(ax, x_f2, x_f1, S, lvl=lvl, cnt=cnt, Neg=Neg, Ncnt=None, lw=0.5, cmap=[cmaps[0], cmaps[1]])
+
+        # Apply the cosmetic stuff
+        misc.pretty_scale(ax, act_xlim, axis='x', n_major_ticks=n_xticks)
+        misc.pretty_scale(ax, act_ylim, axis='y', n_major_ticks=n_yticks)
+        ax.set_xlabel(X_label)
+        ax.set_ylabel(Y_label)
+        misc.set_fontsizes(ax, 14)
+        lvl_text.set_text(f'{lvl:.5g}')
+        fig.canvas.draw()
+
+    def next_spectrum(event):
+        """ Draw the next plane """
+        nonlocal planeno
+        # Do nothing if it is already the last spectrum
+        if planeno + 1 >= len(idx_scale):
+            return
+        else:
+            planeno += 1
+        # Clear subplot
+        ax.cla()
+        # Draw the plane from scratch
+        draw_panel(planeno)
+        fig.canvas.draw()
+
+    def prev_spectrum(event):
+        """ Draw the previous plane """
+        nonlocal planeno
+        # Do nothing if it is the first spectrum
+        if planeno <= 0:
+            return
+        else:
+            planeno -= 1
+        # Clear subplot
+        ax.cla()
+        # Draw the plane from scratch
+        draw_panel(planeno)
+        fig.canvas.draw()
+
+    # Draw the first plane
+    cnt = figures.ax2D(ax, x_f2, x_f1, S, lvl=lvl, cmap=cmaps[0])
+    if Neg:
+        Ncnt = figures.ax2D(ax, x_f2, x_f1, -S, lvl=lvl, cmap=cmaps[1])
+
+    # Make some text
+    lvl_text = ax.text(0.925, 0.60, f'{lvl:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+    ax.text(0.900, 0.05, f'Plane no: {planeno+1:.0f}\nValue = {idx_scale[planeno]:.5g}', ha='left', va='center', transform=fig.transFigure, fontsize=12)
+
+    # Cosmetic stuff
+    misc.pretty_scale(ax, (max(x_f2), min(x_f2)), axis='x', n_major_ticks=n_xticks)
+    misc.pretty_scale(ax, (max(x_f1), min(x_f1)), axis='y', n_major_ticks=n_yticks)
+    ax.set_xlabel(X_label)
+    ax.set_ylabel(Y_label)
+
+    # Create buttons
+    iz_button = Button(iz_box, label=r'$\uparrow$')
+    dz_button = Button(dz_box, label=r'$\downarrow$')
+    next_button = Button(next_box, label=r'>>')
+    prev_button = Button(prev_box, label=r'<<')
+
+    # Connect the widgets to functions
+    fig.canvas.mpl_connect('scroll_event', on_scroll)
+    iz_button.on_clicked(increase_zoom)
+    dz_button.on_clicked(decrease_zoom)
+    next_button.on_clicked(next_spectrum)
+    prev_button.on_clicked(prev_spectrum)
+
+    misc.set_fontsizes(ax, 14)
+
+    cursor = Cursor(ax, useblit=True, c='tab:red', lw=0.8)
+    cursor.vertOn = True
+
+    plt.show()
     plt.close()
