@@ -2056,7 +2056,7 @@ def snr_gui_2D(x_f1, x_f2, yy):
     cnt = figures.ax2D(ax, x_f2, x_f1, yy, cmap='Greys_r', lvl=lvl, X_label=r'$\delta\,$ F2 /ppm', Y_label=r'$\delta\,$ F1 /ppm')
     # Placeholders, set invisible because with nothing selected they are useless
     #   Blue cross
-    cross, = ax.plot([np.mean(x_f2)], [np.mean(x_f1)], 'x', c='b', ms=10, visible=False)
+    cross, = ax.plot([np.mean(x_f2)], [np.mean(x_f1)], 'x', c='b', ms=10, visible=False, zorder=11)
     #   Red lines   -> zorder to make them always be on top
     line_f2, = ax.plot(x_f2, np.ones_like(x_f2)*np.mean(x_f1), lw=0.7, ls='-', c='r', visible=False, zorder=10)
     line_f1, = ax.plot(np.ones_like(x_f1)*np.mean(x_f2), x_f1, lw=0.7, ls='-', c='r', visible=False, zorder=10)

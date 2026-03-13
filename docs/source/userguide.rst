@@ -521,6 +521,8 @@ The function works exactly as the 1D counterpart. However, the GUI will first as
 as reference for the computation of the filter, which is applied in a ridge-like manner on the whole 2D spectrum.
 The imaginary parts are reconstructed via Hilbert transform, hence be sure to have zero-filled enough!
 The key ``qfil = {'u': u, 's': s}`` are then saved in the ``procs`` dictionary for additional use.
+If these keys are present in the ``procs`` dictionary, the filtering is applied without prompting for the GUI, unless
+``from_procs=False``.
 
 Another useful option is to make a so-called "strip transform" to use only the part of the spectrum you are interested in.
 Example:
@@ -940,6 +942,103 @@ Alternatively, you can extract the planes one by one, and use the internal metho
 
 Analyzing data in *KLASSEZ*
 ***************************
+
+Evaluate Signal to Noise Ratio
+------------------------------
+
+In `KLASSEZ`, the signal to noise ratio (SNR) of a spectrum is defined as the height of the tallest peak
+(or of the reference peak, chosen by the user) divided by twice the standard deviation of the noise.
+To estimate the SNR of a 1D spectrum, the function :func:`klassez.anal.snr` is used:
+::
+
+    s = kz.Spectrum_1D(path/to/dataset)
+
+    # ...
+
+    s_reg = (5, 4)
+    n_reg = (0, -2)
+
+    snr = kz.anal.snr(s.ppm, s.r, s_reg=s_reg, n_reg=n_reg)
+
+The user has to specify the region where to find the reference signal (``s_reg``) and a signal-free region (``n_reg``) 
+for the evaluation of the noise standard deviation.
+It is also possible to set them interactively by using a dedicated GUI:
+::
+
+    snr = kz.anal.snr(s.ppm, s.r, gui=True)
+
+which appears like in :numref:`f-snr_1D`. Here, the regions of signal and noise are highlighted with colored span selectors.
+There is also a display of the noise level, via two dashed red lines. If these lines do not visually match with the noise,
+most likely the user has included a signal within the noise region.
+
+
+.. figure:: _static/SNR_1D.png
+    :name: f-snr_1D
+
+    GUI for the evaluation of the Signal to Noise Ratio of a 1D spectrum.
+
+    Select "Signal" on the top right corner and drag a region to highlight the
+    reference signal approximate position. The detected point appears as a blue X.
+
+    Then, select "Noise". Drag a signal-free region, i.e. where there is only noise.
+    This will be used for the estimation of the noise standard deviation.
+    The noise level will be highlighted in the figure by two red dashed lines.
+    If these lines do not visually match the noise level, it is most likely there
+    is a signal included in the noise region.
+
+    When both the signal and the noise are present, the SNR will be computed.
+    The selection can be refined as many times as one wants, until the figure panel is closed.
+    Close the figure to return the values, and to print the used ``s_reg`` and ``n_reg`` to be given
+    to :func:`klassez.anal.snr`.
+
+
+The procedure for estimating the SNR of a 2D spectrum is equivalent to the 1D case.
+::
+
+    s = kz.Spectrum_2D(path/to/dataset)
+
+    # ...
+
+    s_reg = [(5, 4), (114, 110)]
+    n_reg = (-2, 102)
+
+    snr_f1, snr_f2 = kz.anal.snr_2D(s.ppm_f1, s.ppm_f2, s.rr, s_reg=s_reg, n_reg=n_reg)
+
+In this case, ``s_reg`` delimits a rectangular region where to search for the highest signal. In the example above,
+the instruction says `the reference signal is between 5 and 4 ppm in the direct dimension and between 114 and 110 ppm in the indirect dimension`.
+As the definition of what the SNR of a 2D spectrum actually is is quite ambiguous, *KLASSEZ* estimates the SNR for the direct and indirect dimension
+independently. This is the reason why the function returns two values.
+The estimate of the noise standard deviation is performed on two signal-free traces, extracted on the indirect and the direct dimension, where indicated by ``n_reg``.
+In this example, ``n_reg = (-2, 102)`` means `the noise-only trace of the indirect dimension must be taken at -2 ppm in the direct dimension chemical shift scale, and the one of the direct dimension must be taken at 102 ppm of the indirect dimension`.
+
+Also in this 2D case it is possible to use a GUI:
+::
+
+    snr_f1, snr_f2 = kz.anal.snr(s.ppm_f1, s.ppm_f2, s.rr, gui=True)
+
+which appears like in :numref:`f-snr_2D`. The region where to search for the reference signal is drawn with a rectangle selector.
+The noise-only traces are extracted using a crossmark-like cursor.
+
+.. figure:: _static/SNR_2D.png
+    :name: f-snr_2D
+
+    GUI for the evaluation of the Signal to Noise Ratio of a 2D spectrum.
+
+    Select "Signal" on the top right corner and drag a rectangle to highlight the
+    reference signal height. The detected point appears as a blue X.
+
+    Then, select "Noise". A red cross-cursor will appear. Find a position where
+    you can extract a signal-free region, i.e. where there is only noise.
+    Double click with the left button of the mouse to extract the projection in that point:
+    they will appear as red traces. These will be used for the estimation of the noise standard
+    deviation.
+
+    When both the signal and the noise are present, the SNR will be computed.
+    The selection can be refined as many times as one wants, until the figure panel is closed.
+    Close the figure to return the values, and to print the used ``s_reg`` and ``n_reg`` to be given
+    to :func:`klassez.anal.snr_2D`.
+
+
 
 Integrate 1D spectra
 --------------------
