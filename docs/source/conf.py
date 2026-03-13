@@ -25,7 +25,7 @@ sys.path.insert(0, str(basedir_kz))
 project = 'klassez'
 copyright = '2025, Francesco Bruno and Letizia Fiorucci'
 author = 'Francesco Bruno and Letizia Fiorucci'
-release = "0.1.0-dev0"
+release = "0.1.0"
 
 # -- General configuration ---------------------------------------------------
 

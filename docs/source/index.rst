@@ -7,7 +7,7 @@
 
    **Major contributors**: Letizia Fiorucci
 
-   **Version**: 0.1.0-dev0
+   **Version**: 0.1.0
 
    **Documentation release date**: |today|
 

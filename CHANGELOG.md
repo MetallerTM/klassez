@@ -1,4 +1,9 @@
-# Version 0.1.0-dev0
+# Version 0.1.0
+
+First stable release.
+
+
+## Version 0.1.0-dev0
 
 New standard name. This is the last alpha version.
 
