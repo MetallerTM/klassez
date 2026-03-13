@@ -29,7 +29,7 @@ Notably, in this way you can also install the *dev* version:
 
 ::
     
-    pip install git+https://github.com/MetallerTM/klassez.git@dev-0.5a
+    pip install git+https://github.com/MetallerTM/klassez.git@dev
 
 The required dependencies are sorted out automatically in either case.
 
