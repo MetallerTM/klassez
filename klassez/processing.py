@@ -4261,7 +4261,7 @@ def qfil(ppm, data, u, s, SFO1):
     u : float
         Position of the filter /ppm
     s : float
-        Width of the filter (standard deviation) /Hz
+        Width of the filter (FWHM) /Hz
     SFO1 : float
         Spectrometer larmor frequency
 
@@ -4270,10 +4270,17 @@ def qfil(ppm, data, u, s, SFO1):
     pdata : ndarray
         Filtered data
     """
+    # Convert fwhm to stdev
+    cnv = 2 * (2 * np.log(2))**0.5
+    s /= cnv
+    # Convert Hz to ppm
     sppm = misc.freq2ppm(s, SFO1)
+    # Make the filter
     G = sim.gaussian_filter(ppm, u, sppm)
+    # Apply it
     datap = np.zeros_like(data)
     datap[..., :] = data[..., :] * G
+    print(f'Applied qfil at {u:.3f} ppm with FWHM = {s * cnv:.0f} Hz.\n', c='violet')
     return datap
 
 
@@ -4281,6 +4288,9 @@ def interactive_qfil(ppm, data_in, SFO1):
     """
     Interactive function to design a gaussian filter with the aim of suppressing signals in the spectrum.
     You can adjust position and width of the filter scrolling with the mouse.
+
+    If you want to use the frequency scale instead of the ppm one, pass the scale as ``ppm`` and set ``SFO1=1``.
+    When using these values for :func:`klassez.processing.qfil`, remember to pass the same scale and ``SFO1``!
 
     Parameters
     ----------
@@ -4296,15 +4306,17 @@ def interactive_qfil(ppm, data_in, SFO1):
     u : float
         Position of the gaussian filter /ppm
     s : float
-        Width of the gaussian filter (Standard deviation) /Hz
+        Width of the gaussian filter (FWHM) /Hz
     """
 
     # Safe copy
     data = np.copy(data_in.real)
 
     # Initialize the values: u at the center of the spectrum, s as 100 points
+    cnv = 2 * (2 * np.log(2))**0.5      # conversion factor sigma -> FWHM
     u = np.mean(ppm)
-    s = misc.freq2ppm(150, SFO1) / (2 * (2 * np.log(2))**0.5)
+    fwhm = misc.freq2ppm(50, SFO1)     # in ppm
+    s = fwhm / cnv
 
     sens = misc.freq2ppm(10, SFO1)  # one mouse 'tick'
     stat = 1    # move s
@@ -4321,19 +4333,19 @@ def interactive_qfil(ppm, data_in, SFO1):
 
     # Plot
     #   Original spectrum
-    figures.ax1D(ax, ppm, data, c='tab:blue', lw=0.8, X_label=r'$\delta\, $/ppm', Y_label='Intensity /a.u.', label='Original')
+    figures.ax1D(ax, ppm, data, c='k', lw=0.8, X_label=r'$\delta\, $/ppm', Y_label='Intensity /a.u.', label='Original')
     #   Filter
-    G_plot, = ax.plot(ppm, G*np.max(data), c='tab:orange', lw=0.6, ls='--', label='Filter')
+    G_plot, = ax.plot(ppm, G*np.max(data), c='tab:red', lw=0.6, ls='--', label='Filter')
     #   Processed data
     pdata = data * (1 - G)      # Compute it
-    p_spect, = ax.plot(ppm, pdata, c='tab:red', lw=0.7, label='Processed')
+    p_spect, = ax.plot(ppm, pdata, c='tab:blue', lw=0.7, label='Processed')
 
     # --------------------------------------------------
 
     # WIDGETS
     #   Radio-buttons to select which value to modify
     radio_box = plt.axes([0.875, 0.40, 0.10, 0.20])
-    radio_labels = ['u', 's']
+    radio_labels = ['$u$', r'$\Gamma$']
     radio = RadioButtons(radio_box, radio_labels, active=1)
 
     # Modify sensitivity buttons
@@ -4344,8 +4356,8 @@ def interactive_qfil(ppm, data_in, SFO1):
 
     # Text
     values_text = '\n'.join([
-        f'u: {u:12.5f} ppm',
-        f's: {misc.ppm2freq(s, SFO1):12.5f}  Hz',
+        r'$u = $' + f'{u:12.5f} ppm',
+        r'$\Gamma = $' + f'{misc.ppm2freq(s*cnv, SFO1):12.5f}  Hz',
         ])
     v_text = ax.text(0.855, 0.35, values_text, ha='left', va='top', transform=fig.transFigure, fontsize=14)
 
@@ -4397,7 +4409,7 @@ def interactive_qfil(ppm, data_in, SFO1):
         p_spect.set_ydata(pdata)
         values_text = '\n'.join([
             f'u: {u:12.5f} ppm',
-            f's: {misc.ppm2freq(s, SFO1):12.5f}  Hz',
+            f's: {misc.ppm2freq(s, SFO1)*cnv:12.5f}  Hz',
             ])
         v_text.set_text(values_text)
         plt.draw()
@@ -4420,8 +4432,9 @@ def interactive_qfil(ppm, data_in, SFO1):
     plt.close()
 
     shz = misc.ppm2freq(s, SFO1)
+    fwhmhz = shz * cnv
 
-    return u, shz
+    return u, fwhmhz
 
 
 def acme(data, m=1, a=5e-5):

@@ -13,6 +13,11 @@ All the input/output and file handling is now done using *pathlib.Path* objects 
 10/03/26
 The functions that plot the spectra interactively have been moved in standalone functions, that are in *figures*.
 The implementation of the *plot* methods for all classes have been changed accordingly.
+12/03/26
+New GUIs for the computation of the SNR for both 1D and 2D spectra. Functions rewritten.
+13/03/26
+*processing.qfil* now interprets **s** as the FWHM of the filter, not the standard deviation like before.
+All the calls were modified accordingly. *WARNING!* parameters from old **.procs** files might not work as expected.
 
 ## New functions:
 27/02/26
@@ -41,6 +46,8 @@ The implementation of the *plot* methods for all classes have been changed accor
 - *anal.snr*: parameter **x** became mandatory, **x** and **data** are now switched, new option **gui**
 12/03/26
 - *anal.snr_2D*: matches the structure of the 1D version
+13/03/26
+- *processing.qfil*: now **s** is the FWHM of the filter, not the standard deviation!
 
 ## New classes:
 27/02/26

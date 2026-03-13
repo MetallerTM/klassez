@@ -713,7 +713,7 @@ class Spectrum_1D:
             X_label = r'$\delta\ $'+misc.nuc_format(self.acqus['nuc'])+' /ppm'
         figures.plot_1D(x, self.r, SFO1=self.acqus['SFO1'], name=name, X_label=X_label)
 
-    def qfil(self, u=None, s=None, from_procs=True):
+    def qfil(self, u=None, s=None, from_procs=True, fqscale=False):
         """
         Gaussian filter to suppress signals.
         Tries to read ``self.procs['qfil']``, which is
@@ -732,6 +732,8 @@ class Spectrum_1D:
             Width (standard deviation) of the filter /ppm
         from_procs : bool
             Tries to read the values from ``self.procs``
+        fqscale : bool
+            True to use the frequency scale, False for the ppm scale.
 
         Returns
         -------
@@ -741,11 +743,21 @@ class Spectrum_1D:
 
             :func:`klassez.processing.interactive_qfil`
         """
+        if fqscale:
+            x = self.freq
+            SFO1 = 1
+        else:
+            x = self.ppm
+            SFO1 = self.acqus['SFO1']
         if 'qfil' not in self.procs.keys():     # Then add it
             self.procs['qfil'] = {'u': u, 's': s}
         for key, value in self.procs['qfil'].items():
             if value is None or not from_procs:   # At the first non-set value, do the interactive correction
-                self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm, self.r, self.acqus['SFO1'])
+                u, self.procs['qfil']['s'] = processing.interactive_qfil(x, self.r, SFO1)
+                if fqscale:     # convert chemical shift from Hz to ppm
+                    self.procs['qfil']['u'] = misc.freq2ppm(u, self.acqus['SFO1'], self.acqus['o1p'])
+                else:
+                    self.procs['qfil']['u'] = u
                 break
         # Apply it
         self.r = processing.qfil(self.ppm, self.S, self.procs['qfil']['u'], self.procs['qfil']['s'], self.acqus['SFO1'])
@@ -1749,7 +1761,7 @@ class Spectrum_2D:
         else:
             self.fid = processing.pknl(self.fid, grpdly=self.acqus['GRPDLY'], onfid=True)
 
-    def qfil(self, which=None, u=None, s=None, from_procs=True, *, SFO=None):
+    def qfil(self, which=None, u=None, s=None, from_procs=True, fqscale=False, *, SFO=None, O1P=None):
         """
         Gaussian filter to suppress signals.
         Tries to read ``self.procs['qfil']``, which is ``{ 'u': u, 's': s }``
@@ -1765,8 +1777,12 @@ class Spectrum_2D:
             Width (standard deviation) /Hz
         from_procs : bool
             Read the parameters from the ``procs`` dictionary
+        fqscale : bool
+            True to use the frequency scale, False for the ppm scale.
         SFO : float
             Nucleus Larmor frequency to use for the conversion to Hz. If None, ``self.acqus['SFO2']`` is used by default.
+        O1P : float
+            Carrier position in ppm. If None, ``self.acqus['o2p']`` is used by default.
 
         Returns
         -------
@@ -1779,11 +1795,21 @@ class Spectrum_2D:
             :func:`klassez.anal.select_traces`
 
         """
+        if SFO is None:
+            SFO = self.acqus['SFO2']
+        if O1P is None:
+            O1P = self.acqus['o2p']
+
+        if fqscale:
+            x = self.freq_f2
+            SFO1 = 1
+        else:
+            x = self.ppm_f2
+            SFO1 = SFO
+
         if 'qfil' not in self.procs.keys():     # Then add it
             self.procs['qfil'] = {'u': u, 's': s}
 
-        if SFO is None:
-            SFO = self.acqus['SFO2']
         if 'qfil' not in self.procs.keys():  # Then add it
             self.procs['qfil'] = {'u': u, 's': s}
 
@@ -1793,7 +1819,11 @@ class Spectrum_2D:
                     which_list = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=True)
                     which, _ = misc.ppmfind(self.ppm_f1, which_list[0][1])
                 # Now get the values
-                self.procs['qfil']['u'], self.procs['qfil']['s'] = processing.interactive_qfil(self.ppm_f2, self.rr[which], SFO)
+                u, self.procs['qfil']['s'] = processing.interactive_qfil(x, self.rr[which], SFO1)
+                if fqscale:     # convert the chemical shift to ppm
+                    self.procs['qfil']['u'] = misc.freq2ppm(u, SFO, O1P)
+                else:
+                    self.procs['qfil']['u'] = u
                 break
 
         # Apply the filter
@@ -3125,7 +3155,7 @@ class Pseudo_2D(Spectrum_2D):
         self.integrals, self.ppm_f1 = anal.read_igrl(filename, n)
         print(f'{filename} read.')
 
-    def qfil(self, which=None, u=None, s=None, from_procs=True):
+    def qfil(self, which=None, u=None, s=None, from_procs=True, fqscale=False):
         """
         Gaussian filter to suppress signals.
         Tries to read ``self.procs['qfil']``, which is ``{ 'u': u, 's': s }``
@@ -3139,6 +3169,10 @@ class Pseudo_2D(Spectrum_2D):
             Position /ppm
         s : float
             Width (standard deviation) /Hz
+        from_procs : bool
+            Tries to read the values from ``self.procs``
+        fqscale : bool
+            True to use the frequency scale, False for the ppm scale.
 
         Returns
         -------
@@ -3151,7 +3185,7 @@ class Pseudo_2D(Spectrum_2D):
             :func:`klassez.anal.select_traces`
 
         """
-        super().qfil(which=which, u=u, s=s, from_procs=from_procs, SFO=self.acqus['SFO1'])
+        super().qfil(which=which, u=u, s=s, from_procs=from_procs, SFO=self.acqus['SFO1'], O1P=self.acqus['o1p'])
 
     def align(self, lims=None, u_off=0.5, ref_idx=0):
         """
