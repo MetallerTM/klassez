@@ -1,3 +1,49 @@
 [build-system]
-requires = ['setuptools>=42']
+requires = ['setuptools>=61.0']
 build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'klassez'
+dynamic = ['version']
+description = 'A collection of functions for NMR data handling'
+readme = 'README.md'
+requires-python = '>=3.10'
+license = 'MIT'
+license-files = ['LICENSE.txt',]
+authors = [
+    {name = 'Francesco Bruno', email = 'bruno@cerm.unifi.it'},
+    {name = 'Letizia Fiorucci'},
+]
+keywords = ['NMR', 'data processing', 'spectroscopy']
+classifiers = [
+    'Programming Language :: Python :: 3',
+    'Operating System :: OS Independent',
+]
+
+dependencies = [
+    'numpy',
+    'scipy',
+    'lmfit',
+    'numdifftools',
+    'seaborn',
+    'nmrglue',
+    'matplotlib>=3.8',
+    'csaps',
+]
+[project.optional-dependencies]
+jeolproc = ['jeol_parser']
+
+[project.urls]
+Homepage = 'https://github.com/MetallerTM/klassez'
+Repository = 'https://github.com/MetallerTM/klassez.git'
+Documentation = 'https://klassez.readthedocs.io'
+
+[tool.setuptools.dynamic]
+version = {attr = 'klassez.__version__'}
+
+[tool.setuptools.packages.find]
+where = ['.']
+include = ['klassez*']
+
+[tool.setuptools.package-data]
+klassez = ['*.txt', '*.md', '*.yaml']
