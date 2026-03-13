@@ -17,4 +17,4 @@ from .config import CM, CM_2D, COLORS, cron, safe_kws, textcolor, _print, cprint
 
 print = cprint
 
-__version__ = "0.5a.5"
+__version__ = "0.1.0-dev0"

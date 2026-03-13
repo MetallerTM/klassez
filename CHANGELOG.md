@@ -1,3 +1,9 @@
+# Version 0.1.0-dev0
+
+New standard name. This is the last alpha version.
+
+----------
+
 # Version 0.5a.5
 
 Added a new class for formatting and colorizing text in the terminal, using the *matplotlib* color names converted in xterm strings.
