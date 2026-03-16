@@ -32,6 +32,7 @@ dependencies = [
 ]
 [project.optional-dependencies]
 jeolproc = ['jeol_parser']
+docs = ['sphinx', 'sphinx-rtd-theme']
 
 [project.urls]
 Homepage = 'https://github.com/MetallerTM/klassez'
