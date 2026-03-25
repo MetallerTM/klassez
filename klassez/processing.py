@@ -895,7 +895,7 @@ def fp(data, wf=None, zf=None, fcor=0.5, tdeff=0):
     """
     # Correct the shape of tdeff for pseudo_2D spectra, xf2, and stuff
     if len(data.shape) > 1 and not isinstance(tdeff, (list, tuple, np.ndarray)):
-        tdeff = [0 for w in len(data.shape)-1] + [tdeff]
+        tdeff = [0 for w in range(len(data.shape)-1)] + [tdeff]
     # Window function
     # Rectangle
     datap = processing.td_eff(data, tdeff)
@@ -2295,8 +2295,9 @@ def interactive_phase_1D(ppmscale, S, reference=None):
 
     def reset(event):
         # Reset the phase and pivot values to their starting point
-        nonlocal P
-        P = np.array([0, 0, round(np.mean([min(ppmscale), max(ppmscale)]))])
+        nonlocal P, sens
+        P = np.array([0, 0, round(np.mean(ppmscale), 2)])
+        sens = [5, 5, 0.1]
         on_scroll(event)
 
     def save(event):

@@ -904,9 +904,9 @@ class Spectrum_1D:
         if filename is None:
             filename = self.datadir / self.filename
         if fvf:
-            filename_x = filename.with_suffix('.fvf')
+            filename_x = Path(filename).with_suffix('.fvf')
         else:
-            filename_x = filename.with_suffix('.ivf')
+            filename_x = Path(filename).with_suffix('.ivf')
 
         # If Hs is not given, sum the intensities
         if Hs is None:
@@ -1648,7 +1648,7 @@ class Spectrum_2D:
         if self.acqus['FnMODE'] in ['QF', 'QF-nofreq']:
             self.S = processing.hilbert(self.rr)
         else:
-            self.S = processing.repack_2D(processing.hilbert2(self.rr))
+            self.S = processing.repack_2D(*processing.hilbert2(self.rr))
 
         # Cut the frequency scales as well
         self.freq_f2 = misc.ppm2freq(self.ppm_f2, self.acqus['SFO2'], self.acqus['o2p'])

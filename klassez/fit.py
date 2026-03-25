@@ -2398,7 +2398,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     #  Initialize variables
     # Write the info on the file
     filename = Path(filename)
-    filename_x = filename.with_suffix('ivf')
+    filename_x = filename.with_suffix('.ivf')
     with filename_x.open('a', buffering=1) as f:
         now = datetime.now()
         date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
@@ -3692,8 +3692,7 @@ class Voigt_Fit:
         # Filename check
         if filename is None:
             filename = f'{self.filename}'
-        filename += '_rhist'
-        filename = Path(filename)
+        filename = Path(filename).with_name(filename.stem + '_rhist')
 
         # Select the correct object
         if what == 'iguess':
@@ -8109,9 +8108,10 @@ class DosyFit:
         # Set the filename, if not given
         if filename is None:
             filename = f'{self.filename}'
+        filename = Path(filename)
 
         # Make the directories
-        figure_path = Path(f'Figures_{filename}') / f'{what}'
+        figure_path = filename.with_name('Figures_' + filename.stem) / f'{what}'
         figure_path.mkdir(exist_ok=True, parents=True)
 
         # Make the figures
