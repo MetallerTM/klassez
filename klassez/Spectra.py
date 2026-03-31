@@ -3390,7 +3390,9 @@ class Pseudo_2D(Spectrum_2D):
         """
         original = deepcopy(self.S)
         # Correct the baseline
-        datap = processing.abs_v2(self.ppm, self.r, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
+        datap = np.empty_like(self.S)
+        for k, data in enumerate(self.rr):
+            datap[k] = processing.abs_v2(self.ppm_f2, data, self.acqus['SFO1'], n=n, lims=lims, alpha=alpha, winsize=winsize, qfil=qfil, qfilp=qfilp)
         # Retrieve imaginary part
         self.S = processing.hilbert(datap)
         return original - datap

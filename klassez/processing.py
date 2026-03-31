@@ -2813,7 +2813,7 @@ def integral(fx, x=None, dx=None, lims=None, use_bas=False):
         # Use the linear regression to connect them, employ the point scale
         bas = []
         for k, tr in enumerate(bas_points):
-            _, (bas_m, bas_q) = fit.lr(bas_points, x=np.asarray([isx, idx]))
+            _, (bas_m, bas_q) = fit.lr(tr, x=np.asarray([isx, idx]))
             # full-length x-scale for baseline
             xb = np.arange(isx, idx+1, 1)
             # baseline = mx + q
