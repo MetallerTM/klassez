@@ -3692,6 +3692,7 @@ class Voigt_Fit:
         # Filename check
         if filename is None:
             filename = f'{self.filename}'
+        filename = Path(filename)
         filename = Path(filename).with_name(filename.stem + '_rhist')
 
         # Select the correct object
