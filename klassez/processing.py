@@ -2806,20 +2806,6 @@ def integral(fx, x=None, dx=None, lims=None, use_bas=False):
 
         :func:`klassez.misc.trim_data`
     """
-    def calc_bas(y, isx, idx):
-        """ Compute straight line baseline """
-        # Two points
-        bas_points = np.array([y[..., isx], y[..., idx]])
-        # Use the linear regression to connect them, employ the point scale
-        bas = []
-        for k, tr in enumerate(bas_points):
-            _, (bas_m, bas_q) = fit.lr(tr, x=np.asarray([isx, idx]))
-            # full-length x-scale for baseline
-            xb = np.arange(isx, idx+1, 1)
-            # baseline = mx + q
-            bas.append(xb * bas_m + bas_q)
-        return np.array(bas)
-
     # Copy variables for check
     fx_in = np.copy(fx)
     if x is None:   # Make the point scale
@@ -2837,7 +2823,7 @@ def integral(fx, x=None, dx=None, lims=None, use_bas=False):
         x_tr, fx_tr = misc.trim_data(x_in, fx_in, lims)
 
     if use_bas:
-        bas = calc_bas(fx_tr, 0, len(x_tr)-1)
+        bas = processing.sl_bas_onidx(fx_tr, (0, len(x_tr)-1))
     else:
         bas = np.zeros_like(x_tr)
 
@@ -6093,3 +6079,99 @@ def extend_taq(old_taq, newsize=None):
         dw = misc.calcres(old_taq)      # Get the dwell time
         new_taq = np.arange(0, dw * newsize, dw)    # Compute new scale
     return new_taq
+
+
+def sl_bas_onidx(y, x_idx):
+    """
+    Computes the straight line that connects ``y[min(x_idx)]`` with ``y[max(x_idx)]``.
+    If ``y`` is a 2darray, a 2darray of lines is returned, one correspondant to each row of ``y``.
+    The lines will be ``max(x_idx) - min(x_idx)`` points long.
+
+    Parameters
+    ----------
+    y : 1darray or 2darray
+        Array for which to compute the connecting lines
+    x_idx : tuple
+        Points indices of the endpoints of the connecting lines
+
+    Returns
+    -------
+    bas : 1darray or 2darray
+        Computed connecting lines. Of note, this is squeezed before returning!
+
+    .. seealso::
+
+        :func:`numpy.squeeze`
+        :func:`klassez.fit.lr`
+    """
+    # Let's be sure the indices are in the correct order
+    x_idx = sorted(x_idx)
+    # Array of shape (y.shape[0], 2) of the endpoints
+    bas_points = np.array([y[..., q] for q in x_idx]).T
+    if len(bas_points.shape) == 1:  # add a dimension to use the for after
+        bas_points = [bas_points]
+
+    bas = []    # placeholder
+    # Loop on the rows of the endpoints
+    for k, tr in enumerate(bas_points):
+        # tr contains two points -> only one line exists
+        _, (bas_m, bas_q) = fit.lr(tr, x=np.asarray(x_idx))
+        # Compute the scale for rendering the connecting line correctly
+        xb = np.arange(min(x_idx), max(x_idx) + 1)
+        # Add to placeholder
+        bas.append(xb * bas_m + bas_q)
+    # Remove the extra dimension added before, if needed
+    return np.squeeze(np.array(bas))
+
+
+def sl_bas(x, y, lims=None):
+    """
+    Computes the straight line that connects ``y`` between ``lims`` on the ``x`` scale.
+    If ``y`` is a 2darray, a 2darray of lines is returned, one correspondant to each row of ``y``.
+
+    Parameters
+    ----------
+    y : 1darray or 2darray
+        Array for which to compute the connecting lines
+    x : 1darray
+        Scale for the referencing of ``lims``
+    lims : tuple
+        ``(left, right)`` for selecting the endpoints
+
+    Returns
+    -------
+    bas_overlay : 1darray or 2darray
+        Computed connecting lines, with the same shape of ``y``. Of note, this is squeezed before returning!
+
+    .. seealso::
+
+        :func:`numpy.squeeze`
+        :func:`klassez.processing.sl_bas_onidx`
+    """
+    # Get the correct arrays to work with
+    if lims is None:
+        # Use the whole data
+        x_tr = deepcopy(x)
+        y_tr = deepcopy(y)
+        # Limits are therefore first and last point of the scale
+        lims = x[0], x[-1]
+    else:
+        # Cut the data according to lims
+        if len(y.shape) > 1:
+            # Use a dummy yscale to cut only on the last dimension
+            x_tr, _, y_tr = misc.trim_data_2D(x, np.arange(y.shape[0]), y, xlim=lims)
+        else:
+            # Just cut
+            x_tr, y_tr = misc.trim_data(x, y, lims=lims)
+
+    # Get the indices of the endpoints ON x NOT xtrim, otherwise the overlay does not work
+    x_idx = [misc.ppmfind(x, v)[0] for v in lims]
+    # Compute the correcting lines
+    bas = sl_bas_onidx(y, x_idx)
+    # Add a dimension to still use the for
+    if len(bas.shape) == 1:
+        bas = [bas]
+
+    # Match the shape of y. Use always the left limit as anchor point
+    overlay_bas = [misc.sum_overlay(np.zeros_like(x), y_b, x[min(x_idx)], x) for y_b in bas]
+    return np.squeeze(np.array(overlay_bas))

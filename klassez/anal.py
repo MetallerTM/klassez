@@ -771,14 +771,7 @@ def integrate(ppm0, data0, SFO1, filename='integrals', X_label=r'$\delta\,$F1 /p
 
     def calc_bas(isx, idx):
         """ Compute straight line baseline """
-        # Two points
-        bas_points = np.array([data[isx], data[idx]])
-        # Use the linear regression to connect them, employ the point scale
-        _, (bas_m, bas_q) = fit.lr(bas_points, x=np.asarray([isx, idx]))
-        # full-length x-scale for baseline
-        xb = np.arange(isx, idx+1, 1)
-        # baseline = mx + q
-        bas = xb * bas_m + bas_q
+        bas = processing.sl_bas_onidx(data, (isx, idx))
         return bas
 
     def onselect(vsx, vdx):
@@ -1076,21 +1069,12 @@ def integrate_p2D(ppm0, data0, SFO1, ref=0, indirect_scale=None, filename='integ
 
     def calc_bas(y, isx, idx):
         """ Compute straight line baseline """
-        # Two points
-        bas_points = np.array([y[isx], y[idx]])
-        # Use the linear regression to connect them, employ the point scale
-        _, (bas_m, bas_q) = fit.lr(bas_points, x=np.asarray([isx, idx]))
-        # full-length x-scale for baseline
-        xb = np.arange(isx, idx+1, 1)
-        # baseline = mx + q
-        bas = xb * bas_m + bas_q
+        bas = processing.sl_bas_onidx(y, (isx, idx))
         return bas
 
     def calc_all_bas(isx, idx):
         """ Compute the straight line baseline for all the experiments """
-        all_bas = np.array([
-            calc_bas(y, isx, idx)
-            for y in all_data])
+        all_bas = processing.sl_bas_onidx(all_data, (isx, idx))
         return all_bas
 
     def axy_plot(y):

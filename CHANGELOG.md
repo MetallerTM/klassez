@@ -1,5 +1,16 @@
 # Version 0.1.1-dev0
 
+New functions.
+Bug fixes.
+
+Added linkers to the code hosted on GitHub in the documentation.
+
+## New functions
+02/04/2026
+- *processing.sl_bas*
+- *processing.sl_bas_onidx*
+
+
 # Version 0.1.0
 
 First stable release.
