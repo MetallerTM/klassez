@@ -1341,7 +1341,7 @@ def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm',
     print('Done.', c='tab:cyan')
 
 
-def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
+def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10, rev=True):
     """
     Interactive display of multiple 1D spectra.
 
@@ -1357,6 +1357,8 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
         Linewidth of the spectra plots
     n_xticks : int
         Number of numbered ticks on the x-axis of the figure
+    rev : bool
+        When ``True``, the x-scale goes from maximum (left) to minimum (right)
 
     Returns
     -------
@@ -1486,7 +1488,9 @@ def dotmd(ppmscale, S, labels=None, lw=0.8, n_xticks=10):
     # Auto-adjusts the limits for the y-axis
     misc.set_ylim(ax, np.concatenate(S))
     # Make pretty scales
-    misc.pretty_scale(ax, (np.max(np.concatenate(ppmscale)), np.min(np.concatenate(ppmscale))), axis='x', n_major_ticks=n_xticks)
+    misc.pretty_scale(ax, (np.min(np.concatenate(ppmscale)), np.max(np.concatenate(ppmscale))), axis='x', n_major_ticks=n_xticks)
+    if rev:
+        ax.set_xlim(ax.get_xlim()[::-1])
     misc.pretty_scale(ax, ax.get_ylim(), axis='y', n_major_ticks=10)
 
     # Pretty y-axis numbers

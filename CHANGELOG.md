@@ -10,6 +10,10 @@ Added linkers to the code hosted on GitHub in the documentation.
 - *processing.sl_bas*
 - *processing.sl_bas_onidx*
 
+## Modified functions
+08/04/2026
+- *figures.dotmd*: added possibility to reverse the scale to plot not-spectra
+
 
 # Version 0.1.0
 
