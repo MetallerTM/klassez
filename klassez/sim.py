@@ -134,9 +134,7 @@ def load_sim_1D(File):
     dic : dict
         Dictionary of the parameters, ready to be read from the simulation functions.
     """
-
-    with open(File, 'r') as f:
-        inp = f.readlines()
+    inp = Path(File).read_text().splitlines(keepends=True)
     keys = []
     vals = []
     for i in range(len(inp)):
@@ -201,7 +199,7 @@ def sim_1D(File, pv=False):
     fid : 1darray
         FID of the simulated spectrum.
     """
-    if isinstance(File, str):
+    if isinstance(File, (str, Path)):
         in_file = load_sim_1D(File)
     elif isinstance(File, dict):
         in_file = File
@@ -247,8 +245,7 @@ def load_sim_2D(File, states=True):
     dic : dict
         Dictionary of the parameters, ready to be read from the simulation functions.
     """
-    with open(File, 'r') as f:
-        inp = f.readlines()
+    inp = Path(File).read_text().splitlines(keepends=True)
     keys = []
     vals = []
     for i in range(len(inp)):
@@ -320,7 +317,7 @@ def sim_2D(File, states=True, alt=True, pv=False):
     """
 
     # Generates a dictionary of parameters from an input file
-    if isinstance(File, str):
+    if isinstance(File, (str, Path)):
         in_file = sim.load_sim_2D(File, states=states)
     elif isinstance(File, dict):
         in_file = File

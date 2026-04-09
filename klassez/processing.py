@@ -4967,7 +4967,7 @@ def stack_fids(*fids, filename=None):
     p2d = np.stack(p2d_fid, axis=0)
 
     # Save the .npy file
-    if isinstance(filename, str):
+    if isinstance(filename, (str, Path)):
         np.save(filename, p2d)
 
     return p2d
