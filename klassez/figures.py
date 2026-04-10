@@ -651,8 +651,6 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
         print(f'The length of "x_f2" does not match the second dimension of the dataset / ({len(ppm_f2)}, {datax.shape[1]})')
     assert ok_f1 and ok_f2, 'Inconsistent dimensions between scales and dataset.'
 
-    cmap = CM[f'{cmap}']
-
     if xlims is None:
         xsx, xdx = max(ppm_f2), min(ppm_f2)
     else:
@@ -662,7 +660,7 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
     else:
         ysx, ydx = max(ylims), min(ylims)
 
-    cnt = figures.draw_bare_contour(ax, ppm_f2, ppm_f1, datax,
+    cnt = figures.draw_bare_contour(ax, ppm_f2, ppm_f1, datax, cmap=cmap,
                                     lvl=lvl, c_fac=c_fac, lw=lw)
 
     if X_label is not None:

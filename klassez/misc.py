@@ -710,8 +710,8 @@ def trim_data_2D(x_scale, y_scale, data, xlim=None, ylim=None):
     if ylim is None:    # Set whole scale
         ylim = y_scale[0], y_scale[-1]
     # Get the indexes of the limits on both scale and sort them
-    xlim_p = sorted([misc.ppmfind(x_scale, lim)[0] for lim in xlim])
-    ylim_p = sorted([misc.ppmfind(y_scale, lim)[0] for lim in ylim])
+    xlim_p = sorted([misc.ppmfind(x_scale, misc.find_nearest(x_scale, lim))[0] for lim in xlim])
+    ylim_p = sorted([misc.ppmfind(y_scale, misc.find_nearest(y_scale, lim))[0] for lim in ylim])
     # Avoid truncation of last point
     xlim_p[1] += 1
     ylim_p[1] += 1
