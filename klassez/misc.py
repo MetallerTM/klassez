@@ -663,7 +663,7 @@ def trim_data(ppm_scale, y, lims=None):
     if lims is None:
         lims = min(ppm_scale), max(ppm_scale)
 
-    lims_p = sorted([misc.ppmfind(ppm_scale, x)[0] for x in lims])
+    lims_p = sorted([misc.ppmfind(ppm_scale, misc.find_nearest(ppm_scale, x))[0] for x in lims])
     # Avoid truncation on the last point
     lims_p[1] += 1
     slice_x = slice(*lims_p)
