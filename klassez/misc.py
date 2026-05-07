@@ -258,6 +258,7 @@ def makeacqus_1D(dic):
     acqus['dw'] = 1 / acqus['SW']
     acqus['t1'] = np.linspace(0, acqus['TD']*acqus['dw'], acqus['TD'])
     acqus['AQ'] = acqus['t1'][-1]
+    acqus['fidres'] = 1 / (acqus['TD'] * acqus['dw'])
     return acqus
 
 
@@ -296,6 +297,7 @@ def makeacqus_1D_varian(dic):
     acqus['dw'] = 1 / acqus['SW']
     acqus['t1'] = np.linspace(0, acqus['TD']*acqus['dw'], acqus['TD'])
     acqus['AQ'] = acqus['t1'][-1]
+    acqus['fidres'] = 1 / (acqus['TD'] * acqus['dw'])
     return acqus
 
 
@@ -330,6 +332,7 @@ def makeacqus_1D_spinsolve(dic):
     acqus['dw'] = 1 / acqus['SW']
     acqus['t1'] = np.linspace(0, acqus['TD']*acqus['dw'], acqus['TD'])
     acqus['AQ'] = acqus['t1'][-1]
+    acqus['fidres'] = 1 / (acqus['TD'] * acqus['dw'])
     return acqus
 
 
@@ -364,6 +367,7 @@ def makeacqus_1D_oxford(dic):
     acqus['dw'] = 1 / acqus['SW']
     acqus['t1'] = np.linspace(0, acqus['TD']*acqus['dw'], acqus['TD'])
     acqus['AQ'] = acqus['t1'][-1]
+    acqus['fidres'] = 1 / (acqus['TD'] * acqus['dw'])
     return acqus
 
 
@@ -407,6 +411,7 @@ def makeacqus_1D_jeol(dic):
     acqus['o1'] = acqus['o1p'] * acqus['SFO1']
     acqus['B0'] = acqus['SFO1'] / sim.gamma[acqus['nuc']]
     acqus['t1'] = np.linspace(0, acqus['TD']*acqus['dw'], acqus['TD'])
+    acqus['fidres'] = 1 / (acqus['TD'] * acqus['dw'])
 
     acqus['GRPDLY'] = 20  # placeholder, we do not know where to find it yet
 
@@ -453,6 +458,7 @@ def makeacqus_2D(dic):
     acqus['t2'] = np.linspace(0, acqus['TD2']*acqus['dw2'], acqus['TD2'])
     acqus['AQ1'] = acqus['t1'][-1]
     acqus['AQ2'] = acqus['t2'][-1]
+    acqus['fidres'] = 1 / (acqus['TD1'] * acqus['dw1']), 1 / (acqus['TD2'] * acqus['dw2'])
     return acqus
 
 
@@ -486,6 +492,7 @@ def makeacqus_pp3D(dic):
     acqus['dw'] = 1 / acqus['SW']
     acqus['t1'] = np.linspace(0, acqus['TD']*acqus['dw'], acqus['TD'])
     acqus['AQ'] = acqus['t1'][-1]
+    acqus['fidres'] = 1 / (acqus['TD'] * acqus['dw'])
     return acqus
 
 

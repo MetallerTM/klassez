@@ -1629,7 +1629,7 @@ class Peak:
         cplx : bool
             Returns the complex (True) or only the real part (False) of the signal
         get_fid : bool
-            If True, returns the FID instead of the transformed signal
+            If True, returns the FID instead of the transformed signal. Always complex!
 
         Returns
         -------
@@ -3589,7 +3589,7 @@ class Voigt_Fit:
                      show_res=show_res, res_offset=res_offset, show_basl=show_basl, X_label=self.X_label,
                      labels=labels, filename=filename, ext=ext, dpi=dpi, dim=dim)
 
-    def get_fit_lines(self, what='result'):
+    def get_fit_lines(self, what='result', cplx=False, fid=False):
         """
         Calculates the components, and the total fit curve used as initial guess, or as fit results.
         The components will be returned as a list, not split by region.
@@ -3645,7 +3645,7 @@ class Voigt_Fit:
             # Make the fit.Peak objects
             peaks = {key: fit.Peak(acqus, N=self.S.shape[-1], **value) for key, value in param.items()}
             # Get the arrays from the dictionary and put them in the list
-            signals.extend([p(Int) for _, p in peaks.items()])
+            signals.extend([p(Int, cplx=cplx, get_fid=fid) for _, p in peaks.items()])
             limits_list.append(limits)
         # Compute the total trace
         total = np.sum(signals, axis=0)
