@@ -9,6 +9,8 @@ Added linkers to the code hosted on GitHub in the documentation.
 02/04/2026
 - *processing.sl_bas*
 - *processing.sl_bas_onidx*
+07/05/2026
+- *fit.edit_vf*
 
 ## Modified functions
 08/04/2026

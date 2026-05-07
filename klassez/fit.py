@@ -2797,6 +2797,1080 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
     warnings.simplefilter('default')
 
 
+def edit_vf(S_in, ppm_scale, regions, t_AQ, SFO1=701.125, o1p=0, filename='edited', ext='ivf'):
+    """
+    Creates the initial guess for a lineshape deconvolution fitting procedure, using a dedicated GUI.
+    The GUI displays the experimental spectrum in black and the total function in blue.
+    First, select the region of the spectrum you want to fit by focusing the zoom on it using the lens button.
+    Then, use the "+" button to add components to the spectrum. The black column of text under the textbox will be colored with the same color of the active peak.
+    Use the mouse scroll to adjust the parameters of the active peak. Write a number in the "Group" textbox to mark the components of the same multiplet.
+    Group 0 identifies independent peaks, not part of a multiplet (default).
+    The sensitivity of the mouse scroll can be regulated using the "up arrow" and "down arrow" buttons.
+    The active peak can be changed in any moment using the slider.
+
+    The baseline can be computed first by initializing the x-scale on the selected window through the "SET BASL" button. The informer light next to the button becomes green if it is properly set.
+    The baseline coefficients can be set with the mouse scroll analogously to any other parameter.
+
+    When you are satisfied with your fit, press "SAVE" to write the information in the output file.
+    Then, the GUI is brought back to the initial situation, and the region you were working on will be marked with a green rectangle.
+    You can repeat the procedure as many times as you wish, to prepare the guess on multiple spectral windows.
+
+    Keyboard shortcuts:
+
+    * "increase sensitivity" : '>'
+    * "decrease sensitivity" : '<'
+    * mouse scroll up: 'up arrow key'
+    * mouse scroll down: 'down arrow key'
+    * "add a component": '+'
+    * "remove the active component": '-'
+    * "change component, forward": 'page up'
+    * "change component, backward": 'page down'
+
+
+    Parameters
+    ----------
+    S_in : 1darray
+        Experimental spectrum
+    ppm_scale : 1darray
+        PPM scale of the spectrum
+    region : list of dict
+        Regions containing the starting point, as read from :func:`klassez.fit.read_vf`
+    t_AQ : 1darray
+        Acquisition timescale
+    SFO1 : float
+        Nucleus Larmor frequency /MHz
+    o1p : float
+        Carrier frequency /ppm
+    filename : str or Path
+        Path to the filename where to save the information.
+        The extension (for convention, ``'ivf'`` or ``.fvf``) can be specified through ``ext``
+    ext : str
+        Extension for the file, so that the final filename will be ``<filename>.<ext>``
+
+    Returns
+    -------
+    None
+
+    .. seealso::
+
+        :func:`klassez.fit.make_iguess`
+        :func:`klassez.fit.make_iguess_auto`
+    """
+
+    # -----------------------------------------------------------------------
+    # USEFUL STRUCTURES
+    def rename_dic(dic, Np):
+        """
+        Change the keys of a dictionary with a sequence of increasing numbers, starting from 1.
+
+        Parameters
+        ----------
+        dic : dict
+            Dictionary to edit
+        Np : int
+            Number of peaks, i.e. the sequence goes from 1 to Np
+
+        Returns
+        -------
+        new_dic : dict
+            Dictionary with the changed keys
+        """
+        old_keys = list(dic.keys())         # Get the old keys
+        new_keys = [int(i+1) for i in np.arange(Np)]    # Make the new keys
+        new_dic = {}        # Create an empty dictionary
+        # Copy the old element in the new dictionary at the correspondant point
+        for old_key, new_key in zip(old_keys, new_keys):
+            new_dic[new_key] = dic[old_key]
+        del dic
+        return new_dic
+
+    def calc_total(peaks):
+        """
+        Calculate the sum trace from a collection of peaks stored in a dictionary.
+        If the dictionary is empty, returns an array of zeros.
+        This is to be used when computing the trace of the UNLOCKED zone.
+
+        Parameters
+        ----------
+        peaks : dict
+            Components
+
+        Returns
+        -------
+        total : 1darray
+            Sum spectrum
+        """
+        # Get the arrays from the dictionary
+        T = [p(A) for _, p in peaks.items()]
+        if len(T) > 0:  # Check for any peaks
+            total = np.sum(T, axis=0)
+            return total
+        else:
+            return np.zeros_like(ppm_scale)
+
+    def make_total(regions, exclude=None):
+        """
+        Calculate the sum trace from the ``regions`` list of dictionaries.
+        This is to be used when computing the trace of the LOCKED zone.
+        You can ``exclude`` a certain region of ``regions`` to prevent the rendering
+
+        Parameters
+        ----------
+        region : list of dict
+            Components
+        exclude : int
+            Index of the region to be excluded from the computation.
+            If ``None``, no region is ignored.
+
+        Returns
+        -------
+        total : 1darray
+            Sum spectrum
+        whole_basl : 1darray
+            Baseline
+        """
+        # Placeholders
+        signals = []
+        whole_basl = np.zeros_like(ppm_scale)
+        total = np.zeros_like(ppm_scale)
+        # Loop on the regions
+        for k, region in enumerate(regions):
+            if k == exclude:
+                continue
+            # Remove the limits and the intensity from the region dictionary
+            param = deepcopy(region)
+            limits = param.pop('limits')
+            Int = param.pop('I')
+            # Take out the baseline coefficients, if there are any
+            if 'bas_c' in region.keys():
+                bas_c = Int * region['bas_c']
+                param.pop('bas_c')
+            else:
+                bas_c = np.zeros(5)
+            # Convert the limits from ppm to points and make the slice
+            limits_pt = misc.ppmfind(ppm_scale, limits[0])[0], misc.ppmfind(ppm_scale, limits[1])[0]
+            # Baseline x-scale
+            x = np.linspace(0, 1, int(np.abs(limits_pt[1]-limits_pt[0])))
+            # Compute baseline
+            basl = misc.polyn(x, bas_c)
+            whole_basl = misc.sum_overlay(whole_basl, basl, max(limits), ppm_scale)
+            # Make the fit.Peak objects
+            peaks = {key: fit.Peak(acqus, N=N, **value) for key, value in param.items()}
+            # Get the arrays from the dictionary and put them in the list
+            signals.extend([p(Int, cplx=False, get_fid=False) for _, p in peaks.items()])
+        # Compute the total trace and the baseline
+        total += np.sum(signals, axis=0)
+        total += whole_basl
+        return total, whole_basl
+
+    def extract_unlocked(regions):
+        """
+        When the highlighted regions becomes UNLOCKED, this function takes the peak parameters of that region
+        and computes things that can be edited through the GUI.
+
+        Parameters
+        ----------
+        regions : list of dict
+            Regions
+
+        Returns
+        -------
+        peaks : dict of fit.Peak objects
+            Editable peaks
+        bas_c : 1darray
+            Baseline coefficients
+        total : 1darray
+            Total trace of the locked region only
+        whole_basl : 1darray
+            Baseline of the locked region only
+        """
+        # Do nothing if I selected nothing
+        if r_selected is None:
+            return
+
+        # Take the unlocked region out
+        u_region = regions[r_selected]
+        # Make a shallow copy to prevent damages
+        param = deepcopy(u_region)
+        # Intensity of the region -> for the baseline coefficients
+        Int = param.pop('I')
+        # Take the limits out as well
+        _ = param.pop('limits')
+        # Correct the baseline coefficients and take them out
+        if 'bas_c' in u_region.keys():
+            bas_c = Int * u_region['bas_c']
+            param.pop('bas_c')
+        else:   # instantiate them at 0
+            bas_c = np.zeros(5)
+
+        # Make the fit.Peak objects
+        peaks = {key: fit.Peak(acqus, N=N, **value) for key, value in param.items()}
+        # Compute the total trace EXCLUDING the selected region
+        total, whole_basl = make_total(regions, r_selected)
+        return peaks, bas_c, total, whole_basl
+
+    def edit_btn_props(button, color='0.85', fw='normal', *, active=666):
+        """
+        Change appearance and active status of a button.
+
+        Parameters
+        ----------
+        button : mpl.widget.Button
+            Button to edit
+        color : str
+            Facecolor of the button
+        fw : str
+            Fontweight -> 'bold' or 'normal'
+        active : bool
+            Interactable or not. ``666`` leaves it as it was before.
+
+        """
+        # Store active status
+        active_before = button.get_active()
+        # Activate in order to be able to change the stuff without running in a block
+        button.set_active(True)
+        # Change the color both in the ax and as the attribute otherwise it does not render
+        button.ax.set_facecolor(color)
+        button.color = color
+        # Set fontweight to the text
+        button.label.set_fontweight(fw)
+
+        if active != 666:   # apply active status
+            button.set_active(bool(active))
+        else:   # set as it was before
+            button.set_active(active_before)
+        # Apply changes
+        button.ax.figure.canvas.draw_idle()
+
+    # ===============================================================================
+    # INITIALIZATION OF THE PROCESS
+
+    # Get the filename as path object
+    filename = Path(filename)
+    filename_x = filename.with_suffix(f'.{ext}')
+
+    # Set limits for the plot
+    limits = [max(ppm_scale), min(ppm_scale)]
+    # Get point indices for the limits
+    lim1, lim2 = sorted([misc.ppmfind(ppm_scale, limit)[0] for limit in limits])
+
+    # Remove the imaginary part from the experimental data and make a shallow copy
+    if np.iscomplexobj(S_in):
+        S = np.copy(S_in).real
+    else:
+        S = np.copy(S_in)
+    # Make an acqus dictionary based on the input parameters.
+    acqus = {'t1': t_AQ, 'SFO1': SFO1, 'o1p': o1p}
+
+    # Variables to be used and modified during the whole GUI execution
+    N = S.shape[-1]     # Number of points
+    Np = 0              # Number of peaks
+    lastgroup = 0       # Placeholder for last group added
+    prev = 0            # Number of previous peaks
+    r_selected = None   # Region selected (index)
+
+    # Baseline scale
+    x_bsl = np.linspace(0, 1, N)
+    # Baseline - from where to where?
+    x_bsl_lims = [max(ppm_scale), min(ppm_scale)]
+    x_bsl_lims_pts = [misc.ppmfind(ppm_scale, w)[0] for w in x_bsl_lims]
+    if x_bsl_lims_pts[0] > x_bsl_lims_pts[1]:
+        x_bsl_lims = x_bsl_lims[::-1]
+    # for the plot
+    x_bsl_2plot = np.linspace(*sorted(x_bsl_lims), len(x_bsl))
+    whole_basl = np.zeros_like(ppm_scale)
+
+    # PEAKS EDITING DEFAULTS
+    # Peaks dictionary -> to be populated when unlocked
+    peaks = {}
+    # Calculate the absolute intensity (or something that resembles it)
+    A = np.trapezoid(np.abs(S)[lim1:lim2],
+                     dx=misc.calcres(ppm_scale*SFO1)) * 2 * misc.calcres(acqus['t1'])
+    _A = 1 * A      # for reset
+    # Baseline constant
+    B = 10**np.floor(np.log10(A))
+    # Baseline coefficients
+    bas_c = np.zeros(5)
+    basl = np.zeros_like(x_bsl)
+    # Make a sensitivity dictionary
+    sens = {
+            'u': np.abs(limits[0] - limits[1]) / 50,    # 1/50 of the SW
+            'fwhm': 2.5,
+            'k': 0.05,
+            'b': 0.1,
+            'phi': 10,
+            'A': 10**(np.floor(np.log10(A)-1)),    # approximately
+            'c0': 0.1,
+            'c1': 0.1,
+            'c2': 0.1,
+            'c3': 0.1,
+            'c4': 0.1,
+            'B': 1,
+            }
+    _sens = dict(sens)                          # RESET value
+
+    # Compute the total trace and the baseline as everything is locked
+    # equivalent to "loading the starting point"
+    fit_total, whole_basl = make_total(regions)
+
+    # Initial figure
+    fig = plt.figure('Editing of a Voigt Fit')
+    fig.set_size_inches(15, 8)
+    plt.subplots_adjust(bottom=0.10, top=0.90, left=0.05, right=0.65)
+    ax = fig.add_subplot()
+
+    # WIDGETS
+    # make boxes for widgets
+    newwin_box = plt.axes([0.875, 0.185, 0.10, 0.06])   # New region button
+    lock_box = plt.axes([0.875, 0.115, 0.10, 0.06])     # Lock/Unlock button
+    editwin_box = plt.axes([0.875, 0.045, 0.10, 0.06])  # Change window limits button
+    up_box = plt.axes([0.815, 0.825, 0.08, 0.075])      # Increase sensitivity button
+    down_box = plt.axes([0.894, 0.825, 0.08, 0.075])    # Decrease sensitivity button
+    save_box = plt.axes([0.7, 0.825, 0.085, 0.04])      # Save button
+    reset_box = plt.axes([0.7, 0.865, 0.085, 0.04])     # Reset button
+    plus_box = plt.axes([0.72, 0.65, 0.08, 0.075])     # Add button
+    minus_box = plt.axes([0.72, 0.55, 0.08, 0.075])    # Minus button
+    basset_box = plt.axes([0.875, 0.71, 0.08, 0.04])    # baseline box
+    group_box = plt.axes([0.72, 0.50, 0.06, 0.04])      # Textbox for the group selection
+
+    basset_flagbox = plt.axes([0.955, 0.71, 0.02, 0.04])    # Box that becomes red/green
+    # Clean decorator to make it look like a square, red
+    basset_flagbox.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    basset_flagbox.set_fc('tab:red')
+
+    peak_box = plt.axes([0.875, 0.275, 0.10, 0.425])    # Radiobuttons
+    slider_box = plt.axes([0.68, 0.10, 0.01, 0.65])     # Peak selector slider
+
+    # Make widgets
+    #   Buttons -- deactivate some by default, activated by slots
+    newwin_button = Button(newwin_box, 'New Region', hovercolor='0.975')
+    newwin_button.label.set_fontweight('bold')      # Make label bold
+    lock_button = Button(lock_box, 'UNLOCK', hovercolor='0.975')
+    lock_button.set_active(False)
+    editwin_button = Button(editwin_box, 'Change window\nlimits', hovercolor='0.975')
+    editwin_button.set_active(False)
+    up_button = Button(up_box, r'$\uparrow$', hovercolor='0.975')
+    down_button = Button(down_box, r'$\downarrow$', hovercolor='0.975')
+    save_button = Button(save_box, 'SAVE and EXIT', hovercolor='0.975')
+    reset_button = Button(reset_box, 'RESET', hovercolor='0.975')
+    reset_button.set_active(False)
+    plus_button = Button(plus_box, '$+$', hovercolor='0.975')
+    plus_button.set_active(False)
+    minus_button = Button(minus_box, '$-$', hovercolor='0.975')
+    minus_button.set_active(False)
+    basset_button = Button(basset_box, 'Set BASL', hovercolor='0.975')
+    #   Textbox
+    group_tb = TextBox(group_box, 'Group', textalignment='center')
+    #   Radiobuttons
+    peak_name = [r'$\delta$ /ppm', r'$\Gamma$ /Hz', '$k$', r'$\beta$', r'$\phi$', '$A$',
+                 r'$c_0$', r'$c_1$', r'$c_2$', r'$c_3$', r'$c_4$', r'$B$']
+    peak_radio = RadioButtons(peak_box, peak_name, activecolor='tab:blue')      # Signal parameters
+    peak_box.text(0, 0.5, '-'*30, ha='left', va='center', transform=peak_box.transAxes)     # Horizontal line
+    #   Slider
+    slider = Slider(ax=slider_box, label='Active\nSignal', valmin=0, valmax=1-1e-3,
+                    valinit=0, valstep=1e-10, orientation='vertical', color='tab:blue')
+
+    # ===============================================================================
+    # SLOTS
+
+    # For figure rendering
+
+    def redraw():
+        """ Check if the limits of the baseline correspond to the figure zoom """
+        for v1, v2 in zip(sorted(ax.get_xlim()), sorted(x_bsl_lims)):
+            if np.abs(v1 - v2) > 1e-4:
+                basset_flagbox.set_fc('tab:red')
+                break
+        fig.canvas.draw()
+
+    def rspansel_onselect(vsx, vdx):
+        """ Slot of the spanselector, it does NOTHING """
+        pass
+
+    # --------------------------------------------------------------------------------
+    # For text updates
+
+    def radio_changed(event):
+        """ Change the printed value of sens when the radio changes """
+        active = peak_name.index(peak_radio.value_selected)
+        param = list(sens.keys())[active]
+        write_sens(param)
+
+    def write_par(idx):
+        """ Write the text to keep track of your amounts """
+        if idx:     # Write the things
+            dic = dict(peaks[idx].par())
+            dic['A'] = A
+            # Update the text
+            values_print.set_text('{u:+7.3f}\n{fwhm:5.3f}\n{k:5.3f}\n{b:5.3f}\n{phi:+07.3f}\n{A:5.2e}\n{group:5.0f}'.format(**dic))
+            # Color the heading line of the same color of the trace
+            head_print.set_color(p_sgn[idx].get_color())
+        else:   # Clear the text and set the header to be black
+            values_print.set_text('')
+            head_print.set_color('k')
+
+    def write_bpar():
+        """ Write the baseline coefficients values """
+        valuesb_print.set_text('{:+7.3f}\n{:+7.3f}\n{:+7.3f}\n{:+7.3f}\n{:+7.3f}\n{:5.2e}'.format(*bas_c, B))
+
+    def write_sens(param):
+        """ Updates the current sensitivity value in the text """
+        text = f'Sensitivity: $\\pm${sens[param]:10.4g}'
+        # Update the text
+        sens_print.set_text(text)
+        # Redraw the figure
+        plt.draw()
+
+    def selector(event):
+        """ Update the text when you move the slider """
+        idx = int(np.floor(slider.val * Np) + 1)
+        if Np:
+            for key, line in p_sgn.items():
+                if key == idx:
+                    line.set_lw(3)
+                else:
+                    line.set_lw(0.8)
+            write_par(idx)
+            write_bpar()
+        redraw()
+
+    # --------------------------------------------------------------------------------
+    # Calculations and plotting in real time
+
+    def make_x_basl(event):
+        """ Compute the baseline x scale """
+        nonlocal x_bsl_lims, x_bsl, basl
+        # Get the limits from the figure zoom
+        x_bsl_lims = sorted(ax.get_xlim())
+        # Determine how many points do I need
+        n_pts_basl = int(np.abs(x_bsl_lims[1] - x_bsl_lims[0]) / misc.calcres(ppm_scale))
+        # Scale for the computation
+        x_bsl = np.linspace(0, 1, n_pts_basl)
+        # Scale for the plot
+        x_bsl_2plot = np.linspace(*x_bsl_lims, n_pts_basl)[::-1]
+
+        # Compute the baseline according to bas_c
+        basl = B * misc.polyn(x_bsl, bas_c)
+        # Update the plot
+        basl_plot.set_data(x_bsl_2plot, basl)
+        basset_flagbox.set_fc('tab:green')
+        fig.canvas.draw()
+
+    # Peak movements
+    def up_sens(event):
+        """ Doubles sensitivity of active parameter """
+        active = peak_name.index(peak_radio.value_selected)
+        param = list(sens.keys())[active]
+        sens[param] *= 2
+        write_sens(param)
+
+    def down_sens(event):
+        """ Halves sensitivity of active parameter """
+        active = peak_name.index(peak_radio.value_selected)
+        param = list(sens.keys())[active]
+        sens[param] /= 2
+        write_sens(param)
+
+    def up_value(param, idx):
+        """ Increase the value of param of idx-th peak """
+        if param == 'A':        # It is outside the peaks dictionary!
+            nonlocal A
+            A += sens['A']
+        elif param == 'B':      # Also B like A
+            nonlocal B
+            B += sens['B']
+        elif 'c' in param:      # Baseline coefficients
+            i_c = int(eval(param.replace('c', '')))
+            bas_c[i_c] += sens[param]
+        else:   # all the rest
+            peaks[idx].__dict__[param] += sens[param]
+            # Make safety check for b
+            if peaks[idx].b > 1:
+                peaks[idx].b = 1
+
+    def down_value(param, idx):
+        """ Decrease the value of param of idx-th peak """
+        if param == 'A':    # It is outside the peaks dictionary!
+            nonlocal A
+            A -= sens['A']
+        elif param == 'B':  # Also B like A
+            nonlocal B
+            B -= sens['B']
+        elif 'c' in param:  # Baseline coefficients
+            i_c = int(eval(param.replace('c', '')))
+            bas_c[i_c] -= sens[param]
+        else:   # all the rest
+            peaks[idx].__dict__[param] -= sens[param]
+            # Safety check for fwhm
+            if peaks[idx].fwhm < 0:
+                peaks[idx].fwhm = 0
+            # Safety check for b
+            if peaks[idx].b < 0:
+                peaks[idx].b = 0
+
+    def scroll(event):
+        """ Connection to mouse scroll """
+        # Get the active parameter and convert it into Peak's attribute
+        active = peak_name.index(peak_radio.value_selected)
+        param = list(sens.keys())[active]
+        # Get the active peak
+        if Np == 0:  # No peaks!
+            idx = 0
+        else:
+            idx = int(np.floor(slider.val * Np) + 1)
+
+        # Do things only if there are peaks or I am trying to move the baseline
+        if Np != 0 or 'c' in param or 'B' in param:
+            nonlocal whole_basl
+            # Fork for up/down
+            if event.button == 'up':
+                up_value(param, idx)
+            if event.button == 'down':
+                down_value(param, idx)
+
+            # Recompute the baseline
+            basl = B * misc.polyn(x_bsl, bas_c)
+            whole_basl = misc.sum_overlay(np.zeros_like(ppm_scale), basl, x_bsl_lims[1], ppm_scale)
+            basl_plot.set_ydata(basl)
+
+        if Np != 0:     # Only if there are peaks
+            # Update the plot of the components
+            for k, _ in enumerate(peaks):
+                p_sgn[k+1].set_ydata(peaks[k+1](A)[lim1:lim2])
+
+            # Recompute the total trace
+            p_fit.set_ydata(whole_basl[lim1:lim2]+calc_total(peaks)[lim1:lim2])
+        # Update the text
+        write_par(idx)
+        write_bpar()
+        redraw()
+
+    def set_group(text):
+        """ Set the attribute 'group' of the active signal according to the textbox """
+        if not Np:  # Clear the textbox and do nothing more
+            group_tb.text_disp.set_text('')
+            plt.draw()
+            return
+        # Get active peak
+        idx = int(np.floor(slider.val * Np) + 1)
+        try:
+            group = int(eval(text))
+        except Exception:
+            group = peaks[idx].group
+        group_tb.text_disp.set_text('')
+        peaks[idx].group = group
+        write_par(idx)
+        write_bpar()
+        redraw()
+
+    def add_peak(event):
+        """ Add a component """
+        nonlocal Np
+        # Increase the number of peaks
+        Np += 1
+        # Add an entry to the dictionary labelled as last
+        peaks[Np] = fit.Peak(acqus, u=np.mean(ax.get_xlim()), N=N, group=lastgroup)
+        # Plot it and add the trace to the plot dictionary
+        p_sgn[Np] = ax.plot(ppm_scale[lim1:lim2], peaks[Np](A)[lim1:lim2], lw=0.8)[-1]
+        # Move the slider to the position of the new peak
+        slider.set_val((Np - 1) / Np)
+        # Recompute the step of the slider
+        slider.valstep = 1 / Np
+        # Calculate the total trace with the new peak
+        total = calc_total(peaks)
+        # Update the total trace plot
+        p_fit.set_ydata(whole_basl[lim1:lim2] + total[lim1:lim2])
+        # Update the text
+        write_par(Np)
+        write_bpar()
+        redraw()
+
+    def remove_peak(event):
+        """ Remove the active component """
+        nonlocal Np, peaks, p_sgn
+        if Np == 0:
+            return
+        # Get the active peak
+        idx = int(np.floor(slider.val * Np) + 1)
+        # Decrease Np of 1
+        Np -= 1
+        # Delete the entry from the peaks dictionary
+        _ = peaks.pop(idx)
+        # Remove the correspondant line from the plot dictionary
+        del_p = p_sgn.pop(idx)
+        # Set it invisible because I cannot truly delete it
+        del_p.set_visible(False)
+        del del_p   # ...at least clear some memory
+        # Change the labels to the dictionary
+        peaks = rename_dic(peaks, Np)
+        p_sgn = rename_dic(p_sgn, Np)
+        # Calculate the total trace without that peak
+        total = calc_total(peaks)
+        # Update the total trace plot
+        p_fit.set_ydata(whole_basl[lim1:lim2] + total[lim1:lim2])
+        # Change the slider position
+        if Np == 0:  # to zero and do not make it move
+            slider.set_val(0)
+            slider.valstep = 1e-10
+            write_par(0)
+            write_bpar()
+        elif Np == 1:   # To zero and that's it
+            slider.set_val(0)
+            slider.valstep = 1 / Np
+            write_par(1)
+            write_bpar()
+        else:   # To the previous point
+            if idx == 1:
+                slider.set_val(0)
+            else:
+                slider.set_val((idx - 2) / Np)     # (idx - 1) -1
+            slider.valstep = 1 / Np
+            write_par(int(np.floor(slider.val * Np) + 1))
+            write_bpar()
+        redraw()
+
+    # -------------------------------------------------------------------------------
+    # Behavior of the EDIT buttons
+
+    def click(event):
+        """ Mouse click behavior -> region selector """
+        # Double left click in the figure panel
+        if event.button == 1 and event.inaxes == ax and event.dblclick:
+            # Highlight a region as selected or reset
+            select_region(event.xdata)
+
+    def select_region(x):
+        """ Search if ``x`` is inside a region, if yes, marks it as selected """
+        nonlocal r_selected
+        # Set as "nothing is selected", useful for early return
+        r_selected = None
+        # Set all the regions to green -> non selected
+        for vspan in reg_span:
+            vspan.set_color('tab:green')
+
+        # Get the limits of all the regions
+        region_limits = [w['limits'] for w in regions]
+        r_idx = None    # Nothing is selected
+        # Check if the x coordinate where I clicked are within a region
+        for k, limits in enumerate(region_limits):
+            if min(limits) < x and x < max(limits):
+                # I am inside! That's the region, store the index and break the loop
+                r_idx = k
+                break
+
+        if r_idx is None:   # => The for never checked the if statement
+            # Reset the appearance and behavior of all the editing buttons to default
+            edit_btn_props(lock_button, '0.85', 'normal', active=False)
+            edit_btn_props(editwin_button, '0.85', 'normal', active=False)
+            edit_btn_props(newwin_button, '0.85', 'bold', active=True)
+            fig.canvas.draw()
+            # Then do nothing else
+            return
+        else:   # The selected region is the r_idx-th
+            r_selected = r_idx
+
+        # Highlighted region becomes purple
+        reg_span[r_idx].set_color('purple')
+        # With a selected region I can unlock and change limits,
+        edit_btn_props(lock_button, 'lightgreen', 'bold', active=True)
+        edit_btn_props(editwin_button, 'lightgreen', 'bold', active=True)
+        # I cannot create a new region
+        edit_btn_props(newwin_button, '0.85', 'normal', active=False)
+        fig.canvas.draw()
+
+    def lockunlock(event):
+        """ Fork function for LOCKING/UNLOCKING """
+        if lock_button.label.get_text() == 'LOCK':  # I am in UNLOCKED state
+            lock(event)
+        elif lock_button.label.get_text() == 'UNLOCK':  # I am in LOCKED state
+            unlock(event)
+
+    def unlock(event):
+        """ Pass from LOCKED to UNLOCKED state """
+        nonlocal peaks, Np, bas_c, A, B, fit_total, whole_basl
+        # Do absolutely NOTHING if there is not a region selected
+        if r_selected is None:
+            return
+        # Update appearance of the buttons
+        #   "unlock" becomes "lock", and red
+        lock_button.label.set_text('LOCK')
+        edit_btn_props(lock_button, 'lightcoral', 'bold', active=True)
+        #   Activate the reset
+        edit_btn_props(reset_button, 'lightgreen', 'normal', active=True)
+        #   Turn off new window and edit window
+        edit_btn_props(editwin_button, '0.85', 'normal', active=False)
+        edit_btn_props(newwin_button, newwin_button.ax.get_facecolor(), 'normal', active=False)
+        # Turn off the purple vertical span
+        reg_span[r_selected].set_visible(False)
+
+        # Unpack the highlighted region and update the editable variables
+        peaks, bas_c, total, whole_basl = extract_unlocked(regions)
+        Np = len(peaks)
+        limits = regions[r_selected]['limits']
+        A = regions[r_selected]['I']
+        B = regions[r_selected]['I']
+
+        # Zoom into the region
+        ax.set_xlim(sorted(limits, reverse=True))
+        misc.set_ylim(ax, misc.trim_data(ppm_scale, S, limits)[1])
+
+        # Make the baseline
+        make_x_basl(event)
+        # Compute the model and the baseline of whatever is not unlocked
+        fit_total, whole_basl = make_total(regions, r_selected)
+
+        # Update the plot
+        #   Peak traces
+        for key, _ in peaks.items():
+            p_sgn[key] = ax.plot(ppm_scale[lim1:lim2], np.zeros_like(ppm_scale)[lim1:lim2])[-1]
+        #   Total model
+        whole_fit.set_ydata(fit_total[lim1:lim2])
+        #   Populate the values and prepare for the editing
+        scroll(event)
+        #   Set the total model of the unlocked region visible
+        p_fit.set_visible(True)
+        #   Set the slider to the first component of the region
+        slider.set_val(0)
+        # Update the valstep of the slider according to how many peaks I have in the region
+        if Np == 0:  # to zero and do not make it move
+            slider.valstep = 1e-10
+        else:
+            slider.valstep = 1 / Np
+        # Write the values next to the editable parameters
+        write_par(0)
+        write_bpar()
+        # Deactivate the dangerous buttons
+        plus_button.set_active(True)
+        minus_button.set_active(True)
+        fig.canvas.draw()
+
+    def lock(event):
+        """ Pass from UNLOCKED to LOCKED state """
+        nonlocal fit_total, whole_basl, sens
+        # If the unlocked region does not have peaks, remove the whole region
+        if len(peaks) == 0:
+            _ = regions.pop(r_selected)
+            # And the span as well
+            active_span = reg_span.pop(r_selected)
+            active_span.remove()
+            del active_span
+        else:
+            # Correct the baseline coefficients
+            bas_c_norm = B / A * bas_c
+            # Instanciate a new dictionary for the edited values
+            new_region = {
+                    # Limits stay the same
+                    'limits': regions[r_selected]['limits'],
+                    'I': A,     # Intensity is the one of the edited region
+                    'bas_c': bas_c_norm,    # Baseline from the GUI
+                    **peaks                 # These are Peak objects
+                    }
+            # Replace the Peak object with their dictionary of parameters
+            for key, item in new_region.items():
+                # Avoid 'limits', 'I' and 'bas_c'
+                if isinstance(item, fit.Peak):
+                    new_region[key] = item.par()
+            # Replace the edited region with the new one
+            regions[r_selected] = new_region
+            # Make the region span visible again
+            reg_span[r_selected].set_visible(True)
+
+        # Empty the peaks dictionary in a "safe" way
+        for k in range(Np):
+            remove_peak(event)
+
+        # Reset sensitivity to defaults
+        sens = deepcopy(_sens)
+
+        # Change appearance and behavior of the buttons
+        #   UNLOCK -> LOCK, green
+        lock_button.label.set_text('UNLOCK')
+        edit_btn_props(lock_button, 'lightgreen', 'bold', active=True)
+        #   As in the initial state
+        edit_btn_props(newwin_button, '0.85', 'bold', active=True)
+        edit_btn_props(editwin_button, 'lightgreen', 'bold', active=True)
+        edit_btn_props(reset_button, '0.85', 'normal', active=False)
+        #   Clear selection
+        select_region(np.inf)
+
+        # Reset the zoom of the figure
+        ax.set_xlim(_xlim)
+        ax.set_ylim(_ylim)
+
+        # Make the model trace of the unlocked region invisible
+        p_fit.set_visible(False)
+
+        # Compute total trace including the edited region
+        fit_total, whole_basl = make_total(regions)
+        # Update the plots
+        whole_fit.set_ydata(fit_total[lim1:lim2])
+        basl_plot.set_data(ppm_scale[lim1:lim2], whole_basl[lim1:lim2])
+        # Deactivate the dangerous buttons
+        plus_button.set_active(False)
+        minus_button.set_active(False)
+        fig.canvas.draw()
+
+    def activate_span_region(event):
+        """ Use a spanselector to change the limits of an existing window """
+        # Do NOTHING if a region is not selected
+        if r_selected is None:
+            return
+
+        # Activation
+        if editwin_button.label.get_text() == 'Change window\nlimits':
+            # Change button label and appearance
+            editwin_button.label.set_text('CLICK TO\nCONFIRM')
+            edit_btn_props(editwin_button, 'lightcoral', 'normal')
+
+            # Deactivate the UNLOCK and the NEW REGION buttons
+            edit_btn_props(lock_button, '0.85', 'normal', active=False)
+            edit_btn_props(newwin_button, '0.85', 'normal', active=False)
+
+            # Set the corresponding axvspan invisible
+            reg_span[r_selected].set_visible(False)
+            # Transform the original span into a red spanselector
+            vspan_x, vspan_w = reg_span[r_selected].get_x(), reg_span[r_selected].get_width()
+            original_extents = vspan_x, vspan_x + vspan_w
+            rspansel.extents = original_extents
+            # Make it visible and active
+            rspansel.set_visible(True)
+            rspansel.set_active(True)
+
+        # Deactivation
+        elif editwin_button.label.get_text() == 'CLICK TO\nCONFIRM':
+            # Compute the new limits from the coordinates of the spanselector
+            new_x = min(rspansel.extents)
+            new_width = max(rspansel.extents)-min(rspansel.extents)
+            # Do not update if region is less than 10 Hz
+            if new_width * SFO1 < 10:
+                return
+
+            # Change button label and appearance
+            editwin_button.label.set_text('Change window\nlimits')
+            edit_btn_props(editwin_button, '0.85', 'normal')
+            edit_btn_props(newwin_button, '0.85', 'normal', active=True)
+            edit_btn_props(newwin_button, '0.85', 'normal', active=True)
+
+            # Update the axvspan that was invisible
+            reg_span[r_selected].set_x(new_x)
+            reg_span[r_selected].set_width(new_width)
+            # Set it visible
+            reg_span[r_selected].set_visible(True)
+
+            # Update the regions dict with the new limits
+            regions[r_selected]['limits'] = sorted(rspansel.extents, reverse=True)
+
+            # Make the spanselector invisible and inactive
+            rspansel.set_visible(False)
+            rspansel.set_active(False)
+
+            # Reset the selection by passing an impossible value
+            select_region(np.inf)
+
+        # Update the plot
+        fig.canvas.draw()
+
+    def create_new_region(event):
+        """ Create the new region as you would do in the normal GUI for creating the initial guess """
+        nonlocal r_selected
+        # Get the limits from the figure zoom
+        limits = ax.get_xlim()
+        # Set the placeholders by adding a default entry to the regions list
+        regions.append({'limits': limits, 'I': _A})
+        # Put the selected region as the last one
+        r_selected = len(regions) - 1
+        # Append it to region_limits to keep everything consistent
+        region_limits.append(limits)
+        # Add a vspan, green, to the list
+        reg_span.append(ax.axvspan(*limits, color='tab:green', alpha=0.1))
+        # Make the "New Region" button yellow as informative marker
+        edit_btn_props(newwin_button, 'wheat', 'bold', active=False)
+        # Open the new region as it was pre-existing using unlock
+        unlock(event)
+
+    # ------------------------------------------------------------------------
+    # SAVE AND RESET
+    def save(event):
+        """ Write a section in the output file """
+        # Write a whole section of the vf file in here, so start with prev=0
+        nonlocal prev
+        prev = 0
+        # Write the header of the file
+        with filename_x.open('a', buffering=1) as f:
+            now = datetime.now()
+            date_and_time = now.strftime("%d/%m/%Y at %H:%M:%S")
+            f.write('! Edited by {} on {}\n\n'.format(getpass.getuser(), date_and_time))
+
+        for k, region in enumerate(regions):
+            # get limits, intensity and baseline coefficients from "regions"
+            limits = region.pop('limits')
+            A = region.pop('I')
+            bas_c = region.pop('bas_c')
+            # Create the Peaks dictionary
+            peaks = {key: fit.Peak(acqus, **dic_p) for key, dic_p in region.items()}
+            # Write the vf file, the keys of the peaks are updated automatically
+            fit.write_vf(filename_x, peaks, limits, A, prev, bas_c=bas_c)
+            # Update the number of peaks
+            prev += len(peaks)
+
+        # Close the GUI
+        plt.close()
+        print(f'Edited parameters written in {filename_x}.\n', c='tab:blue')
+
+    def reset(event):
+        """ Return the active region as it was before unlocking """
+        nonlocal fit_total, whole_basl
+        # Continue only if I am in the UNLOCKED situation
+        if r_selected is None or lock_button.label.get_text() == 'UNLOCK':
+            return
+        # Update the GUI:
+        #   Make the region highlight visible again
+        reg_span[r_selected].set_visible(True)
+        #   Change UNLOCKED -> LOCKED
+        lock_button.label.set_text('UNLOCK')
+        #   Correct appearance and active status of the buttons
+        edit_btn_props(lock_button, 'lightgreen', 'bold', active=True)
+        edit_btn_props(newwin_button, '0.85', 'bold', active=True)
+        edit_btn_props(editwin_button, 'lightgreen', 'bold', active=True)
+        edit_btn_props(reset_button, '0.85', 'normal', active=False)
+        #   Reset the selection to nothing
+        select_region(np.inf)
+
+        # Remove all the peaks from the active region -> empties peaks dict
+        for k in range(Np):
+            remove_peak(event)
+
+        # Reset the zoom of the figure
+        ax.set_xlim(_xlim)
+        ax.set_ylim(_ylim)
+
+        # Compute the model and the baseline as they were before unlocking
+        fit_total, whole_basl = make_total(regions)
+        # Update the plot with them
+        #   Make the plot of the model of the unlocked region invisible
+        p_fit.set_visible(False)
+        #   Plot the whole model
+        whole_fit.set_ydata(fit_total[lim1:lim2])
+        #   Plot the whole baseline
+        basl_plot.set_data(ppm_scale[lim1:lim2], whole_basl[lim1:lim2])
+
+        # Deactivate the dangerous buttons
+        plus_button.set_active(False)
+        minus_button.set_active(False)
+        fig.canvas.draw()
+
+    def key_binding(event):
+        """ Keyboard """
+        key = event.key
+        if key == 'w':
+            make_x_basl(0)
+        if key == '<':
+            down_sens(0)
+        if key == '>':
+            up_sens(0)
+        if key == '+':
+            add_peak(0)
+        if key == '-':
+            remove_peak(0)
+        if key == 'pagedown':
+            if slider.val - slider.valstep >= 0:
+                slider.set_val(slider.val - slider.valstep)
+            selector(0)
+        if key == 'pageup':
+            if slider.val + slider.valstep < 1:
+                slider.set_val(slider.val + slider.valstep)
+            selector(0)
+        if key == 'up' or key == 'down':
+            event.button = key
+            scroll(event)
+
+    # -------------------------------------------------------------------------------
+
+    # Make the plots
+    #   Experimental trace
+    ax.plot(ppm_scale[lim1:lim2], S[lim1:lim2], label='Experimental', lw=1.0, c='k')
+    #   Total trace of active region
+    p_fit = ax.plot(ppm_scale[lim1:lim2], fit_total[lim1:lim2], label='Fit', lw=0.9, c='b', zorder=10)[-1]
+    #   Total trace without active region
+    whole_fit = ax.plot(ppm_scale[lim1:lim2], fit_total[lim1:lim2], label='Fit', lw=0.9, c='b', zorder=10)[-1]
+    #   Baseline
+    basl_plot = ax.plot(x_bsl_2plot, whole_basl, label='Baseline', lw=1.0, c='mediumorchid')[-1]  # Baseline
+    #   Components (empty because it is populated only when you UNLOCK)
+    p_sgn = {}
+    #   Span that highlight the regions
+    region_limits = [w['limits'] for w in regions]
+    reg_span = [ax.axvspan(*lims, color='tab:green', alpha=0.1) for lims in region_limits]
+
+    # Instantiate the text
+    #   Header for current values print
+    head_print = ax.text(0.75, 0.4750,
+                         '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}\n{:>7}'.format(
+                             r'$\delta$', r'$\Gamma$', '$k$', r'$\beta$', r'$\phi$', '$A$', 'Group'),
+                         ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5)
+    #   Text placeholder for the values - linspacing is different to align with the header
+    values_print = ax.text(0.85, 0.4750, '',
+                           ha='right', va='top', transform=fig.transFigure,
+                           fontsize=14, linespacing=1.55)
+    ax.text(0.75, 0.2250,
+            '{:>7s}\n{:>5}\n{:>5}\n{:>5}\n{:>7}\n{:>7}'.format(
+                r'$c_0$', r'$c_1$', '$c_2$', '$c_3$', '$c_4$', '$B$'),
+            ha='right', va='top', transform=fig.transFigure, fontsize=14, linespacing=1.5, color='mediumorchid')
+    #    Text placeholder for the values - linspacing is different to align with the header
+    valuesb_print = ax.text(0.85, 0.2250, '',
+                            ha='right', va='top', transform=fig.transFigure,
+                            fontsize=14, linespacing=1.55)
+    #   Populate
+    write_bpar()
+
+    #   Text to display the active sensitivity values
+    sens_print = ax.text(0.875, 0.775, f'Sensitivity: $\\pm${sens["u"]:10.4g}',
+                         ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
+
+    # Make pretty scales and bigger fontsizes
+    ax.set_xlim(max(limits[0], limits[1]), min(limits[0], limits[1]))
+    misc.pretty_scale(ax, ax.get_xlim(), axis='x', n_major_ticks=10)
+    misc.pretty_scale(ax, ax.get_ylim(), axis='y', n_major_ticks=10)
+    misc.mathformat(ax)
+    misc.set_fontsizes(ax, 14)
+
+    # RESET values for xlim and ylim
+    _xlim = ax.get_xlim()
+    _ylim = ax.get_ylim()
+
+    # Connect the widgets to their slots
+    #   Buttons
+    plus_button.on_clicked(add_peak)
+    minus_button.on_clicked(remove_peak)
+    up_button.on_clicked(up_sens)
+    down_button.on_clicked(down_sens)
+    reset_button.on_clicked(reset)
+    save_button.on_clicked(save)
+    basset_button.on_clicked(make_x_basl)
+    editwin_button.on_clicked(activate_span_region)
+    lock_button.on_clicked(lockunlock)
+    newwin_button.on_clicked(create_new_region)
+    #   Slider and textbox for the group
+    slider.on_changed(selector)
+    group_tb.on_submit(set_group)
+    # Radiobuttons
+    peak_radio.on_clicked(radio_changed)
+    # Interactions
+    fig.canvas.mpl_connect('button_press_event', click)         # Mouse clicks
+    fig.canvas.mpl_connect('scroll_event', scroll)              # Mouse scroll
+    fig.canvas.mpl_connect('key_press_event', key_binding)      # Keyboard
+    # Span selector for the limits of the region
+    rspansel = SpanSelector(ax, rspansel_onselect, direction='horizontal',
+                            interactive=True, snap_values=ppm_scale,
+                            props={'color': 'red', 'alpha': 0.1})
+    rspansel.set_active(False)      # ...that starts unactive
+
+    # Start event loop
+    plt.show()
+
+    # Clear memory on closing
+    plt.close()
+
+
 # --------------------------------------------------------------------
 def write_vf(filename, peaks, lims, Int, prev=0, header=False, bas_c=None):
     """
