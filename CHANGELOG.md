@@ -1,4 +1,4 @@
-# Version 0.1.1-dev0
+# Version 0.1.1-dev2
 
 New functions.
 Bug fixes.
@@ -11,6 +11,8 @@ Added linkers to the code hosted on GitHub in the documentation.
 - *processing.sl_bas_onidx*
 07/05/2026
 - *fit.edit_vf*
+- *fit.Voigt_Fit.edit_iguess*
+- *fit.Voigt_Fit.edit_result*
 
 ## Modified functions
 08/04/2026

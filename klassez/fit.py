@@ -2799,21 +2799,30 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
 
 def edit_vf(S_in, ppm_scale, regions, t_AQ, SFO1=701.125, o1p=0, filename='edited', ext='ivf'):
     """
-    Creates the initial guess for a lineshape deconvolution fitting procedure, using a dedicated GUI.
-    The GUI displays the experimental spectrum in black and the total function in blue.
-    First, select the region of the spectrum you want to fit by focusing the zoom on it using the lens button.
-    Then, use the "+" button to add components to the spectrum. The black column of text under the textbox will be colored with the same color of the active peak.
-    Use the mouse scroll to adjust the parameters of the active peak. Write a number in the "Group" textbox to mark the components of the same multiplet.
-    Group 0 identifies independent peaks, not part of a multiplet (default).
-    The sensitivity of the mouse scroll can be regulated using the "up arrow" and "down arrow" buttons.
-    The active peak can be changed in any moment using the slider.
+    Allows for interactive modification of either initial guesses or fit results, read by `.vf` files.
 
-    The baseline can be computed first by initializing the x-scale on the selected window through the "SET BASL" button. The informer light next to the button becomes green if it is properly set.
-    The baseline coefficients can be set with the mouse scroll analogously to any other parameter.
+    The GUI displays the experimental spectrum in black and the total model function in blue.
+    The already-modelled regions are highlighted by a green vertical span.
 
-    When you are satisfied with your fit, press "SAVE" to write the information in the output file.
-    Then, the GUI is brought back to the initial situation, and the region you were working on will be marked with a green rectangle.
-    You can repeat the procedure as many times as you wish, to prepare the guess on multiple spectral windows.
+    Double-click with the left button of the mouse on a region to select it: from green it will become violet.
+    To change the limits of the region, press the "Change Window Limits" button. The highlighted region will become red, and you can drag it to adjust the position of the window limits.
+    Press the button again to store the new values.
+
+    To edit the model of a region, after you selected it, press the "UNLOCK" button.
+    The peaks that contribute to that region gets unpacked, and become editable.
+    Use the slider to move between the various components, and the mouse scroll to change the model parameters.
+    Use the "+" and "-" buttons to add or remove components.
+    Press "LOCK" to save your modification. Press "RESET" to restore the region model as it was before pressing "UNLOCK".
+
+    To add a new region, select the region of the spectrum you want to fit by focusing the zoom on it using the lens button.
+    Then, press the "New Region" button, that will become yellow.
+    Add and move the components as you would do to edit a pre-existing region.
+    Press "LOCK" to save the new region.
+
+    To remove a region, UNLOCK it and remove all the components, then press "LOCK". The associated green span will disappear.
+
+    At the end, press "SAVE and EXIT" to write the edited `.vf` file and close the GUI.
+
 
     Keyboard shortcuts:
 
@@ -3068,6 +3077,7 @@ def edit_vf(S_in, ppm_scale, regions, t_AQ, SFO1=701.125, o1p=0, filename='edite
     lastgroup = 0       # Placeholder for last group added
     prev = 0            # Number of previous peaks
     r_selected = None   # Region selected (index)
+    exit_status = 1     # Becomes "0" if you press "SAVE"
 
     # Baseline scale
     x_bsl = np.linspace(0, 1, N)
@@ -3537,8 +3547,7 @@ def edit_vf(S_in, ppm_scale, regions, t_AQ, SFO1=701.125, o1p=0, filename='edite
         else:
             slider.valstep = 1 / Np
         # Write the values next to the editable parameters
-        write_par(0)
-        write_bpar()
+        selector(None)
         # Deactivate the dangerous buttons
         plus_button.set_active(True)
         minus_button.set_active(True)
@@ -3693,7 +3702,7 @@ def edit_vf(S_in, ppm_scale, regions, t_AQ, SFO1=701.125, o1p=0, filename='edite
     def save(event):
         """ Write a section in the output file """
         # Write a whole section of the vf file in here, so start with prev=0
-        nonlocal prev
+        nonlocal prev, exit_status
         prev = 0
         # Write the header of the file
         with filename_x.open('a', buffering=1) as f:
@@ -3715,6 +3724,7 @@ def edit_vf(S_in, ppm_scale, regions, t_AQ, SFO1=701.125, o1p=0, filename='edite
 
         # Close the GUI
         plt.close()
+        exit_status = 0
         print(f'Edited parameters written in {filename_x}.\n', c='tab:blue')
 
     def reset(event):
@@ -3790,7 +3800,7 @@ def edit_vf(S_in, ppm_scale, regions, t_AQ, SFO1=701.125, o1p=0, filename='edite
     #   Experimental trace
     ax.plot(ppm_scale[lim1:lim2], S[lim1:lim2], label='Experimental', lw=1.0, c='k')
     #   Total trace of active region
-    p_fit = ax.plot(ppm_scale[lim1:lim2], fit_total[lim1:lim2], label='Fit', lw=0.9, c='b', zorder=10)[-1]
+    p_fit = ax.plot(ppm_scale[lim1:lim2], fit_total[lim1:lim2], lw=0.9, c='b', zorder=10)[-1]
     #   Total trace without active region
     whole_fit = ax.plot(ppm_scale[lim1:lim2], fit_total[lim1:lim2], label='Fit', lw=0.9, c='b', zorder=10)[-1]
     #   Baseline
@@ -3827,6 +3837,7 @@ def edit_vf(S_in, ppm_scale, regions, t_AQ, SFO1=701.125, o1p=0, filename='edite
                          ha='center', va='bottom', transform=fig.transFigure, fontsize=14)
 
     # Make pretty scales and bigger fontsizes
+    ax.legend()
     ax.set_xlim(max(limits[0], limits[1]), min(limits[0], limits[1]))
     misc.pretty_scale(ax, ax.get_xlim(), axis='x', n_major_ticks=10)
     misc.pretty_scale(ax, ax.get_ylim(), axis='y', n_major_ticks=10)
@@ -3869,6 +3880,10 @@ def edit_vf(S_in, ppm_scale, regions, t_AQ, SFO1=701.125, o1p=0, filename='edite
 
     # Clear memory on closing
     plt.close()
+
+    # If exit_status is not 0 you did not SAVE!
+    if exit_status:
+        print('WARNING: changes were not saved!', c='yellow')
 
 
 # --------------------------------------------------------------------
@@ -4604,6 +4619,100 @@ class Voigt_Fit:
         # Store
         self.result = fit.read_vf(filename.with_suffix('.fvf'))
         return lmfit_results
+
+    def edit_iguess(self, filename=None, ext='ivf'):
+        """
+        Edit the initial guess of the fit, stored in the ``self.i_guess`` attribute, through the use of a dedicated GUI.
+        First, compute or load the initial guess by calling ``self.iguess`` with the appropriate filename.
+        Then you can call this method to refine.
+
+        Remember to read the documentation of the GUI to understand how to use it!
+
+        Parameters
+        ----------
+        filename : str or Path
+            Filename to be saved and read again after the edit. If ``None``, ``self.filename`` is used.
+        ext : str
+            ``'ivf'`` or ``'fvf'``
+
+        Returns
+        -------
+        None
+
+        .. seealso::
+
+            :func:`klassez.fit.edit_vf`
+            :func:`klassez.fit.Voigt_Fit.iguess`
+        """
+        # Default filename if not given
+        if filename is None:
+            filename = self.filename
+        # Backup
+        old_regions = deepcopy(self.i_guess)
+        # Call the editing GUI
+        self._edit_wgui(old_regions, filename=filename, ext=ext)
+
+        # Check if the file exists
+        filename_x = Path(filename).with_suffix(f'.{ext}')
+        if not filename_x.exists():
+            raise NameError(f'{filename_x} does not exist.')
+        else:
+            self.iguess(filename=filename, ext=ext)
+
+    def edit_result(self, filename=None, ext='fvf'):
+        """
+        Edit the result of the fit, stored in the ``self.result`` attribute, through the use of a dedicated GUI.
+        First, compute or load the initial guess by calling ``self.dofit`` or ``self.load_fit`` with the appropriate filename.
+        Then you can call this method to refine.
+
+        Remember to read the documentation of the GUI to understand how to use it!
+
+        Parameters
+        ----------
+        filename : str or Path
+            Filename to be saved and read again after the edit. If ``None``, ``self.filename`` is used.
+        ext : str
+            ``'ivf'`` or ``'fvf'``
+
+        Returns
+        -------
+        None
+
+        .. seealso::
+
+            :func:`klassez.fit.edit_vf`
+            :func:`klassez.fit.Voigt_Fit.dofit`
+            :func:`klassez.fit.Voigt_Fit.load_fit`
+        """
+        # Default filename if not given
+        if filename is None:
+            filename = self.filename
+        # Backup
+        old_regions = deepcopy(self.result)
+        # Call the editing GUI
+        self._edit_wgui(old_regions, filename=filename, ext=ext)
+
+        # Check if the file exists
+        filename_x = Path(filename).with_suffix(f'.{ext}')
+        if not filename_x.exists():
+            raise NameError(f'{filename_x} does not exist.')
+        else:
+            self.load_fit(filename=filename, ext=ext)
+
+    def _edit_wgui(self, regions, filename=None, ext='ivf'):
+        """
+        Wrapper function to call for the editing via GUI of either the initial guess or the fit result.
+
+        Parameters
+        ----------
+        regions : list of dict
+            ``self.i_guess`` or ``self.result``
+        filename : str or Path
+            Filename to be saved and read again after the edit. If ``None``, ``self.filename`` is used.
+        ext : str
+            ``'ivf'`` or ``'fvf'``
+        """
+        fit.edit_vf(self.S, self.ppm_scale, regions, self.t_AQ, self.SFO1, self.o1p, filename=filename, ext=ext)
 
     def plot(self, what='result', show_total=True, show_res=False, res_offset=0, show_basl=False, labels=None, filename=None, ext='png', dpi=600, dim=None):
         """
