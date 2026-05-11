@@ -26,7 +26,7 @@ sys.path.insert(0, str(basedir_kz))
 project = 'klassez'
 copyright = '2025, Francesco Bruno and Letizia Fiorucci'
 author = 'Francesco Bruno and Letizia Fiorucci'
-release = '0.1.1.dev0'
+release = "0.2.0.dev0"
 
 if 'dev' in release:
     branch = 'dev'

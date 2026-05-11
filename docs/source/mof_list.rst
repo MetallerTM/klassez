@@ -13,6 +13,7 @@ List of modules and functions
    sim
    fit
    anal
+   gui
    Spectra
    
 
