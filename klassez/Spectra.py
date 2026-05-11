@@ -301,7 +301,7 @@ class Spectrum_1D:
     def process(self, interactive=False):
         """
         Performs the processing of the FID. The parameters are read from ``self.procs``.
-        Calls :func:`klassez.processing.interactive_fp` or :func:`klassez.processing.fp` using ``self.acqus`` and ``self.procs``
+        Calls :func:`klassez.gui.interactive_fp` or :func:`klassez.processing.fp` using ``self.acqus`` and ``self.procs``
         Writes the result is ``self.S``, then unpacks it in ``self.r`` and ``self.i``
         Calculates frequency and ppm scales.
         Also initializes ``self.F`` with :class:`klassez.fit.Voigt_Fit` class using the current parameters.
@@ -319,13 +319,13 @@ class Spectrum_1D:
 
             :func:`klassez.processing.fp`
 
-            :func:`klassez.processing.interactive_fp`
+            :func:`klassez.gui.interactive_fp`
 
             :class:`klassez.fit.Voigt_Fit`
 
         """
         if interactive is True:
-            self.S, self.procs = processing.interactive_fp(self.fid, self.acqus, self.procs)
+            self.S, self.procs = gui.interactive_fp(self.fid, self.acqus, self.procs)
         else:
             self.S = processing.fp(self.fid, wf=self.procs['wf'], zf=self.procs['zf'], fcor=self.procs['fcor'], tdeff=self.procs['tdeff'])
         if self.acqus['spect'] not in ['bruker', 'simulated']:   # Bruker data are meant to be ordered already
@@ -447,7 +447,7 @@ class Spectrum_1D:
 
             :func:`klassez.processing.ps`
 
-            :func:`klassez.processing.interactive_phase_1D`
+            :func:`klassez.gui.interactive_phase_1D`
 
         """
         # Adjust the phases
@@ -722,7 +722,7 @@ class Spectrum_1D:
 
             { 'u': u, 's': s }
 
-        Otherwise, these are set interactively by :func:`klassez.processing.interactive_qfil` and then added to ``self.procs``.
+        Otherwise, these are set interactively by :func:`klassez.gui.interactive_qfil` and then added to ``self.procs``.
 
         Parameters
         ----------
@@ -741,7 +741,7 @@ class Spectrum_1D:
 
         .. seealso::
 
-            :func:`klassez.processing.interactive_qfil`
+            :func:`klassez.gui.interactive_qfil`
         """
         if fqscale:
             x = self.freq
@@ -753,7 +753,7 @@ class Spectrum_1D:
             self.procs['qfil'] = {'u': u, 's': s}
         for key, value in self.procs['qfil'].items():
             if value is None or not from_procs:   # At the first non-set value, do the interactive correction
-                u, self.procs['qfil']['s'] = processing.interactive_qfil(x, self.r, SFO1)
+                u, self.procs['qfil']['s'] = gui.interactive_qfil(x, self.r, SFO1)
                 if fqscale:     # convert chemical shift from Hz to ppm
                     self.procs['qfil']['u'] = misc.freq2ppm(u, self.acqus['SFO1'], self.acqus['o1p'])
                 else:
@@ -1508,7 +1508,7 @@ class Spectrum_2D:
         """
         Performs the full processing of the FID on both dimensions. The parameters are read from ``self.procs``.
         If ``FnMODE='Echo-Antiecho'`` and you did not call :func:`self.eae` before, the FID is converted to States-TPPI with :func:`klassez.processing.eae` before to start.
-        If ``interactive=True``, calls :func:`klassez.processing.interactive_xfb` with ``int_kwargs``, else calls :func:`klassez.processing.xfb`.
+        If ``interactive=True``, calls :func:`klassez.gui.interactive_xfb` with ``int_kwargs``, else calls :func:`klassez.processing.xfb`.
 
         The complex/hypercomplex spectrum is stored in ``self.S``, then unpacked into ``self.rr``, ``self.ri``, ``self.ir``, ``self.ii``.
         If ``FnMODE='Echo-Antiecho'``, a phase correction of -90 degrees is applied on the indirect dimension.
@@ -1518,7 +1518,7 @@ class Spectrum_2D:
         interactive : bool
             True if you want to open the interactive panel, False to read the parameters from ``self.procs``.
         int_kwargs : keyworded arguments
-            Additional parameters for :func:`klassez.processing.interactive_xfb`, if ``interactive=True``.
+            Additional parameters for :func:`klassez.gui.interactive_xfb`, if ``interactive=True``.
 
         Returns
         -------
@@ -1528,7 +1528,7 @@ class Spectrum_2D:
 
             :func:`klassez.processing.eae`
 
-            :func:`klassez.processing.interactive_xfb`
+            :func:`klassez.gui.interactive_xfb`
 
             :func:`klassez.processing.xfb`
 
@@ -1540,7 +1540,7 @@ class Spectrum_2D:
 
         # Call for the interacrive processing
         if interactive is True:
-            self.S, self.procs = processing.interactive_xfb(self.fid, self.acqus, self.procs, **int_kwargs)
+            self.S, self.procs = gui.interactive_xfb(self.fid, self.acqus, self.procs, **int_kwargs)
         else:
             self.S = processing.xfb(self.fid, wf=self.procs['wf'], zf=self.procs['zf'], fcor=self.procs['fcor'], tdeff=self.procs['tdeff'], FnMODE=self.acqus['FnMODE'], u=False)
 
@@ -1691,7 +1691,7 @@ class Spectrum_2D:
 
             :func:`klassez.processing.ps`
 
-            :func:`klassez.processing.interactive_phase_2D`
+            :func:`klassez.gui.interactive_phase_2D`
 
         """
         interactive = True      # by default
@@ -1730,9 +1730,9 @@ class Spectrum_2D:
         else:
             # Call interactive phase correction
             if self.acqus['FnMODE'] in ['QF', 'No', 'QF-nofreq']:
-                self.S, values_f1, values_f2 = processing.interactive_phase_2D(self.ppm_f1, self.ppm_f2, self.S, False)
+                self.S, values_f1, values_f2 = gui.interactive_phase_2D(self.ppm_f1, self.ppm_f2, self.S, False)
             else:
-                self.S, values_f1, values_f2 = processing.interactive_phase_2D(self.ppm_f1, self.ppm_f2, self.S)
+                self.S, values_f1, values_f2 = gui.interactive_phase_2D(self.ppm_f1, self.ppm_f2, self.S)
 
         # update the procs dictionary
         if update:
@@ -1767,12 +1767,12 @@ class Spectrum_2D:
         """
         Gaussian filter to suppress signals.
         Tries to read ``self.procs['qfil']``, which is ``{ 'u': u, 's': s }``
-        Otherwise, these are set interactively by :func:`klassez.processing.interactive_qfil` and then added to ``self.procs``.
+        Otherwise, these are set interactively by :func:`klassez.gui.interactive_qfil` and then added to ``self.procs``.
 
         Parameters
         ----------
         which : int or None
-            Index of the F2 trace to be used for :func:`klassez.processing.interactive_qfil`. If None, a suitable trace can be selected using :func:`klassez.anal.select_traces`.
+            Index of the F2 trace to be used for :func:`klassez.gui.interactive_qfil`. If None, a suitable trace can be selected using :func:`klassez.anal.select_traces`.
         u : float
             Position /ppm
         s : float
@@ -1792,7 +1792,7 @@ class Spectrum_2D:
 
         .. seealso::
 
-            :func:`klassez.processing.interactive_qfil`
+            :func:`klassez.gui.interactive_qfil`
 
             :func:`klassez.anal.select_traces`
 
@@ -1821,7 +1821,7 @@ class Spectrum_2D:
                     which_list = anal.select_traces(self.ppm_f1, self.ppm_f2, self.rr, Neg=True)
                     which, _ = misc.ppmfind(self.ppm_f1, which_list[0][1])
                 # Now get the values
-                u, self.procs['qfil']['s'] = processing.interactive_qfil(x, self.rr[which], SFO1)
+                u, self.procs['qfil']['s'] = gui.interactive_qfil(x, self.rr[which], SFO1)
                 if fqscale:     # convert the chemical shift to ppm
                     self.procs['qfil']['u'] = misc.freq2ppm(u, SFO, O1P)
                 else:
@@ -2823,7 +2823,7 @@ class Pseudo_2D(Spectrum_2D):
 
             :func:`klassez.processing.ps`
 
-            :func:`klassez.processing.interactive_phase_1D`
+            :func:`klassez.gui.interactive_phase_1D`
         """
         # Get the reference spectrum
         S = self.S[expno]
@@ -3161,12 +3161,12 @@ class Pseudo_2D(Spectrum_2D):
         """
         Gaussian filter to suppress signals.
         Tries to read ``self.procs['qfil']``, which is ``{ 'u': u, 's': s }``
-        Otherwise, these are set interactively by :func:`klassez.processing.interactive_qfil` and then added to ``self.procs``.
+        Otherwise, these are set interactively by :func:`klassez.gui.interactive_qfil` and then added to ``self.procs``.
 
         Parameters
         ----------
         which : int or None
-            Index of the F2 trace to be used for :func:`klassez.processing.interactive_qfil`. If None, a suitable trace can be selected using :func:`klassez.anal.select_traces`.
+            Index of the F2 trace to be used for :func:`klassez.gui.interactive_qfil`. If None, a suitable trace can be selected using :func:`klassez.anal.select_traces`.
         u : float
             Position /ppm
         s : float
@@ -3182,7 +3182,7 @@ class Pseudo_2D(Spectrum_2D):
 
         .. seealso::
 
-            :func:`klassez.processing.interactive_qfil`
+            :func:`klassez.gui.interactive_qfil`
 
             :func:`klassez.anal.select_traces`
 
@@ -3208,13 +3208,13 @@ class Pseudo_2D(Spectrum_2D):
 
         .. seealso::
 
-            :func:`klassez.fit.get_region`
+            :func:`klassez.gui.get_region`
 
             :func:`klassez.processing.align`
         """
         # Get the region of the reference peak
         if lims is None:
-            lims = fit.get_region(self.ppm_f2, self.rr[ref_idx], rev=True)
+            lims = gui.get_region(self.ppm_f2, self.rr[ref_idx], rev=True)
         # Align
         self.S, roll_pt, roll_ppm = processing.align(self.ppm_f2, self.S, lims, u_off, ref_idx)
         # Update the procs dictionary
@@ -3910,7 +3910,7 @@ class DOSY_T1:
 
             :func:`klassez.processing.ps`
 
-            :func:`klassez.processing.interactive_phase_1D`
+            :func:`klassez.gui.interactive_phase_1D`
         """
         if fromplane is None:
             values = p0, p1, pv

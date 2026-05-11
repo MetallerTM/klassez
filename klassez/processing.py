@@ -489,7 +489,7 @@ def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False, ref
 
     .. seealso::
 
-        :func:`klassez.processing.interactive_phase_1D`
+        :func:`klassez.gui.interactive_phase_1D`
     """
     if p0 is None and p1 is None:
         interactive = True
@@ -505,7 +505,7 @@ def ps(data, ppmscale=None, p0=None, p1=None, pivot=None, interactive=False, ref
         raise ValueError('PPM scale not supplied. Aborting...')
 
     if interactive is True and len(data.shape) < 2:
-        datap, final_values = processing.interactive_phase_1D(ppmscale, data, reference)
+        datap, final_values = gui.interactive_phase_1D(ppmscale, data, reference)
     else:
         p0 = p0 * np.pi / 180
         p1 = p1 * np.pi / 180

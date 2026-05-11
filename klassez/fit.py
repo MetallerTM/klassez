@@ -1362,7 +1362,7 @@ def write_vf(filename, peaks, lims, Int, prev=0, header=False, bas_c=None):
 
         :func:`klassez.fit.read_vf`
 
-        :func:`klassez.fit.make_iguess`
+        :func:`klassez.gui.make_iguess`
     """
     # Adjust the intensities
     r_i, I_corr = misc.molfrac([peak.k for _, peak in peaks.items()])
@@ -1915,7 +1915,7 @@ class Voigt_Fit:
     def iguess(self, filename=None, n=-1, ext='ivf', auto=False):
         """
         Reads, or computes, the initial guess for the fit.
-        If the file is there already, it just reads it with ``fit.read_vf``. Otherwise, it calls ``fit.make_iguess`` to make it.
+        If the file is there already, it just reads it with ``fit.read_vf``. Otherwise, it calls ``gui.make_iguess`` to make it.
 
         Parameters
         ----------
@@ -1934,9 +1934,9 @@ class Voigt_Fit:
 
         .. seealso::
 
-            :func:`klassez.fit.make_iguess`
+            :func:`klassez.gui.make_iguess`
 
-            :func:`klassez.fit.make_iguess_auto`
+            :func:`klassez.gui.make_iguess_auto`
 
             :func:`klassez.fit.read_vf`
         """
@@ -1952,9 +1952,9 @@ class Voigt_Fit:
             regions = fit.read_vf(filename_x)
         else:                           # Make the initial guess interactively and save the file.
             if auto:
-                fit.make_iguess_auto(self.ppm_scale, self.S, self.SW, self.SFO1, self.o1p, filename=filename)
+                gui.make_iguess_auto(self.ppm_scale, self.S, self.SW, self.SFO1, self.o1p, filename=filename)
             else:
-                fit.make_iguess(self.S, self.ppm_scale, self.t_AQ, self.SFO1, self.o1p, filename=filename)
+                gui.make_iguess(self.S, self.ppm_scale, self.t_AQ, self.SFO1, self.o1p, filename=filename)
             regions = fit.read_vf(filename_x)
         # Store it
         self.i_guess = regions
@@ -1979,9 +1979,9 @@ class Voigt_Fit:
 
         .. seealso::
 
-            :func:`klassez.fit.make_iguess`
+            :func:`klassez.gui.make_iguess`
 
-            :func:`klassez.fit.make_iguess_auto`
+            :func:`klassez.gui.make_iguess_auto`
 
             :func:`klassez.fit.read_vf`
         """
@@ -2087,7 +2087,7 @@ class Voigt_Fit:
 
         .. seealso::
 
-            :func:`klassez.fit.edit_vf`
+            :func:`klassez.gui.edit_vf`
             :func:`klassez.fit.Voigt_Fit.iguess`
         """
         # Default filename if not given
@@ -2126,7 +2126,7 @@ class Voigt_Fit:
 
         .. seealso::
 
-            :func:`klassez.fit.edit_vf`
+            :func:`klassez.gui.edit_vf`
             :func:`klassez.fit.Voigt_Fit.dofit`
             :func:`klassez.fit.Voigt_Fit.load_fit`
         """
@@ -2158,7 +2158,7 @@ class Voigt_Fit:
         ext : str
             ``'ivf'`` or ``'fvf'``
         """
-        fit.edit_vf(self.S, self.ppm_scale, regions, self.t_AQ, self.SFO1, self.o1p, filename=filename, ext=ext)
+        gui.edit_vf(self.S, self.ppm_scale, regions, self.t_AQ, self.SFO1, self.o1p, filename=filename, ext=ext)
 
     def plot(self, what='result', show_total=True, show_res=False, res_offset=0, show_basl=False, labels=None, filename=None, ext='png', dpi=600, dim=None):
         """
@@ -2561,7 +2561,7 @@ def peak_pick_2D(ppm_f1, ppm_f2, data, coord_filename='coord.tmp'):
 
 def build_2D_sgn(parameters, acqus, N=None, procs=None):
     """
-    Create a 2D signal according to the final parameters returned by :func:`klassez.fit.make_iguess_2D`.
+    Create a 2D signal according to the final parameters returned by :func:`klassez.gui.make_iguess_2D`.
     Process it according to ``procs``.
 
     Parameters
@@ -2997,11 +2997,11 @@ class Voigt_Fit_2D:
                 parameters, interval = auto_val(self.ppm_f1, self.ppm_f2, tr1, tr2, u1, u2, fwhm0, self.acqus)
             elif auto is True and only_edit is not None:    # Interactively guess only the given peaks, all the others automatically
                 if peak_index in only_edit:
-                    parameters, interval = fit.gen_iguess_2D(self.ppm_f1, self.ppm_f2, tr1, tr2, u1, u2, self.acqus, fwhm0, self.procs)
+                    parameters, interval = gui.gen_iguess_2D(self.ppm_f1, self.ppm_f2, tr1, tr2, u1, u2, self.acqus, fwhm0, self.procs)
                 else:
                     parameters, interval = auto_val(self.ppm_f1, self.ppm_f2, tr1, tr2, u1, u2, fwhm0, self.acqus)
             else:   # All interactively
-                parameters, interval = fit.gen_iguess_2D(self.ppm_f1, self.ppm_f2, tr1, tr2, u1, u2, self.acqus, fwhm0, self.procs)
+                parameters, interval = gui.gen_iguess_2D(self.ppm_f1, self.ppm_f2, tr1, tr2, u1, u2, self.acqus, fwhm0, self.procs)
 
             for values in parameters:   # Write the parameters
                 self._write_par_line(f, self.acqus, peak_index, values, interval_f1=interval[0], interval_f2=interval[1])
@@ -3827,7 +3827,7 @@ def make_iguess_dosy(x, labels, data, model, model_args, diff_c_0=1e-10, filenam
     """
     Make the initial guess for the fit of a DOSY spectrum by using a GUI to visually adjust the value of
     the diffusion coefficient and the number of components to use.
-    Calls :func:`fit.make_iguess_dosy_panel` in a loop. A section of the output file is written at the end
+    Calls :func:`gui.make_iguess_dosy_panel` in a loop. A section of the output file is written at the end
     of each loop.
 
     Parameters
@@ -3859,7 +3859,7 @@ def make_iguess_dosy(x, labels, data, model, model_args, diff_c_0=1e-10, filenam
 
     .. seealso::
 
-        :func:`klassez.fit.make_iguess_dosy_panel`
+        :func:`klassez.gui.make_iguess_dosy_panel`
 
         :func:`klassez.write_dy`
     """
@@ -3872,7 +3872,7 @@ def make_iguess_dosy(x, labels, data, model, model_args, diff_c_0=1e-10, filenam
     # Make a loop: call the GUI for each set of integrals
     for k, (label, y) in enumerate(zip(labels, data)):
         print(f'Region {label} [ # {k+1} of {len(labels)}]', end='\r')
-        fit.make_iguess_dosy_panel(x, label, y, model, model_args, diff_c_0, filename)
+        gui.make_iguess_dosy_panel(x, label, y, model, model_args, diff_c_0, filename)
     print(f'\n{filename}.idy saved.', c='tab:blue')
 
 
@@ -4379,7 +4379,7 @@ class Voigt_Fit_P2D:
     def iguess(self, input_file=None, expno=0, n=-1,):
         """
         Reads, or computes, the initial guess for the fit.
-        If the file is there already, it just reads it with fit.read_vf. Otherwise, it calls fit.make_iguess to make it.
+        If the file is there already, it just reads it with fit.read_vf. Otherwise, it calls gui.make_iguess to make it.
 
         Parameters
         ----------
@@ -4398,7 +4398,7 @@ class Voigt_Fit_P2D:
         if path.exists():       # Read everything you need from the file
             regions = fit.read_vf_P2D(path)
         else:                           # Make the initial guess interactively and save the file.
-            fit.make_iguess_P2D(self.S, self.ppm_scale, expno, self.t_AQ, self.SFO1, self.o1p, filename=path.parent / path.stem)
+            gui.make_iguess_P2D(self.S, self.ppm_scale, expno, self.t_AQ, self.SFO1, self.o1p, filename=path.parent / path.stem)
             regions = fit.read_vf_P2D(path)
         # Store it
         self.i_guess = regions
@@ -4647,7 +4647,7 @@ def fit_dosy(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_q=Fals
     y : 1darray
         Experimental data
     iguess : dict
-        Initial guess for the fit, as generated by :func:`klassez.fit.make_iguess_dosy_panel`
+        Initial guess for the fit, as generated by :func:`klassez.gui.make_iguess_dosy_panel`
     model : callable
         Model function. Signature:
 
@@ -4680,7 +4680,7 @@ def fit_dosy(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_q=Fals
 
         :func:`klassez.fit.make_iguess_dosy`
 
-        :func:`klassez.fit.make_iguess_dosy_panel`
+        :func:`klassez.gui.make_iguess_dosy_panel`
 
     """
 
@@ -4787,7 +4787,7 @@ def fit_dosy_multi(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_
     y : 1darray
         Experimental data
     iguess : dict
-        Initial guess for the fit, as generated by :func:`klassez.fit.make_iguess_dosy_panel`
+        Initial guess for the fit, as generated by :func:`klassez.gui.make_iguess_dosy_panel`
     model : callable
         Model function. Signature:
 
@@ -4824,7 +4824,7 @@ def fit_dosy_multi(x, y, iguess, model, model_args, d_bds=3, f_bds=[0, 3], vary_
 
         :func:`klassez.fit.make_iguess_dosy`
 
-        :func:`klassez.fit.make_iguess_dosy_panel`
+        :func:`klassez.gui.make_iguess_dosy_panel`
 
     """
     def f2min(param, x, yy, model, model_args, first_residual=1, calc_I=True, calc_q=False, show_result=False):
@@ -5388,7 +5388,7 @@ class DosyFit:
 
             :func:`klassez.fit.make_iguess_dosy`
 
-            :func:`klassez.fit.make_iguess_dosy_panel`
+            :func:`klassez.gui.make_iguess_dosy_panel`
 
             :func:`klassez.fit.fit_dosy`
 

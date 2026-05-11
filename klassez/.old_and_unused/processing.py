@@ -281,7 +281,7 @@ def baseline_correction(ppm, data, basl_file='spectrum.basl', winlim=None):
         if i == len(coord) - 1:
             break       # Stop before it raises error
         limits = coord[i], coord[i+1]
-        mode, C_f = processing.make_polynomion_baseline(ppm, data, limits)        # Interactive polynomion
+        mode, C_f = gui.make_polynomion_baseline(ppm, data, limits)        # Interactive polynomion
         if isinstance(C_f, str):    # If you press "use spline" in the polynomion interactive figure
             # Get the limits
             lim1 = misc.ppmfind(ppm, limits[0])[0]
@@ -290,7 +290,7 @@ def baseline_correction(ppm, data, basl_file='spectrum.basl', winlim=None):
             # trim ppm and data
             xdata, ydata = ppm[lim1:lim2], data[lim1:lim2]
             # Calculate the spline
-            _, C_f = fit.interactive_smoothing(xdata, ydata)
+            _, C_f = gui.interactive_smoothing(xdata, ydata)
         # Write the section in the file
         processing.write_basl_info(F, limits, mode, C_f)
     F.close()

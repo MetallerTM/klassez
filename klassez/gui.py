@@ -1469,7 +1469,7 @@ def interactive_phase_2D(ppm_f1, ppm_f2, S, hyper=True):
 
         :func:`klassez.processing.ps`
 
-        :func:`klassez.processing.interactive_phase_1D`
+        :func:`klassez.gui.interactive_phase_1D`
     """
 
     # Unpack the hyperser
@@ -2853,7 +2853,7 @@ def make_iguess(S_in, ppm_scale, t_AQ, SFO1=701.125, o1p=0, filename='i_guess'):
 
     .. seealso::
 
-        :func:`klassez.fit.make_iguess_auto`
+        :func:`klassez.gui.make_iguess_auto`
     """
 
     # -----------------------------------------------------------------------
@@ -3417,7 +3417,7 @@ def make_iguess_auto(ppm, data, SW, SFO1, o1p, filename='iguess'):
 
     .. seealso::
 
-        :func:`klassez.fit.make_iguess`
+        :func:`klassez.gui.make_iguess`
 
         :func:`scipy.signal.find_peaks`
 
@@ -3979,8 +3979,8 @@ def edit_vf(S_in, ppm_scale, regions, t_AQ, SFO1=701.125, o1p=0, filename='edite
 
     .. seealso::
 
-        :func:`klassez.fit.make_iguess`
-        :func:`klassez.fit.make_iguess_auto`
+        :func:`klassez.gui.make_iguess`
+        :func:`klassez.gui.make_iguess_auto`
     """
 
     # -----------------------------------------------------------------------
