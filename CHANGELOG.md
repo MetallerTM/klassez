@@ -2,6 +2,7 @@
 
 New functions.
 Bug fixes.
+New module **gui**.
 
 Added linkers to the code hosted on GitHub in the documentation.
 
@@ -17,6 +18,24 @@ Added linkers to the code hosted on GitHub in the documentation.
 ## Modified functions
 08/04/2026
 - *figures.dotmd*: added possibility to reverse the scale to plot not-spectra
+
+## Moved functions
+- *processing.make_polynomion_baseline* -> *gui.make_polynomion_baseline*
+- *processing.interactive_basl_window*
+- *processing.interactive_basl_window* -> *gui.interactive_echo_param*
+- *processing.interactive_fp* -> *gui.interactive_fp*
+- *processing.interactive_phase_1D* -> *gui.interactive_phase_1D*
+- *processing.interactive_phase_2D* -> *gui.interactive_phase_2D*
+- *processing.interactive_qfil* -> *gui.interactive_qfil*
+- *processing.interatvive_xfb* -> *gui.interatvive_xfb*
+- *fit.edit_vf* -> *gui.edit_vf*
+- *fit.gen_iguess_2D* -> *gui.gen_iguess_2D*
+- *fit.get_region* -> *gui.get_region*
+- *fit.interactive_smoothing* -> *gui.interactive_smoothing*
+- *fit.make_iguess* -> *gui.make_iguess*
+- *fit.make_iguess_P2D* -> *gui.make_iguess_P2D*
+- *fit.make_iguess_auto* -> *gui.make_iguess_auto*
+- *fit.make_iguess_dosy_panel* -> *gui.make_iguess_dosy_panel*
 
 
 # Version 0.1.0
