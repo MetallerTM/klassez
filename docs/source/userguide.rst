@@ -762,8 +762,8 @@ Code:
     
 
 
-Processing of a "raw" pseudo-2D`` spectrum
-******************************************
+Processing of a "raw" pseudo-2D spectrum
+****************************************
 
 "Classic" pseudo-2D processing
 ------------------------------
@@ -1100,21 +1100,17 @@ Deconvolution of 1D datasets
 
 The class :class:`klassez.fit.Voigt_Fit` in *KLASSEZ* offers a very convenient
 interface to deconvolve a spectrum by fitting. A shortcut to the class,
-which initializes the parameters automatically, is implemented in the
+which initializes the parameters automatically, is instanced in the
 attribute ``F`` of :class:`Spectrum_1D`.
+
+Creating an initial guess for the fit
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To generate the input guess for the fit, you have to call the method
 :meth:`iguess` of the class. This can work in two different modes: the
-default one, which allows to build the guess peak-by-peak, and with
-``auto=True``, that features a peak-picker for the selection. The former
+default one, which allows to build the guess peak-by-peak (:numref:`f-iguess_man`), and with
+``auto=True``, that features a peak-picker for the selection (:numref:`f-iguess_auto`). The former
 is more precise, the second is much faster.
-
-Whatever the employed method, the building of the initial guess is a
-two-stage process. First, you must zoom in with the :mod:`matplotlib`
-interactive viewer on the region of the spectrum you are interested in.
-Then, you can build the guess following the instructions in the GUI.
-When you press "SAVE", your guess is stored, and the spectrum returns to
-the original view.
 
 The "manual" mode allows to optimize a polynomial baseline for each
 interval. A button labelled "SET BASL" must be pressed when a satisfying
@@ -1124,6 +1120,49 @@ this step is correctly performed, the box next to the button turns from
 red to green. Should the region be moved during the optimization of the
 initial guess, the box turns back to red, and the "SET BASL" button must
 be pressed again to adjust the baseline scale accordingly.
+
+
+.. figure:: _static/Manual_Computation_of_Inital_Guess.png 
+    :name: f-iguess_man
+
+    GUI for the computation of the initial guess, in manual mode. 
+    Zoom on the region you want to model using the lens. Then, press "SET BASL":
+    the red square icon should become green. This allows to set the limits for the baseline.
+
+    At this point, use the "+" button to add a component. You can select the parameter
+    of the selected component to change by selecting it in the radiobuttons on the right:
+    chemical shift, linewidth, relative intensity, phase, fraction of gaussianity.
+    The mouse scroll controls the variation of the active parameter.
+    The parameter "A" changes the intensity of all the components together.
+    The parameters "c0", "c1"... are the coefficient of a 4th order polynomion.
+    "B" is an intensity factor that multiplies all the "c"s.
+
+    Use the slider to change the active component. The arrow buttons at the top control the 
+    sensitivity of the mouse scroll.
+
+    When you are satisfied with the model, press "SAVE". The original zoom is restored, and the modelled
+    region appears highlighted in green. Repeat the process as many times as you want.
+    The `.vf` file is written every time the "SAVE" button is pressed. When you are done, just close the figure.
+    
+.. figure:: _static/Automatic_Computation_of_Initial_Guess.png
+    :name: f-iguess_auto
+
+    GUI for the computation of the initial guess, in automatic mode. 
+    Zoom on the region you want to model using the lens. 
+
+    At this point, use the scroll of the mouse to adjust the height and the prominence for the peak-picker.
+    The integration window, used to estimate the intensity of the components, can be adjusted as well. 
+    The detected positions are marked with a "x". If you want to add a peak that is not included automatically,
+    double-click on the interested position: these will appear with a "+". If you want to remove an automatically detected
+    position, right-click.
+    
+    When you are satisfied with the model, press "SAVE". The original zoom is restored, and the modelled
+    region appears highlighted in green. Repeat the process as many times as you want.
+    The `.vf` file is written every time the "SAVE" button is pressed. When you are done, just close the figure.
+
+
+The .vf files
+^^^^^^^^^^^^^
 
 The information on the peaks is saved in a `.vf` file, which can be
 imported with the function :func:`klassez.fit.read_vf``. There are two kind of
@@ -1181,14 +1220,112 @@ The method :meth:`iguess` automatically search for the existing input file.
 If it finds it, it is automatically loaded. Otherwise, the GUI for the
 computation of the initial guess opens up.
 
-The fit can be performed by calling the method :meth:`dofit`, which returns
+Editing the initial guess via GUI
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+After having loaded the initial guess (and therefore having it stored in the ``i_guess``
+attribute), it is possible to modify it interactively using a dedicated GUI.
+To do so, you have to call the method :meth:`edit_iguess`, which is an indirect call
+for the function :func:`klassez.gui.edit_vf` (:numref:`f-edit_gui`).
+
+Example:
+::
+
+    # ``s`` is a ``Spectrum_1D`` object
+    s.F.iguess(filename='test', ext='ivf')       # reads 'test.ivf'
+    s.F.edit_iguess(filename='test', ext='ivf')  # editing adds and extra section in the same file
+
+In this interface, the initial guess is loaded as a total trace in blue, and the experimental spectrum in black.
+
+In order to minimize the rendering time, the GUI is initialized in "locked" state, which means that all the peaks 
+cannot be edited right-away, and are therefore static traces.
+Double-click with the left button of the mouse on a region to select it: from green it will become violet.
+To change the limits of the region, press the "Change Window Limits" button. The highlighted region will become red, and you can drag it to adjust the position of the window limits.
+Press the button again to store the new values.
+
+To edit the model of a region, after you selected it, press the "UNLOCK" button.
+The peaks that contribute to that region gets unpacked, and become editable ("unlocked" state of the GUI).
+Use the slider to move between the various components, and the mouse scroll to change the model parameters.
+Use the "+" and "-" buttons to add or remove components.
+Press "LOCK" to save your modification. Press "RESET" to restore the region model as it was before pressing "UNLOCK".
+Both these actions bring the GUI back to "locked" state.
+
+To add a new region, select the region of the spectrum you want to fit by focusing the zoom on it using the lens button.
+Then, press the "New Region" button, that will become yellow, and the GUI passes in "unlocked" state with no initialized peaks there.
+Add and move the components as you would do to edit a pre-existing region.
+Press "LOCK" to save the new region.
+
+To remove a region, UNLOCK it and remove all the components, then press "LOCK". The associated green span will disappear.
+
+At the end, press "SAVE and EXIT" to write the edited `.vf` file and close the GUI.
+
+.. figure:: _static/Editing_of_a_Voigt_Fit.png
+    :name: f-edit_gui
+
+    GUI for the editing of a guess, read by a `.vf` file.
+    The usage is thoroughly described here or in the documentation of the :func:`klassez.gui.edit_vf` function.
+
+Doing the fit
+^^^^^^^^^^^^^
+
+The fit can be performed by calling the method :func:`klassez.fit.Voigt_Fit.dofit`, which returns
 a list of ``lmfit.MinimizerResult`` objects (one for each region) for a
 detailed inspection on how the fit performed. The behavior of the fit
 can be customized by setting the parameters of the method (see examples
-or the dedicated page of the manual). The fit goes region-by-region, and
-the results are saved in a `.fvf` file.
+or the dedicated page of the manual).
+
+Generally speaking, the method can be called as
+::
+
+    filename = 'output'
+    s.F.dofit(filename=filename,        # writes 'output.fvf'
+              method='leastsq', 
+              itermax=10000, 
+              fit_tol=1e-08,
+              u_lim=1,                  # ppm
+              f_lim=10,                 # Hz
+              k_lim=(0, 3),
+              ph_lim=(-180, 180)        # degrees
+              vary_phase=False,
+              vary_b=True,
+              basl_fit='no',
+              )
+
+We recommend to use ``method='leastsq'``, as for this kind of optimization is the best compromise
+between speed and accuracy. It is also possible to run multiple optimization in sequence by specifying
+multiple methods in a list, e.g. ``method=['leastsq', 'leastsq']``. 
+Should the fit be very complicated, the maximum number of iteration can be increased (or decreased) by changing
+the ``itermax`` parameter. 
+The selectivity of the arrest criterion can be tuned through ``fit_tol``.
+
+The tolerances for the various peak parameters are very important for the correct outcome of the fit.  
+``u_lim`` controls the limits of the chemical shift for each component: if the initial guess for the chemical
+shift is ``u``, then this value during the fit can vary between ``u - u_lim`` and ``u + u_lim`` ppm.
+No matter what, the chemical shift **cannot** fall out of the window!  
+More critical is the choice of the limits for the linewidths, through ``f_lim``, which is in Hz (thus more sensitive).
+The linewidth of each component can vary from the initial guess of ``+/- f_lim``. The minimum linewidth possible is 0 Hz.  
+The intensity limits are controlled by ``k_tol``, which can be either one or two values.
+If it is a single value, the relative intensity of each component can vary of ``+/- k_tol`` with respect to the initial guess.
+If it is a sequence of two values, the relative intensity can vary between ``min(k_tol)`` and ``max(k_tol)``.  
+About ``ph_lim``, it is quite intuitive. Normally, you fit a phased spectrum, hence you will have to set ``vary_phase=False``
+to decrease the computational cost of the fit. However, if you want to optimize also the phases of the peaks, these limits are very important
+to be set especially if you have a dataset that features both positive and negative peaks, as there is the possibility that the fit
+will try to match a negative peak with a 180° phase.  
+``vary_b`` allows to change the fraction of gaussianity of each component during the fit, ranging from 0 (pure Lorentzian) to 1 (pure Gaussian).  
+``basl_fit`` controls the fit of the baseline:
+    * ``basl_fit="no"`` : Do not use baseline (default)
+    * ``basl_fit="fixed"`` : The baseline is computed once and kept fixed during the optimization
+    * ``basl_fit="fit"``  : The baseline coefficients enter as fit parameters during the nonlinear optimization
+    * ``basl_fit="calc"`` : The baseline coefficients are calculated during the optimization via linear least-squares optimization
+
+The fit goes region-by-region, and the results are saved in a `.fvf` file.
 
 A `.fvf` file can be loaded using the method :meth:`load_fit`.
+Once loaded, it is possible to edit also that via GUI by calling the :meth:`edit_result`
+method, which works exactly the same as editing an initial guess.
+
+Plot results
+^^^^^^^^^^^^
 
 Either the initial guess or the result of the fit can be conveniently
 visualized by using the method :meth:`plot`. Alternatively, the arrays of

@@ -12,7 +12,7 @@ from datetime import datetime
 from copy import deepcopy
 import getpass
 
-from . import fit, misc, sim, figures, processing, anal
+from . import fit, misc, sim, figures, processing, anal, gui
 from .config import CM, COLORS, cron, safe_kws, cprint
 
 print = cprint
@@ -603,7 +603,8 @@ def plot_fit(S, ppm_scale, regions, t_AQ, SFO1, o1p, show_total=False,
 
 
 def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
-                    u_lim=1, f_lim=10, k_lim=(0, 3), vary_phase=False, vary_b=True,
+                    u_lim=1, f_lim=10, k_lim=(0, 3), ph_lim=(-180, 180),
+                    vary_phase=False, vary_b=True,
                     itermax=10000, fit_tol=1e-8, filename='fit', method='leastsq', basl_fit='no'):
     """
     Performs a lineshape deconvolution fit using a Voigt model.
@@ -630,6 +631,8 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
         Maximum allowed displacement of the linewidth from the initial value /ppm
     k_lim : float or tuple
         If tuple, minimum and maximum allowed values for ``k`` during the fit. If float, maximum displacement from the initial guess
+    ph_lim : tuple
+        Minimum and maximum allowed values for the phases, in degrees
     vary_phase : bool
         Allow the peaks to change phase
     vary_b : bool
@@ -868,8 +871,8 @@ def voigt_fit_indep(S, ppm_scale, regions, t_AQ, SFO1, o1p,
                         param[par_key].set(min=param[par_key].value-k_lim, max=param[par_key].value+k_lim)
                     else:
                         param[par_key].set(min=min(k_lim), max=max(k_lim))
-                elif 'phi' in key:  # phi: [-180°, +180°]
-                    param[par_key].set(min=-180, max=180, vary=vary_phase)
+                elif 'phi' in key:  # phi: ph_lim ([-180°, +180°])
+                    param[par_key].set(min=min(ph_lim), max=max(ph_lim), vary=vary_phase)
                 elif 'b' in key:  # b: [0, 1]
                     param[par_key].set(min=0, max=1, vary=vary_b)
 
@@ -1999,7 +2002,9 @@ class Voigt_Fit:
         self.result = regions
         print(f'{filename_x} loaded as fit result file.', c='tab:blue')
 
-    def dofit(self, indep=True, u_lim=1, f_lim=10, k_lim=(0, 3), vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None, method='leastsq', basl_fit='no'):
+    def dofit(self, indep=True, u_lim=1, f_lim=10, k_lim=(0, 3), ph_lim=(-180, 180),
+              vary_phase=False, vary_b=True, itermax=10000, fit_tol=1e-8, filename=None,
+              method='leastsq', basl_fit='no'):
         """
         Perform a lineshape deconvolution fitting.
         The initial guess is read from the attribute ``self.i_guess``.
@@ -2016,6 +2021,8 @@ class Voigt_Fit:
             Determines the displacement of the linewidth (in Hz) from the starting value.
         k_lim : float or tuple
             If tuple, minimum and maximum allowed values for k during the fit. If float, maximum displacement from the initial guess
+        ph_lim : tuple
+            Minimum and maximum allowed values for the phases of the peaks, in degrees
         vary_phase : bool
             Allow the peaks to change phase (True) or not (False)
         vary_b : bool

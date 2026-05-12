@@ -8,7 +8,7 @@ import warnings
 from copy import deepcopy
 
 
-from . import fit, misc, sim, figures, processing, anal
+from . import fit, misc, sim, figures, processing, anal, gui
 from .config import cprint
 
 print = cprint

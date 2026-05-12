@@ -15,7 +15,7 @@ import warnings
 from pathlib import Path
 from copy import deepcopy
 
-from . import fit, misc, sim, processing, anal
+from . import fit, misc, sim, processing, anal, gui
 from .config import cprint
 from .Spectra import Spectrum_1D
 

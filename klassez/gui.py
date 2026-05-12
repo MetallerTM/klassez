@@ -12,8 +12,10 @@ import warnings
 from copy import deepcopy
 
 from . import misc, processing, figures, anal, fit, sim
-from .config import CM, COLORS
+from .config import CM, COLORS, cprint
 from .Spectra import Spectrum_1D
+
+print = cprint
 
 # =================================================================================
 # PROCESSING GUI
@@ -3977,9 +3979,11 @@ def edit_vf(S_in, ppm_scale, regions, t_AQ, SFO1=701.125, o1p=0, filename='edite
     -------
     None
 
+
     .. seealso::
 
         :func:`klassez.gui.make_iguess`
+
         :func:`klassez.gui.make_iguess_auto`
     """
 

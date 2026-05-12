@@ -15,6 +15,7 @@ dist/
 
 # figures
 *.png
+*.svg
 # test files
 test/
 

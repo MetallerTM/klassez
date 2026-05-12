@@ -10,7 +10,7 @@ import getpass
 from pathlib import Path
 from copy import deepcopy
 
-from . import fit, misc, sim, figures, processing, anal
+from . import fit, misc, sim, figures, processing, anal, gui
 from .config import CM, COLORS, cprint
 
 print = cprint
