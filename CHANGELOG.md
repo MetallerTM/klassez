@@ -1,10 +1,12 @@
-# Version 0.1.1-dev2
+# Version 0.2.0-dev0
 
 New functions.
 Bug fixes.
 New module **gui**.
 
 Added linkers to the code hosted on GitHub in the documentation.
+
+The default format for all the figures has now become the Scalable Vector Graphics (**.svg**).
 
 ## New functions
 02/04/2026
@@ -18,6 +20,10 @@ Added linkers to the code hosted on GitHub in the documentation.
 ## Modified functions
 08/04/2026
 - *figures.dotmd*: added possibility to reverse the scale to plot not-spectra
+13/05/2026
+- *misc.show_cmap*: added **ext** and **dpi** parameters
+- *figures.heatmap*: added **ext** and **dpi** parameters
+- *figures.ongoing_fit*: added **ext** and **dpi** parameters
 
 ## Moved functions
 - *processing.make_polynomion_baseline* -> *gui.make_polynomion_baseline*

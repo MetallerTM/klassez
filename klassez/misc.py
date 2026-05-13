@@ -1451,7 +1451,7 @@ def avg_antidiag(X):
     return Xp
 
 
-def show_cmap(cmap, N=10, start=0, end=1, filename=None):
+def show_cmap(cmap, N=10, start=0, end=1, filename=None, ext='svg', dpi=300):
     """
     Plot the colors extracted from a colormap.
 
@@ -1466,7 +1466,11 @@ def show_cmap(cmap, N=10, start=0, end=1, filename=None):
     end : float
         End point of the sampling. 0 = beginning of the cmap; 1 = end of the cmap.
     filename : str or None
-        Filename of the figure to be saved. The ".png" extension is added automatically. If None, the figure is shown instead
+        Filename of the figure to be saved. If None, the figure is shown instead
+    ext : str
+        Format for the figure to be saved
+    dpi : int
+        Resolution of the figure in dots per inches
     """
 
     x = np.linspace(start, end, N)
@@ -1492,7 +1496,7 @@ def show_cmap(cmap, N=10, start=0, end=1, filename=None):
     ax.tick_params(axis='y', left=False, labelleft=False)
 
     if filename:
-        plt.savefig(f'{filename}.png', dpi=400)
+        plt.savefig(Path(filename).with_suffix(f'.{ext}'), dpi=dpi)
     else:
         plt.show()
     plt.close()

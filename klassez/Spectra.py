@@ -3484,7 +3484,7 @@ class DOSY(Pseudo_2D):
                                  input_data=input_data,
                                  filename=self.filename)
 
-    def diffplot(self, what='result', xlims=None, filename=None, ext='png', dpi=300, dim=None):
+    def diffplot(self, what='result', xlims=None, filename=None, ext='svg', dpi=300, dim=None):
         """
         Makes a plot of the diffusion coefficients, with error bars, as a function of the integrated regions.
 

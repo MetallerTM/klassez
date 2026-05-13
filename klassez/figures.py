@@ -7,8 +7,9 @@ from matplotlib.widgets import Button, CheckButtons, Cursor, SpanSelector
 import seaborn as sns
 import warnings
 from copy import deepcopy
+from pathlib import Path
 
-from . import fit, misc, figures
+from . import misc, figures
 from .config import CM, COLORS, CM_2D, cprint
 
 print = cprint
@@ -66,7 +67,8 @@ def draw_bare_contour(ax, xscale, yscale, data, lvl, cmap='Greys_r', c_fac=1.4, 
     return cnt
 
 
-def heatmap(data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, rev=(False, False), n_xticks=10, n_yticks=10, n_zticks=10, fontsize=10, name=None):
+def heatmap(data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, rev=(False, False),
+            n_xticks=10, n_yticks=10, n_zticks=10, fontsize=10, filename=None, ext='svg', dpi=300):
     """
     Computes a heatmap of data.
 
@@ -94,8 +96,12 @@ def heatmap(data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, 
         Number of ticks of the color bar
     fontsize: float
         Biggest font size to apply to the figure according to :func:`klassez.misc.set_fontsizes`
-    name: str or None
+    filename: str or None
         Filename for the figure. Set to None to show the figure.
+    ext : str
+        Figure format to be saved.
+    dpi : int
+        Resolution of the figure to be saved in dots per inches
 
     Returns
     -------
@@ -171,11 +177,11 @@ def heatmap(data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale=None, 
     misc.set_fontsizes(ax, fontsize)
     misc.set_fontsizes(cax, fontsize)
 
-    if name:
+    if filename:
         # Save the figure
-        print('Saving {}.png...'.format(name), end='\r', c='tab:cyan')
-        plt.savefig(name+'.png', dpi=600)
-        print('{}.png saved.\n'.format(name), c='tab:cyan')
+        print(f'Saving {filename}.{ext}...', c='tab:cyan')
+        plt.savefig(Path(filename).with_suffix(f'.{ext}'), dpi=dpi)
+        print('Done.', c='tab:cyan')
     else:
         # Make figure larger
         fig.set_size_inches(figsize_large)
@@ -288,7 +294,7 @@ def ax_heatmap(ax, data, zlim='auto', z_sym=True, cmap=None, xscale=None, yscale
     return im, cax
 
 
-def sns_heatmap(data, name=None, ext='png', dpi=600):
+def sns_heatmap(data, name=None, ext='svg', dpi=600):
     """
     Computes a heatmap of ``data``.
     This function employs the `seaborn` package.
@@ -328,7 +334,7 @@ def sns_heatmap(data, name=None, ext='png', dpi=600):
     plt.close()
 
 
-def plot_fid_re(fid, scale=None, c='b', lims=None, name=None, ext='png', dpi=600):
+def plot_fid_re(fid, scale=None, c='b', lims=None, name=None, ext='svg', dpi=600):
     """
     Makes a single-panel figure that shows either the real or the imaginary part of the FID.
     The x-scale and y-scale are automatically adjusted.
@@ -393,7 +399,7 @@ def plot_fid_re(fid, scale=None, c='b', lims=None, name=None, ext='png', dpi=600
     plt.close()
 
 
-def plot_fid(fid, name=None, ext='png', dpi=600):
+def plot_fid(fid, name=None, ext='svg', dpi=600):
     """
     Makes a two-panel figure that shows on the left the real part of the FID, on the right the imaginary part.
     The x-scale and y-scale are automatically adjusted.
@@ -458,7 +464,7 @@ def plot_fid(fid, name=None, ext='png', dpi=600):
 
 def figure2D(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fac=1.4, lvl=0.09,
              X_label=r'$\delta\ $ F2 /ppm', Y_label=r'$\delta\ $ F1 /ppm', lw=0.5, cmapneg=None,
-             n_xticks=10, n_yticks=10, fontsize=10, name=None, ext='png', dpi=600):
+             n_xticks=10, n_yticks=10, fontsize=10, name=None, ext='svg', dpi=600):
     """
     Makes a 2D contour plot.
     The contours are drawn according to the formula:
@@ -680,7 +686,7 @@ def ax2D(ax, ppm_f2, ppm_f1, datax, xlims=None, ylims=None, cmap='Greys_r', c_fa
 
 def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default', c_fac=1.4,
                    Negatives=False, X_label=r'$\delta\ $ F2 /ppm', Y_label=r'$\delta\ $ F1 /ppm',
-                   lw=0.5, n_xticks=10, n_yticks=10, labels=None, name=None, ext='png', dpi=600):
+                   lw=0.5, n_xticks=10, n_yticks=10, labels=None, name=None, ext='svg', dpi=600):
     """
     Generates the figure of multiple, superimposed spectra, using :func:`klassez.figures.ax2D`.
 
@@ -809,7 +815,7 @@ def figure2D_multi(ppm_f2, ppm_f1, datax, xlims=None, ylims=None, lvl='default',
 
 def figure1D(ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.5,
              X_label=r'$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.', n_xticks=10,
-             n_yticks=10, fontsize=10, name=None, ext='png', dpi=600):
+             n_yticks=10, fontsize=10, name=None, ext='svg', dpi=600):
     """
     Makes the figure of a 1D NMR spectrum.
 
@@ -969,7 +975,7 @@ def ax1D(ax, ppm, datax, norm=False, xlims=None, ylims=None, c='tab:blue', lw=0.
 
 def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, lw=0.5,
                    X_label=r'$\delta\ $ F1 /ppm', Y_label='Intensity /a.u.',
-                   n_xticks=10, n_yticks=10, fontsize=10, labels=None, name=None, ext='png', dpi=600):
+                   n_xticks=10, n_yticks=10, fontsize=10, labels=None, name=None, ext='svg', dpi=600):
     """
     Creates the superimposed plot of a series of 1D NMR spectra.
 
@@ -1146,112 +1152,7 @@ def figure1D_multi(ppm0, data0, xlims=None, ylims=None, norm=False, c=None, lw=0
     print('Done.', c='tab:cyan')
 
 
-def fitfigure(S, ppm_scale, t_AQ, V, C=False, SFO1=701.125, o1p=0, limits=None, s_labels=None, X_label=r'$\delta\,$ F1 /ppm', n_xticks=10, name=None):
-    """
-    Makes the figure to show the result of a quantitative fit.
-
-    .. error::
-
-        Legacy function for old fitting method.
-
-
-    Parameters
-    ----------
-    S : 1darray
-        Spectrum to be fitted
-    ppm_scale : 1darray
-        Self-explanatory
-    t_AQ : 1darray
-        acquisition timescale
-    V : 2darray
-        matrix (# signals, parameters)
-    C : 1darray or False
-        Coefficients of the polynomion to be used as baseline correction. If the 'baseline' checkbox in the interactive figure panel is not checked, C_f is False.
-    SFO1 : float
-        Nucleus' Larmor frequency /MHz
-    o1p : float
-        Carrier position /ppm
-    limits : tuple or None
-        Trim limits for the spectrum (left, right). If None, the whole spectrum is used.
-    s_labels : list or None or False
-        Legend entries for the single components. If None, they are computed automatically as 1, 2, 3, etc. If False, they are not shown in the legend.
-    X_label : str
-        label for the x-axis.
-    n_xticks : int
-        number of numbered ticks that will appear in the ppm scale. An oculated choice can be very satisfying.
-    name : str or None
-        Name with which to save the figure. If None, the picture is shown instead of being saved.
-    """
-    N = S.shape[-1]
-
-    # Set the limits
-    if limits is None:
-        limits = (max(ppm_scale), min(ppm_scale))
-
-    # Get limit indexes
-    lim1 = misc.ppmfind(ppm_scale, limits[0])[0]
-    lim2 = misc.ppmfind(ppm_scale, limits[1])[0]
-    lim1, lim2 = min(lim1, lim2), max(lim1, lim2)
-
-    # Compute legend labels, if not already present
-    if s_labels is None:
-        s_labels = [str(w+1) for w in np.arange(V.shape[0])]
-
-    x = np.linspace(0, 1, ppm_scale[lim1:lim2].shape[-1])[::-1]
-    # Make the polynomion only if C contains its coefficients
-    if C is False:
-        y = np.zeros_like(x)
-    else:
-        y = misc.polyn(x, C)
-
-    # Make the signals
-    sgn = []
-    Total = np.zeros_like(x)
-    for i in range(V.shape[0]):
-        sgn.append(fit.make_signal(t_AQ, *V[i], SFO1=SFO1, o1p=o1p, N=N))
-        Total += sgn[i][lim1:lim2].real
-
-    # Initial figure
-    fig = plt.figure('Fit')
-    fig.set_size_inches(figsize_small)
-    plt.subplots_adjust(bottom=0.15, top=0.90, left=0.15, right=0.95)
-    ax = fig.add_subplot()
-
-    # Experimental and total
-    ax.plot(ppm_scale[lim1:lim2], S[lim1:lim2], label='Experimental', lw=0.8, c='k')
-    ax.plot(ppm_scale[lim1:lim2], y+Total, label='Fit', c='tab:blue', lw=0.7)
-
-    # Single components
-    for i in range(V.shape[0]):
-        s_plot, = ax.plot(ppm_scale[lim1:lim2], sgn[i][lim1:lim2].real, c=COLORS[i], lw=0.4, ls='--')
-        if bool(s_labels[i]):
-            s_plot.set_label(s_labels[i])
-
-    # Baseline
-    if C is not False:
-        ax.plot(ppm_scale[lim1:lim2], y, label='Baseline', lw=0.4, c='tab:orange', ls='-.')
-
-    # Customize picture appearance
-    misc.pretty_scale(ax, limits, axis='x', n_major_ticks=n_xticks)
-
-    ax.set_xlabel(X_label)
-    ax.set_ylabel('Intensity /a.u.')
-
-    misc.mathformat(ax, axis='y')
-
-    ax.legend(framealpha=0.2)
-    # Save/show the figure
-    if name:
-        misc.set_fontsizes(ax, 8)
-        plt.savefig(name+'.png', dpi=600)
-    else:
-        fig.set_size_inches(figsize_large)
-        misc.set_fontsizes(ax, 14)
-        plt.show()
-    plt.close()
-
-
-def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm', Y_label='Normalized intensity /a.u.', n_xticks=10, labels=None, name=None, ext='png', dpi=600):
+def stacked_plot(ppmscale, S, xlims=None, lw=0.5, X_label=r'$\delta\ $ F1 /ppm', Y_label='Normalized intensity /a.u.', n_xticks=10, labels=None, name=None, ext='svg', dpi=600):
     """
     Creates a stacked plot of all the spectra contained in the list ``S``. Note that ``S`` MUST BE a list. All the spectra must share the same scale.
 
@@ -1670,10 +1571,16 @@ def dotmd_2D(ppm_f1, ppm_f2, S0, labels=None, name='dotmd_2D', X_label=r'$\delta
                 if lvl[k] > 1:
                     lvl[k] = 1
         # Redraw the contours
-        for k in range(nsp):
-            cnt[k], Ncnt[k] = figures.redraw_contours(ax, ppm_f2[k], ppm_f1[k], S[k], lvl=lvl[k],
-                                                      cnt=cnt[k], Neg=Neg, cmap=[cmaps[2 * k], cmaps[2 * k + 1]],
-                                                      c_fac=1.4, lw=0.5)
+        if Ncnt is None:
+            for k in range(nsp):
+                cnt[k], _ = figures.redraw_contours(ax, ppm_f2[k], ppm_f1[k], S[k], lvl=lvl[k],
+                                                    cnt=cnt[k], Neg=Neg, cmap=[cmaps[2 * k], None],
+                                                    c_fac=1.4, lw=0.5)
+        else:
+            for k in range(nsp):
+                cnt[k], Ncnt[k] = figures.redraw_contours(ax, ppm_f2[k], ppm_f1[k], S[k], lvl=lvl[k],
+                                                          cnt=cnt[k], Neg=Neg, cmap=[cmaps[2 * k], cmaps[2 * k + 1]],
+                                                          c_fac=1.4, lw=0.5)
 
         # Update the zoom values in the legend
         [scale_text[k].set_text(f'{value:.3f}') for k, value in enumerate(lvl)]
@@ -1828,7 +1735,7 @@ def redraw_contours(ax, ppm_f2, ppm_f1, S, lvl, cnt, Neg=False, Ncnt=None, cmap=
     return cnt, Ncnt
 
 
-def ongoing_fit(exp, calc, residual, ylims=None, filename=None, dpi=100):
+def ongoing_fit(exp, calc, residual, ylims=None, filename=None, ext='svg', dpi=100):
     """
     Makes a figure of an ongoing fit.
     It displays the experimental data and the model, and the residuals in a separate window.
@@ -1837,7 +1744,7 @@ def ongoing_fit(exp, calc, residual, ylims=None, filename=None, dpi=100):
     .. tip::
 
         This function has been designed to be fast at rendering!
-        If you want to save it, use low dpi otherwise the writing time to disk becomes too slow.
+        If you want to save it, use ``ext='svg'`` and low dpi otherwise the writing time to disk becomes too slow.
 
 
     Parameters
@@ -1880,7 +1787,7 @@ def ongoing_fit(exp, calc, residual, ylims=None, filename=None, dpi=100):
     # Save/show the figure
     fig.tight_layout()
     if filename:
-        plt.savefig(f'{filename}.png', dpi=dpi)
+        plt.savefig(Path(filename).with_suffix(f'.{ext}'), dpi=dpi)
     else:
         plt.show()
     plt.close()
@@ -1959,7 +1866,7 @@ def ax_diffplot(axd, axy, ppm, spectrum, dic, color='tab:blue', fmt='o', ms=8, X
             break
 
 
-def diffplot(ppm, spectrum, dic, xlims=None, color='tab:blue', X_label=r'$\delta\,$ F1 /ppm', filename=None, ext='png', dpi=300, dim=None):
+def diffplot(ppm, spectrum, dic, xlims=None, color='tab:blue', X_label=r'$\delta\,$ F1 /ppm', filename=None, ext='svg', dpi=300, dim=None):
     """
     Makes a plot of the diffusion coefficients, with error bars, as a function of the integrated regions.
 
@@ -2070,7 +1977,7 @@ def plot_1D(x, y, SFO1, name='Spectrum', X_label=r'$\delta\,$ /ppm'):
     SFO1 : float
         Nucleus Larmor frequency
     name : str
-        Filename for the figure.
+        Title for the figure
     X_label : str
         Label for the x axis.
 
