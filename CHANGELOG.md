@@ -1,4 +1,4 @@
-# Version 0.2.0-dev0
+# Version 0.2.0
 
 New functions.
 Bug fixes.
@@ -9,24 +9,20 @@ Added linkers to the code hosted on GitHub in the documentation.
 The default format for all the figures has now become the Scalable Vector Graphics (**.svg**).
 
 ## New functions
-02/04/2026
 - *processing.sl_bas*
 - *processing.sl_bas_onidx*
-07/05/2026
 - *fit.edit_vf*
 - *fit.Voigt_Fit.edit_iguess*
 - *fit.Voigt_Fit.edit_result*
 
 ## Modified functions
 08/04/2026
-- *figures.dotmd*: added possibility to reverse the scale to plot not-spectra
-13/05/2026
-- *misc.show_cmap*: added **ext** and **dpi** parameters
-- *figures.heatmap*: added **ext** and **dpi** parameters
-- *figures.ongoing_fit*: added **ext** and **dpi** parameters
-14/05/2026
 - *misc.get_ylim*: added new parameters **x** and **lims**
 - *misc.set_ylim*: added new parameters **x** and **lims**
+- *misc.show_cmap*: added **ext** and **dpi** parameters
+- *figures.dotmd*: added possibility to reverse the scale to plot not-spectra
+- *figures.heatmap*: added **ext** and **dpi** parameters
+- *figures.ongoing_fit*: added **ext** and **dpi** parameters
 
 ## Moved functions
 - *processing.make_polynomion_baseline* -> *gui.make_polynomion_baseline*
