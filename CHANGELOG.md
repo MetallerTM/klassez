@@ -24,6 +24,9 @@ The default format for all the figures has now become the Scalable Vector Graphi
 - *misc.show_cmap*: added **ext** and **dpi** parameters
 - *figures.heatmap*: added **ext** and **dpi** parameters
 - *figures.ongoing_fit*: added **ext** and **dpi** parameters
+14/05/2026
+- *misc.get_ylim*: added new parameters **x** and **lims**
+- *misc.set_ylim*: added new parameters **x** and **lims**
 
 ## Moved functions
 - *processing.make_polynomion_baseline* -> *gui.make_polynomion_baseline*

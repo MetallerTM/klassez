@@ -1222,7 +1222,7 @@ def nuc_format(nuc):
     return f_nuc
 
 
-def set_ylim(ax, data_inp):
+def set_ylim(ax, data_inp, x=None, lims=None):
     """
     Sets the y-limits of ``ax`` by calling :func:`klassez.misc.get_ylim` to compute the values.
 
@@ -1232,14 +1232,28 @@ def set_ylim(ax, data_inp):
         Panel of the figure where to apply this scale
     data_inp : ndarray or list
         Input data. If it is a list, ``data_inp`` is converted to array.
+    x : 1darray
+        Scale on where to evaluate the limits. If ``None``, the point index scale is used
+    lims : tuple or None
+        Limits on ``x`` to consider for the evaluation of the limits. If ``None``, the whole array is used.
+
+    Returns
+    -------
+    None
+
+
+    .. seealso::
+
+        :func:`klassez.misc.get_ylim`
+
     """
     try:    # T and B can raise errors in certain situations
-        ax.set_ylim(*misc.get_ylim(data_inp))
+        ax.set_ylim(*misc.get_ylim(data_inp, x, lims))
     except Exception:
         pass
 
 
-def get_ylim(data_inp):
+def get_ylim(data_inp, x=None, lims=None):
     """
     Calculates the y-limits of ax as follows:
 
@@ -1252,16 +1266,21 @@ def get_ylim(data_inp):
     ----------
     data_inp : ndarray or list
         Input data. If it is a list, ``data_inp`` is converted to array.
+    x : 1darray
+        Scale on where to evaluate the limits. If ``None``, the point index scale is used
+    lims : tuple or None
+        Limits on ``x`` to consider for the evaluation of the limits. If ``None``, the whole array is used.
 
     Returns
     -------
     lims : tuple
         Bottom, Top
     """
-    if isinstance(data_inp, list):
-        datain = np.concatenate(data_inp)
-    else:
-        datain = np.copy(data_inp)
+    datain = np.asarray(data_inp)
+    if x is None:
+        x = np.arange(datain.shape[-1])
+    if lims is not None:
+        _, datain = misc.trim_data(x, datain, lims)
 
     B = np.min(datain.real)
     T = np.max(datain.real)

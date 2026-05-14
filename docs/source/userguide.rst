@@ -1811,3 +1811,9 @@ Read, process and fit a DOSY-T1
              )
 
 
+
+
+
+
+
+.. include:: guide_figs.rst
