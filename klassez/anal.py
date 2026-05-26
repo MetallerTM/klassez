@@ -1429,6 +1429,7 @@ def write_igrl(filename, dic, indirect_scale=None, header=False):
     n_dashes = 25 + 14 * n_spectra
 
     # Open the file
+    filename.parent.mkdir(parents=True, exist_ok=True)
     f = filename.open('a', buffering=1)
 
     # Info on the region to be fitted
