@@ -1,5 +1,7 @@
 # Version 0.2.1.dev0
 
+Hotfix for the function *Pseudo_2D.align*.
+
 
 # Version 0.2.0
 
