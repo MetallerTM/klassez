@@ -3214,7 +3214,13 @@ class Pseudo_2D(Spectrum_2D):
         """
         # Get the region of the reference peak
         if lims is None:
-            lims = gui.get_region(self.ppm_f2, self.rr[ref_idx], rev=True)
+            lims = gui.get_region(self.ppm_f2, self.rr[ref_idx], fig_title='Alignment Region Selection')
+        # Check on lims shape
+        lims = np.squeeze(np.asarray(lims))
+        arr_lims = np.asarray(lims)
+        if len(arr_lims.shape) > 1:
+            lims = arr_lims[0]
+            print(f'More than one region selected. Using the first one: {lims}', c='yellow')
         # Align
         self.S, roll_pt, roll_ppm = processing.align(self.ppm_f2, self.S, lims, u_off, ref_idx)
         # Update the procs dictionary
