@@ -1,3 +1,20 @@
+# Version 0.2.2.dev0
+
+Changed the implementation of the *processing.align* function.
+Calls corrected and updated.
+
+## New functions
+03/06/26
+- *processing.roll_dirac*
+
+## Modified functions
+03/06/26
+- *processing.align*: now shifts by convolution with Dirac delta instead of *np.roll*. The old function became *processing.align_old*
+- *gui.get_region*: now supports also 2darrays
+- *Pseudo_2D.process*: the alignment is not performed automatically anymore
+- *Pseudo_2D.align*: employs the new implementation, new parameter **from_procs**
+
+
 # Version 0.2.1
 
 Hotfix for the function *Pseudo_2D.align*.

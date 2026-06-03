@@ -2464,7 +2464,7 @@ def get_region(ppmscale, S, fig_title='Region Selector'):
     ----------
     ppmscale : 1darray
         The ppm scale of the spectrum
-    S : 1darray
+    S : ndarray
          The spectrum to be trimmed
     fig_title : str
         Title for the interactive figure panel
@@ -2587,7 +2587,13 @@ def get_region(ppmscale, S, fig_title='Region Selector'):
         plt.close()
 
     # Draw the spectrum
-    ax.plot(ppmscale, S.real, c='tab:blue', lw=0.8)        # Plot the data
+    if len(S.shape) == 1:
+        ax.plot(ppmscale, S.real, c='tab:blue', lw=0.8)        # Plot the data
+    elif len(S.shape) == 2:
+        for y in S.real:
+            ax.plot(ppmscale, y, lw=0.8)
+    else:
+        raise ValueError('The given spectrum is more-than-2-dimensional.')
 
     # Cosmetic stuff
     ax.set_xlabel(r'$\delta\,$ /ppm')

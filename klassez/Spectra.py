@@ -2567,7 +2567,6 @@ class Pseudo_2D(Spectrum_2D):
         #   Then, baseline
         procs['basl_c'] = None
         procs['cal'] = 0
-        procs['roll_ppm'] = None
         return procs
 
     def convdta(self, scaling=1):
@@ -2656,12 +2655,6 @@ class Pseudo_2D(Spectrum_2D):
         # Use number of the experiment as fake scale in F1
         self.freq_f1 = np.arange(self.S.shape[0])           # python numbering
         self.ppm_f1 = np.arange(self.S.shape[0]) + 1        # human numbering
-
-        # Align the spectrum
-        if self.procs['roll_ppm'] is not None:
-            for k, experiment in enumerate(self.S):
-                roll_pt = int(self.procs['roll_ppm'][k] / misc.calcres(self.ppm_f2))    # Compute the circular shift in points
-                self.S[k] = np.roll(experiment, roll_pt)                # Apply it to each experiment
 
         self.integrals = {}
 
@@ -3189,18 +3182,21 @@ class Pseudo_2D(Spectrum_2D):
         """
         super().qfil(which=which, u=u, s=s, from_procs=from_procs, SFO=self.acqus['SFO1'], O1P=self.acqus['o1p'])
 
-    def align(self, lims=None, u_off=0.5, ref_idx=0):
+    def align(self, lims=None, u_off=0.5, ref_idx=0, from_procs=True):
         """
         Aligns the spectrum to a reference signal in the reference spectrum (default: first one).
 
         Parameters
         ----------
-        lims: tuple or None
+        lims : tuple or None
             Reference signal region, in ppm. If None, you can select it interactively.
-        u_off: float
+        u_off : float
             Maximum displacement allowed, in ppm
-        ref_idx: int
+        ref_idx : int
             Index of the spectrum to be used as a reference (python numbering)
+        from_procs : bool
+            If ``True``, read the values from ``self.procs`` and applies it.
+            Else, it performs the whole process of calibration.
 
         Returns
         -------
@@ -3212,25 +3208,37 @@ class Pseudo_2D(Spectrum_2D):
 
             :func:`klassez.processing.align`
         """
-        # Get the region of the reference peak
-        if lims is None:
-            lims = gui.get_region(self.ppm_f2, self.rr[ref_idx], fig_title='Alignment Region Selection')
-        # Check on lims shape
-        lims = np.squeeze(np.asarray(lims))
-        arr_lims = np.asarray(lims)
-        if len(arr_lims.shape) > 1:
-            lims = arr_lims[0]
-            print(f'More than one region selected. Using the first one: {lims}', c='yellow')
-        # Align
-        self.S, roll_pt, roll_ppm = processing.align(self.ppm_f2, self.S, lims, u_off, ref_idx)
-        # Update the procs dictionary
         if 'roll_ppm' not in self.procs.keys():
             self.procs['roll_ppm'] = np.zeros(self.S.shape[0])
-        if self.procs['roll_ppm'] is None:
-            self.procs['roll_ppm'] = np.zeros(self.S.shape[0])
-        self.procs['roll_ppm'] += roll_ppm
-        # Update the .procs file
-        self.write_procs()
+            from_procs = False
+
+        if from_procs:
+            data_roll = []
+            for k, experiment in enumerate(self.S):        # Loop over the experiments
+                # Roll the spectra of the appropriate amount and append them to the list
+                data_roll.append(processing.roll_dirac(experiment, self.ppm_f2, self.procs['roll_ppm'][k]))
+            # Transform into array
+            self.S = np.array(data_roll)
+            print('Spectrum aligned from values in procs.', c='violet')
+        else:
+            # Get the region of the reference peak
+            if lims is None:
+                lims = gui.get_region(self.ppm_f2, self.rr, fig_title='Alignment Region Selection')
+
+            # Check on lims shape
+            lims = np.squeeze(np.asarray(lims))
+            arr_lims = np.asarray(lims)
+            if len(arr_lims.shape) > 1:
+                lims = arr_lims[0]
+                print(f'More than one region selected. Using the first one: {lims}', c='yellow')
+
+            # Align
+            self.S, roll_ppm = processing.align(self.ppm_f2, self.S, lims, u_off, ref_idx)
+
+            # Update the procs dictionary
+            self.procs['roll_ppm'] = roll_ppm
+            # Update the .procs file
+            self.write_procs()
 
     def basl(self, from_procs=False, phase=True):
         """

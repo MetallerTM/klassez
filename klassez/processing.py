@@ -2742,10 +2742,15 @@ def rpbc(data, split_imag=False, n=5, basl_method='huber', basl_thresh=0.2, basl
     return y, p0, p1, c
 
 
-def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
+def align_old(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
     """
     Performs the calibration of a pseudo-2D experiment by circular-shifting the spectra of an appropriate amount.
     The target function aims to minimize the superimposition between a reference spectrum and the others using a brute-force method.
+
+    .. error::
+
+        Old function!! Legacy
+
 
     Parameters
     ----------
@@ -2836,6 +2841,103 @@ def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
     data_roll = np.array(data_roll)
 
     return data_roll, u_cal, u_cal_ppm
+
+
+def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
+    """
+    Performs the calibration of a pseudo-2D experiment by circular-shifting the spectra of an appropriate amount.
+    The target function aims to minimize the superimposition between a reference spectrum and the others using a brute-force method.
+
+    Parameters
+    ----------
+    ppm_scale : 1darray
+        ppm scale of the spectrum to calibrate
+    data : 2darray
+        Complex-valued spectrum
+    lims : tuple
+        (ppm sx, ppm dx) of the calibration region
+    u_off : float
+        Maximum offset for the circular shift, in ppm
+    ref_idx : int
+        Index of the spectrum to be used as reference
+
+    Returns
+    -------
+    data_roll : 2darray
+        Calibrated data
+    u_cal_ppm : list
+        Correction for the ppm scale of each experiment
+    """
+    def f2min(param, s_ref, s, span_region):
+        """
+        Cost function for the fit
+        """
+        # Unpack the parameters
+        par = param.valuesdict()
+
+        # References -> absolute value and its integral
+        s_ref_abs = np.abs(s_ref)
+        int_s_ref = processing.integral(s_ref_abs)
+
+        # Circular-shift the spectrum (first shift then abs)
+        roll_s = np.abs(processing.roll_dirac(s, ppm_scale, par['u']))
+        # Compute its integral
+        int_roll_s = processing.integral(roll_s)
+
+        # Normalize the spectra in the calibration region
+        A, _ = fit.fit_int(s_ref_abs, roll_s, q=0)
+        roll_s *= A
+        A_int, _ = fit.fit_int(int_s_ref, int_roll_s, q=0)
+        int_roll_s *= A_int
+
+        # Compute the residuals
+        res = s_ref_abs - roll_s
+        int_res = int_s_ref - int_roll_s
+        return np.concatenate([int_res[span_region], res[span_region]])
+
+    # Shallow copy
+    data_in = deepcopy(data)
+
+    # Convert the ppm limits into points indeces
+    sx = misc.ppmfind(ppm_scale, lims[0])[0]
+    dx = misc.ppmfind(ppm_scale, lims[1])[0]
+    # Calibration region
+    cal_reg = slice(min(sx, dx), max(sx, dx), 1)
+
+    # Get the reference spectrum
+    s_ref = data_in[ref_idx]
+
+    # Initialize the output variables
+    u_cal_ppm = np.empty(data_in.shape[0])  # Shifts in ppm
+
+    # Make the parameters of the fit
+    param = lmfit.Parameters()
+    param.add('u', value=0., max=u_off, min=-u_off)
+    for i, s_i in enumerate(data_in):   # Loop over the experiments
+        print(f'Alignment of transient {i+1:2d} of {len(data_in)}', end='\r', c='violet')
+        # Fit
+        minner = lmfit.Minimizer(f2min, param, fcn_args=(s_ref.real, s_i.real, cal_reg))
+        result = minner.minimize(method='leastsq', max_nfev=5000, xtol=1e-5)
+
+        # Unpack the parameters and store them in the output variables
+        popt = result.params.valuesdict()
+        u_cal_ppm[i] = popt['u']
+        # Initialize it for the next fit
+        param['u'].set(value=popt['u'])
+    print('\nDone.', c='violet')
+
+    # Correct the drift by subtracting the fit of the reference transient
+    u_cal_ppm -= u_cal_ppm[ref_idx]
+
+    # Apply the correction
+    data_roll = []      # Initialize output variable
+    for i, experiment in enumerate(data_in):        # Loop over the experiments
+        # Roll the spectra of the appropriate amount and append them to the list
+        data_roll.append(processing.roll_dirac(experiment, ppm_scale, u_cal_ppm[i]))
+    # Transform into array
+    data_roll = np.array(data_roll)
+
+    return data_roll, u_cal_ppm
 
 
 def lp(data, pred=1, order=8, mode='b'):
@@ -4192,3 +4294,47 @@ def sl_bas(x, y, lims=None):
     # Match the shape of y. Use always the left limit as anchor point
     overlay_bas = [misc.sum_overlay(np.zeros_like(x), y_b, x[min(x_idx)], x) for y_b in bas]
     return np.squeeze(np.array(overlay_bas))
+
+
+def roll_dirac(y, x, off=0, onfid=False):
+    """
+    Perform a circular shift on ``y`` by convolution with a Dirac delta, centered at ``off`` in the ``x`` timescale.
+
+    Parameters
+    ----------
+    y : ndarray
+        Data to shift. The shift will be applied on the last dimension.
+    x : 1darray
+        Scale on which to consider ``off``.
+    off : float
+        Shift value on ``x``
+    onfid : bool
+        Set it to True if ``y`` is a FID. The shift then is done by multiplying, instead of convolving.
+
+    Returns
+    -------
+    y_roll : ndarray
+        Shifted data
+    """
+    # Compute required timescale
+    sw = max(x) - min(x)
+    dw = 1 / sw
+    t = np.linspace(0, y.shape[-1] * dw, y.shape[-1])
+    # Compute dirac delta in the time domain
+    dirac_t = np.exp(-1j * 2 * np.pi * off * t)
+
+    # Make the data complex, if they are not already
+    if np.iscomplexobj(y):
+        y_cplx = deepcopy(y)
+    else:
+        y_cplx = processing.hilbert(y)
+
+    if onfid:
+        # Just multply and return
+        y_roll = y_cplx * dirac_t
+    else:
+        # Convolve y with the delta through IFT -> multiply -> FT
+        y_t = processing.ift(y_cplx)
+        y_t_roll = y_t * dirac_t
+        y_roll = processing.ft(y_t_roll)
+    return y_roll
