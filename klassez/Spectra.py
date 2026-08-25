@@ -3996,7 +3996,7 @@ class DOSY_T1:
         figures.plot_p3D(x_f1, x_f2, idx_scale, self.S.real, dim=dim, Neg=Neg,
                          name=name, X_label=X_label, Y_label=Y_label, lvl0=lvl0)
 
-    def integrate(self, filename=None):
+    def integrate(self, filename=None, keys=None):
         """
         Create the attribute ``self.D`` as ``klassez.fit.DosyFit_pp3D``, and integrate the planes along the `31` direction.
 
@@ -4004,6 +4004,8 @@ class DOSY_T1:
         ----------
         filename : str or None
             Custom filename for data and plots. If ``None``, ``self.filename`` is used.
+        keys : list of str
+            Keys that identify the regions to integrate. If None, the integration is performed interactively through GUI
 
         Returns
         -------
@@ -4017,4 +4019,4 @@ class DOSY_T1:
         if filename is None:
             filename = self.filename
         filename = Path(filename)
-        self.D = fit.DosyFit_pp3D(self, datadir=filename, filename=filename)
+        self.D = fit.DosyFit_pp3D(self, datadir=filename, filename=filename, keys=keys)

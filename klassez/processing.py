@@ -2881,14 +2881,15 @@ def align(ppm_scale, data, lims, u_off=0.5, ref_idx=0):
 
         # Circular-shift the spectrum (first shift then abs)
         roll_s = np.abs(processing.roll_dirac(s, ppm_scale, par['u']))
-        # Compute its integral
-        int_roll_s = processing.integral(roll_s)
 
         # Normalize the spectra in the calibration region
         A, _ = fit.fit_int(s_ref_abs, roll_s, q=0)
         roll_s *= A
-        A_int, _ = fit.fit_int(int_s_ref, int_roll_s, q=0)
-        int_roll_s *= A_int
+        # Compute its integral
+        int_roll_s = processing.integral(roll_s)
+        if 0:
+            A_int, _ = fit.fit_int(int_s_ref, int_roll_s, q=0)
+            int_roll_s *= A_int
 
         # Compute the residuals
         res = s_ref_abs - roll_s

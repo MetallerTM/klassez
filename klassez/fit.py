@@ -5830,7 +5830,7 @@ class DosyFit_pp3D(fit.DosyFit):
         Same structure and shape of ``self.i_guess``
 
     """
-    def __init__(self, S, datadir=None, filename=None):
+    def __init__(self, S, datadir=None, filename=None, keys=None):
         """
         Initialize the class.
         This function will slice ``S`` along the DOSY dimension (`31`) and store the planes in the ``self.planes`` attribute.
@@ -5845,6 +5845,8 @@ class DosyFit_pp3D(fit.DosyFit):
             Custom path where to save files and figures. If ``None``, *./``filename``* is created
         filename : str
             Custom filename for files and figures. If ``None``, ``S.filename`` is used.
+        keys : list of str
+            Keys that identify the regions to integrate. If None, the integration is performed interactively through GUI
         """
         # Filename
         if filename is None:    # Same name of the input dataset
@@ -5871,7 +5873,7 @@ class DosyFit_pp3D(fit.DosyFit):
         self.planes = [S.getplane(k, dim='31') for k in range(len(S.x_f2))]
 
         # Compute the integrals for all the planes
-        self.integrate_planes()
+        self.integrate_planes(keys=keys)
 
     def integrate_planes(self, keys=None, use_bas=False):
         """
