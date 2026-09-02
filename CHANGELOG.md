@@ -1,10 +1,9 @@
-# Version 0.2.2.dev0
+# Version 0.2.2
 
 Changed the implementation of the *processing.align* function.
 Calls corrected and updated.
 
 ## New functions
-03/06/26
 - *processing.roll_dirac*
 
 ## Modified functions
