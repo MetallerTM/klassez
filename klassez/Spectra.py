@@ -594,7 +594,7 @@ class Spectrum_1D:
     def write_acqus(self, other_dir=None):
         """
         Write the acqus dictionary in a file named ``<self.filename>.acqus``.
-        Calls :func:`klassez.misc.write_acqus_1D`
+        Calls :func:`klassez.misc.write_acqus`
 
         Parameters
         ----------
@@ -607,13 +607,13 @@ class Spectrum_1D:
 
         .. seealso::
 
-            :func:`klassez.misc.write_acqus_1D`
+            :func:`klassez.misc.write_acqus`
         """
         if other_dir:
-            path = Path(other_dir) / f'{self.filename}.acqus'
+            path = Path(other_dir) / f'{self.filename}'
         else:
-            path = self.datadir / f'{self.filename}.acqus'
-        misc.write_acqus_1D(self.acqus, path=path)
+            path = self.datadir / f'{self.filename}'
+        misc.write_acqus(self.acqus, filename=path, ext='acqus')
 
     def write_procs(self, other_dir=None):
         """
@@ -632,7 +632,7 @@ class Spectrum_1D:
             path = Path(other_dir) / f'{self.filename}'
         else:
             path = self.datadir / f'{self.filename}'
-        path.with_suffix('.procs').write_text(f'{self.procs}')
+        misc.write_yml(self.procs, path, ext='procs')
 
     def read_procs(self, other_dir=None):
         """
@@ -653,10 +653,10 @@ class Spectrum_1D:
             Dictionary of processing parameters
         """
         if other_dir:
-            path = Path(other_dir) / f'{self.filename}.procs'
+            path = Path(other_dir) / f'{self.filename}'
         else:
-            path = self.datadir / f'{self.filename}.procs'
-        procs = eval(path.read_text().replace('array', 'np.array'))
+            path = self.datadir / f'{self.filename}'
+        procs = misc.read_yml(path.with_suffix('.procs'))
         # Check if it was read correctly
         if isinstance(procs, dict):
             return procs
@@ -2006,7 +2006,7 @@ class Spectrum_2D:
     def write_acqus(self, other_dir=None):
         """
         Write the ``acqus`` dictionary in a file named "filename.acqus".
-        Calls :func:`klassez.misc.write_acqus_1D`
+        Calls :func:`klassez.misc.write_acqus`
 
         Parameters
         ----------
@@ -2019,14 +2019,14 @@ class Spectrum_2D:
 
         .. seealso::
 
-            :func:`klassez.misc.write_acqus_1D`
+            :func:`klassez.misc.write_acqus`
         """
         if other_dir:
             path = Path(other_dir) / f'{self.filename}'
         else:
             path = self.datadir / f'{self.filename}'
 
-        misc.write_acqus_2D(self.acqus, path=path.with_suffix('.acqus'))
+        misc.write_acqus(self.acqus, filename=path, ext='acqus')
 
     def write_procs(self, other_dir=None):
         """
@@ -2045,7 +2045,7 @@ class Spectrum_2D:
             path = Path(other_dir) / f'{self.filename}'
         else:
             path = self.datadir / f'{self.filename}'
-        path.with_suffix('.procs').write_text(f'{self.procs}')
+        misc.write_yml(self.procs, path, ext='procs')
 
     def read_procs(self, other_dir=None):
         """
@@ -2066,10 +2066,10 @@ class Spectrum_2D:
             Dictionary of processing parameters
         """
         if other_dir:
-            path = Path(other_dir) / f'{self.filename}.procs'
+            path = Path(other_dir) / f'{self.filename}'
         else:
-            path = self.datadir / f'{self.filename}.procs'
-        procs = eval(path.read_text().replace('array', 'np.array'))
+            path = self.datadir / f'{self.filename}'
+        procs = misc.read_yml(path.with_suffix('.procs'))
         # Check if it was read correctly
         if isinstance(procs, dict):
             return procs
@@ -3867,7 +3867,7 @@ class DOSY_T1:
             path = Path(other_dir) / f'{self.filename}'
         else:
             path = self.datadir / f'{self.filename}'
-        path.with_suffix('.procs').write_text(f'{self.procs}')
+        misc.write_yml(self.procs, path, ext='procs')
 
     def read_procs(self, other_dir=None):
         """
@@ -3891,7 +3891,7 @@ class DOSY_T1:
             path = Path(other_dir) / f'{self.filename}.procs'
         else:
             path = self.datadir / f'{self.filename}.procs'
-        procs = eval(path.read_text().replace('array', 'np.array'))
+        procs = misc.read_yml(path.with_suffix('.procs'))
         # Check if it was read correctly
         if isinstance(procs, dict):
             return procs

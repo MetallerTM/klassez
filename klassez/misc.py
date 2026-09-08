@@ -8,6 +8,7 @@ import scipy.io.wavfile as WF
 import math
 import warnings
 import scipy.linalg as slinalg
+import yaml
 from copy import deepcopy
 from pathlib import Path
 
@@ -496,7 +497,7 @@ def makeacqus_pp3D(dic):
     return acqus
 
 
-def write_acqus_1D(acqus, path='sim_in_1D'):
+def old_write_acqus_1D(acqus, path='sim_in_1D'):
     """
     Writes the input file for a simulated spectrum, basing on a dictionary of parameters.
 
@@ -523,8 +524,7 @@ def write_acqus_1D(acqus, path='sim_in_1D'):
 
     f.close()
 
-
-def write_acqus_2D(acqus, path='sim_in_2D'):
+def write_acqus(acqus, filename='sim_in', ext='acqus'):
     """
     Writes the input file for a simulated spectrum, basing on a dictionary of parameters.
 
@@ -532,23 +532,29 @@ def write_acqus_2D(acqus, path='sim_in_2D'):
     ----------
     acqus : dict
         The dictionary containing the parameters for the simulation
-    path : str, optional
+    filename : str
         Directory where the file will be saved.
+    ext : str
+        Extension of the filename
     """
-    f = open(path, 'w')
-    keylist = acqus.keys()
-    for key in keylist:
-        if key[:1] == 't':
-            pass
-        else:
-            if isinstance(acqus[key], (list, tuple)):
-                f.write('{}\t'.format(key))
-                for w in acqus[key]:
-                    f.write('{}, '.format(w))
-                f.write('\n')
-            else:
-                f.write('{}\t{}\n'.format(key, acqus[key]))
-    f.close()
+    path = Path(filename)
+
+    # Remove the acquistion timescales as they can be recomputed easily
+    exclude = ['t1', 't2', 't3']
+    acqus_to_write = {key: value for key, value in acqus.items()
+                      if key not in exclude}
+
+    # If there are the parameters for the simulated peaks, move them at the end
+    if 'shifts' in acqus.keys():
+        move = ['shifts', 'fwhm', 'amplitudes', 'b', 'phases', 'mult', 'Jconst', ]
+        reordered = {k: v for k, v in acqus_to_write.items()
+                     if k not in move}
+        for key in move:
+            if key in acqus_to_write:
+                reordered[key] = acqus_to_write[key]
+        acqus_to_write = reordered
+    
+    misc.write_yml(acqus_to_write, path, ext, sort_keys=False)
 
 
 def calcres(fqscale):
@@ -1901,3 +1907,73 @@ def get_extent(data):
         ``max(data) - min(data)``
     """
     return np.max(data) - np.min(data)
+
+
+def write_yml(obj, filename, ext='yml', sort_keys=True):
+    """
+    Write ``obj`` in a yml-styled text file, with one entry per line.
+
+    Parameters
+    ----------
+    obj : list or dict
+        Object to write
+    filename : str or Path
+        Path for the file to write
+    ext : str
+        Extension of the filename
+    sort_keys : bool
+        ``False`` to keep the insertion order
+
+    Returns
+    -------
+    None
+
+    .. seealso::
+
+        :func:`klassez.misc.read_yml`
+
+    """
+    def safe_convert(obj):
+        """
+        Transforms strange pythonic objects like
+        numpy arrays and scalars into something writable.
+        """
+        # Called in loop in order to work also for nested objects
+        if isinstance(obj, dict):               # for dictionaries
+            return {k: safe_convert(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple, set)): # for lists
+            return [safe_convert(v) for v in obj]
+        if isinstance(obj, np.ndarray):         # for arrays
+            return safe_convert(obj.tolist())
+        if isinstance(obj, np.generic):         # for np.float64 and similar
+            return obj.item()
+        return obj
+
+    # Convert if str, then add/replace correct extension
+    path = Path(filename).with_suffix(f'.{ext}')
+    # Open file and write
+    with path.open('w') as f:
+        # default_flow_style if True writes all obj in only one line
+        yaml.safe_dump(safe_convert(obj), f,
+                       default_flow_style=False,
+                       sort_keys=sort_keys)
+
+
+def read_yml(filename):
+    """
+    Reads a yml-styled text file.
+
+    Parameters
+    ----------
+    filename : str or Path
+        Path to the file to be read
+
+    Returns
+    -------
+    obj : object
+        Read file
+    """
+    path = Path(filename)
+    with path.open('r') as f:
+        obj = yaml.safe_load(f)
+    return obj
