@@ -236,13 +236,13 @@ def sim_1D(File, pv=False):
     return fid
 
 
-def load_sim_2D(File, states=True):
+def load_sim_2D(filename, states=True):
     """
     Creates a dictionary from the spectral parameters listed in the input file.
 
     Parameters
     ----------
-    File : str
+    filename : str
         Path to the input file location
     states : bool
         If FnMODE is States or States-TPPI, set it to True to get the correct timescale.
@@ -252,36 +252,48 @@ def load_sim_2D(File, states=True):
     dic : dict
         Dictionary of the parameters, ready to be read from the simulation functions.
     """
-    inp = Path(File).read_text().splitlines(keepends=True)
-    keys = []
-    vals = []
-    for i in range(len(inp)):
-        if inp[i] == '\n' or inp[i][0] == '#':
-            continue
-        inp[i] = inp[i].replace('\t', ' ')
-        line = inp[i].split(' ', 1)    # separate key from the rest
-        line[0] = line[0].replace(' ', '')
-        line[0] = line[0].replace('x_g', 'b')
-        keys.append(line[0])
+    # Remove tabulations because they kill everything
+    path = Path(filename)
+    text = path.read_text()
+    if '\t' in text:
+        text = text.replace('\t', 4*' ')
+        with path.open('w') as f:
+            f.write(text)
 
-        rest = line[1].strip()
-        if '#' in rest:
-            rest = rest.split('#')[0]
-        try:
-            value = eval(rest)
-        except Exception:
-            value = (f'{rest}')
-        vals.append(value)
+    # Make the dictionary
+    dic = misc.read_yml(path)
 
-    dic = {}
-    for i, key in enumerate(keys):
-        if 'nuc' in key:    # Remove unwanted spaces
-            vals[i] = vals[i].replace(' ', '')
-        dic[key] = vals[i]
+    # Correct aliases
+    alias = {'shifts_f1': 'csf1', 'shifts_f2': 'csf2',
+             'fwhm_f1': 'lwf1', 'fwhm_f2': 'lwf2',
+             'amplitudes': 'A', 'b': 'x_g', }
+    newdic = deepcopy(dic)
+    for key, item in alias.items():
+        if item in dic:
+            newdic[key] = dic[item]
+            newdic.pop(item)
+    dic = newdic
 
-    for key, value in dic.items():
-        if 'TD' in key:
-            dic[key] = int(value)
+    # Check if the mandatory keys are all there
+    for key in ['shifts_f1', 'shifts_f2',
+                'fwhm_f1', 'fwhm_f2', 'amplitudes']:
+        if key not in dic:
+            raise NameError(f'Missing {key} in the input file.')
+    # Add the non-mandatory keys if missing with default values
+    defaults = {'b': 0, }
+    for key in alias:
+        # Check if there is
+        if key in dic:
+            # Convert a string into a list
+            dic[key] = list(ast.literal_eval(f'{dic[key]}'))
+        elif key in defaults:
+            # Use default value
+            dic[key] = [defaults[key] for w in range(len(dic['amplitudes']))]
+
+    for key in ['TD1', 'TD2']:
+        if isinstance(dic[key], str):
+            dic[key] = eval(dic[key])
+        dic[key] = int(dic[key])
     dic['SFO1'] = dic['B0'] * sim.gamma[dic['nuc1']]       # Larmor frequency /MHz
     dic['SFO2'] = dic['B0'] * sim.gamma[dic['nuc2']]       # Larmor frequency /MHz
     dic['SW1'] = np.abs(dic['SW1p'] * dic['SFO1'])       # spectral width

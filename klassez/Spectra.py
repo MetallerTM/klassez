@@ -1276,7 +1276,11 @@ class Spectrum_2D:
         self.datadir, self.filename = misc.get_datadir_filename(in_file, isexp)
 
         if isexp is False:   # Simulate the data
-            self.acqus = sim.load_sim_2D(in_file)   # Read the acqus dictionary from the file
+            if isinstance(in_file, dict):   # using the provided dictionary
+                self.acqus = deepcopy(in_file)
+            else:   # or building it from the file
+                self.acqus = sim.load_sim_2D(in_file)
+            # Generate the FID
             self.acqus['FnMODE'] = 'States-TPPI'
             self.acqus['GRPDLY'] = 0
             self.fid = sim.sim_2D(in_file, pv=pv)   # Read the FID
