@@ -524,6 +524,7 @@ def old_write_acqus_1D(acqus, path='sim_in_1D'):
 
     f.close()
 
+
 def write_acqus(acqus, filename='sim_in', ext='acqus'):
     """
     Writes the input file for a simulated spectrum, basing on a dictionary of parameters.
@@ -553,7 +554,7 @@ def write_acqus(acqus, filename='sim_in', ext='acqus'):
             if key in acqus_to_write:
                 reordered[key] = acqus_to_write[key]
         acqus_to_write = reordered
-    
+
     misc.write_yml(acqus_to_write, path, ext, sort_keys=False)
 
 
@@ -1909,6 +1910,23 @@ def get_extent(data):
     return np.max(data) - np.min(data)
 
 
+def safe_convert(obj):
+    """
+    Transforms strange pythonic objects like
+    numpy arrays and scalars into something writable.
+    """
+    # Called in loop in order to work also for nested objects
+    if isinstance(obj, dict):               # for dictionaries
+        return {k: safe_convert(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):  # for lists
+        return [safe_convert(v) for v in obj]
+    if isinstance(obj, np.ndarray):         # for arrays
+        return safe_convert(obj.tolist())
+    if isinstance(obj, np.generic):         # for np.float64 and similar
+        return obj.item()
+    return obj
+
+
 def write_yml(obj, filename, ext='yml', sort_keys=True):
     """
     Write ``obj`` in a yml-styled text file, with one entry per line.
@@ -1933,28 +1951,13 @@ def write_yml(obj, filename, ext='yml', sort_keys=True):
         :func:`klassez.misc.read_yml`
 
     """
-    def safe_convert(obj):
-        """
-        Transforms strange pythonic objects like
-        numpy arrays and scalars into something writable.
-        """
-        # Called in loop in order to work also for nested objects
-        if isinstance(obj, dict):               # for dictionaries
-            return {k: safe_convert(v) for k, v in obj.items()}
-        if isinstance(obj, (list, tuple, set)): # for lists
-            return [safe_convert(v) for v in obj]
-        if isinstance(obj, np.ndarray):         # for arrays
-            return safe_convert(obj.tolist())
-        if isinstance(obj, np.generic):         # for np.float64 and similar
-            return obj.item()
-        return obj
 
     # Convert if str, then add/replace correct extension
     path = Path(filename).with_suffix(f'.{ext}')
     # Open file and write
     with path.open('w') as f:
         # default_flow_style if True writes all obj in only one line
-        yaml.safe_dump(safe_convert(obj), f,
+        yaml.safe_dump(misc.safe_convert(obj), f,
                        default_flow_style=False,
                        sort_keys=sort_keys)
 
