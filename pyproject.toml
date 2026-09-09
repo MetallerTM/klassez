@@ -29,6 +29,7 @@ dependencies = [
     'nmrglue',
     'matplotlib>=3.8',
     'csaps',
+    'pyyaml',
 ]
 [project.optional-dependencies]
 jeolproc = ['jeol_parser']
