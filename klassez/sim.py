@@ -2,7 +2,9 @@
 
 import sys
 import numpy as np
-
+from copy import deepcopy
+import re
+import ast
 from importlib.resources import open_text, files
 from pathlib import Path
 from scipy import special
@@ -120,13 +122,13 @@ def multiplet(u, Int, m='s', J=[]):
     return u_in, I_in
 
 
-def load_sim_1D(File):
+def load_sim_1D(filename):
     """
     Creates a dictionary from the spectral parameters listed in the input file.
 
     Parameters
     ----------
-    File : str
+    filename : str
         Path to the input file location
 
     Returns
@@ -134,51 +136,56 @@ def load_sim_1D(File):
     dic : dict
         Dictionary of the parameters, ready to be read from the simulation functions.
     """
-    inp = Path(File).read_text().splitlines(keepends=True)
-    keys = []
-    vals = []
-    for i in range(len(inp)):
-        if inp[i] == '\n' or inp[i][0] == '#':
-            continue    # skip empty lines or comments
-        inp[i] = inp[i].replace('\t', ' ')
-        line = inp[i].split(' ', 1)    # separate key from the rest
-        line[0] = line[0].replace(' ', '')
-        line[0] = line[0].replace('x_g', 'b')
-        keys.append(line[0])
+    # Remove tabulations because they kill everything
+    path = Path(filename)
+    text = path.read_text()
+    if '\t' in text:
+        text = text.replace('\t', 4*' ')
+        with path.open('w') as f:
+            f.write(text)
 
-        rest = line[1].strip()
-        if '#' in rest:
-            rest = rest.split('#')[0]
-        try:
-            value = eval(rest)
-        except Exception:
-            value = (f'{rest}')
-        vals.append(value)
+    # Make the dictionary
+    dic = misc.read_yml(path)
+    # Correct aliases
+    alias = {'shifts': 'cs', 'fwhm': 'lw', 'amplitudes': 'A', 'b': 'x_g',
+             'phases': 'ph', 'mult': 'm', 'Jconst': 'J', }
+    newdic = deepcopy(dic)
+    for key, item in alias.items():
+        if item in dic:
+            newdic[key] = dic[item]
+            newdic.pop(item)
+    dic = newdic
 
-    dic = {}
-    for i, key in enumerate(keys):
-        if 'nuc' in key:    # Remove unwanted spaces
-            vals[i] = vals[i].replace(' ', '')
-        dic[key] = vals[i]
-    if 'phases' not in keys:
-        dic['phases'] = tuple([0 for w in dic['shifts']])
-    else:
-        dic['phases'] = tuple([w * np.pi / 180 for w in dic['phases']])
-    if 'mult' not in keys:      # Multiplicity
-        dic['mult'] = tuple(['s' for w in dic['shifts']])
-    else:
-        dic['mult'] = tuple(dic['mult'].strip(',').replace(' ', '').split(','))
-    if 'Jconst' not in keys:    # Coupling constants
-        dic['Jconst'] = tuple([0 for w in dic['shifts']])
+    # Check if the mandatory keys are all there
+    for key in ['shifts', 'fwhm', 'amplitudes']:
+        if key not in dic:
+            raise NameError(f'Missing {key} in the input file.')
+    # Add the non-mandatory keys if missing with default values
+    defaults = {'b': 0, 'phases': 0, 'mult': 's', 'Jconst': 0, }
+    for key in alias:
+        # Check if there is
+        if key in dic:
+            if key == 'mult':
+                # ddd --> "ddd" so that ast.literal_eval does not raise error
+                if isinstance(dic[key], str):
+                    dic[key] = re.sub(r'[^\[\],\s]+', r'"\g<0>"', dic[key])
+            # Convert a string into a list
+            dic[key] = list(ast.literal_eval(f'{dic[key]}'))
+        elif key in defaults:
+            # Use default value
+            dic[key] = [defaults[key] for w in range(len(dic['amplitudes']))]
 
+    # Compute extra
     dic['B0'] = np.abs(dic['B0']) * np.sign(sim.gamma[dic['nuc']])
-    dic['TD'] = int(dic['TD'])
     dic['SFO1'] = dic['B0'] * sim.gamma[dic['nuc']]
+    dic['o1'] = dic['o1p'] * dic['SFO1']
+    if isinstance(dic['TD'], str):
+        dic['TD'] = eval(dic['TD'])
+    dic['TD'] = int(dic['TD'])
     dic['SW'] = dic['SWp'] * np.abs(dic['SFO1'])
     dic['dw'] = 1/dic['SW']
     dic['t1'] = np.linspace(0, dic['TD']*dic['dw'], dic['TD'])
     dic['AQ'] = dic['t1'][-1]
-    dic['o1'] = dic['o1p'] * dic['SFO1']
 
     return dic
 
