@@ -497,34 +497,6 @@ def makeacqus_pp3D(dic):
     return acqus
 
 
-def old_write_acqus_1D(acqus, path='sim_in_1D'):
-    """
-    Writes the input file for a simulated spectrum, basing on a dictionary of parameters.
-
-    Parameters
-    ----------
-    acqus : dict
-        The dictionary containing the parameters for the simulation
-    path : str, optional
-        Directory where the file will be saved.
-    """
-    f = open(path, 'w')
-    keylist = acqus.keys()
-    for key in keylist:
-        if key[:1] == 't':
-            pass
-        else:
-            if isinstance(acqus[key], (list, tuple)):
-                f.write('{}\t'.format(key))
-                for w in acqus[key]:
-                    f.write('{}, '.format(w))
-                f.write('\n')
-            else:
-                f.write('{}\t{}\n'.format(key, acqus[key]))
-
-    f.close()
-
-
 def write_acqus(acqus, filename='sim_in', ext='acqus'):
     """
     Writes the input file for a simulated spectrum, basing on a dictionary of parameters.
