@@ -1,3 +1,29 @@
+# Version 0.3.0.dev0
+
+The *acqus* and *procs* files of all the *Spectra* classes now are yml-like files.
+The the functions for reading the simulation input files now accept the new format.
+For this reason, **pyyaml** is added as requirement for the installation of *klassez*.
+
+New functions for processing.
+
+## New functions
+- *misc.read_yml*
+- *misc.safe_convert*
+- *misc.write_acqus*: takes the place of *misc.write_acqus_1D* and *misc.write_acqus_2D*
+- *misc.write_yml*
+- *processing.adjph_rowwise*
+- *Pseudo_2D.adjph_rw*
+
+## Modified functions
+All the functions in *Spectra* that call one of the following functions have been modified accordingly.
+The *.write_procs* methods now call for the new *misc.write_yml* function.
+- *misc.write_acqus_1D*: removed
+- *misc.write_acqus_2D*: removed
+- *sim.load_sim_1D*: now accepts the new yml format
+- *sim.load_sim_2D*: now accepts the new yml format
+
+
+
 # Version 0.2.2
 
 Changed the implementation of the *processing.align* function.

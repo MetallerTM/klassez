@@ -4339,3 +4339,55 @@ def roll_dirac(y, x, off=0, onfid=False):
         y_t_roll = y_t * dirac_t
         y_roll = processing.ft(y_t_roll)
     return y_roll
+
+
+def adjph_rowwise(ppm, data, SFO1, alpha=3, winsize=50, ap1=True):
+    """
+    Performs automatic phase correction of a pseudo_2D dataset, with :func:`klassez.processing.apk`, each row independently.
+    Returns the phased spectrum and the employed values.
+
+    Parameters
+    ----------
+    ppm : 1darray
+        ppm scale of the spectrum
+    data : 2darray
+        Spectrum
+    SFO1 : float
+        Nucleus' Larmor frequency /MHz
+    alpha : float
+        Factor that multiplies the std of the spectrum to set the threshold
+    winsize : float
+        Minimum size of the window that can contain peaks /Hz
+    ap1 : bool
+        True to adjust both zero and first order, False for only phase zero
+
+    Returns
+    -------
+    new_data : 2darray
+        Phased spectrum
+    phases : 2darray
+        Employed values for phasing, in the form ``[p0, p1, pivot]``
+
+    .. seealso::
+
+        :func:`klassez.processing.apk`
+    """
+    # Make a shallow copy while checking to have the imaginary part
+    if np.iscomplexobj(data):
+        new_data = deepcopy(data)
+    else:
+        warnings.warn('data is not complex. Performing Hilbert transform.', stacklevel=3)
+        new_data = processing.hilbert(data)
+
+    # Placeholder
+    phases = []
+    # Start the loop
+    for k, transient in enumerate(new_data):
+        print(f'Phasing transient {k+1} of {new_data.shape[0]}', c='violet')
+        # Call apk for each transient and save the values
+        new_data[k], values = processing.apk(ppm, transient, SFO1, alpha=alpha, winsize=winsize, ap1=ap1)
+        phases.append(values)
+
+    # apk uses as pivot the mean of the ppm scale --> add this info
+    phases = np.column_stack([phases, [round(np.mean(ppm), 3) for w in range(data.shape[0])]])
+    return new_data, phases

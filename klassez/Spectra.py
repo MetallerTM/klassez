@@ -2843,6 +2843,77 @@ class Pseudo_2D(Spectrum_2D):
 
         return values
 
+    def adjph_rw(self, auto=True, alpha=3, winsize=50, ap1=True, from_procs=True, update=True):
+        """
+        Performs automatic phase correction of each transient independently.
+        The values are saved in ``self.procs['phtr']``.
+
+        Parameters
+        ----------
+        auto : bool
+            ``True`` for using :func:`klassez.processing.apk`, ``False`` to phase each transient manually.
+        alpha : float
+            Factor that multiplies the std of the spectrum to set the threshold
+        winsize : float
+            Minimum size of the window that can contain peaks /Hz
+        ap1 : bool
+            ``True`` to adjust both zero and first order, ``False`` for only phase zero
+        from_procs : bool
+            If ``True``, uses the values in ``self.procs['phtr']``
+        update : bool
+            Choose if to update the ``procs`` dictionary or not
+
+        Returns
+        -------
+        phases : 2darray
+            Employed values for each transient, in the form ``[p0, p1, pivot]``.
+
+
+        .. seealso::
+
+            :func:`klassez.processing.apk`
+
+            :func:`klassez.processing.adjph_rowwise`
+        """
+        # If there is not the correct key in procs, act like from_procs is False
+        if 'phtr' not in self.procs:
+            from_procs = False
+
+        if from_procs:
+            # Key found
+            print('Phase correction row-wise applied with values from procs.', c='violet')
+            # Copy to avoid conflict when calling write_procs at the end with update=True
+            phases = np.asarray(deepcopy(self.procs['phtr']))
+
+            for k, transient in enumerate(self.S):
+                # Unpack the values
+                p0, p1, pv = phases[k]
+                # Apply the correction
+                self.S[k], *_ = processing.ps(transient, self.ppm_f2, p0=p0, p1=p1, pivot=pv)
+
+        elif auto:      # from_procs = False and auto = True
+            # Calls the correct function in processing
+            self.S, phases = processing.adjph_rowwise(self.ppm_f2, self.S, self.acqus['SFO1'],
+                                                      alpha=alpha, winsize=winsize, ap1=ap1)
+
+        else:           # from_procs = False and auto = False
+            # Placeholder
+            phases = []
+            for k, transient in enumerate(self.S):
+                print(f'Phasing transient {k+1} of {self.S.shape[0]}', c='violet')
+                # Call manual phase correction in interactive panel
+                phased, values = processing.ps(transient, self.ppm_f2)
+                phases.append(values)
+            # Make array to avoid conflict
+            phases = np.asarray(phases)
+
+        if update:
+            # Add/replace the key in procs and write the file
+            self.procs['phtr'] = np.array([vvv for vvv in phases.tolist()])
+            self.write_procs()
+
+        return phases
+
     def pknl(self):
         """
         Reverses the effect of the digital filter by applying a first order phase correction.
