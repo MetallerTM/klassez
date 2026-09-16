@@ -3431,6 +3431,10 @@ def apk(ppm, data, SFO1, alpha=3, winsize=50, ap1=True, seethrough=False):
 
     # -----------------------------------------------------------------------------------
 
+    if not np.iscomplexobj(data):
+        # TODO warning
+        data = processing.hilbert(data)
+
     # Get the peak-only regions
     slices, _ = processing.mask_sgn_basl(ppm, data, SFO1, alpha, winsize)
 
@@ -3449,7 +3453,11 @@ def apk(ppm, data, SFO1, alpha=3, winsize=50, ap1=True, seethrough=False):
         plt.show()
 
     # Smooth the data with a 5 Hz gaussian filter
-    gbdata = processing.smooth_g(data, 1/misc.hz2pt(misc.ppm2freq(ppm, SFO1), 5))
+    fqscale = misc.ppm2freq(ppm, SFO1)
+    # Minimum must be 1 pt width otherwise error div by 0
+    fw_min_width = misc.calcres(fqscale)
+    fw = max(fw_min_width, misc.hz2pt(fqscale, 5))
+    gbdata = processing.smooth_g(data, 1/fw)
     # Phase each region independently with only p0
     p0s = phase0(gbdata, slices)
 
@@ -3492,7 +3500,7 @@ def apk(ppm, data, SFO1, alpha=3, winsize=50, ap1=True, seethrough=False):
         p1 = 0
 
     # Apply the correction
-    datap, *_ = processing.ps(data, p0=p0, p1=p1)
+    datap, *_ = processing.ps(data, ppm, p0=p0, p1=p1)
 
     print('APK: p0: {:.3f}, p1: {:.3f}\n'.format(p0, p1), c='violet')
 

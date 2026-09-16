@@ -412,6 +412,7 @@ class Spectrum_1D:
             :func:`klassez.processing.apk`
         """
 
+        q = deepcopy(self.S)
         self.S, (p0, p1) = processing.apk(self.ppm, self.S, self.acqus['SFO1'], alpha, winsize, ap1)
 
         if update:
@@ -2204,6 +2205,7 @@ class Spectrum_2D:
             label = f'{a:.2f}:{b:.2f}'
         # Compute the trace
         f2 = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=False)
+        f2 = processing.hilbert(f2)
         # Store it
         self.trf2[label] = f2
         self.Trf2[label] = pSpectrum_1D(f2, acqus=misc.split_acqus_2D(self.acqus)[1], procs=misc.split_procs_2D(self.procs)[1], istrace=True, filename=f'T2_{label}')
@@ -2875,6 +2877,7 @@ class Pseudo_2D(Spectrum_2D):
 
             :func:`klassez.processing.adjph_rowwise`
         """
+        newS = deepcopy(self.S)
         # If there is not the correct key in procs, act like from_procs is False
         if 'phtr' not in self.procs:
             from_procs = False
@@ -2889,11 +2892,11 @@ class Pseudo_2D(Spectrum_2D):
                 # Unpack the values
                 p0, p1, pv = phases[k]
                 # Apply the correction
-                self.S[k], *_ = processing.ps(transient, self.ppm_f2, p0=p0, p1=p1, pivot=pv)
+                newS[k], *_ = processing.ps(transient, self.ppm_f2, p0=p0, p1=p1, pivot=pv)
 
         elif auto:      # from_procs = False and auto = True
             # Calls the correct function in processing
-            self.S, phases = processing.adjph_rowwise(self.ppm_f2, self.S, self.acqus['SFO1'],
+            newS, phases = processing.adjph_rowwise(self.ppm_f2, self.S, self.acqus['SFO1'],
                                                       alpha=alpha, winsize=winsize, ap1=ap1)
 
         else:           # from_procs = False and auto = False
@@ -2902,11 +2905,12 @@ class Pseudo_2D(Spectrum_2D):
             for k, transient in enumerate(self.S):
                 print(f'Phasing transient {k+1} of {self.S.shape[0]}', c='violet')
                 # Call manual phase correction in interactive panel
-                phased, values = processing.ps(transient, self.ppm_f2)
+                newS[k], values = processing.ps(transient, self.ppm_f2)
                 phases.append(values)
             # Make array to avoid conflict
             phases = np.asarray(phases)
 
+        self.S = newS
         if update:
             # Add/replace the key in procs and write the file
             self.procs['phtr'] = np.array([vvv for vvv in phases.tolist()])
@@ -2991,6 +2995,7 @@ class Pseudo_2D(Spectrum_2D):
             label = f'{a:.2f}:{b:.2f}'
         # Compute the trace
         f2 = anal.get_trace(self.rr, self.ppm_f2, self.ppm_f1, a, b, column=False)
+        f2 = processing.hilbert(f2)
         # Store it
         self.trf2[label] = f2
         self.Trf2[label] = pSpectrum_1D(f2, acqus=self.acqus, procs=self.procs, istrace=True)
