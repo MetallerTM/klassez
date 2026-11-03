@@ -1,4 +1,4 @@
-# Version 0.3.0.dev0
+# Version 0.3.0
 
 The *acqus* and *procs* files of all the *Spectra* classes now are yml-like files.
 The the functions for reading the simulation input files now accept the new format.
