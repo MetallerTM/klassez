@@ -5,8 +5,12 @@ The the functions for reading the simulation input files now accept the new form
 For this reason, **pyyaml** is added as requirement for the installation of *klassez*.
 
 New functions for processing.
+Included support for *nanalysis* benchtop NMR data.
+
+Bug fixes.
 
 ## New functions
+- *misc.makeacqus_1D_nana*
 - *misc.read_yml*
 - *misc.safe_convert*
 - *misc.write_acqus*: takes the place of *misc.write_acqus_1D* and *misc.write_acqus_2D*
@@ -17,6 +21,7 @@ New functions for processing.
 ## Modified functions
 All the functions in *Spectra* that call one of the following functions have been modified accordingly.
 The *.write_procs* methods now call for the new *misc.write_yml* function.
+- *misc.read_fid_acqus_1D*: added ``spect='nana'`` option
 - *misc.write_acqus_1D*: removed
 - *misc.write_acqus_2D*: removed
 - *sim.load_sim_1D*: now accepts the new yml format

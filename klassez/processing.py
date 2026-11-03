@@ -2701,7 +2701,7 @@ def rpbc(data, split_imag=False, n=5, basl_method='huber', basl_thresh=0.2, basl
 
         :func:`klassez.fit.SINC_phase`
 
-        :func:`klassez.processing.polyn_basl`
+        :func:`klassez.fit.polyn_basl`
 
         :class:`klassez.fit.CostFunc`
     """

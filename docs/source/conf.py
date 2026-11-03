@@ -114,6 +114,8 @@ html_context = {
     'conf_py_path': '/docs/',
 }
 
+exclude_patterns = ['guide_figs.rst']
+
 # Configurazione per autodoc
 autoclass_content = 'class'  # Include sia la docstring della classe che dell'__init__
 autodoc_member_order = 'alphabetical'  # Ordina i membri secondo il sorgente (per moduli)

@@ -1313,6 +1313,7 @@ to be set especially if you have a dataset that features both positive and negat
 will try to match a negative peak with a 180° phase.  
 ``vary_b`` allows to change the fraction of gaussianity of each component during the fit, ranging from 0 (pure Lorentzian) to 1 (pure Gaussian).  
 ``basl_fit`` controls the fit of the baseline:
+
     * ``basl_fit="no"`` : Do not use baseline (default)
     * ``basl_fit="fixed"`` : The baseline is computed once and kept fixed during the optimization
     * ``basl_fit="fit"``  : The baseline coefficients enter as fit parameters during the nonlinear optimization

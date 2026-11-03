@@ -15,8 +15,8 @@ It is of course possible to use bitmap formats: all the figures have the paramet
 
 To inspect the pictures, the user must have installed on their computer an image-viewer software.
 We recommend the use of ``eog`` ("Eye of Gnome") for linux users, which is lightweight and portable, and has full support for both bitmap and vectorial formats.
-On Windows and Mac, where ``eog`` is natively not supported, we recommend to use ``picview`` (`website <https://picview.org/>`_), that is similar to ``eog`` in terms of functionalities.
-For further editing of the images (which should not be required in principle, but never say never) we recommend the use of ``inkscape`` (`website <https://inkscape.org/about/>`_) for vectorials and of GIMP (GNU Image Manipulation Program, `website <https://www.gimp.org/>`_) for bitmap.
+On Windows and Mac, where ``eog`` is natively not supported, we recommend to use ``picview`` (`website <https://picview.org/>`__), that is similar to ``eog`` in terms of functionalities.
+For further editing of the images (which should not be required in principle, but never say never) we recommend the use of ``inkscape`` (`website <https://inkscape.org/about/>`_) for vectorials and of GIMP (GNU Image Manipulation Program, `website <https://www.gimp.org/>`__) for bitmap.
 
 As a final remark, please keep in mind that the documentation of :mod:`matplotlib` is one of the most extensive and complete of the entire python environment, and it is also full of examples. Make use of it!
 
@@ -98,12 +98,12 @@ For other purposes, we can use the reference frame of another subplot (e.g. ``ax
 Customizing subplots
 --------------------
 
-In :numref:`f-fig_placeholder` we generated a figure with only one subplot, in order to show which are the main attributes of a subplot and illustrate how to change them.
+In :numref:`f-placeholder` we generated a figure with only one subplot, in order to show which are the main attributes of a subplot and illustrate how to change them.
 
 .. figure:: _static/example_figure_placeholder.png
-    :name: f-fig_placeholder
+   :name: f-placeholder
 
-    This is a figure with only one subplot. Each subplot is delimited by four `spines` and has a `title`, two `axes labels`, and certain number of `ticks` with associated `tick labels`.
+   This is a figure with only one subplot. Each subplot is delimited by four `spines` and has a `title`, two `axes labels`, and certain number of `ticks` with associated `tick labels`.
     
 
 Have you ever seen those very fancy figures of spectra, where there is only the chemical shift scale and the spectrum?

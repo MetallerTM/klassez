@@ -128,7 +128,7 @@ class Spectrum_1D:
         isexp : bool
             True if this is an experimental dataset, False if it is simulated
         spect : str
-            Data file format. Allowed: ``'bruker'``, ``'varian'``, ``'magritek'``, ``'oxford'``, ``'jeol'``
+            Data file format. Allowed: ``'bruker'``, ``'varian'``, ``'magritek'``, ``'oxford'``, ``'jeol'``, ``'nana'``
 
         Returns
         -------
