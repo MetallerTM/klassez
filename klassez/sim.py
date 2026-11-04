@@ -218,8 +218,8 @@ def sim_1D(File, pv=False):
     shifts = np.array(in_file['shifts'])    # Chemical shift /ppm
     amplitudes = in_file['amplitudes']      # Relative intensity of the signals
     fwhm = np.array(in_file['fwhm'])        # Full width at half maximum of the signals
-    b = in_file['b']                    # Fraction of gaussianity of the FID
-    phases = in_file['phases']
+    b = np.array(in_file['b'])                    # Fraction of gaussianity of the FID
+    phases = np.array(in_file['phases']) * np.pi / 180    # Convert to radians
 
     freq = misc.ppm2freq(shifts, B0=in_file['SFO1'], o1p=in_file['o1p'])     # peaks center frequency
 

@@ -627,20 +627,20 @@ Example:
     :caption: Input file for the simulation of 1D spectrum.
     :name: lst-acqus_1D
     
-    B0          16.4    # 700 MHz 1H
-    nuc         1H
-    o1p         4.7
-    SWp         40
-    TD          8192
+    B0:          16.4    # 700 MHz 1H
+    nuc:         1H
+    o1p:         4.7
+    SWp:         40
+    TD:          8192
 
-    shifts      1, 3, 5, 7
-    fwhm        [10 for k in range(4)]
-    amplitudes  10, 20, 15, 10
-    b           0, 0.4, 0.6, 1
-    phases      5, 0, 10, 0
+    shifts:      1, 3, 5, 7
+    fwhm:        10, 10, 10, 10
+    amplitudes:  10, 20, 15, 10
+    b:           0, 0.4, 0.6, 1
+    phases:      5, 0, 10, 0
 
-    mult        s, t, dt, ddd   
-    Jconst      0, 15, [12, 9.5], [25, 15, 10]
+    mult:        s, t, dt, ddd
+    Jconst:      0, 15, [12, 9.5], [25, 15, 10]
 
 
 This input file generates the spectrum in :numref:`f-test_1D`.
@@ -720,22 +720,22 @@ Example:
    :caption: Input file for the simulation of a 2D spectrum
    :name: lst-acqus_2D
 
-   B0           28.2
-   nuc1         15N 
-   nuc2         1H
-   o1p          115 
-   o2p          5   
-   SW1p         40  
-   SW2p         20
-   TD1          256 
-   TD2          2048
+   B0:           28.2
+   nuc1:         15N 
+   nuc2:         1H
+   o1p:          115 
+   o2p:          5   
+   SW1p:         40  
+   SW2p:         20
+   TD1:          256 
+   TD2:          2048
 
-   shifts_f1    130.0, 105.0, 120.0, 1.25e2, 130.0, 105.0
-   shifts_f2    0.0, 0.0, 4.0, 7.0, 1.1e1, 10.5
-   fwhm_f1      100, 100, 100, 100, 100, 100
-   fwhm_f2      50, 50, 50, 50, 50, 50
-   amplitudes   10, 20, 10, 20, 10, 10
-   b            0.0, 0.2, 0.4, 0.6, 0.8, 1.0
+   shifts_f1:    130.0, 105.0, 120.0, 1.25e2, 130.0, 105.0
+   shifts_f2:    0.0, 0.0, 4.0, 7.0, 1.1e1, 10.5
+   fwhm_f1:      100, 100, 100, 100, 100, 100
+   fwhm_f2:      50, 50, 50, 50, 50, 50
+   amplitudes:   10, 20, 10, 20, 10, 10
+   b:            0.0, 0.2, 0.4, 0.6, 0.8, 1.0
 
 This input file generates the spectrum in :numref:`f-test_2D`.
 

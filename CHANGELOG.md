@@ -1,3 +1,7 @@
+# Version 0.3.1
+
+Bug fix in *sim.t_voigt*. Corrected the format for the input files in the documentation, to match the yml format required since version 0.3.0.
+
 # Version 0.3.0.dev0
 
 The *acqus* and *procs* files of all the *Spectra* classes now are yml-like files.
