@@ -367,35 +367,35 @@ Input files
 
     # sim1.acqus
 
-    B0	16.4
-    nuc	1H
-    o1p	5
-    SWp	30
-    TD	2**15
+    B0:	16.4
+    nuc: 1H
+    o1p: 5
+    SWp: 30
+    TD:	2**15
 
-    shifts	10, 8, 6, 0.5
-    fwhm	20, 20, 20, 20
-    amplitudes	1, 2, 2, 0.5,
-    b	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    mult	s, s, t, t,
-    Jconst	0, 0, [50.5, 1.5], [50.5, 1.5],
+    shifts:	10, 8, 6, 0.5
+    fwhm:	20, 20, 20, 20
+    amplitudes:	1, 2, 2, 0.5,
+    b:	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    mult:	s, s, t, t,
+    Jconst:	0, 0, [50.5, 1.5], [50.5, 1.5],
 
 ::
 
     # sim2.acqus
 
-    B0	16.4
-    nuc	1H
-    o1p	5
-    SWp	30
-    TD	2**15
+    B0:	16.4
+    nuc: 1H
+    o1p: 5
+    SWp: 30
+    TD:	2**15
 
-    shifts	10, 8, 6, 0.5
-    fwhm	20, 20, 20, 20
-    amplitudes	0.5, 2.5, 1.5, 0.33,
-    b	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    mult	s, s, t, t,  
-    Jconst	0, 0, [50.5, 1.5], [50.5, 1.5], 
+    shifts:	10, 8, 6, 0.5
+    fwhm:	20, 20, 20, 20
+    amplitudes:	0.5, 2.5, 1.5, 0.33,
+    b:	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+    mult:	s, s, t, t,  
+    Jconst:	0, 0, [50.5, 1.5], [50.5, 1.5], 
 
 Processing script
 ^^^^^^^^^^^^^^^^^
